@@ -1,0 +1,50 @@
+body {
+    margin: 20px;
+    background: #fff;
+}
+.page-header{
+    margin-top: 3px;
+    border-bottom: 0px;
+}
+
+.page-header .logo-left {
+    height: 73px;
+
+}
+
+.search-box {
+    position: relative;
+}
+.search-box .glyphicon {
+    position: absolute;
+    padding: 10px;
+    pointer-events: none;
+    left: 15px;
+    top: 0px;
+}
+.search-box .glyphicon:before {
+    color: #333;
+    transition: all 0.2s linear;
+}
+.search-box input {
+    color: #fff;
+    padding-left: 60px;
+    background: #fff;
+    border:1;
+    outline: none !important;
+    transition: all 0.2s linear;
+
+}
+.search-box input:focus {
+    background: #fff !important;
+    outline: 0;
+    color: #333;
+}
+
+.result_area{
+    margin-top: 10px;
+} 
+
+#wait{
+    display: none;
+}
