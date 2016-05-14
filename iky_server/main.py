@@ -1,4 +1,3 @@
-
 from iky_server import app
 from flask import Flask, render_template, request
 import os
@@ -7,18 +6,13 @@ import os
 # Index
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('index.html')  
 
-# Request Handler
-@app.route('/req', methods=['GET', 'POST'])
-def req():
-    botsay = request.form['user_say']
-    return botsay
+# Training UI
+@app.route('/train')
+def train():
+    return render_template('train.html') 
 
-# Resource Handlers.
-@app.route('/<path:resource>')
-def serveStaticResource(resource):
-    return send_from_directory('static/', resource)    
 
 # Error handlers.
 @app.errorhandler(500)
