@@ -1,4 +1,5 @@
 from iky_server import app
+from flask import request,jsonify
 
 from itertools import chain
 import nltk
@@ -62,6 +63,8 @@ def _sent2labels(sent):
 def _sent2tokens(sent):
     return [token for token, postag, label in sent] 
 
+# Manual tag text chunks
+def train():
 	X_train = [_sent2features(s) for s in train_sents]
 	y_train = [_sent2labels(s) for s in train_sents]
 
@@ -78,10 +81,6 @@ def _sent2tokens(sent):
 	    'feature.possible_transitions': True
 	})
 
-# Manual tag text chunks
-
-@app.route('/train', methods=['POST'])
-def train():
 	train_sents = [
 					[('send', 'NN', 'O'),
 					('sms', 'NNS', 'B-TSK'),
@@ -110,9 +109,9 @@ def predict():
 	tagger.open('iky.model.crfsuite')
 	print("Predicted:", ' '.join(tagger.tag(_sent2features(example_sent))))
 
-@app.route('/pos_tag',methods=['GET'])
+@app.route('/pos_tag',methods=['POST'])
 def pos_tag():
-		text = request.args.get('text')
+		text = request.form['text']
 		token_text  = nltk.word_tokenize(text)
 		tagged_token = nltk.pos_tag(token_text)
-		return str(tagged_token)
+		return str(tagged_token).encode('utf-16')

@@ -29,4 +29,15 @@ $(document).ready(function(){
 		        send_req();
 		    }
 		})
+
+		$('#train_query').keydown(function (e){
+		    if(e.keyCode == 13){
+		       var user_say=$("#train_query").val();
+		       $.post("/pos_tag", 
+		       	{text: user_say},
+		       	function(data){
+		       		 $('#output').html(data);
+		       	});
+		    }
+		});
 });

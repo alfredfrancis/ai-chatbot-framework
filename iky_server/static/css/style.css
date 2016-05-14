@@ -48,3 +48,7 @@ body {
 #wait{
     display: none;
 }
+
+#output{
+    margin-top: 20px;
+}
