@@ -1,5 +1,5 @@
 from iky_server import app
-from flask import request,jsonify
+from flask import request,jsonify,Response
 
 from itertools import chain
 import nltk
@@ -7,6 +7,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelBinarizer
 import sklearn
 import pycrfsuite
+import json
 
 
 # NER support functions for Feature extration
@@ -65,6 +66,32 @@ def _sent2tokens(sent):
 
 # Manual tag text chunks
 def train():
+        train_sents = [
+                    [
+                    ['send', 'NN', 'O'],
+                    ['sms', 'NNS', 'B-TSK'],
+                    ['to', 'TO', 'O'],
+                    ['8714349616', 'CD', 'B-MOB'],
+                    ['saying', 'VBG', 'O'],
+                    ['hello', 'NN', 'B-MSG']
+                    ],
+
+                    [
+                    ['sms', 'NNS', 'B-TSK'], 
+                    ['9446623306', 'CD', 'B-MOB'], 
+                    ['haai', 'NN', 'B-MSG']
+                    ],
+
+                    [
+                    ['sms', 'NNS', 'B-TSK'],
+                    ['9446623306', 'CD', 'B-MOB'],
+                    ['haai', 'NN', 'B-MSG'],
+                    ['how', 'WRB', 'I-MSG'],
+                    ['are', 'VBP', 'I-MSG'],
+                    ['you', 'PRP', 'I-MSG']
+                    ]
+
+                    ]
 	X_train = [_sent2features(s) for s in train_sents]
 	y_train = [_sent2labels(s) for s in train_sents]
 
@@ -80,38 +107,35 @@ def train():
 	    # include transitions that are possible, but not observed
 	    'feature.possible_transitions': True
 	})
-
-	train_sents = [
-					[('send', 'NN', 'O'),
-					('sms', 'NNS', 'B-TSK'),
-					('to', 'TO', 'O'),
-					('8714349616', 'CD', 'B-MOB'),
-					('saying', 'VBG', 'O'),
-					('hello', 'NN', 'B-MSG')],
-					[('sms', 'NNS', 'B-TSK'), 
-					('9446623306', 'CD', 'B-MOB'), 
-					('haai', 'NN', 'B-MSG')],
-					[('sms', 'NNS', 'B-TSK'),
-					('9446623306', 'CD', 'B-MOB'),
-					('haai', 'NN', 'B-MSG'),
-					('how', 'WRB', 'I-MSG'),
-					('are', 'VBP', 'I-MSG'),
-					('you', 'PRP', 'I-MSG')]
-					]
 	trainer.params()
 
 	trainer.train('iky.model.crfsuite')
 
 @app.route('/predict', methods=['GET'])
 def predict():
-	query = request.args.get('query')
-	tagger = pycrfsuite.Tagger()
-	tagger.open('iky.model.crfsuite')
-	print("Predicted:", ' '.join(tagger.tag(_sent2features(example_sent))))
+    query = request.args.get('query')
+    token_text  = nltk.word_tokenize(query)
+    tagged_token = nltk.pos_tag(token_text)
+    tagger = pycrfsuite.Tagger()
+    tagger.open('iky.model.crfsuite')
+    print("Predicted:", ' '.join(tagger.tag(sent2features(tagged_token))))
 
 @app.route('/pos_tag',methods=['POST'])
 def pos_tag():
-		text = request.form['text']
-		token_text  = nltk.word_tokenize(text)
-		tagged_token = nltk.pos_tag(token_text)
-		return str(tagged_token).encode('utf-16')
+    text = request.form['text']
+    token_text  = nltk.word_tokenize(text)
+    tagged_token = nltk.pos_tag(token_text)
+    tagged_json = []
+    for token, postag in tagged_token:
+        tagged_json.append([token,postag,"O"])
+    return Response(response=json.dumps(tagged_json, ensure_ascii=False),status=200,mimetype="application/json")
+
+@app.route('/query_tokenize',methods=['POST'])
+def query_tokenize():
+    text = request.form['text']
+    token_text  = nltk.word_tokenize(text)
+    plain_token=""
+    for t in token_text:
+        plain_token = plain_token +" " + t
+    return Response(response=plain_token.strip(),status=200,mimetype="text")
+
