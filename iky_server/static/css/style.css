@@ -12,6 +12,9 @@ body {
 
 }
 
+.row{
+    margin-top:  10px;
+}
 .search-box {
     position: relative;
 }
@@ -57,3 +60,4 @@ body {
 #train_query::selection {
     color:green;
 }
+

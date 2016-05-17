@@ -1,5 +1,5 @@
 from iky_server import app
-from flask import request,jsonify,Response
+from flask import request, jsonify, Response
 
 from itertools import chain
 import nltk
@@ -8,8 +8,7 @@ from sklearn.preprocessing import LabelBinarizer
 import sklearn
 import pycrfsuite
 import json
-
-
+from mongo import _get_tagged
 # NER support functions for Feature extration
 
 def _word2features(sent, i):
@@ -27,8 +26,8 @@ def _word2features(sent, i):
         'postag[:2]=' + postag[:2],
     ]
     if i > 0:
-        word1 = sent[i-1][0]
-        postag1 = sent[i-1][1]
+        word1 = sent[i - 1][0]
+        postag1 = sent[i - 1][1]
         features.extend([
             '-1:word.lower=' + word1.lower(),
             '-1:word.istitle=%s' % word1.istitle(),
@@ -38,10 +37,10 @@ def _word2features(sent, i):
         ])
     else:
         features.append('BOS')
-        
-    if i < len(sent)-1:
-        word1 = sent[i+1][0]
-        postag1 = sent[i+1][1]
+
+    if i < len(sent) - 1:
+        word1 = sent[i + 1][0]
+        postag1 = sent[i + 1][1]
         features.extend([
             '+1:word.lower=' + word1.lower(),
             '+1:word.istitle=%s' % word1.istitle(),
@@ -51,22 +50,27 @@ def _word2features(sent, i):
         ])
     else:
         features.append('EOS')
-                
+
     return features
 
 
 def _sent2features(sent):
     return [_word2features(sent, i) for i in range(len(sent))]
 
+
 def _sent2labels(sent):
     return [label for token, postag, label in sent]
 
+
 def _sent2tokens(sent):
-    return [token for token, postag, label in sent] 
+    return [token for token, postag, label in sent]
 
 # Manual tag text chunks
-def train():
-        train_sents = [
+
+
+@app.route('/train_iky', methods=['GET'])
+def train_iky():
+    """    train_sents = [
                     [
                     ['send', 'NN', 'O'],
                     ['sms', 'NNS', 'B-TSK'],
@@ -92,50 +96,52 @@ def train():
                     ]
 
                     ]
-	X_train = [_sent2features(s) for s in train_sents]
-	y_train = [_sent2labels(s) for s in train_sents]
+    """
+    train_sents = _get_tagged(query={"story_id": "1"})
+    X_train = [_sent2features(s) for s in train_sents]
+    y_train = [_sent2labels(s) for s in train_sents]
 
-	trainer = pycrfsuite.Trainer(verbose=False)
-	for xseq, yseq in zip(X_train, y_train):
-	    trainer.append(xseq, yseq)
+    trainer = pycrfsuite.Trainer(verbose=False)
+    for xseq, yseq in zip(X_train, y_train):
+        trainer.append(xseq, yseq)
 
-	trainer.set_params({
-	    'c1': 1.0,   # coefficient for L1 penalty
-	    'c2': 1e-3,  # coefficient for L2 penalty
-	    'max_iterations': 50,  # stop earlier
+    trainer.set_params({
+        'c1': 1.0,   # coefficient for L1 penalty
+        'c2': 1e-3,  # coefficient for L2 penalty
+        'max_iterations': 50,  # stop earlier
 
-	    # include transitions that are possible, but not observed
-	    'feature.possible_transitions': True
-	})
-	trainer.params()
+        # include transitions that are possible, but not observed
+        'feature.possible_transitions': True
+    })
+    return str(trainer.train('iky.model.crfsuite'))
 
-	trainer.train('iky.model.crfsuite')
 
 @app.route('/predict', methods=['GET'])
-def predict():
-    query = request.args.get('query')
-    token_text  = nltk.word_tokenize(query)
+def predict(query=None):
+    #query = request.args.get('query')
+    token_text = nltk.word_tokenize(query)
     tagged_token = nltk.pos_tag(token_text)
     tagger = pycrfsuite.Tagger()
     tagger.open('iky.model.crfsuite')
-    print("Predicted:", ' '.join(tagger.tag(sent2features(tagged_token))))
+    return ' '.join(tagger.tag(_sent2features(tagged_token)))
 
-@app.route('/pos_tag',methods=['POST'])
+
+@app.route('/pos_tag', methods=['POST'])
 def pos_tag():
     text = request.form['text']
-    token_text  = nltk.word_tokenize(text)
+    token_text = nltk.word_tokenize(text)
     tagged_token = nltk.pos_tag(token_text)
     tagged_json = []
     for token, postag in tagged_token:
-        tagged_json.append([token,postag,"O"])
-    return Response(response=json.dumps(tagged_json, ensure_ascii=False),status=200,mimetype="application/json")
+        tagged_json.append([token, postag, "O"])
+    return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
 
-@app.route('/query_tokenize',methods=['POST'])
+
+@app.route('/query_tokenize', methods=['POST'])
 def query_tokenize():
     text = request.form['text']
-    token_text  = nltk.word_tokenize(text)
-    plain_token=""
+    token_text = nltk.word_tokenize(text)
+    plain_token = ""
     for t in token_text:
-        plain_token = plain_token +" " + t
-    return Response(response=plain_token.strip(),status=200,mimetype="text")
-
+        plain_token = plain_token + " " + t
+    return Response(response=plain_token.strip(), status=200, mimetype="text")
