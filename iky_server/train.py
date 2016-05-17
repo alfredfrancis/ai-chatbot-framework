@@ -5,8 +5,6 @@ from sklearn.preprocessing import LabelBinarizer
 import sklearn
 import pycrfsuite
 
-
-# NER support functions for Feature extration
 def word2features(sent, i):
     word = sent[i][0]
     postag = sent[i][1]
@@ -62,19 +60,8 @@ def sent2labels(sent):
 
 def sent2tokens(sent):
     return [token for token, postag, label in sent]
-
-train_sents = [u'[["send","NN","O"],["sms","NNS","O"],["to","TO","O"],["alfred","VB","B-PER"],["saying","VBG","O"],["hello","NN","B-MSG"]]',
-               u'[["please","VB","O"],["send","VB","O"],["sms","NNS","B-TSK"],["to","TO","O"],["alfred","VB","B-PER"],["saying","VBG","O"],["how","WRB","B-MSG"],["are","VBP","I-MSG"],["you","PRP","I-MSG"]]',
-               u'[["please","VB","O"],["send","VB","O"],["a","DT","O"],["sms","NN","B-TSK"],["to","TO","O"],["alfred","VB","B-PER"],["saying","VBG","O"],["goodbye","NN","B-MSG"]]',
-               u'[["please","VB","O"],["send","VB","O"],["a","DT","O"],["sms","NN","B-TSK"],["to","TO","O"],["alfred","VB","B-PER"],["saying","VBG","O"],["goodbye","NN","B-MSG"]]',
-               u'[["please","VB","O"],["send","VB","O"],["a","DT","O"],["sms","NN","B-TSK"],["to","TO","O"],["alfred","VB","B-PER"],["saying","VBG","O"],["goodbye","NN","B-MSG"]]',
-               u'[["please","VB","O"],["send","VB","O"],["a","DT","O"],["sms","NN","B-TSK"],["to","TO","O"],["alfred","VB","B-PER"],["saying","VBG","O"],["goodbye","NN","B-MSG"]]',
-               u'[["please","VB","O"],["send","VB","O"],["a","DT","O"],["sms","NN","B-TSK"],["to","TO","O"],["alfred","VB","B-PER"],["saying","VBG","O"],["goodbye","NN","B-MSG"]]',
-               u'[["sms","NNS","B-TSK"],["alfred","VBD","B-PERSON"],["hello","NN","B-MSG"]]',
-               u'[["sms","NNS","B-TSK"],["alfred","VBD","B-PERSON"],["hello","NN","B-MSG"]]',
-               u'[["sms","NNS","B-TSK"],["alfred","VBD","B-PERSON"],["hello","NN","B-MSG"]]',
-               u'[["sms","NNS","B-TSK"],["alfred","VBD","B-PERSON"],["hello","NN","B-MSG"]]',
-               u'[["sms","NNS","B-TSK"],["alfred","VBD","B-PERSON"],["hello","NN","B-MSG"]]']
+"""
+train_sents = _get_tagged(query={"story_id": "1"})
 
 X_train = [sent2features(s) for s in train_sents]
 y_train = [sent2labels(s) for s in train_sents]
@@ -95,11 +82,25 @@ trainer.set_params({
 trainer.params()
 
 trainer.train('iky.model.crfsuite')
+"""
 
+query = "book a flight from india to america on monday"
 
-query = "hello how are you"
 token_text = nltk.word_tokenize(query)
 tagged_token = nltk.pos_tag(token_text)
 tagger = pycrfsuite.Tagger()
 tagger.open('iky.model.crfsuite')
 print("Predicted:", ' '.join(tagger.tag(sent2features(tagged_token))))
+
+from collections import Counter
+info = tagger.info()
+
+def print_transitions(trans_features):
+    for (label_from, label_to), weight in trans_features:
+        print("%-6s -> %-7s %0.6f" % (label_from, label_to, weight))
+
+print("Top likely transitions:")
+print_transitions(Counter(info.transitions).most_common(15))
+
+print("\nTop unlikely transitions:")
+print_transitions(Counter(info.transitions).most_common()[-15:])

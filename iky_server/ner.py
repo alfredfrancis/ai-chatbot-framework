@@ -113,8 +113,24 @@ def train_iky():
         # include transitions that are possible, but not observed
         'feature.possible_transitions': True
     })
-    return str(trainer.train('iky.model.crfsuite'))
+    return str(trainer.train('iky.model'))
 
+def tt_join(token_text,tagged):
+        bio_tagged = {}
+        for token, tag in zip(token_text,tagged):
+            if tag == "O":
+                continue
+            bio_tagged[tag]=token
+        return bio_tagged
+        
+def structure_ne(ne_tree):
+    ne = []
+    for subtree in ne_tree:
+        if type(subtree) == Tree: # If subtree is a noun chunk, i.e. NE != "O"
+            ne_label = subtree.label()
+            ne_string = " ".join([token for token, pos in subtree.leaves()])
+            ne.append((ne_string, ne_label))
+    return ne
 
 @app.route('/predict', methods=['GET'])
 def predict(query=None):
@@ -122,9 +138,11 @@ def predict(query=None):
     token_text = nltk.word_tokenize(query)
     tagged_token = nltk.pos_tag(token_text)
     tagger = pycrfsuite.Tagger()
-    tagger.open('iky.model.crfsuite')
-    return ' '.join(tagger.tag(_sent2features(tagged_token)))
-
+    tagger.open('iky.model')
+    list2=[]
+    tagged = tagger.tag(_sent2features(tagged_token))
+    tagged_json= tt_join(token_text,tagged)
+    return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
 
 @app.route('/pos_tag', methods=['POST'])
 def pos_tag():
