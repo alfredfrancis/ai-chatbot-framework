@@ -60,8 +60,34 @@ def sent2labels(sent):
 
 def sent2tokens(sent):
     return [token for token, postag, label in sent]
-"""
-train_sents = _get_tagged(query={"story_id": "1"})
+
+train_sents = [
+            [
+            ['send', 'NN', 'O'],
+            ['sms', 'NNS', 'B-TSK'],
+            ['to', 'TO', 'O'],
+            ['8714349616', 'CD', 'B-MOB'],
+            ['saying', 'VBG', 'O'],
+            ['hello', 'NN', 'B-MSG']
+            ],
+
+            [
+            ['sms', 'NNS', 'B-TSK'], 
+            ['9446623306', 'CD', 'B-MOB'], 
+            ['haai', 'NN', 'B-MSG'],
+            ['friend', 'NN', 'I-MSG'],
+            ],
+
+            [
+            ['sms', 'NNS', 'B-TSK'],
+            ['9446623306', 'CD', 'B-MOB'],
+            ['haai', 'NN', 'B-MSG'],
+            ['how', 'WRB', 'I-MSG'],
+            ['are', 'VBP', 'I-MSG'],
+            ['you', 'PRP', 'I-MSG']
+            ]
+
+            ]
 
 X_train = [sent2features(s) for s in train_sents]
 y_train = [sent2labels(s) for s in train_sents]
@@ -81,15 +107,15 @@ trainer.set_params({
 })
 trainer.params()
 
-trainer.train('iky.model.crfsuite')
-"""
+trainer.train('iky.test.crfsuite')
 
-query = "book a flight from india to america on monday"
+
+query = "sms 8714349616 saying hello how are you"
 
 token_text = nltk.word_tokenize(query)
 tagged_token = nltk.pos_tag(token_text)
 tagger = pycrfsuite.Tagger()
-tagger.open('iky.model.crfsuite')
+tagger.open('iky.test.crfsuite')
 print("Predicted:", ' '.join(tagger.tag(sent2features(tagged_token))))
 
 from collections import Counter
