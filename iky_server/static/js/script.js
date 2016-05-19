@@ -138,4 +138,7 @@ $(document).ready(function() {
 			});
 		$('#train_query').html("");
 	});
+	$("#btn_clear").click(function() {
+		$('#train_query').html("");
+	});
 });

@@ -1,0 +1,43 @@
+Backend
+==========================================
+
+from bio to text catogory
+train crf using bio encoding
+better feature extraction
+seperate db class
+
+Database
+==========================================
+iky
+	--user
+		user_id
+		email
+	--story
+		user_id
+		story_id
+	--label
+		-label
+			-label values
+	--labeled_stories
+		item
+		user_id
+		story_id
+	--logged_queries
+		item
+
+UI
+==========================================
+
+Test
+
+stories
+	-create story
+	-list stories
+		--click to train
+		--click to delete
+
+train tags
+
+Logs
+	-Validate
+	-delete
