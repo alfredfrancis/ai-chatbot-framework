@@ -116,7 +116,17 @@ token_text = nltk.word_tokenize(query)
 tagged_token = nltk.pos_tag(token_text)
 tagger = pycrfsuite.Tagger()
 tagger.open('iky.test.crfsuite')
-print("Predicted:", ' '.join(tagger.tag(sent2features(tagged_token))))
+
+tagged = tagger.tag(_sent2features(tagged_token))
+
+bio_tagged = {}
+
+for token, tag in zip(token_text,tagged):
+    if tag == "O":
+        continue
+    bio_tagged[tag]=token
+
+print(str(bio_tagged))
 
 from collections import Counter
 info = tagger.info()

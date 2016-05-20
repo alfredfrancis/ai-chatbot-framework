@@ -122,15 +122,7 @@ def tt_join(token_text,tagged):
                 continue
             bio_tagged[tag]=token
         return bio_tagged
-        
-def structure_ne(ne_tree):
-    ne = []
-    for subtree in ne_tree:
-        if type(subtree) == Tree: # If subtree is a noun chunk, i.e. NE != "O"
-            ne_label = subtree.label()
-            ne_string = " ".join([token for token, pos in subtree.leaves()])
-            ne.append((ne_string, ne_label))
-    return ne
+       
 
 @app.route('/predict', methods=['GET'])
 def predict(query=None):
@@ -139,7 +131,6 @@ def predict(query=None):
     tagged_token = nltk.pos_tag(token_text)
     tagger = pycrfsuite.Tagger()
     tagger.open('iky.model')
-    list2=[]
     tagged = tagger.tag(_sent2features(tagged_token))
     tagged_json= tt_join(token_text,tagged)
     return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
