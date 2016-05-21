@@ -115,14 +115,21 @@ def train_iky():
     })
     return str(trainer.train('iky.model'))
 
-def tt_join(token_text,tagged):
-        bio_tagged = {}
-        for token, tag in zip(token_text,tagged):
-            if tag == "O":
-                continue
-            bio_tagged[tag]=token
-        return bio_tagged
        
+def extract_chunks(tagged_sent):
+    labeled = {}
+    labels=[]
+    for s, tp in tagged_sent:
+        if tp != "O":
+            label = tp[2:]
+            if tp.startswith("B"):
+                labeled[label] = s
+            elif tp.startswith("I") and (label not in labels) :
+                labels.append(label)
+                labeled[label] = s
+            elif (tp.startswith("I") and (label in labels)):
+                labeled[label] += " %s"%s
+    return labeled
 
 @app.route('/predict', methods=['GET'])
 def predict(query=None):
@@ -132,7 +139,7 @@ def predict(query=None):
     tagger = pycrfsuite.Tagger()
     tagger.open('iky.model')
     tagged = tagger.tag(_sent2features(tagged_token))
-    tagged_json= tt_join(token_text,tagged)
+    tagged_json= extract_chunks(zip(token_text,tagged))
     return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
 
 @app.route('/pos_tag', methods=['POST'])
