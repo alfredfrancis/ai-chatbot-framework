@@ -15,6 +15,7 @@ iky
 	--story
 		user_id
 		story_id
+		story_name
 	--label
 		-label
 			-label values

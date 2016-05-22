@@ -60,3 +60,32 @@ def context_check(user_say):
 		return "query context : "+all_labels[0][0]
 	else:
 		return false
+
+def extract_chunks(tagged_sent, chunk_type):
+    grp1, grp2, chunk_type = [], [], "-" + chunk_type
+    for ind, (s, tp) in enumerate(tagged_sent):
+        if tp.endswith(chunk_type):
+            if not tp.startswith("B"):
+                grp2.append(str(ind))
+                grp1.append(s)
+            else:
+                if grp1:
+                    yield " ".join(grp1), "-".join(grp2)
+                grp1, grp2 = [s], [str(ind)]
+    yield " ".join(grp1), "-".join(grp2)
+
+"""
+In [2]: l = [('The', 'B-NP'), ('Mitsubishi', 'I-NP'), ('Electric', 'I-NP'), ('Company', 'I-NP'), ('Managing', 'B-NP'),
+   ...:                ('Director', 'I-NP'), ('ate', 'B-VP'), ('ramen', 'B-NP')]
+
+In [3]: list(extract_chunks(l, "NP"))
+Out[3]: 
+[('The Mitsubishi Electric Company', '0-1-2-3'),
+ ('Managing Director', '4-5'),
+ ('ramen', '7')]
+
+In [4]: l = [('What', 'B-NP'), ('is', 'B-VP'), ('the', 'B-NP'), ('airspeed', 'I-NP'), ('of', 'B-PP'), ('an', 'B-NP'), ('unladen', 'I-NP'), ('swallow', 'I-NP'), ('?', 'O')]
+
+In [5]: list(extract_chunks(l, "NP"))
+Out[5]: [('What', '0'), ('the airspeed', '2-3'), ('an unladen swallow', '5-6-7')]
+"""

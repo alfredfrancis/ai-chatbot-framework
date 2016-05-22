@@ -8,7 +8,7 @@ from sklearn.preprocessing import LabelBinarizer
 import sklearn
 import pycrfsuite
 import json
-from mongo import _get_tagged
+from mongo import _get_tagged,_insert
 # NER support functions for Feature extration
 
 def _word2features(sent, i):
@@ -115,22 +115,21 @@ def train_iky():
     })
     return str(trainer.train('iky.model'))
 
-def tt_join(token_text,tagged):
-        bio_tagged = {}
-        for token, tag in zip(token_text,tagged):
-            if tag == "O":
-                continue
-            bio_tagged[tag]=token
-        return bio_tagged
-        
-def structure_ne(ne_tree):
-    ne = []
-    for subtree in ne_tree:
-        if type(subtree) == Tree: # If subtree is a noun chunk, i.e. NE != "O"
-            ne_label = subtree.label()
-            ne_string = " ".join([token for token, pos in subtree.leaves()])
-            ne.append((ne_string, ne_label))
-    return ne
+       
+def extract_chunks(tagged_sent):
+    labeled = {}
+    labels=[]
+    for s, tp in tagged_sent:
+        if tp != "O":
+            label = tp[2:]
+            if tp.startswith("B"):
+                labeled[label] = s
+            elif tp.startswith("I") and (label not in labels) :
+                labels.append(label)
+                labeled[label] = s
+            elif (tp.startswith("I") and (label in labels)):
+                labeled[label] += " %s"%s
+    return labeled
 
 @app.route('/predict', methods=['GET'])
 def predict(query=None):
@@ -139,9 +138,8 @@ def predict(query=None):
     tagged_token = nltk.pos_tag(token_text)
     tagger = pycrfsuite.Tagger()
     tagger.open('iky.model')
-    list2=[]
     tagged = tagger.tag(_sent2features(tagged_token))
-    tagged_json= tt_join(token_text,tagged)
+    tagged_json= extract_chunks(zip(token_text,tagged))
     return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
 
 @app.route('/pos_tag', methods=['POST'])
@@ -163,3 +161,16 @@ def query_tokenize():
     for t in token_text:
         plain_token = plain_token + " " + t
     return Response(response=plain_token.strip(), status=200, mimetype="text")
+
+@app.route('/create_story', methods=['POST'])
+def create_story():
+    data={
+    "user_id" : request.form['user_id'],
+    "story_name" : request.form['story_name'],
+    }
+    return _insert("stories",data)
+
+@app.route('/get_stories', methods=['POST'])
+def get_stories():
+    query= { "user_id":"1"}
+    return _retrieve("stories",query)

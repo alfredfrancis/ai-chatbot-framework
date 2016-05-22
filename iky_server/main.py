@@ -6,7 +6,12 @@ import os
 # Index
 @app.route('/')
 def home():
-    return render_template('index.html')  
+    return render_template('index.html')
+
+# Create Stories
+@app.route('/stories')
+def stories():
+    return render_template('stories.html')   
 
 # Training UI
 @app.route('/train')

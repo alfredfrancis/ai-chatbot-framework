@@ -2,6 +2,8 @@ from iky_server import app
 from pymongo import MongoClient
 import json
 import ast
+from bson.json_util import loads
+from bson.json_util import dumps
 
 from flask import request
 
@@ -46,3 +48,12 @@ def _get_tagged(query={"story_id": "1"}):
     	cursor_list.append(ast.literal_eval(item["item"].encode('ascii','ignore')))
     return cursor_list
 
+def _insert(document_name,data):
+    document_name = iky.document_name
+    post_id = document_name.insert_one(data).inserted_id
+    return str(post_id)
+
+def _retrieve(document_name,query):
+    document_name = iky.document_name
+    posts = dumps(document_name.find(query))
+    return posts
