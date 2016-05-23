@@ -9,11 +9,22 @@
 <body>
 	<div class="container">
 		<div class="page-header">
+			<div class="pull-left">
+				<a href="/" ><img class="logo-left" src="static/img/iky.png"></a>
+			</div>
+			<div class="pull-right">
+				<img class="logo-left" src="static/img/lulu-exchange-logo.png">
+			</div>
+			<div class="clearfix"></div>
+		</div>
+	</div>
+	<div class="container">
+		<div class="page-header">
 			<h2>Iky's Class Room</h2>
 		</div>
 		<div class="row train-area">
 			Train iky to extract entities.
-			<input type="hidden" name="story_id" value="{{ story_id }}">
+			<input type="hidden" name="story_id" value="{{ story_id }}" required>
 			<div class = "form-control" id="train_query" contenteditable></div>
 		</div>
 		<div class="row">
@@ -21,7 +32,7 @@
 		</div>
 		<div class="row">
 			<div class="col-xs-3">
-				<input class="form-control" id="token_label" type="text">
+				<input class="form-control" id="token_label" type="text" required>
 			</div>
 			<div class="col">
 				<button type="button" class="btn btn-primary pull-right" id="btn_clear">Clear</button>

@@ -48,15 +48,15 @@ def _get_tagged(query={"story_id": "1"}):
     return cursor_list
 
 def _insert(document_name,data):
-    document_name = iky.document_name
+    document_name = iky[document_name]
     post_id = document_name.insert_one(data).inserted_id
     return str(post_id)
 
 def _retrieve(document_name,query):
-    document_name = iky.document_name
+    document_name = iky[document_name]
     posts = dumps(document_name.find(query))
     return posts
 
 def _delete(document_name,query):
-    document_name = iky.document_name
+    document_name = iky[document_name]
     document_name.delete_many(query)

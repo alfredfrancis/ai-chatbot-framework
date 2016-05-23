@@ -92,7 +92,8 @@ $(document).ready(function() {
 			$('#output').html("<pre>" + JSON.stringify(NS.tagged_data) + "</pre>");
 		}
 	});
-	$("#btn_add_test").click(function() {
+	$("#btn_add_test").click(function() 
+	{
 		$.post("/_insert_tagged", {
 				story_id: $("input[name=story_id]").val(),
 				labeled_info: JSON.stringify(NS.tagged_data)
