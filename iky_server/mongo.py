@@ -4,7 +4,7 @@ import json
 import ast
 from bson.json_util import loads
 from bson.json_util import dumps
-
+from bson.objectid import ObjectId
 from flask import request
 
 # Initialize MongoDb client with default local server
@@ -25,12 +25,11 @@ def _insert_user(name, email, level):
 
 
 @app.route('/_insert_tagged', methods=['POST'])
-def _insert_tagged():
-    text = request.form['labeled_info']
+def _insert_tagged(): 
     data = {
-        "item": text,
-        "u_id": "1",
-        "story_id": "1"
+        "item": request.form['labeled_info'],
+        "user_id": "1",
+        "story_id": request.form['story_id']
     }
     labled_queries = iky.labled_queries
     post_id = labled_queries.insert_one(data).inserted_id
@@ -57,3 +56,7 @@ def _retrieve(document_name,query):
     document_name = iky.document_name
     posts = dumps(document_name.find(query))
     return posts
+
+def _delete(document_name,query):
+    document_name = iky.document_name
+    document_name.delete_many(query)

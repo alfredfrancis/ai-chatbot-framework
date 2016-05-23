@@ -14,9 +14,9 @@ def stories():
     return render_template('stories.html')   
 
 # Training UI
-@app.route('/train')
+@app.route('/train', methods=['GET'])
 def train():
-    return render_template('train.html') 
+	return render_template('train.html',story_id =request.args.get("story_id") ) 
 
 
 # Error handlers.

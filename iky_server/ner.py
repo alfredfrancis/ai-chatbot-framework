@@ -1,14 +1,21 @@
 from iky_server import app
+
 from flask import request, jsonify, Response
 
 from itertools import chain
+
 import nltk
+import pycrfsuite
+
+import sklearn
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelBinarizer
-import sklearn
-import pycrfsuite
+
 import json
-from mongo import _get_tagged,_insert
+from bson.objectid import ObjectId
+from mongo import _get_tagged,_insert,_retrieve,_delete
+
+
 # NER support functions for Feature extration
 
 def _word2features(sent, i):
@@ -174,3 +181,11 @@ def create_story():
 def get_stories():
     query= { "user_id":"1"}
     return _retrieve("stories",query)
+
+@app.route('/delete_story', methods=['POST'])
+def delete_story():
+    query= { "_id":ObjectId(request.form['story_id'])}
+    _delete("stories",query);
+    query= { "story_id":ObjectId(request.form['story_id'])}
+    _delete("labled_queries",query);
+    return "1"
