@@ -13,6 +13,7 @@ $(document).ready(function() {
 								<h2 class="">'+ obj.story_name +'</h2> \
 								<button type="button" class="btn btn-primary" id="btn_train" objid='+obj._id.$oid+' >Train</button>\
 								<button type="button" class="btn btn-primary" id="btn_delete" objid='+obj._id.$oid+' >Delete</button>\
+								<button type="button" class="btn btn-primary" id="btn_build" objid='+obj._id.$oid+' >Build Model</button>\
 							</div>';
 				});
 				$('.stories').html(html);
@@ -25,7 +26,9 @@ $(document).ready(function() {
 	{
 		$.post("/create_story", {
 				user_id:"1",
-				story_name:$("#story_name").val() 
+				story_name:$("#story_name").val(),
+				action_name:$("#action_name").val(),
+				labels:$("#labels").val()
 			});
 		$('#new_story').val ="";
 		get_stories();
@@ -44,6 +47,16 @@ $(document).ready(function() {
 			},
 			function(data) {
 				 $( "div[objid="+_id+"]" ).remove();
+			});
+	});
+	$(document).on('click', "button#btn_build", function() {
+		_id = $(this).attr("objid");
+		$.post("/build_model", {
+				user_id:"1",
+				story_id:_id 
+			},
+			function(data) {
+				 alert('build sucessfull');
 			});
 	});
 });

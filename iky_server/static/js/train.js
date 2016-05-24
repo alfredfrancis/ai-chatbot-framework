@@ -11,6 +11,7 @@ $(document).ready(function() {
 					NS.tagged_data = data;
 					$('#output').html("<pre>" + JSON.stringify(data) + "</pre>");
 				});
+			$("#token_label").prop('disabled', false);
 			return e.which != 13;
 		}
 	});
@@ -69,8 +70,6 @@ $(document).ready(function() {
 			span.style.backgroundColor = "green";
 			span.style.color = "white";
 			range.insertNode(span);
-
-			$("#token_label").prop('disabled', false);
 			$("#token_label").focus();
 		}
 	});
@@ -79,6 +78,14 @@ $(document).ready(function() {
 		if (e.keyCode == 13) {
 			//alert(NS.num_sel_words)
 			var label = $("#token_label").val().toUpperCase();
+			/*if($("#labels").val()!="")
+			{
+				$("#labels").val($("#labels").val() +"," + $("#token_label").val());
+			}
+			else{
+				$("#labels").val($("#token_label").val());	
+			}*/
+			
 			//$('#instance').append("before:"+NS.num_words+",count:"+NS.num_sel_words+"\n");
 			for (var i = 1; i <= NS.num_sel_words; i++) {
 				if (i == 1) {
@@ -90,6 +97,7 @@ $(document).ready(function() {
 				NS.tagged_data[(NS.num_words + i) - 1][2] = bio;
 			}
 			$('#output').html("<pre>" + JSON.stringify(NS.tagged_data) + "</pre>");
+			$("#token_label").val("");
 		}
 	});
 	$("#btn_add_test").click(function() 

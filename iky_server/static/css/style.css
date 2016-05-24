@@ -20,9 +20,9 @@ body {
 }
 .search-box .glyphicon {
     position: absolute;
-    padding: 10px;
+    padding: 18px;
     pointer-events: none;
-    left: 15px;
+    float: right;
     top: 0px;
 }
 .search-box .glyphicon:before {

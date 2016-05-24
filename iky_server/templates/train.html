@@ -13,7 +13,7 @@
 				<a href="/" ><img class="logo-left" src="static/img/iky.png"></a>
 			</div>
 			<div class="pull-right">
-				<img class="logo-left" src="static/img/lulu-exchange-logo.png">
+				<img class="logo-left" src="">
 			</div>
 			<div class="clearfix"></div>
 		</div>
@@ -41,9 +41,16 @@
 				<button type="button" class="btn btn-primary pull-right" id="btn_add_test">Add to Test Set</button>
 			</div>
 		</div>
+		<div class="row">
+		</div>
 		<div class="row" id="output">
 		</div>
 		<div class="row" id="work">
+		<ol>
+		  {% for entry in test_sets %}
+		    <li>{{ entry.item }}</li>
+		  {% endfor %}
+		  </ol>
 		</div>
 		<div class="row" id="instance">
 		</div>

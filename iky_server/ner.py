@@ -14,7 +14,7 @@ from sklearn.preprocessing import LabelBinarizer
 import json
 from bson.objectid import ObjectId
 from mongo import _get_tagged,_insert,_retrieve,_delete
-
+import ast
 
 # NER support functions for Feature extration
 
@@ -75,8 +75,8 @@ def _sent2tokens(sent):
 # Manual tag text chunks
 
 
-@app.route('/train_iky', methods=['GET'])
-def train_iky():
+@app.route('/build_model', methods=['POST'])
+def build_model():
     """    train_sents = [
                     [
                     ['send', 'NN', 'O'],
@@ -104,7 +104,8 @@ def train_iky():
 
                     ]
     """
-    train_sents = _get_tagged(query={"story_id": "1"})
+    story_id =request.form['story_id']
+    train_sents = _get_tagged(query={ "story_id":story_id})
     X_train = [_sent2features(s) for s in train_sents]
     y_train = [_sent2labels(s) for s in train_sents]
 
@@ -120,7 +121,8 @@ def train_iky():
         # include transitions that are possible, but not observed
         'feature.possible_transitions': True
     })
-    return str(trainer.train('iky.model'))
+    trainer.train('models/%s.model'%story_id)
+    return "1"
 
        
 def extract_chunks(tagged_sent):
@@ -139,15 +141,21 @@ def extract_chunks(tagged_sent):
     return labeled
 
 @app.route('/predict', methods=['GET'])
-def predict(query=None):
+def predict(user_say):
     #query = request.args.get('query')
-    token_text = nltk.word_tokenize(query)
-    tagged_token = nltk.pos_tag(token_text)
-    tagger = pycrfsuite.Tagger()
-    tagger.open('iky.model')
-    tagged = tagger.tag(_sent2features(tagged_token))
-    tagged_json= extract_chunks(zip(token_text,tagged))
-    return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
+    query= {"user_id":"1"}
+    stories = ast.literal_eval(_retrieve("stories",query))
+    for story in stories:
+        print(story)
+        token_text = nltk.word_tokenize(user_say)
+        tagged_token = nltk.pos_tag(token_text)
+        tagger = pycrfsuite.Tagger()
+        tagger.open('models/%s.model'%story['_id']['$oid'])
+        tagged = tagger.tag(_sent2features(tagged_token))
+        if set(story.labels) == set(y)
+            tagged_json= extract_chunks(zip(token_text,tagged))
+            return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
+    return "Sorry"
 
 @app.route('/pos_tag', methods=['POST'])
 def pos_tag():
@@ -173,6 +181,8 @@ def query_tokenize():
 def create_story():
     data={
     "user_id" : request.form['user_id'],
+    "labels": request.form['labels'].split(","),
+    "action":request.form['action_name'],
     "story_name" : request.form['story_name'],
     }
     return _insert("stories",data)

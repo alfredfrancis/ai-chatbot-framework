@@ -36,7 +36,7 @@ def _insert_tagged():
     return str(post_id)
 
 
-def _get_tagged(query={"story_id": "1"}):
+def _get_tagged(query):
     try:
         labled_queries = iky.labled_queries
         cursor = labled_queries.find(query)

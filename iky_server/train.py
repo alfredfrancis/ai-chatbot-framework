@@ -107,7 +107,7 @@ tagger = pycrfsuite.Tagger()
 tagger.open('iky.test.crfsuite')
 
 tagged = tagger.tag(sent2features(tagged_token))
-
+print(tagger.probability(tagged))
 print(zip(token_text,tagged))
 bio_tagged = extract_chunks(zip(token_text,tagged))
 
