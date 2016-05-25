@@ -27,8 +27,12 @@
 			<input type="hidden" name="story_id" value="{{ story_id }}" required>
 			<div class = "form-control" id="train_query" contenteditable></div>
 		</div>
+		<div class="labels"><br>
+			<span id="action">Action : {{ story_details[0].action }}</span><br>
+			<span id="labels">Labels : {{ ",".join(story_details[0].labels) }}</span>
+		</div>
 		<div class="row">
-						<label for="ex2">Add new label,</label>
+						<label for="ex2">Mark label,</label>
 		</div>
 		<div class="row">
 			<div class="col-xs-3">

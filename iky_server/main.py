@@ -3,7 +3,7 @@ from flask import Flask, render_template, request,jsonify
 import os
 import json 
 from mongo import _retrieve
-#from bson.objectid import ObjectId
+from bson.objectid import ObjectId
 # Index
 @app.route('/')
 def home():
@@ -18,10 +18,18 @@ def stories():
 @app.route('/train', methods=['GET'])
 def train():
 	_id=request.args.get("story_id");
-	print(_id)
+
+	#print("story id",_id)
+
 	query= { "story_id":_id}
 	test_set= json.loads(_retrieve("labled_queries",query))
-	return render_template('train.html',story_id =_id,test_sets = test_set ) 
+
+	query= { "_id":ObjectId(_id)}
+	story_detail = json.loads(_retrieve("stories",query))
+
+	#print("story detail",story_detail)
+
+	return render_template('train.html',story_id =_id,test_sets = test_set,story_details=story_detail ) 
 
 
 # Error handlers.

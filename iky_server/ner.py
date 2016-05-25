@@ -1,4 +1,5 @@
 from iky_server import app
+import os
 
 from flask import request, jsonify, Response
 
@@ -105,7 +106,9 @@ def build_model():
                     ]
     """
     story_id =request.form['story_id']
+
     train_sents = _get_tagged(query={ "story_id":story_id})
+
     X_train = [_sent2features(s) for s in train_sents]
     y_train = [_sent2labels(s) for s in train_sents]
 
@@ -139,20 +142,29 @@ def extract_chunks(tagged_sent):
             elif (tp.startswith("I") and (label in labels)):
                 labeled[label] += " %s"%s
     return labeled
+def extract_labels(tagged):
+    labels=[]
+    for tp in tagged:
+        if tp != "O":
+            labels.append(tp[2:])
+    return labels
 
 @app.route('/predict', methods=['GET'])
 def predict(user_say):
+    #print(user_say)
     #query = request.args.get('query')
     query= {"user_id":"1"}
     stories = ast.literal_eval(_retrieve("stories",query))
+    #print(stories)
     for story in stories:
-        print(story)
         token_text = nltk.word_tokenize(user_say)
         tagged_token = nltk.pos_tag(token_text)
         tagger = pycrfsuite.Tagger()
         tagger.open('models/%s.model'%story['_id']['$oid'])
         tagged = tagger.tag(_sent2features(tagged_token))
-        if set(story.labels) == set(y)
+        print(set(story['labels']),set(extract_labels(tagged)))
+        
+        if set(story['labels']) == set(extract_labels(tagged)):
             tagged_json= extract_chunks(zip(token_text,tagged))
             return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
     return "Sorry"
@@ -196,6 +208,9 @@ def get_stories():
 def delete_story():
     query= { "_id":ObjectId(request.form['story_id'])}
     _delete("stories",query);
-    query= { "story_id":ObjectId(request.form['story_id'])}
+
+    query= { "story_id":request.form['story_id']}
     _delete("labled_queries",query);
+
+    os.remove("models/%s.model"%request.form['story_id'])
     return "1"
