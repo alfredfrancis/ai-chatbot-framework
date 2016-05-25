@@ -162,10 +162,13 @@ def predict(user_say):
         tagger = pycrfsuite.Tagger()
         tagger.open('models/%s.model'%story['_id']['$oid'])
         tagged = tagger.tag(_sent2features(tagged_token))
-        print(set(story['labels']),set(extract_labels(tagged)))
-        
-        if set(story['labels']) == set(extract_labels(tagged)):
+
+        labels_original=set(story['labels'])
+        labels_predicted=set([x.lower() for x in extract_labels(tagged)])
+
+        if labels_original == labels_predicted:
             tagged_json= extract_chunks(zip(token_text,tagged))
+            tagged_json["fucntion"] = story['action']
             return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
     return "Sorry"
 
