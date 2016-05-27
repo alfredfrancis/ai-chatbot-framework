@@ -1,6 +1,8 @@
 from iky_server import app
 import os
 
+import actions
+
 from flask import request, jsonify, Response
 
 from itertools import chain
@@ -16,6 +18,7 @@ import json
 from bson.objectid import ObjectId
 from mongo import _get_tagged,_insert,_retrieve,_delete
 import ast
+
 
 # NER support functions for Feature extration
 
@@ -162,14 +165,16 @@ def predict(user_say):
         tagger = pycrfsuite.Tagger()
         tagger.open('models/%s.model'%story['_id']['$oid'])
         tagged = tagger.tag(_sent2features(tagged_token))
-
         labels_original=set(story['labels'])
         labels_predicted=set([x.lower() for x in extract_labels(tagged)])
-
+        print(labels_predicted)
+        print(labels_original)
         if labels_original == labels_predicted:
             tagged_json= extract_chunks(zip(token_text,tagged))
-            tagged_json["fucntion"] = story['action']
-            return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
+            #tagged_json["fucntion"] = story['action']
+            result = getattr(actions, story['action'])(tagged_json)
+            return result
+            #return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
     return "Sorry"
 
 @app.route('/pos_tag', methods=['POST'])

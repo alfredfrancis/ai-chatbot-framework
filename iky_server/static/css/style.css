@@ -67,3 +67,26 @@ body {
   /* Set the fixed height of the footer here */
   height: 60px;
 }
+
+.stories
+{
+    margin-top: 10px;
+}
+.panel {
+    height: 120px;
+    display: none;
+}
+p.flip {
+    line-height: 30px;
+    margin: auto;
+    font-size: 16px;
+    padding: 5px;
+    text-align: center;
+    background: #555;
+    border: solid 1px #666;
+    color: #ffffff;
+    border-radius: 3px;
+}
+.clear{
+    clear: both;
+}

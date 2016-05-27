@@ -2,13 +2,14 @@ $(document).ready(function() {
 	var NS = {};
 
 	var put_text = function(bot_say) {
-		html_data = '<div class="alert alert-success fade in">\
+		/*html_data = '<div class="alert alert-success fade in">\
 				<a href="#" class="close" data-dismiss="alert">&times;</a>';
 		$.each(bot_say["responseJSON"], function (index, data) {
 			html_data = html_data + index +" : "+data+"<br>";
-    	})		
-
-		html_data=html_data+'</div>';
+    	})	*/	
+    	console.log(bot_say)
+		html_data = '<div class="alert alert-success fade in">\
+				<a href="#" class="close" data-dismiss="alert">&times;</a>'+bot_say['responseText']+'</div>'
 		$(".result_area").prepend(html_data);
 	};
 

@@ -59,4 +59,9 @@ $(document).ready(function() {
 				 alert('build sucessfull');
 			});
 	});
+	$(".flip").click(function()
+	{
+		$(".panel").toggle();
+	});
+
 });

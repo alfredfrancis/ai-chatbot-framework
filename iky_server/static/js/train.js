@@ -107,7 +107,7 @@ $(document).ready(function() {
 				labeled_info: JSON.stringify(NS.tagged_data)
 			},
 			function(data) {
-				$('#output').html("<pre>" + data + "</pre>");
+				$('#output').html("Insertion sucessfull!");
 			});
 		$('#train_query').html("");
 	});
