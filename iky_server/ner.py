@@ -133,18 +133,17 @@ def build_model():
        
 def extract_chunks(tagged_sent):
     labeled = {}
-    labels=[]
+    labels=set()
     for s, tp in tagged_sent:
         if tp != "O":
             label = tp[2:]
             if tp.startswith("B"):
                 labeled[label] = s
-            elif tp.startswith("I") and (label not in labels) :
-                labels.append(label)
-                labeled[label] = s
-            elif (tp.startswith("I") and (label in labels)):
+                labels.add(label)
+            elif tp.startswith("I") and (label in labels) :
                 labeled[label] += " %s"%s
     return labeled
+
 def extract_labels(tagged):
     labels=[]
     for tp in tagged:
@@ -167,8 +166,8 @@ def predict(user_say):
         tagged = tagger.tag(_sent2features(tagged_token))
         labels_original=set(story['labels'])
         labels_predicted=set([x.lower() for x in extract_labels(tagged)])
-        print(labels_predicted)
-        print(labels_original)
+        #print(tagged)
+        print(zip(token_text,tagged))
         if labels_original == labels_predicted:
             tagged_json= extract_chunks(zip(token_text,tagged))
             #tagged_json["fucntion"] = story['action']
