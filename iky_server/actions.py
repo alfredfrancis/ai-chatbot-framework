@@ -8,3 +8,5 @@ def book_ticker(tagged_json):
 
 def google_search(tagged_json):
 	return 'Wait a sec, Let me redirect you..<meta http-equiv="refresh" content="1;url=http://google.com/search?q=%s" />'%tagged_json['QUERY']
+def create_user(tagged_json):
+	return "executing create user function with following details " + str(tagged_json)

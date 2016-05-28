@@ -25,4 +25,4 @@ def req():
 """	
 @app.route('/mm',methods=['POST'])
 def mm():
-	return 1
+	return flask.jsonify(**request.form['text'])

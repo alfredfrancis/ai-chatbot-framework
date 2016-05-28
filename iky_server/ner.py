@@ -129,6 +129,8 @@ def build_model():
         'feature.possible_transitions': True
     })
     trainer.train('models/%s.model'%story_id)
+
+    Intent_classifier().context_train()
     return "1"
 
        

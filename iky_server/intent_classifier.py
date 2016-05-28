@@ -1,4 +1,3 @@
-from iky_server import app
 from pymongo import MongoClient
 
 # Regular expression
@@ -16,12 +15,14 @@ from sklearn.externals import joblib
 
 import json	
 import mongo
+
 class Intent_classifier(object):
 	def __init__(self):
 		self.lb = preprocessing.MultiLabelBinarizer()
 		labeled_stories = json.loads(mongo._retrieve("labled_queries",{"user_id":"1"}))
 		x_train = []
 		y_train_text =[]
+
 		for story in labeled_stories:
 			lq = ""
 			for i,token in enumerate(json.loads(story["item"])):
