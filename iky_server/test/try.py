@@ -11,7 +11,7 @@ def extract_chunks(tagged_sent):
                 labeled[label] += " %s"%s
     return labeled
 
-l = [(u'google', 'B-DOMAIN'), (u'for', 'O'), (u'how', 'B-QUERY'), (u'are', 'I-QUERY'), (u'you', 'I-QUERY')]
+l = [(u'google', 'B-DOMAIN'), (u'for', 'O'), (u'how', 'B-QUERY'), (u'are', 'I-QUERY'), (u'you', 'I-QUERY'),(u'how', 'B-HELLO')]
 
 
 print(extract_chunks(l))

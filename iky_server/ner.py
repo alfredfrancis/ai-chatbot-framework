@@ -19,6 +19,7 @@ from bson.objectid import ObjectId
 from mongo import _get_tagged,_insert,_retrieve,_delete
 import ast
 
+from intent_classifier import Intent_classifier
 
 # NER support functions for Feature extration
 
@@ -153,28 +154,37 @@ def extract_labels(tagged):
 
 @app.route('/predict', methods=['GET'])
 def predict(user_say):
-    #print(user_say)
     #query = request.args.get('query')
-    query= {"user_id":"1"}
-    stories = ast.literal_eval(_retrieve("stories",query))
-    #print(stories)
-    for story in stories:
-        token_text = nltk.word_tokenize(user_say)
-        tagged_token = nltk.pos_tag(token_text)
-        tagger = pycrfsuite.Tagger()
-        tagger.open('models/%s.model'%story['_id']['$oid'])
-        tagged = tagger.tag(_sent2features(tagged_token))
-        labels_original=set(story['labels'])
-        labels_predicted=set([x.lower() for x in extract_labels(tagged)])
-        #print(tagged)
-        print(zip(token_text,tagged))
-        if labels_original == labels_predicted:
-            tagged_json= extract_chunks(zip(token_text,tagged))
-            #tagged_json["fucntion"] = story['action']
-            result = getattr(actions, story['action'])(tagged_json)
-            return result
-            #return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
-    return "Sorry"
+
+    story_id = Intent_classifier().context_check(user_say)
+    if not story_id:
+        return "Sorry,I'm not trained to handle that context."
+
+    query= {"_id":ObjectId(story_id)}
+    story = ast.literal_eval(_retrieve("stories",query))
+
+    token_text = nltk.word_tokenize(user_say)
+    tagged_token = nltk.pos_tag(token_text)
+
+    tagger = pycrfsuite.Tagger()
+    tagger.open('models/%s.model'%story_id)
+    tagged = tagger.tag(_sent2features(tagged_token))
+     
+    print(tagged)
+    
+    labels_original=set(story[0]['labels'])
+    labels_predicted=set([x.lower() for x in extract_labels(tagged)])
+
+    #print(tagged)
+    #print(zip(token_text,tagged))
+    if labels_original == labels_predicted:
+        tagged_json= extract_chunks(zip(token_text,tagged))
+        #tagged_json["fucntion"] = story['action']
+        result = getattr(actions, story[0]['action'])(tagged_json)
+        return result
+        #return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
+    else:
+        return "%s reqires following details: %s"%(story[0]['story_name'],",".join(story[0]['labels']))
 
 @app.route('/pos_tag', methods=['POST'])
 def pos_tag():
