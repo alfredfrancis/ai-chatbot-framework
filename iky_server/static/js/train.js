@@ -114,4 +114,15 @@ $(document).ready(function() {
 	$("#btn_clear").click(function() {
 		$('#train_query').html("");
 	});
+
+	$("a#btn_dlt_sent").click(function(){
+		_id = $(this).attr("_id");
+		$.post("/delete_sent", {
+				user_id:"1",
+				sent_id:_id 
+			},
+			function(data) {
+				 $( "li[_id="+_id+"]" ).remove();
+			});
+	});
 });

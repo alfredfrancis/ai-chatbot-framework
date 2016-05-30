@@ -233,3 +233,9 @@ def delete_story():
 
     os.remove("models/%s.model"%request.form['story_id'])
     return "1"
+
+@app.route('/delete_sent', methods=['POST'])
+def delete_sent():
+    query= { "_id":ObjectId(request.form['sent_id'])}
+    _delete("labled_queries",query);
+    return "1"

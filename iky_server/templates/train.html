@@ -49,7 +49,7 @@
 		<div class="row" id="work">
 		<ol>
 		  {% for entry in test_sets %}
-		    <li>{{ entry.item }}</li>
+		    <li _id="{{ entry._id['$oid']}}">{{ entry.item }} <a id = "btn_dlt_sent" _id="{{ entry._id['$oid']}}"> Delete</a></li>
 		  {% endfor %}
 		  </ol>
 		</div>
