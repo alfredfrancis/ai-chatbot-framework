@@ -125,4 +125,8 @@ $(document).ready(function() {
 				 $( "li[_id="+_id+"]" ).remove();
 			});
 	});
+	$(".flip").click(function()
+	{
+		$(".panel").toggle();
+	});
 });

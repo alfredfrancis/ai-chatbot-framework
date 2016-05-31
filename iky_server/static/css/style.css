@@ -3,20 +3,17 @@ body {
     background: #fff;
 }
 .page-header{
-    margin-top: 3px;
-    border-bottom: 0px;
+    margin-top: -10px;
 }
-
 .page-header .logo-left {
     height: 73px;
 
 }
 
-.row{
+.span4{
     margin-top:  10px;
 }
 .search-box {
-    position: relative;
 }
 .search-box .glyphicon {
     position: absolute;
@@ -53,10 +50,17 @@ body {
 }
 
 #output{
+    text-align: center;
     margin-top: 20px;
+    margin-bottom: 10px;
 }
 
-
+#train_query{
+    color: gray;
+    padding:3px;
+    height: 50px;
+    font-size: 30px;
+}
 #train_query::selection {
     color:green;
 }
@@ -82,11 +86,14 @@ p.flip {
     font-size: 16px;
     padding: 5px;
     text-align: center;
-    background: #555;
-    border: solid 1px #666;
-    color: #ffffff;
+    background: #D6F5D6;
+    border: solid 1px #D6F5D6;
     border-radius: 3px;
 }
 .clear{
     clear: both;
+}
+[contenteditable=true]:empty:before {
+  content: attr(placeholder);
+  display: block; /* For Firefox */
 }

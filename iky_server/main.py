@@ -4,6 +4,7 @@ import os
 import json 
 from mongo import _retrieve
 from bson.objectid import ObjectId
+import ast
 # Index
 @app.route('/')
 def home():
@@ -22,7 +23,7 @@ def train():
 	#print("story id",_id)
 
 	query= { "story_id":_id}
-	test_set= json.loads(_retrieve("labled_queries",query))
+	test_set= ast.literal_eval(_retrieve("labled_queries",query))
 
 	query= { "_id":ObjectId(_id)}
 	story_detail = json.loads(_retrieve("stories",query))

@@ -9,35 +9,40 @@
 <body>
 	<div class="container">
 		<div class="page-header">
-			<div class="pull-left">
-				<a href="/" ><img class="logo-left" src="static/img/iky.png"></a>
-			</div>
-			<div class="clearfix"></div>
+		  <div class="pull-left">
+		  	<h2>Iky's Stories</h2>
+		  </div>
+		  <div class="pull-right">
+		  <a href="/" ><img class="logo-left" src="static/img/iky.png"></a>
+		  </div>
+		  <div class="clearfix"></div>
 		</div>
-	</div>
-	<div class="container">
-		<div class="page-header">
-			<h2>Iky's Stories</h2>
-			<p class="flip">Create new story</p>
-		</div>
-		<div class="form-group row new_story panel">
-		    <div class="col-sm-10">
+		<p class="flip">Create new story <span class="glyphicon glyphicon-menu-down"></span></p>
+		<div class="form-group new_story panel">
+		    <div class="span4">
 		      <input type="text" class="form-control" id="story_name" placeholder="Story name" required>
-		   <br>
-			Labels,
-			<input class="form-control" id="labels" type="text">
-			<br>
-			action,
-		    <select id="company" class="form-control">
-		      <option>Python Function</option>
-		      <option>SQL query</option>
-		      <option>REST API</option>
-		      <option>Custom message</option>
-		    </select> 
-			<input class="form-control" size="50" id="action_name" type="text">
-		    </div>
-		    <div class="col-sm-2">
-		      <button type="button" class="btn btn-primary" id="new_story" >Add</button>
+		      </div>
+		   <div class="span4">
+			<input class="form-control" placeholder="Lables" id="labels" type="text">
+			</div>
+			<div class="span4">
+				action,
+				<div class="span4">
+				    <select id="action_type" class="form-control">
+				      <option value=0>Python Function</option>
+				      <option value=1>SQL query</option>
+				      <option value=2>REST API</option>
+				      <option value=3>Custom message</option>
+				    </select> 
+				  </div>
+				  <div class="span4">
+					<input class="form-control" placeholder="Action" size="50" id="action_name" type="text">
+				</div>
+			</div>
+		    <div class="span4">
+			    <div class="pull-right">
+			      <button type="button" class="btn btn-primary" id="new_story" >Create</button>
+			      </div>
 		    </div>
 		</div>
 		<div class="clear">

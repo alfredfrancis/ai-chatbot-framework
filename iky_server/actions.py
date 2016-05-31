@@ -1,9 +1,7 @@
-from iky_server import app
+def buy_pizza(tagged_json):
+	return "function buy_pizza(%s)"%(tagged_json)
 
-def book_pizza(tagged_json):
-	return "Ok,Ordering %s pizza from %s"%(tagged_json['QUANTITY'],tagged_json['STORE_NAME'])
-
-def book_ticker(tagged_json):
+def book_ticket(tagged_json):
 	return "Flight from %s to %s on %s.Done!"%(tagged_json['FROM'],tagged_json['TO'],tagged_json['DATE'])
 
 def google_search(tagged_json):
@@ -11,7 +9,6 @@ def google_search(tagged_json):
 
 def create_user(tagged_json):
 	return "function create_user(%s)"%(tagged_json)
-
 
 def getMyTxnCount(tagged_json):
 	return "function getMyTxnCount(%s)"%(tagged_json)

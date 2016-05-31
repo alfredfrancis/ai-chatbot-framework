@@ -27,6 +27,7 @@ $(document).ready(function() {
 		$.post("/create_story", {
 				user_id:"1",
 				story_name:$("#story_name").val(),
+				action_type:$("#action_type").val(),
 				action_name:$("#action_name").val(),
 				labels:$("#labels").val()
 			});

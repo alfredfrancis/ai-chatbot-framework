@@ -1,7 +1,7 @@
 from iky_server import app
 import os
 
-import actions
+from interface import execute_action
 
 from flask import request, jsonify, Response
 
@@ -139,7 +139,7 @@ def extract_chunks(tagged_sent):
     labels=set()
     for s, tp in tagged_sent:
         if tp != "O":
-            label = tp[2:]
+            label = tp[2:].lower()
             if tp.startswith("B"):
                 labeled[label] = s
                 labels.add(label)
@@ -177,14 +177,17 @@ def predict(user_say):
     labels_original=set(story[0]['labels'])
     labels_predicted=set([x.lower() for x in extract_labels(tagged)])
 
-    #print(tagged)
     #print(zip(token_text,tagged))
     if labels_original == labels_predicted:
         tagged_json= extract_chunks(zip(token_text,tagged))
         #tagged_json["fucntion"] = story['action']
-        result = getattr(actions, story[0]['action'])(tagged_json)
+        #result = getattr(actions, story[0]['action'])(tagged_json)
+        result = execute_action(story[0]['action_type'],story[0]['action'],tagged_json)
         return result
         #return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
+    elif not len(labels_predicted):
+        result = execute_action(story[0]['action_type'],story[0]['action'],{})
+        return result    
     else:
         return "%s reqires following details: %s"%(story[0]['story_name'],",".join(story[0]['labels']))
 
@@ -213,6 +216,7 @@ def create_story():
     data={
     "user_id" : request.form['user_id'],
     "labels": request.form['labels'].split(","),
+    "action_type":request.form['action_type'],
     "action":request.form['action_name'],
     "story_name" : request.form['story_name'],
     }
@@ -231,7 +235,10 @@ def delete_story():
     query= { "story_id":request.form['story_id']}
     _delete("labled_queries",query);
 
-    os.remove("models/%s.model"%request.form['story_id'])
+    try:
+        os.remove("models/%s.model"%request.form['story_id'])
+    except OSError:
+        pass
     return "1"
 
 @app.route('/delete_sent', methods=['POST'])
