@@ -235,6 +235,8 @@ def delete_story():
     query= { "story_id":request.form['story_id']}
     _delete("labled_queries",query);
 
+    Intent_classifier().context_train()
+
     try:
         os.remove("models/%s.model"%request.form['story_id'])
     except OSError:
