@@ -11,7 +11,8 @@ from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn import preprocessing
-
+from datetime import datetime
+import parsedatetime as pdt 
 
 
 def re_check(user_say):
@@ -73,6 +74,21 @@ def extract_chunks(tagged_sent, chunk_type):
                     yield " ".join(grp1), "-".join(grp2)
                 grp1, grp2 = [s], [str(ind)]
     yield " ".join(grp1), "-".join(grp2)
+
+
+def datefromstring(time_string):
+	cal = pdt.Calendar()
+	now = datetime.now()
+	return str(cal.parseDT(time_string, now)[0])
+
+
+
+
+
+
+
+
+
 
 """
 In [2]: l = [('The', 'B-NP'), ('Mitsubishi', 'I-NP'), ('Electric', 'I-NP'), ('Company', 'I-NP'), ('Managing', 'B-NP'),

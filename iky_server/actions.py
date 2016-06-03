@@ -15,3 +15,6 @@ def getMyTxnCount(tagged_json):
 
 def check_status(tagged_json):
 	return "function check_status(%s)"%(tagged_json)
+
+def reminder(tagged_json):
+	return "function reminder(%s)"%(tagged_json)

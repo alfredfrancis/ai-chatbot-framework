@@ -19,6 +19,8 @@ from bson.objectid import ObjectId
 from mongo import _get_tagged,_insert,_retrieve,_delete
 import ast
 
+from functions import datefromstring
+
 from intent_classifier import Intent_classifier
 
 # NER support functions for Feature extration
@@ -172,16 +174,16 @@ def predict(user_say):
     tagger.open('models/%s.model'%story_id)
     tagged = tagger.tag(_sent2features(tagged_token))
      
-    print(tagged)
     
     labels_original=set(story[0]['labels'])
     labels_predicted=set([x.lower() for x in extract_labels(tagged)])
 
-    #print(zip(token_text,tagged))
     if labels_original == labels_predicted:
         tagged_json= extract_chunks(zip(token_text,tagged))
-        #tagged_json["fucntion"] = story['action']
-        #result = getattr(actions, story[0]['action'])(tagged_json)
+        print(tagged_json)
+
+        if "date" in tagged_json:
+            tagged_json["date"] = datefromstring(tagged_json["date"])
         result = execute_action(story[0]['action_type'],story[0]['action'],tagged_json)
         return result
         #return Response(response=json.dumps(tagged_json, ensure_ascii=False), status=200, mimetype="application/json")
