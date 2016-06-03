@@ -17,4 +17,5 @@ def check_status(tagged_json):
 	return "function check_status(%s)"%(tagged_json)
 
 def reminder(tagged_json):
-	return "function reminder(%s)"%(tagged_json)
+	result = "Reminder set at <b>%s</b><br> Event : <b>%s</b> <br>"%(tagged_json["date"],tagged_json["event"])
+	return result
