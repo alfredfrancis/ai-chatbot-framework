@@ -41,6 +41,8 @@ $(document).ready(function() {
 	});
 
 	$(document).on('click', "button#btn_delete", function() {
+		var r =confirm("Do you want to continue?");
+		if (r == true) {
 		_id = $(this).attr("objid");
 		$.post("/delete_story", {
 				user_id:"1",
@@ -49,6 +51,7 @@ $(document).ready(function() {
 			function(data) {
 				 $( "div[objid="+_id+"]" ).remove();
 			});
+	}
 	});
 	$(document).on('click', "button#btn_build", function() {
 		_id = $(this).attr("objid");

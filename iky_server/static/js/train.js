@@ -116,14 +116,18 @@ $(document).ready(function() {
 	});
 
 	$("a#btn_dlt_sent").click(function(){
-		_id = $(this).attr("_id");
-		$.post("/delete_sent", {
-				user_id:"1",
-				sent_id:_id 
-			},
-			function(data) {
-				 $( "li[_id="+_id+"]" ).remove();
-			});
+		var r =confirm("Do you want to continue?");
+		if (r == true)
+		{
+			_id = $(this).attr("_id");
+			$.post("/delete_sent", {
+					user_id:"1",
+					sent_id:_id 
+				},
+				function(data) {
+					 $( "li[_id="+_id+"]" ).remove();
+				});
+		}
 	});
 	$(".flip").click(function()
 	{

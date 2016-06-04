@@ -19,3 +19,7 @@ def check_status(tagged_json):
 def reminder(tagged_json):
 	result = "Reminder set at <b>%s</b><br> Event : <b>%s</b> <br>"%(tagged_json["date"],tagged_json["event"])
 	return result
+
+def alarm(tagged_json):
+	result = "Alarm set at <b>%s</b>"%(tagged_json["date"])
+	return result
