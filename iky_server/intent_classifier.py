@@ -1,8 +1,3 @@
-from pymongo import MongoClient
-
-# Regular expression
-import re
-
 # scikit-learn
 import numpy as np
 from sklearn.pipeline import Pipeline
@@ -19,11 +14,19 @@ import mongo
 class Intent_classifier(object):
 	def __init__(self):
 		self.lb = preprocessing.MultiLabelBinarizer()
-		labeled_stories = json.loads(mongo._retrieve("labled_queries",{"user_id":"1"}))
-		x_train = []
+		self.labeled_stories = json.loads(mongo._retrieve("labled_queries",{"user_id":"1"}))
+		
 		y_train_text =[]
 
-		for story in labeled_stories:
+		for story in self.labeled_stories:
+			y_train_text.append([story['story_id']])
+		
+		self.Y = self.lb.fit_transform(y_train_text)
+
+	def context_train(self):	
+		x_train = []
+
+		for story in self.labeled_stories:
 			lq = ""
 			for i,token in enumerate(json.loads(story["item"])):
 				if i != 0:
@@ -31,12 +34,9 @@ class Intent_classifier(object):
 				else:
 					lq = token[0]
 			x_train.append(lq)
-			y_train_text.append([story['story_id']])
+			
+		self.X_train = np.array(x_train)
 
-			self.X_train = np.array(x_train)
-			self.Y = self.lb.fit_transform(y_train_text)
-
-	def context_train(self):	
 		classifier = Pipeline([
 		    ('vectorizer', CountVectorizer()),
 		    ('tfidf', TfidfTransformer()),
@@ -49,8 +49,12 @@ class Intent_classifier(object):
 		return "Done"
 
 	def context_check(self,user_say):
-		#Prediction using Model
-		classifier = joblib.load('models/intent.pkl')
+		try:
+			#Prediction using Model
+			classifier = joblib.load('models/intent.pkl')
+		except IOError:
+			return False
+
 		predicted = classifier.predict([user_say])
 
 		if predicted.any():

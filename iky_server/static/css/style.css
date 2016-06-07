@@ -27,7 +27,7 @@ body {
     transition: all 0.2s linear;
 }
 .search-box input {
-    color: #fff;
+    color: #333;
     padding-left: 60px;
     background: #fff;
     border:1;

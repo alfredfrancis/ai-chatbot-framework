@@ -5,7 +5,7 @@ import json
 import re
 
 # ORACLE database connection
-import cx_Oracle
+#import cx_Oracle
 def execute_action(action_type,action,parameters):
 	types = {
 				0 : python_function,

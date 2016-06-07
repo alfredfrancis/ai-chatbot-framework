@@ -128,3 +128,32 @@ print_transitions(Counter(info.transitions).most_common(15))
 print("\nTop unlikely transitions:")
 print_transitions(Counter(info.transitions).most_common()[-15:])
 """
+
+
+    """    train_sents = [
+                    [
+                    ['send', 'NN', 'O'],
+                    ['sms', 'NNS', 'B-TSK'],
+                    ['to', 'TO', 'O'],
+                    ['8714349616', 'CD', 'B-MOB'],
+                    ['saying', 'VBG', 'O'],
+                    ['hello', 'NN', 'B-MSG']
+                    ],
+
+                    [
+                    ['sms', 'NNS', 'B-TSK'], 
+                    ['9446623306', 'CD', 'B-MOB'], 
+                    ['haai', 'NN', 'B-MSG']
+                    ],
+
+                    [
+                    ['sms', 'NNS', 'B-TSK'],
+                    ['9446623306', 'CD', 'B-MOB'],
+                    ['haai', 'NN', 'B-MSG'],
+                    ['how', 'WRB', 'I-MSG'],
+                    ['are', 'VBP', 'I-MSG'],
+                    ['you', 'PRP', 'I-MSG']
+                    ]
+
+                    ]
+    """
