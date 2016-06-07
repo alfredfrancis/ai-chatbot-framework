@@ -14,7 +14,7 @@ import pycrfsuite
 from train import _sent2features
 
 # DB stuff
-import json
+from bson.json_util import loads,dumps
 from bson.objectid import ObjectId
 from mongo import _retrieve
 import ast
@@ -50,7 +50,7 @@ def predict(user_say):
         return "Sorry,I'm not trained to handle that context."
 
     query= {"_id":ObjectId(story_id)}
-    story = ast.literal_eval(_retrieve("stories",query))
+    story = _retrieve("stories",query)
 
     token_text = nltk.word_tokenize(user_say)
     tagged_token = nltk.pos_tag(token_text)

@@ -4,12 +4,21 @@ import os
 from flask import request, jsonify, Response
 
 # DB stuff
-import json
 from bson.objectid import ObjectId
-from mongo import _get_tagged,_insert,_retrieve,_delete
+from bson.json_util import loads,dumps
+from mongo import _insert,_retrieve,_delete
 
 # Iky's tools
 from intent_classifier import Intent_classifier
+
+@app.route('/_insert_tagged', methods=['POST'])
+def _insert_tagged(): 
+    data = {
+        "item": request.form['labeled_info'],
+        "user_id": "1",
+        "story_id": request.form['story_id']
+    }
+    return _insert("labled_queries",data)
 
 @app.route('/create_story', methods=['POST'])
 def create_story():
@@ -25,7 +34,7 @@ def create_story():
 @app.route('/get_stories', methods=['POST'])
 def get_stories():
     query= { "user_id":"1"}
-    return _retrieve("stories",query)
+    return dumps(_retrieve("stories",query))
 
 @app.route('/delete_story', methods=['POST'])
 def delete_story():

@@ -8,13 +8,13 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn import preprocessing
 from sklearn.externals import joblib
 
-import json	
+from bson.json_util import loads,dumps
 import mongo
 
 class Intent_classifier(object):
 	def __init__(self):
 		self.lb = preprocessing.MultiLabelBinarizer()
-		self.labeled_stories = json.loads(mongo._retrieve("labled_queries",{"user_id":"1"}))
+		self.labeled_stories = mongo._retrieve("labled_queries",{"user_id":"1"})
 		
 		y_train_text =[]
 
@@ -28,7 +28,7 @@ class Intent_classifier(object):
 
 		for story in self.labeled_stories:
 			lq = ""
-			for i,token in enumerate(json.loads(story["item"])):
+			for i,token in enumerate(loads(story["item"])):
 				if i != 0:
 					lq += " "+token[0]
 				else:

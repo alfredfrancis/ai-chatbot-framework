@@ -19,7 +19,7 @@ $(document).ready(function() {
 
 		$.ajax({
 			method: 'POST',
-			url: '/req',
+			url: '/iky_parse',
 			data: {
 				user_say: user_say
 			},

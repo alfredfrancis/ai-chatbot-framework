@@ -4,14 +4,13 @@ from flask import Flask,jsonify,render_template, request
 from predict import predict
 
 # Request Handler
-@app.route('/req', methods=['POST','GET'])
-def req():
+@app.route('/iky_parse', methods=['POST','GET'])
+def iky_parse(user_say=None):
     if request.method == 'POST':
         user_say = request.form['user_say']
     else:
         user_say = request.args.get('user_say')
-    #return jsonify(result=predict(user_say))
-    return predict(user_say)
+    return jsonify(result=predict(user_say))
 
 
 #mattermost integration

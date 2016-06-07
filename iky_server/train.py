@@ -4,11 +4,13 @@ from iky_server import app
 import os
 
 import pycrfsuite
-
-from bson.objectid import ObjectId
-from mongo import _get_tagged,_retrieve
-
 from intent_classifier import Intent_classifier
+
+import ast
+from bson.json_util import loads,dumps
+from bson.objectid import ObjectId
+
+from mongo import _retrieve
 
 
 # NER support functions for Feature extration
@@ -73,7 +75,11 @@ def _sent2tokens(sent):
 def build_model():
     story_id =request.form['story_id']
 
-    train_sents = _get_tagged(query={ "story_id":story_id})
+    cursor = _retrieve("labled_queries",{ "story_id":story_id})
+
+    train_sents = []
+    for item in cursor:
+        train_sents.append(ast.literal_eval(item["item"].encode('ascii','ignore')))
 
     X_train = [_sent2features(s) for s in train_sents]
     y_train = [_sent2labels(s) for s in train_sents]
