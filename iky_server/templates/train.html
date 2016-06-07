@@ -51,7 +51,7 @@
 		<div class="row new_story panel" id="work">
 		<ol>
 		  {% for entry in test_sets %}
-		    <li _id="{{ entry._id['$oid']}}">{{ entry.item }} <a id = "btn_dlt_sent" _id="{{ entry._id['$oid']}}"> Delete</a></li>
+		    <li _id="{{ entry._id}}">{{ entry.item }} <a id = "btn_dlt_sent" _id="{{ entry._id}}"> Delete</a></li>
 		  {% endfor %}
 		  </ol>
 		</div>

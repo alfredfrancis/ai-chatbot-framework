@@ -61,7 +61,7 @@ def predict(user_say):
     
     labels_original=set(story[0]['labels'])
     labels_predicted=set([x.lower() for x in extract_labels(tagged)])
-
+    print(tagged)
     if labels_original == labels_predicted:
         tagged_json= extract_chunks(zip(token_text,tagged))
       

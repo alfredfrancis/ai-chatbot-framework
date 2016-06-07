@@ -19,14 +19,13 @@ def stories():
 # Training UI
 @app.route('/train', methods=['GET'])
 def train():
-	_id=request.args.get("story_id");
+	_id=request.args.get("story_id")
 	query= { "story_id":_id}
 	test_set= _retrieve("labled_queries",query)
 
 	query= { "_id":ObjectId(_id)}
 	story_detail = _retrieve("stories",query)
 	return render_template('train.html',story_id =_id,test_sets = test_set,story_details=story_detail ) 
-
 
 # Error handlers.
 @app.errorhandler(500)
