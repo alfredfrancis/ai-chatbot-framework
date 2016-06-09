@@ -2,15 +2,23 @@ from flask import request, jsonify, Response
 from iky_server import app
 
 # NLP stuff
-import nltk
+from nltk.tag.perceptron import PerceptronTagger
+from nltk import word_tokenize
 
 import json
+
+# Load and initialize Perceptron tagger
+tagger = PerceptronTagger()
+
+def pos_tagger(sentence):
+    tokenized_sent = word_tokenize(sentence)
+    pos_tagged =  tagger.tag(tokenized_sent)
+    return pos_tagged
 
 @app.route('/pos_tag', methods=['POST'])
 def pos_tag():
     text = request.form['text']
-    token_text = nltk.word_tokenize(text)
-    tagged_token = nltk.pos_tag(token_text)
+    tagged_token = pos_tagger(text)
     tagged_json = []
     for token, postag in tagged_token:
         tagged_json.append([token, postag, "O"])

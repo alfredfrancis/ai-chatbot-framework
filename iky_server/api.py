@@ -1,6 +1,6 @@
 from iky_server import app
-from flask import Flask,jsonify,render_template, request
-
+from flask import Flask,jsonify,render_template, request,Response
+import json
 from predict import predict
 
 # Request Handler
@@ -10,7 +10,8 @@ def iky_parse(user_say=None):
         user_say = request.form['user_say']
     else:
         user_say = request.args.get('user_say')
-    return jsonify(result=predict(user_say))
+    #return jsonify(**predict(user_say))
+    return Response(response=json.dumps(predict(user_say)),status=200,mimetype="application/json")
 
 
 #mattermost integration

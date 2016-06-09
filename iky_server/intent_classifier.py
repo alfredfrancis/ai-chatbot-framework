@@ -40,7 +40,7 @@ class Intent_classifier(object):
 		classifier = Pipeline([
 		    ('vectorizer', CountVectorizer()),
 		    ('tfidf', TfidfTransformer()),
-		    ('clf', OneVsRestClassifier(LinearSVC()))])
+		    ('clf', OneVsRestClassifier(LinearSVC(C=0.4)))])
 
 		classifier.fit(self.X_train, self.Y)
 
