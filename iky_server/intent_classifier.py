@@ -46,7 +46,7 @@ class Intent_classifier(object):
 
 		# dump generated model to file
 		joblib.dump(classifier, 'models/intent.pkl', compress=3)
-		return "Done"
+		return True
 
 	def context_check(self,user_say):
 		try:

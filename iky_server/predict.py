@@ -14,7 +14,7 @@ from functions import datefromstring
 from nlp import pos_tagger
 from nltk import word_tokenize
 import pycrfsuite
-from train import _sent2features
+from crf_train import _sent2features
 
 # DB stuff
 from bson.json_util import loads,dumps

@@ -10,8 +10,13 @@ def iky_parse(user_say=None):
         user_say = request.form['user_say']
     else:
         user_say = request.args.get('user_say')
-    #return jsonify(**predict(user_say))
-    return Response(response=json.dumps(predict(user_say)),status=200,mimetype="application/json")
+    
+    if user_say == None:  
+        result = json.dumps({ "error" : "2" })
+    else:
+        result = json.dumps(predict(user_say))
+
+    return Response(response=result,status=200,mimetype="application/json")
 
 
 #mattermost integration

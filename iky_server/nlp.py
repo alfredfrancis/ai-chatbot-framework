@@ -28,7 +28,7 @@ def pos_tag():
 @app.route('/query_tokenize', methods=['POST'])
 def query_tokenize():
     text = request.form['text']
-    token_text = nltk.word_tokenize(text)
+    token_text = word_tokenize(text)
     plain_token = ""
     for t in token_text:
         plain_token = plain_token + " " + t
