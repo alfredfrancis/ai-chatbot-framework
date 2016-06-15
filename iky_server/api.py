@@ -11,8 +11,8 @@ def iky_parse(user_say=None):
     else:
         user_say = request.args.get('user_say')
     
-    if user_say == None:  
-        result = json.dumps({ "error" : "2" })
+    if user_say == None or user_say =="":  
+        result = json.dumps({ "error_code" : "2","error_msg":"empty string" })
     else:
         result = json.dumps(predict(user_say))
 
