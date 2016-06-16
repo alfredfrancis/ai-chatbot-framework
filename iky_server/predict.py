@@ -52,7 +52,7 @@ def predict(user_say):
     print("Time taken for Intent Classification :"+ str(round(time()-t0, 3))+ "s")
 
     if not story_id:
-        return { "error" : "0" }
+        return { "error_code" : "0","error_msg":"can't identify the intent" }
     
     t0 = time()
     query= {"_id":ObjectId(story_id)}
