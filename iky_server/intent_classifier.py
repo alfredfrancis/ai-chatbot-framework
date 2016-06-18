@@ -8,57 +8,58 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn import preprocessing
 from sklearn.externals import joblib
 
-from bson.json_util import loads,dumps
+from bson.json_util import loads, dumps
 import mongo
 
+
 class Intent_classifier(object):
-	def __init__(self):
-		self.lb = preprocessing.MultiLabelBinarizer()
-		self.labeled_stories = mongo._retrieve("labled_queries",{"user_id":"1"})
-		
-		y_train_text =[]
+    def __init__(self):
+        self.lb = preprocessing.MultiLabelBinarizer()
+        self.labeled_stories = mongo._retrieve("labled_queries", {"user_id": "1"})
 
-		for story in self.labeled_stories:
-			y_train_text.append([story['story_id']])
-		
-		self.Y = self.lb.fit_transform(y_train_text)
+        y_train_text = []
 
-	def context_train(self):	
-		x_train = []
+        for story in self.labeled_stories:
+            y_train_text.append([story['story_id']])
 
-		for story in self.labeled_stories:
-			lq = ""
-			for i,token in enumerate(loads(story["item"])):
-				if i != 0:
-					lq += " "+token[0]
-				else:
-					lq = token[0]
-			x_train.append(lq)
-			
-		self.X_train = np.array(x_train)
+        self.Y = self.lb.fit_transform(y_train_text)
 
-		classifier = Pipeline([
-		    ('vectorizer', CountVectorizer()),
-		    ('tfidf', TfidfTransformer()),
-		    ('clf', OneVsRestClassifier(LinearSVC(C=0.4)))])
+    def context_train(self):
+        x_train = []
 
-		classifier.fit(self.X_train, self.Y)
+        for story in self.labeled_stories:
+            lq = ""
+            for i, token in enumerate(loads(story["item"])):
+                if i != 0:
+                    lq += " " + token[0]
+                else:
+                    lq = token[0]
+            x_train.append(lq)
 
-		# dump generated model to file
-		joblib.dump(classifier, 'models/intent.pkl', compress=3)
-		return True
+        self.X_train = np.array(x_train)
 
-	def context_check(self,user_say):
-		try:
-			#Prediction using Model
-			classifier = joblib.load('models/intent.pkl')
-		except IOError:
-			return False
+        classifier = Pipeline([
+            ('vectorizer', CountVectorizer()),
+            ('tfidf', TfidfTransformer()),
+            ('clf', OneVsRestClassifier(LinearSVC(C=0.4)))])
 
-		predicted = classifier.predict([user_say])
+        classifier.fit(self.X_train, self.Y)
 
-		if predicted.any():
-			all_labels = self.lb.inverse_transform(predicted)
-			return all_labels[0][0]
-		else:
-			return False
+        # dump generated model to file
+        joblib.dump(classifier, 'models/intent.pkl', compress=3)
+        return True
+
+    def context_check(self, user_say):
+        try:
+            # Prediction using Model
+            classifier = joblib.load('models/intent.pkl')
+        except IOError:
+            return False
+
+        predicted = classifier.predict([user_say])
+
+        if predicted.any():
+            all_labels = self.lb.inverse_transform(predicted)
+            return all_labels[0][0]
+        else:
+            return False

@@ -3,24 +3,25 @@ from iky_server import app
 import re
 
 from datetime import datetime
-import parsedatetime as pdt 
+import parsedatetime as pdt
 
 
 def re_check(user_say):
-	actions=['call','wake','mail','kick','wish']
-	patterns = [
-					re.compile(r'.*('+"|".join(actions[:])+').+in\s(\d+)\s(min|sec)'),
-					re.compile(r'(sms)\s([0-9]{10})\s(.+)'),
-					re.compile(r'(i am|my name|im)\s([a-zA-Z]+)'),
-					re.compile(r'(turn)\s(on|off)\s([a-zA-Z]+[0-9]*)'),
-					re.compile(r'(transfer)\s([0-9]+)\sto\s([0-9]+)'),
-					re.compile(r'(convert)\s([0-9]+)\s(dollar|inr)\sto\s(inr|dollar)')
-				]
-	for p in patterns:
-		result =p.findall(user_say) 
-		if result:
-				return result
-	return False
+    actions = ['call', 'wake', 'mail', 'kick', 'wish']
+    patterns = [
+        re.compile(r'.*(' + "|".join(actions[:]) + ').+in\s(\d+)\s(min|sec)'),
+        re.compile(r'(sms)\s([0-9]{10})\s(.+)'),
+        re.compile(r'(i am|my name|im)\s([a-zA-Z]+)'),
+        re.compile(r'(turn)\s(on|off)\s([a-zA-Z]+[0-9]*)'),
+        re.compile(r'(transfer)\s([0-9]+)\sto\s([0-9]+)'),
+        re.compile(r'(convert)\s([0-9]+)\s(dollar|inr)\sto\s(inr|dollar)')
+    ]
+    for p in patterns:
+        result = p.findall(user_say)
+        if result:
+            return result
+    return False
+
 
 def extract_chunks(tagged_sent, chunk_type):
     grp1, grp2, chunk_type = [], [], "-" + chunk_type
@@ -37,6 +38,6 @@ def extract_chunks(tagged_sent, chunk_type):
 
 
 def datefromstring(time_string):
-	cal = pdt.Calendar()
-	now = datetime.now()
-	return str(cal.parseDT(time_string, now)[0])
+    cal = pdt.Calendar()
+    now = datetime.now()
+    return str(cal.parseDT(time_string, now)[0])

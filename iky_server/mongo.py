@@ -6,19 +6,23 @@ from flask import request
 client = MongoClient()
 iky = client.iky
 
-def _insert(document_name,data):
+
+def _insert(document_name, data):
     document_name = iky[document_name]
     post_id = document_name.insert_one(data).inserted_id
     return str(post_id)
 
-def _retrieve(document_name,query):
+
+def _retrieve(document_name, query):
     document_name = iky[document_name]
     posts = list(document_name.find(query))
     return posts
 
-def _delete(document_name,query):
+
+def _delete(document_name, query):
     document_name = iky[document_name]
     document_name.delete_many(query)
+
 
 """
 def _insert_user(name, email, level):

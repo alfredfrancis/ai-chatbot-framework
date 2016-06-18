@@ -10,10 +10,12 @@ import json
 # Load and initialize Perceptron tagger
 tagger = PerceptronTagger()
 
+
 def pos_tagger(sentence):
     tokenized_sent = word_tokenize(sentence)
-    pos_tagged =  tagger.tag(tokenized_sent)
+    pos_tagged = tagger.tag(tokenized_sent)
     return pos_tagged
+
 
 @app.route('/pos_tag', methods=['POST'])
 def pos_tag():

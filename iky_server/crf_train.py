@@ -7,7 +7,7 @@ import pycrfsuite
 from intent_classifier import Intent_classifier
 
 import ast
-from bson.json_util import loads,dumps
+from bson.json_util import loads, dumps
 from bson.objectid import ObjectId
 
 from mongo import _retrieve
@@ -68,18 +68,19 @@ def _sent2labels(sent):
 def _sent2tokens(sent):
     return [token for token, postag, label in sent]
 
+
 # Manual tag text chunks
 
 
 @app.route('/build_model', methods=['POST'])
 def build_model():
-    story_id =request.form['story_id']
+    story_id = request.form['story_id']
 
-    cursor = _retrieve("labled_queries",{ "story_id":story_id})
+    cursor = _retrieve("labled_queries", {"story_id": story_id})
 
     train_sents = []
     for item in cursor:
-        train_sents.append(ast.literal_eval(item["item"].encode('ascii','ignore')))
+        train_sents.append(ast.literal_eval(item["item"].encode('ascii', 'ignore')))
 
     X_train = [_sent2features(s) for s in train_sents]
     y_train = [_sent2labels(s) for s in train_sents]
@@ -89,14 +90,14 @@ def build_model():
         trainer.append(xseq, yseq)
 
     trainer.set_params({
-        'c1': 1.0,   # coefficient for L1 penalty
+        'c1': 1.0,  # coefficient for L1 penalty
         'c2': 1e-3,  # coefficient for L2 penalty
         'max_iterations': 50,  # stop earlier
 
         # include transitions that are possible, but not observed
         'feature.possible_transitions': True
     })
-    trainer.train('models/%s.model'%story_id)
+    trainer.train('models/%s.model' % story_id)
 
     Intent_classifier().context_train()
-    return "1"       
+    return "1"

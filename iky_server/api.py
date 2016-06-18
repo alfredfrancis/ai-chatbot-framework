@@ -1,26 +1,27 @@
 from iky_server import app
-from flask import Flask,jsonify,render_template, request,Response
+from flask import Flask, jsonify, render_template, request, Response
 import json
 from predict import predict
 
+
 # Request Handler
-@app.route('/iky_parse', methods=['POST','GET'])
+@app.route('/iky_parse', methods=['POST', 'GET'])
 def iky_parse(user_say=None):
     if request.method == 'POST':
         user_say = request.form['user_say']
     else:
         user_say = request.args.get('user_say')
-    
-    if user_say == None or user_say =="":  
-        result = json.dumps({ "error_code" : "2","error_msg":"empty string" })
+
+    if user_say == None or user_say == "":
+        result = json.dumps({"error_code": "2", "error_msg": "empty string"})
     else:
         result = json.dumps(predict(user_say))
 
-    return Response(response=result,status=200,mimetype="application/json")
+    return Response(response=result, status=200, mimetype="application/json")
 
 
-#mattermost integration
-@app.route('/mm',methods=['POST'])
+# mattermost integration
+@app.route('/mm', methods=['POST'])
 def mm():
     """
     channel_id=hawos4dqtby53pd64o4a4cmeoo&
@@ -33,5 +34,5 @@ def mm():
     trigger_word=some&
     user_id=rnina9994bde8mua79zqcg5hmo&
     user_name=somename
-    """ 
+    """
     return flask.jsonify(**request.form['text'])
