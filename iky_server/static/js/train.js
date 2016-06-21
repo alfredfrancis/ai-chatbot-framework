@@ -1,9 +1,10 @@
 $(document).ready(function() {
 	var NS = {};
 	
-	$('#train_query').keydown(function(e) {
-		if (e.keyCode == 13) {
-			var user_say = $('#train_query').html().replace(/\&lt;br\&gt;/gi, "\n").replace(/(&lt;([^&gt;]+)&gt;)/gi, "");
+	$("#train_button").click(function() {
+	        console.log($('#train_query').html());
+			var user_say = $('#train_query').html().replace("<br>"," ");
+
 			$.post("/pos_tag", {
 					text: user_say
 				},
@@ -12,8 +13,6 @@ $(document).ready(function() {
 					$('#output').html("<pre>" + JSON.stringify(data) + "</pre>");
 				});
 			$("#token_label").prop('disabled', false);
-			return e.which != 13;
-		}
 	});
 
 	$("#token_label").prop('disabled', true);

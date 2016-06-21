@@ -58,7 +58,7 @@ body {
 #train_query{
     color: gray;
     padding:3px;
-    height: 50px;
+    height: 200px;
     font-size: 30px;
 }
 #train_query::selection {
