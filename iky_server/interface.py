@@ -4,7 +4,8 @@ import re
 
 
 # ORACLE database connection
-# import cx_Oracle
+import cx_Oracle
+import cx_Oracle
 def execute_action(action_type, action, parameters):
     types = {
         0: python_function,
@@ -24,12 +25,12 @@ def python_function(action, parameters):
 def sql_query(action, parameters):
     _query = re.sub(r'\{([a-z_0-9]*)\}', lambda m: "'" + parameters[m.group(1)] + "'", action)
     print(_query)
-    connstr = 'mambo/luexmambo@172.30.13.201/EXCHDB'
+    connstr = 'mambo/luexmambo@172.30.13.172/mambodev'
     conn = cx_Oracle.connect(connstr)
     curs = conn.cursor()
     try:
         curs.execute(_query)
-        return str(curs.fetchall())
+        return str(curs.fetchall())[0]
     except:
         return "Sql Error"
 

@@ -12,6 +12,6 @@ CELERY_MONGODB_BACKEND_SETTINGS = {
 CELERYBEAT_SCHEDULE = {
     'every-minute': {
         'task': 'iky_server.listener.listen',
-        'schedule': timedelta(seconds= 5)
+        'schedule': timedelta(minutes=1)
     },
 }
