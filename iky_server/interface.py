@@ -1,7 +1,5 @@
-from iky_server import app
 import requests
 import actions
-import json
 import re
 
 

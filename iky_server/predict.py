@@ -1,12 +1,7 @@
-from flask import request, jsonify, Response
-from iky_server import app
-
 from time import time
 
-import os
-
 # Iky's tools
-from interface import execute_action
+
 from intent_classifier import Intent_classifier
 from functions import datefromstring
 
@@ -45,8 +40,6 @@ def extract_labels(tagged):
             labels.append(tp[2:])
     return labels
 
-
-@app.route('/predict', methods=['GET'])
 def predict(user_say):
     # query = request.args.get('query')
     begin = time()

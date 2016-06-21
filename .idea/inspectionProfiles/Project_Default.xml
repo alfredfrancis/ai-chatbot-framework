@@ -1,0 +1,35 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyCompatibilityInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ourVersions">
+        <value>
+          <list size="2">
+            <item index="0" class="java.lang.String" itemvalue="2.7" />
+            <item index="1" class="java.lang.String" itemvalue="3.5" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="12">
+            <item index="0" class="java.lang.String" itemvalue="Flask-OpenID" />
+            <item index="1" class="java.lang.String" itemvalue="Flask-GoogleLogin" />
+            <item index="2" class="java.lang.String" itemvalue="ipaddress" />
+            <item index="3" class="java.lang.String" itemvalue="python-crfsuite" />
+            <item index="4" class="java.lang.String" itemvalue="pymongo" />
+            <item index="5" class="java.lang.String" itemvalue="wit" />
+            <item index="6" class="java.lang.String" itemvalue="pywikibot" />
+            <item index="7" class="java.lang.String" itemvalue="httplib2" />
+            <item index="8" class="java.lang.String" itemvalue="requests" />
+            <item index="9" class="java.lang.String" itemvalue="python-openid" />
+            <item index="10" class="java.lang.String" itemvalue="Flask-Login" />
+            <item index="11" class="java.lang.String" itemvalue="simplejson" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

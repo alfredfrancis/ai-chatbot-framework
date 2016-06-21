@@ -5,12 +5,6 @@ def buy_pizza(tagged_json):
 def book_ticket(tagged_json):
     return "Flight from %s to %s on %s.Done!" % (tagged_json['FROM'], tagged_json['TO'], tagged_json['DATE'])
 
-
-def google_search(tagged_json):
-    return 'Wait a sec, Let me redirect you..<meta http-equiv="refresh" content="1;url=http://google.com/search?q=%s" />' % \
-           tagged_json['QUERY']
-
-
 def create_user(tagged_json):
     return "function create_user(%s)" % (tagged_json)
 
@@ -24,10 +18,14 @@ def check_status(tagged_json):
 
 
 def reminder(tagged_json):
-    result = "Reminder set at <b>%s</b><br> Event : <b>%s</b> <br>" % (tagged_json["date"], tagged_json["event"])
+    print tagged_json
+    result = "Reminder set at %s , Event : %s" % (tagged_json["date"], tagged_json["event"])
     return result
 
 
 def alarm(tagged_json):
-    result = "Alarm set at <b>%s</b>" % (tagged_json["date"])
+    result = "Alarm set at %s" % (tagged_json["date"])
     return result
+
+def checkTransactionStatus(tagged_json):
+    return "Transanction Number : %s is completed."%tagged_json["lr_no"]
