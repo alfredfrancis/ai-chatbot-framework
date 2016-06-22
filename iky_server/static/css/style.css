@@ -58,8 +58,9 @@ body {
 #train_query{
     color: gray;
     padding:3px;
-    height: 200px;
+    height: 400px;
     font-size: 30px;
+    overflow:scroll;
 }
 #train_query::selection {
     color:green;
