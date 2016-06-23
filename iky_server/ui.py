@@ -1,11 +1,11 @@
-from iky_server import app
 import os
 
-from flask import request, jsonify, Response
+from flask import request
 
+from iky_server import app
 # DB stuff
 from bson.objectid import ObjectId
-from bson.json_util import loads, dumps
+from bson.json_util import dumps
 from mongo import _insert, _retrieve, _delete
 
 # Iky's tools
@@ -60,5 +60,16 @@ def delete_story():
 @app.route('/delete_sent', methods=['POST'])
 def delete_sent():
     query = {"_id": ObjectId(request.form['sent_id'])}
-    _delete("labled_queries", query);
+    _delete("labled_queries", query)
     return "1"
+
+
+@app.route("/saveToRepo", methods=['POST'])
+def saveToRepo():
+    data = {
+        "story_id": request.form['story_id'],
+        "raw_data": request.form['raw_data']
+    }
+
+    print(data)
+    return _insert("repo", data)

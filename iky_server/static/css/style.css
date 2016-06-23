@@ -102,3 +102,7 @@ p.flip {
   content: attr(placeholder);
   display: block; /* For Firefox */
 }
+.selectpicker{
+width:500px;
+margin:8px 0px;
+}

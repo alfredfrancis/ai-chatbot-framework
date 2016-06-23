@@ -18,6 +18,10 @@ def home():
 def stories():
     return render_template('stories.html')
 
+# Create Stories
+@app.route('/repo')
+def repo():
+    return render_template('repo.html')
 
 # Training UI
 @app.route('/train', methods=['GET'])
