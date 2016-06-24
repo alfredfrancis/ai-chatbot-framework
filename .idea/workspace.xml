@@ -2,19 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/iky_server/googleCalender.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/iky_server/test/clean.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/models/576925a8d6d19e1f3f75814b.model" afterPath="$PROJECT_DIR$/models/576925a8d6d19e1f3f75814b.model" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/models/intent.pkl" afterPath="$PROJECT_DIR$/models/intent.pkl" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/actions.py" afterPath="$PROJECT_DIR$/iky_server/actions.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/api.py" afterPath="$PROJECT_DIR$/iky_server/api.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/nlp.py" afterPath="$PROJECT_DIR$/iky_server/nlp.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/static/css/style.css" afterPath="$PROJECT_DIR$/iky_server/static/css/style.css" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/static/js/index.js" afterPath="$PROJECT_DIR$/iky_server/static/js/index.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/static/js/train.js" afterPath="$PROJECT_DIR$/iky_server/static/js/train.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/templates/train.html" afterPath="$PROJECT_DIR$/iky_server/templates/train.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/ui.py" afterPath="$PROJECT_DIR$/iky_server/ui.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/interface.py" afterPath="$PROJECT_DIR$/iky_server/interface.py" />
     </list>
     <ignored path="iky.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -35,10 +23,10 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="actions.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="actions.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/iky_server/actions.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1210">
+            <state relative-caret-position="-82">
               <caret line="55" column="73" selection-start-line="55" selection-start-column="73" selection-end-line="55" selection-end-column="73" />
               <folding />
             </state>
@@ -48,10 +36,10 @@
       <file leaf-file-name="interface.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/iky_server/interface.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="242">
-              <caret line="11" column="21" selection-start-line="11" selection-start-column="21" selection-end-line="11" selection-end-column="21" />
+            <state relative-caret-position="198">
+              <caret line="9" column="21" selection-start-line="9" selection-start-column="21" selection-end-line="9" selection-end-column="21" />
               <folding>
-                <element signature="e#0#15#0" expanded="true" />
+                <element signature="e#0#14#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -69,7 +57,7 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="listener.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="listener.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/iky_server/listener.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="22">
@@ -126,7 +114,6 @@
         <option value="$PROJECT_DIR$/iky_server/listener.py" />
         <option value="$PROJECT_DIR$/iky_server/celeryconfig.py" />
         <option value="$PROJECT_DIR$/iky_server/test/helpdesk.py" />
-        <option value="$PROJECT_DIR$/iky_server/interface.py" />
         <option value="$PROJECT_DIR$/iky_server/main.py" />
         <option value="$PROJECT_DIR$/iky_server/templates/repo.html" />
         <option value="$PROJECT_DIR$/iky_server/static/js/repo.js" />
@@ -140,6 +127,7 @@
         <option value="$PROJECT_DIR$/iky_server/static/js/index.js" />
         <option value="$PROJECT_DIR$/iky_server/googleCalender.py" />
         <option value="$PROJECT_DIR$/iky_server/actions.py" />
+        <option value="$PROJECT_DIR$/iky_server/interface.py" />
       </list>
     </option>
   </component>
@@ -557,12 +545,6 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="python-line">
-          <url>file://$PROJECT_DIR$/iky_server/interface.py</url>
-          <option name="timeStamp" value="3" />
-        </line-breakpoint>
-      </breakpoints>
       <option name="time" value="4" />
     </breakpoint-manager>
     <watches-manager />
@@ -887,14 +869,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/iky_server/listener.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="22">
-          <caret line="1" column="0" selection-start-line="1" selection-start-column="0" selection-end-line="1" selection-end-column="36" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/iky_server/static/js/index.js">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="424">
@@ -947,6 +921,24 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/iky_server/actions.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-82">
+          <caret line="55" column="73" selection-start-line="55" selection-start-column="73" selection-end-line="55" selection-end-column="73" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/iky_server/interface.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="198">
+          <caret line="9" column="21" selection-start-line="9" selection-start-column="21" selection-end-line="9" selection-end-column="21" />
+          <folding>
+            <element signature="e#0#14#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/run.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
@@ -957,20 +949,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/iky_server/interface.py">
+    <entry file="file://$PROJECT_DIR$/iky_server/listener.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="242">
-          <caret line="11" column="21" selection-start-line="11" selection-start-column="21" selection-end-line="11" selection-end-column="21" />
-          <folding>
-            <element signature="e#0#15#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/iky_server/actions.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1210">
-          <caret line="55" column="73" selection-start-line="55" selection-start-column="73" selection-end-line="55" selection-end-column="73" />
+        <state relative-caret-position="22">
+          <caret line="1" column="0" selection-start-line="1" selection-start-column="0" selection-end-line="1" selection-end-column="36" />
           <folding />
         </state>
       </provider>
