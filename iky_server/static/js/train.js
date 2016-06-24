@@ -13,10 +13,11 @@ $(document).ready(function() {
 					$('#output').html("<pre>" + JSON.stringify(data) + "</pre>");
 				});
 			$("#token_label").prop('disabled', false);
+			$("#btn_add_test").prop('disabled', false);
 	});
 
 	$("#token_label").prop('disabled', true);
-
+    $("#btn_add_test").prop('disabled', true);
 	function getSelected() {
 		var t = '';
 		if (window.getSelection) {

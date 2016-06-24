@@ -2,6 +2,9 @@ body {
     margin: 20px;
     background: #fff;
 }
+hr{
+    border-color:lightgreen;
+}
 .page-header{
     margin-top: -10px;
 }

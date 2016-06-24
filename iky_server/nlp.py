@@ -4,7 +4,7 @@ from iky_server import app
 # NLP stuff
 from nltk.tag.perceptron import PerceptronTagger
 from nltk import word_tokenize
-from bs4 import BeautifulSoup
+import html2text
 
 import json
 
@@ -21,8 +21,7 @@ def pos_tagger(sentence):
 @app.route('/pos_tag', methods=['POST'])
 def pos_tag():
     html_text = request.form['text']
-    soup = BeautifulSoup(html_text)
-    text = soup.getText()
+    text = html2text.html2text(html_text)
     tagged_token = pos_tagger(text)
     tagged_json = []
     for token, postag in tagged_token:
