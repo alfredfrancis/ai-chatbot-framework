@@ -111,8 +111,20 @@ $(document).ready(function() {
 			});
 		$('#train_query').html("");
 	});
+
 	$("#btn_clear").click(function() {
 		$('#train_query').html("");
+	});
+
+	$(document).on('click', "button#btn_build", function() {
+		_id = $(this).attr("objid");
+		$.post("/build_model", {
+				user_id:"1",
+				story_id:_id
+			},
+			function(data) {
+				 alert('build sucessfull');
+			});
 	});
 
 	$("a#btn_dlt_sent").click(function(){

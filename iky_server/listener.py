@@ -4,6 +4,7 @@ from mail import emailManager
 from predict import predict
 from celery import Celery
 import celeryconfig
+import html2text
 
 app.config.from_object(celeryconfig)
 
@@ -44,9 +45,8 @@ def processEmail(singleMail):
         result = execute_action(predicted['action_type'],predicted['intent'],predicted["labels"])
     else:
         result = "Sorry im not trained to handle this email."
-    addToSendEmailQueue.apply_async(args=[singleMail,result])
+    addToSendEmailQueue.apply_async(args=[singleMail, result])
     return True
-
 
 @celery.task
 def listen():

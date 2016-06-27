@@ -11,6 +11,7 @@ $(document).ready(function() {
 				{
 					html += '<div class="story" objid='+obj._id.$oid+'>\
 								<h2 class="">'+ obj.story_name +'</h2> \
+								<button type="button" class="btn btn-primary" id="btn_edit" objid='+obj._id.$oid+' >Edit</button>\
 								<button type="button" class="btn btn-primary" id="btn_train" objid='+obj._id.$oid+' >Train</button>\
 								<button type="button" class="btn btn-primary" id="btn_delete" objid='+obj._id.$oid+' >Delete</button>\
 								<button type="button" class="btn btn-primary" id="btn_build" objid='+obj._id.$oid+' >Build Model</button>\
@@ -33,6 +34,11 @@ $(document).ready(function() {
 			});
 		$('#new_story').val ="";
 		get_stories();
+	});
+
+	$(document).on('click', "button#btn_edit", function() {
+		_id = $(this).attr("objid");
+		window.open("/editStory?story_id="+_id);
 	});
 
 	$(document).on('click', "button#btn_train", function() {

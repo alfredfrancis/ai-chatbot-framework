@@ -23,6 +23,15 @@ def stories():
 def repo():
     return render_template('repo.html')
 
+
+@app.route('/editStory', methods=['GET'])
+def editStory():
+    _id = request.args.get("story_id")
+    query = {"_id": ObjectId(_id)}
+    story_detail = _retrieve("stories", query)
+    return render_template('editStory.html', story_id=_id, story_details=story_detail)
+
+
 # Training UI
 @app.route('/train', methods=['GET'])
 def train():
@@ -33,6 +42,12 @@ def train():
     query = {"_id": ObjectId(_id)}
     story_detail = _retrieve("stories", query)
     return render_template('train.html', story_id=_id, test_sets=test_set, story_details=story_detail)
+
+@app.route('/logs', methods=['GET'])
+def logs():
+    query = {}
+    logs = _retrieve("logs", query)
+    return render_template('predictionLogs.html', logs=logs)
 
 
 # Error handlers.

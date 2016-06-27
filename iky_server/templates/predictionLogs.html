@@ -1,0 +1,32 @@
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="static/css/style.css">
+    <script src="static/js/jquery.min.js"></script>
+    <script src="static/js/bootstrap.min.js"></script>
+    <script src="static/js/editStory.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="page-header">
+        <div class="pull-left">
+            <h1>Prediction logs</h1>
+            <i>iky's prediction logs</i>
+        </div>
+        <div class="pull-right">
+            <a href="/"><img class="logo-left" src="static/img/iky.png"></a>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="span4 loglist">
+        {% for key in logs %}
+        <h4>User      : <font color="grey">{{ key.user }}</font></h4>
+        <h4>Query     : <font color="grey">{{ key.query }}</font></h4>
+        <h4>Predicted : <font color="grey">{{ key.predicted }}</font></h4>
+        <hr>
+        {% endfor %}
+    </div>
+
+</div>
+</body>
+</html>

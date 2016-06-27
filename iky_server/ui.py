@@ -6,7 +6,7 @@ from iky_server import app
 # DB stuff
 from bson.objectid import ObjectId
 from bson.json_util import dumps
-from mongo import _insert, _retrieve, _delete
+from mongo import _insert, _retrieve, _delete,_update
 
 # Iky's tools
 from intent_classifier import Intent_classifier
@@ -32,6 +32,20 @@ def create_story():
         "story_name": request.form['story_name'],
     }
     return _insert("stories", data)
+
+@app.route('/saveEditStory', methods=['POST'])
+def saveEditStory():
+    condition = {
+        "_id":ObjectId(request.form['_id'])
+    }
+    data = {
+        "user_id": request.form['user_id'],
+        "labels": request.form['labels'].split(","),
+        "action_type": request.form['action_type'],
+        "action": request.form['action_name'],
+        "story_name": request.form['story_name'],
+    }
+    return _update("stories",condition, data)
 
 
 @app.route('/get_stories', methods=['POST'])

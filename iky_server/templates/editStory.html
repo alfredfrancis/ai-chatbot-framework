@@ -1,0 +1,39 @@
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="static/css/style.css">
+    <script src="static/js/jquery.min.js"></script>
+    <script src="static/js/bootstrap.min.js"></script>
+    <script src="static/js/editStory.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="page-header">
+        <div class="pull-left">
+            <h1>Edit Story</h1>
+            <i>Changing labels may cause serious trouble.</i>
+        </div>
+        <div class="pull-right">
+            <a href="/"><img class="logo-left" src="static/img/iky.png"></a>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="span4">
+        <input type="hidden" name="story_id" value="{{ story_id }}" >
+        <b>Story Name,</b><input class="form-control" id="story_name" type="text" value="{{ story_details[0].story_name }}"><br>
+        <b>Action Type</b>
+        <select id="action_type" class="form-control">
+            <option value=0>Python Function</option>
+            <option value=1>SQL query</option>
+            <option value=2>REST API</option>
+            <option value=3>Custom message</option>
+        </select>
+        <br>
+        <b>Action</b><input class="form-control" type="text" id="action_name" value="{{ story_details[0].action }}"><br>
+        <b>Labels</b><input class="form-control" type="text" id ="labels" value="{{ " ,".join(story_details[0].labels) }}"><br>
+        <button class="btn btn-primary" id="saveStory">Edit & Save</button>
+    </div>
+
+</div>
+</body>
+</html>

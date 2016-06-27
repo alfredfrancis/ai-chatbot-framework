@@ -19,6 +19,17 @@ def _retrieve(document_name, query):
     return posts
 
 
+def _update(document_name, condition, query):
+    document_name = iky[document_name]
+    posts = document_name.update_one(
+        condition,
+        {
+            "$set": query
+        }
+    )
+    return "Done"
+
+
 def _delete(document_name, query):
     document_name = iky[document_name]
     document_name.delete_many(query)

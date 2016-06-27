@@ -4,7 +4,6 @@ beautifulsoup4==4.4.1
 billiard==3.3.0.23
 bs4==0.0.1
 celery==3.1.23
-cx-Oracle==5.2.1
 Flask==0.10.1
 Flask-Login==0.2.11
 Flask-OpenID==1.2.5

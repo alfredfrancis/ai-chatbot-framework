@@ -14,7 +14,7 @@ from crf_train import _sent2features
 # DB stuff
 from bson.json_util import loads, dumps
 from bson.objectid import ObjectId
-from mongo import _retrieve
+from mongo import _retrieve,_insert
 import ast
 
 
@@ -43,29 +43,19 @@ def extract_labels(tagged):
 def predict(user_say):
     # query = request.args.get('query')
     begin = time()
-    t0 = time()
     story_id = Intent_classifier().context_check(user_say)
-    print("Time taken for Intent Classification :" + str(round(time() - t0, 3)) + "s")
 
     if not story_id:
         return {"error_code": "0", "error_msg": "can't identify the intent"}
 
-    t0 = time()
     query = {"_id": ObjectId(story_id)}
     story = _retrieve("stories", query)
-    print("Time taken for Database query :" + str(round(time() - t0, 3)) + "s")
-
     token_text = word_tokenize(user_say)
 
-    t0 = time()
     tagged_token = pos_tagger(user_say)
-    print("Time taken for POS taging :" + str(round(time() - t0, 3)) + "s")
-
-    t0 = time()
     tagger = pycrfsuite.Tagger()
     tagger.open('models/%s.model' % story_id)
     tagged = tagger.tag(_sent2features(tagged_token))
-    print("Time taken for Tagging :" + str(round(time() - t0, 3)) + "s")
 
     labels_original = set(story[0]['labels'])
     labels_predicted = set([x.lower() for x in extract_labels(tagged)])
@@ -75,13 +65,18 @@ def predict(user_say):
     tagged_dic["action_type"] = story[0]['action_type']
     # if labels_original == labels_predicted:
 
-    t0 = time()
     if len(labels_original) != 0:
         tagged_dic["labels"] = extract_chunks(zip(token_text, tagged))
         if "date" in tagged_dic["labels"]:
             tagged_dic["labels"]["date"] = datefromstring(tagged_dic["labels"]["date"])
-    print("Time taken for extracting chunk :" + str(round(time() - t0, 3)) + "s")
+
     print("Total time taken :" + str(round(time() - begin, 3)) + "s")
+    logs ={
+        "user":"1",
+        "query":user_say,
+        "predicted": tagged_dic["labels"]
+    }
+    _insert("logs", logs)
     return tagged_dic
 
     # result = execute_action(story[0]['action_type'],story[0]['action'],tagged_json)

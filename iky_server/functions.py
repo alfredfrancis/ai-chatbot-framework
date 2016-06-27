@@ -1,5 +1,3 @@
-from iky_server import app
-
 import re
 
 from datetime import datetime
@@ -40,4 +38,5 @@ def extract_chunks(tagged_sent, chunk_type):
 def datefromstring(time_string):
     cal = pdt.Calendar()
     now = datetime.now()
-    return str(cal.parseDT(time_string, now)[0])
+    result = str(cal.parseDT(time_string, now)[0])
+    return result
