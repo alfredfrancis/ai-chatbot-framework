@@ -2,7 +2,6 @@ $(document).ready(function() {
 	var NS = {};
 	
 	$("#train_button").click(function() {
-	        console.log($('#train_query').html());
 			var user_say = $('#train_query').html().replace("<br>"," ");
 
 			$.post("/pos_tag", {
@@ -39,8 +38,10 @@ $(document).ready(function() {
 			range.collapse(true);
 			range.setStart(editableEl, 0);
 
+            console.log($('<div>').append(range.cloneContents()).html());
+
 			$.post("/query_tokenize", {
-					text: range.toString().trim()
+					text: $('<div>').append(range.cloneContents()).html()
 				},
 				function(data) {
 					if (data.trim()) {
@@ -55,6 +56,7 @@ $(document).ready(function() {
 					text: NS.selected.trim()
 				},
 				function(data) {
+				alert(data);
 					if (data.trim()) {
 						NS.num_sel_words = data.split(" ").length;
 					} else {
