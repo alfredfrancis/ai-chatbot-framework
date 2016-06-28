@@ -56,7 +56,6 @@ $(document).ready(function() {
 					text: NS.selected.trim()
 				},
 				function(data) {
-				alert(data);
 					if (data.trim()) {
 						NS.num_sel_words = data.split(" ").length;
 					} else {

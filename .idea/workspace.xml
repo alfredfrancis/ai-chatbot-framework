@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/nlp.py" afterPath="$PROJECT_DIR$/iky_server/nlp.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/iky_server/static/js/train.js" afterPath="$PROJECT_DIR$/iky_server/static/js/train.js" />
     </list>
     <ignored path="iky.iws" />
@@ -99,8 +98,8 @@
       <file leaf-file-name="train.js" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/iky_server/static/js/train.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-154">
-              <caret line="42" column="12" selection-start-line="42" selection-start-column="12" selection-end-line="42" selection-end-column="12" />
+            <state relative-caret-position="308">
+              <caret line="57" column="32" selection-start-line="57" selection-start-column="32" selection-end-line="57" selection-end-column="32" />
               <folding />
             </state>
           </provider>
@@ -1015,8 +1014,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/iky_server/static/js/train.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-154">
-          <caret line="42" column="12" selection-start-line="42" selection-start-column="12" selection-end-line="42" selection-end-column="12" />
+        <state relative-caret-position="308">
+          <caret line="57" column="32" selection-start-line="57" selection-start-column="32" selection-end-line="57" selection-end-column="32" />
           <folding />
         </state>
       </provider>
