@@ -18,6 +18,7 @@ $(document).ready(function() {
 
 	$("#token_label").prop('disabled', true);
     $("#btn_add_test").prop('disabled', true);
+
 	function getSelected() {
 		var t = '';
 		if (window.getSelection) {
@@ -83,9 +84,9 @@ $(document).ready(function() {
 				$("#labels").val($("#labels").val() +"," + $("#token_label").val());
 			}
 			else{
-				$("#labels").val($("#token_label").val());	
+				$("#labels").val($("#token_label").val());
 			}*/
-			
+
 			//$('#instance').append("before:"+NS.num_words+",count:"+NS.num_sel_words+"\n");
 			for (var i = 1; i <= NS.num_sel_words; i++) {
 				if (i == 1) {
@@ -100,7 +101,8 @@ $(document).ready(function() {
 			$("#token_label").val("");
 		}
 	});
-	$("#btn_add_test").click(function() 
+
+	$("#btn_add_test").click(function()
 	{
 		$.post("/_insert_tagged", {
 				story_id: $("input[name=story_id]").val(),
@@ -114,17 +116,6 @@ $(document).ready(function() {
 
 	$("#btn_clear").click(function() {
 		$('#train_query').html("");
-	});
-
-	$(document).on('click', "button#btn_build", function() {
-		_id = $(this).attr("objid");
-		$.post("/build_model", {
-				user_id:"1",
-				story_id:_id
-			},
-			function(data) {
-				 alert('build sucessfull');
-			});
 	});
 
 	$("a#btn_dlt_sent").click(function(){
@@ -141,6 +132,18 @@ $(document).ready(function() {
 				});
 		}
 	});
+
+	$(document).on('click', "button#btn_build", function() {
+		_id = $(this).attr("objid");
+		$.post("/build_model", {
+				user_id:"1",
+				story_id:_id
+			},
+			function(data) {
+				 alert('build sucessfull');
+			});
+	});
+
 	$(".flip").click(function()
 	{
 		$(".panel").toggle();
