@@ -38,5 +38,5 @@ def extract_chunks(tagged_sent, chunk_type):
 def datefromstring(time_string):
     cal = pdt.Calendar()
     now = datetime.now()
-    result = str(cal.parseDT(time_string, now)[0])
+    result = str(cal.parseDT(time_string.strip(), now)[0])
     return result

@@ -9,11 +9,12 @@
 import imaplib
 import smtplib
 import sys
-from email.parser import Parser
 import email
+from email.parser import Parser
 
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
+
 
 class emailManager:
     def __init__(self, imapservername, smtpservername, username, password):
@@ -59,38 +60,6 @@ class emailManager:
     def closeIMAP(self):
         return self.imapConnection.close()
 
-
-
-    def get_decoded_email_body(self,message_body):
-        msg = email.message_from_string(message_body)
-        text = ""
-        if msg.is_multipart():
-            html = None
-            for part in msg.get_payload():
-
-                print "%s, %s" % (part.get_content_type(), part.get_content_charset())
-
-                if part.get_content_charset() is None:
-                    # We cannot know the character set, so return decoded "something"
-                    text = part.get_payload(decode=True)
-                    continue
-
-                charset = part.get_content_charset()
-
-                if part.get_content_type() == 'text/plain':
-                    text = unicode(part.get_payload(decode=True), str(charset), "ignore").encode('utf8', 'replace')
-
-                if part.get_content_type() == 'text/html':
-                    html = unicode(part.get_payload(decode=True), str(charset), "ignore").encode('utf8', 'replace')
-
-            if text is not None:
-                return text.strip()
-            else:
-                return html.strip()
-        else:
-            text = unicode(msg.get_payload(decode=True), msg.get_content_charset(), 'ignore').encode('utf8', 'replace')
-            return text.strip()
-
     def getUnReadMessages(self, emailSubject=""):
         parser = Parser()
         self.imapConnection.select(readonly=0)
@@ -101,21 +70,56 @@ class emailManager:
                 responseCode, resultData = self.imapConnection.fetch(mailNumber, '(RFC822)')
                 parsedEmail = parser.parsestr(resultData[0][1])
                 singleMail = dict(parsedEmail)
-                singleMail["body"] = self.get_decoded_email_body(resultData[0][1])
 
-                # if parsedEmail.is_multipart():
-                #     for part in parsedEmail.get_payload():
-                #         if part.get_content_type() == "text/plain":
-                #             singleMail["body"] += part.get_payload(decode=True)
-                # else:
-                #     singleMail["body"] = parsedEmail.get_payload(decode=False)
+                emailMsg = email.message_from_string(resultData[0][1])
+                singleMail["body"] = ""
+
+                if emailMsg.is_multipart():
+                    for part in emailMsg.walk():
+                        ctype = part.get_content_type()
+                        cdispo = str(part.get('Content-Disposition'))
+
+                        # skip any text/plain (txt) attachments
+                        if ctype == 'text/plain' and 'attachment' not in cdispo:
+                            singleMail["body"] = part.get_payload(decode=True)  # decode
+                            break
+                # not multipart - i.e. plain text, no attachments, keeping fingers crossed
+                else:
+                    singleMail["body"] = emailMsg.get_payload(decode=True)
 
                 responseCode, resultData = self.imapConnection.uid('store',
                                                                    '542648', '+FLAGS', '(\\Seen)')
                 yield singleMail
 
+    def cleanEmail(self,dirtyMail):
+        dirtyMail = dirtyMail.replace(r"\r\n", r"\n").replace(r"  ", r" ")
+        result = ""
+        for line in dirtyMail.splitlines():
+            print ("#" + line + "#")
+            line = line.strip()
+            if (line.startswith('--')
+                or line.startswith('From:')
+                or line.startswith('Date:')
+                or line.startswith('Subject:')
+                or line.startswith('From:')
+                or line.startswith('To:')
+                or line.startswith('Cc:')
+                or line.endswith('>,')
+                or line.endswith('>')
+                or line.endswith('<')
+                or line.endswith(']')
+                or line.startswith('>')
+                or line.startswith('Requester')
+                or line.startswith('Due by time')
+                or line.startswith('Category')
+                or line.startswith('Description')
+                ):
+                pass
+            else:
+                result += line + " "
+        return result.strip()
 
-# Testing
+
 if __name__ == '__main__':
     testEmail = emailManager("imap.gmail.com", "smtp.gmail.com", "ikytesting@gmail.com", "ikytesting999")
     testEmail.openIMAP()
@@ -124,13 +128,17 @@ if __name__ == '__main__':
         try:
             for singleMail in testEmail.getUnReadMessages():
                 print("New Email from :" + singleMail["From"])
-                # print(singleMail["To"])
-                print(singleMail["body"])
+
+                cleanedEmailContent = testEmail.cleanEmail(singleMail["body"])
+
+                with open("emails/"+singleMail["Date"]+".txt", "a") as myfile:
+                    myfile.write(cleanedEmailContent)
+
                 # r = requests.get("http://172.30.10.141/iky_parse?user_say=" + singleMail["body"])
                 # body = "Hi,\n" + r.content + "\nCheers,\n\tiKY"
-                body = "Hi,\nYour query has been received.We'll get back to you soon\nCheers,\n\tiKY"
-                print(body)
-                testEmail.sendEmail(singleMail["From"], "Reply to your query", body)
+                #body = "Hi,\nYour query has been received.We'll get back to you soon\nCheers,\n\tiKY"
+                #print(body)
+                #testEmail.sendEmail(singleMail["From"], "Reply to your query", body)
         except KeyboardInterrupt:
             testEmail.closeIMAP()
             testEmail.closeSMTP()

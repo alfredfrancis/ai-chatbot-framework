@@ -27,7 +27,7 @@ def alarm(tagged_json):
 def checkTransactionStatus(tagged_json):
     return "Transanction Number : %s is completed." % tagged_json["lr_no"]
 
-def reminder(tagged_json):
+def reminder2(tagged_json):
     from apiclient.discovery import build
     from httplib2 import Http
     from oauth2client import file, client, tools
@@ -69,3 +69,5 @@ def reminder(tagged_json):
             at: %s''' % (e['summary'].encode('utf-8'),
                          e['start']['dateTime']))
 
+def reminder(tagged_json):
+    return "Reminder set!"
