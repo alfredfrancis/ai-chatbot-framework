@@ -1,9 +1,9 @@
 from bson.objectid import ObjectId
 from flask import render_template, request
 
-from ikyWareHouse.mongo import _retrieve
 from ikyWebServer import app
 
+from ikyCore.models import User,Story
 
 # Index
 @app.route('/')
@@ -24,22 +24,18 @@ def repo():
 
 @app.route('/editStory', methods=['GET'])
 def editStory():
-    _id = request.args.get("story_id")
-    query = {"_id": ObjectId(_id)}
-    story_detail = _retrieve("stories", query)
-    return render_template('editStory.html', story_id=_id, story_details=story_detail)
+    _id = request.args.get("storyId")
+    story = Story.objects.get(id=ObjectId(_id))
+    return render_template('editStory.html', storyId=_id, storyDetails=story.to_mongo().to_dict())
 
 
 # Training UI
 @app.route('/train', methods=['GET'])
 def train():
-    _id = request.args.get("story_id")
-    query = {"story_id": _id}
-    test_set = _retrieve("labled_queries", query)
-
-    query = {"_id": ObjectId(_id)}
-    story_detail = _retrieve("stories", query)
-    return render_template('train.html', story_id=_id, test_sets=test_set, story_details=story_detail)
+    _id = request.args.get("storyId")
+    story = Story.objects.get(id=ObjectId(_id))
+    labeledSentences = story.labeledSentences
+    return render_template('train.html', storyId=_id, labeledSentences=labeledSentences, story=story.to_mongo().to_dict())
 
 @app.route('/logs', methods=['GET'])
 def logs():

@@ -19,18 +19,18 @@
         <div class="clearfix"></div>
     </div>
     <div class="span4">
-        <input type="hidden" name="story_id" value="{{ story_id }}" >
-        <b>Story Name,</b><input class="form-control" id="story_name" type="text" value="{{ story_details[0].story_name }}"><br>
+        <input type="hidden" name="storyId" value="{{ storyId }}" >
+        <b>Story Name,</b><input class="form-control" id="storyName" type="text" value="{{ storyDetails.storyName }}"><br>
         <b>Action Type</b>
-        <select id="action_type" class="form-control">
-            <option value=0>Python Function</option>
-            <option value=1>SQL query</option>
-            <option value=2>REST API</option>
-            <option value=3>Custom message</option>
+        <select id="actionType" class="form-control">
+            <option value=1>Python Function</option>
+            <option value=2>SQL query</option>
+            <option value=3>REST API</option>
+            <option value=4>Custom message</option>
         </select>
         <br>
-        <b>Action</b><input class="form-control" type="text" id="action_name" value="{{ story_details[0].action }}"><br>
-        <b>Labels</b><input class="form-control" type="text" id ="labels" value="{{ " ,".join(story_details[0].labels) }}"><br>
+        <b>Action</b><input class="form-control" type="text" id="actionName" value="{{ storyDetails.actionName }}"><br>
+        <b>Labels</b><input class="form-control" type="text" id ="labels" value="{{ " ,".join(storyDetails.labels) }}"><br>
         <button class="btn btn-primary" id="saveStory">Edit & Save</button>
     </div>
 

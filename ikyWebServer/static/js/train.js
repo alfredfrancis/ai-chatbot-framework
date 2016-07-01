@@ -124,9 +124,9 @@ $(document).ready(function() {
 		if (r == true)
 		{
 			_id = $(this).attr("_id");
-			$.post("/delete_sent", {
-					user_id:"1",
-					sent_id:_id 
+			$.post("/deleteLabeledSentences", {
+					storyId: $("input[name=storyId]").val(),
+					sentenceId:_id
 				},
 				function(data) {
 					 $( "li[_id="+_id+"]" ).remove();
@@ -134,7 +134,7 @@ $(document).ready(function() {
 		}
 	});
 
-	$(document).on('click', "button#btn_build", function() {
+	$(document).on('click', "button#btnBuild", function() {
 		_id = $(this).attr("objid");
 		$.post("/build_model", {
 				user_id:"1",

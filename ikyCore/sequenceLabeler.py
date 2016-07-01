@@ -1,22 +1,55 @@
+import ast
 from time import time
 
-# Iky's tools
-
-from intentClassifier import Intent_classifier
-from functions import datefromstring
-
-# NLP stuff
-from nlp import pos_tagger
-from nltk import word_tokenize
 import pycrfsuite
-from crf_train import _sent2features
+from bson import ObjectId
+from nltk import word_tokenize
 
-# DB stuff
-from bson.objectid import ObjectId
-from ikyWareHouse.mongo import _retrieve,_insert
+from ikyCore.functions import dateFromString
+from ikyCore.nlp import pos_tagger
+from ikyWareHouse.mongo import _retrieve, _insert
+from featuresExtractor import extractFeatures
+
+def sentToFeatures(sent):
+    return [extractFeatures(sent, i) for i in range(len(sent))]
 
 
-# Extract Labeles from BIO tagged sentence
+def sentToLabels(sent):
+    return [label for token, postag, label in sent]
+
+
+def sentToTokens(sent):
+    return [token for token, postag, label in sent]
+
+def train(storyId):
+
+    cursor = _retrieve("labled_queries", {"story_id": storyId})
+
+    train_sents = []
+    for item in cursor:
+        train_sents.append(ast.literal_eval(item["item"].encode('ascii', 'ignore')))
+
+    X_train = [_sent2features(s) for s in train_sents]
+    y_train = [_sent2labels(s) for s in train_sents]
+
+    trainer = pycrfsuite.Trainer(verbose=False)
+    for xseq, yseq in zip(X_train, y_train):
+        trainer.append(xseq, yseq)
+
+    trainer.set_params({
+        'c1': 1.0,  # coefficient for L1 penalty
+        'c2': 1e-3,  # coefficient for L2 penalty
+        'max_iterations': 50,  # stop earlier
+
+        # include transitions that are possible, but not observed
+        'feature.possible_transitions': True
+    })
+    trainer.train('ikyWareHouse/models/%s.model' % story_id)
+
+    IntentClassifier().train()
+    return "1"
+
+
 def extract_chunks(tagged_sent):
     labeled = {}
     labels = set()
@@ -38,13 +71,10 @@ def extract_labels(tagged):
             labels.append(tp[2:])
     return labels
 
-def predict(user_say):
+
+def predict(stroyId,query):
     # query = request.args.get('query')
     begin = time()
-    story_id = Intent_classifier().predict(user_say)
-
-    if not story_id:
-        return {"error_code": "0", "error_msg": "can't identify the intent"}
 
     query = {"_id": ObjectId(story_id)}
     story = _retrieve("stories", query)
@@ -52,7 +82,7 @@ def predict(user_say):
 
     tagged_token = pos_tagger(user_say)
     tagger = pycrfsuite.Tagger()
-    tagger.open('models/%s.model' % story_id)
+    tagger.open('ikyWareHouse/models/%s.model' % story_id)
     tagged = tagger.tag(_sent2features(tagged_token))
 
     labels_original = set(story[0]['labels'])
@@ -66,7 +96,7 @@ def predict(user_say):
     if len(labels_original) != 0:
         tagged_dic["labels"] = extract_chunks(zip(token_text, tagged))
         if "date" in tagged_dic["labels"]:
-            tagged_dic["labels"]["date"] = datefromstring(tagged_dic["labels"]["date"])
+            tagged_dic["labels"]["date"] = dateFromString(tagged_dic["labels"]["date"])
 
     print("Total time taken :" + str(round(time() - begin, 3)) + "s")
     logs ={

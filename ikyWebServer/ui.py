@@ -2,18 +2,20 @@ import os
 
 from flask import request
 
+from ikyCore.models import User,Story
+from ikyCore.intentClassifier import IntentClassifier
 from ikyWebServer import app
+
 # DB stuff
 from bson.objectid import ObjectId
-from bson.json_util import dumps
 from ikyWareHouse.mongo import _insert, _retrieve, _delete,_update
 
 # Iky's tools
-from ikyCore.intentClassifier import Intent_classifier
-
+import buildResponse
 
 @app.route('/_insert_tagged', methods=['POST'])
 def _insert_tagged():
+
     data = {
         "item": request.form['labeled_info'],
         "user_id": "1",
@@ -22,60 +24,57 @@ def _insert_tagged():
     return _insert("labled_queries", data)
 
 
-@app.route('/create_story', methods=['POST'])
-def create_story():
-    data = {
-        "user_id": request.form['user_id'],
-        "labels": request.form['labels'].split(","),
-        "action_type": request.form['action_type'],
-        "action": request.form['action_name'],
-        "story_name": request.form['story_name'],
-    }
-    return _insert("stories", data)
+@app.route('/createStory', methods=['POST'])
+def createStory():
+    story = Story()
+    story.user = User.objects(email="iky@pealdatadirect.com")[0]
+    story.storyName = request.form['storyName']
+    story.actionName = request.form['actionName']
+    story.actionType = request.form['actionType']
+    story.labels = request.form['labels'].split(",")
+    try:
+        story.save()
+    except Exception as e:
+        return {"error": e}
+    return buildResponse.sentOk()
 
 @app.route('/saveEditStory', methods=['POST'])
 def saveEditStory():
-    condition = {
-        "_id":ObjectId(request.form['_id'])
-    }
+    story = Story.objects.get(id=ObjectId(request.form['_id']))
     data = {
-        "user_id": request.form['user_id'],
         "labels": request.form['labels'].split(","),
-        "action_type": request.form['action_type'],
-        "action": request.form['action_name'],
-        "story_name": request.form['story_name'],
+        "actionType": request.form['actionType'],
+        "actionName": request.form['actionName'],
+        "storyName": request.form['storyName'],
     }
-    return _update("stories",condition, data)
+    story.update(**data)
+    return buildResponse.sentOk()
 
 
-@app.route('/get_stories', methods=['POST'])
-def get_stories():
-    query = {"user_id": "1"}
-    return dumps(_retrieve("stories", query))
+@app.route('/getStories', methods=['POST'])
+def getStories():
+    stories = Story.objects(user=User.objects(email="iky@pealdatadirect.com")[0])
+    print (stories.to_json())
+    return buildResponse.sentJson(stories.to_json())
 
 
-@app.route('/delete_story', methods=['POST'])
+@app.route('/deleteStory', methods=['POST'])
 def delete_story():
-    query = {"_id": ObjectId(request.form['story_id'])}
-    _delete("stories", query);
-
-    query = {"story_id": request.form['story_id']}
-    _delete("labled_queries", query);
-
-    Intent_classifier().train()
-
+    Story.objects.get(id=ObjectId(request.form['storyId'])).delete()
+    IntentClassifier().train()
     try:
-        os.remove("models/%s.model" % request.form['story_id'])
+        os.remove("models/%s.model" % request.form['storyId'])
     except OSError:
         pass
-    return "1"
+        return buildResponse.sentOk()
 
 
-@app.route('/delete_sent', methods=['POST'])
+@app.route('/deleteLabeledSentences', methods=['POST'])
 def delete_sent():
-    query = {"_id": ObjectId(request.form['sent_id'])}
-    _delete("labled_queries", query)
-    return "1"
+    story=Story.objects.get(id=ObjectId(request.form['storyId']))
+    labeledSentence=story.labeledSentences.update_one( pull__id=ObjectId(request.form['sentenceId']) )
+    labeledSentence.delete()
+    return buildResponse.sentOk()
 
 
 @app.route("/saveToRepo", methods=['POST'])

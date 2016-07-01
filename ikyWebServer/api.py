@@ -1,55 +1,45 @@
-import json
+from flask import request
+from ikyCommons import errorCodes
+from ikyCore.intentClassifier import IntentClassifier
+from ikyCore.interface import executeAction
+from ikyCore.sequenceLabeler import predict
+from ikyWebServer import app, buildResponse
 
-from flask import request, Response
-from interface import execute_action
 
-from ikyCore.predict import predict
-from ikyWebServer import app
-
-
-@app.route('/ikyParseAndExecute',methods=['POST','GET'])
+@app.route('/ikyParseAndExecute', methods=['POST'])
 def ikyParseAndExecute():
-    if request.method == 'POST':
-        user_say = request.form['user_say']
+    result = {}
+    userQuery = request.form['userQuery']
+    if userQuery:
+        intentClassifier = IntentClassifier()
+        intent = intentClassifier.predict(userQuery)
+        if intent:
+            predicted = predict(userQuery)
+            if "errorCode" not in predicted:
+                result["output"] = executeAction(predicted['action_type'], predicted['intent'], predicted["labels"])
+            else:
+                result = errorCodes.UnableToExtractEntities
+        else:
+            result = errorCodes.UnidentifiedIntent
     else:
-        user_say = request.args.get('user_say')
+        result = errorCodes.EmptyInput
+    return buildResponse.buildJson(result)
 
-    predicted = predict(user_say)
-    if "error_code" not in predicted:
-        result = execute_action(predicted['action_type'], predicted['intent'], predicted["labels"])
-    else:
-        result = "Sorry im not trained to handle this."
-    return result
 
 # Request Handler
-@app.route('/iky_parse', methods=['POST', 'GET'])
-def iky_parse(user_say=None):
-    if request.method == 'POST':
-        user_say = request.form['user_say']
+@app.route('/ikyParse', methods=['POST'])
+def ikyParse():
+    result = {}
+    userQuery = request.form['userQuery']
+    if userQuery:
+        intentClassifier = IntentClassifier()
+        result["intent"] = intentClassifier.predict(userQuery)
+        if result["intent"]:
+            result["entities"] = predict(userQuery)
+        else:
+            result = errorCodes.UnidentifiedIntent
     else:
-        user_say = request.args.get('user_say')
-
-    if user_say == None or user_say == "":
-        result = json.dumps({"error_code": "2", "error_msg": "empty string"})
-    else:
-        result = json.dumps(predict(user_say))
-
-    return Response(response=result, status=200, mimetype="application/json")
+        result = errorCodes.EmptyInput
+    return buildResponse.buildJson(result)
 
 
-# mattermost integration
-@app.route('/mm', methods=['POST'])
-def mm():
-    """
-    channel_id=hawos4dqtby53pd64o4a4cmeoo&
-    channel_name=town-square&
-    team_domain=someteam&
-    team_id=kwoknj9nwpypzgzy78wkw516qe&
-    text=some+text+here&
-    timestamp=1445532266&
-    token=zmigewsanbbsdf59xnmduzypjc&
-    trigger_word=some&
-    user_id=rnina9994bde8mua79zqcg5hmo&
-    user_name=somename
-    """
-    return flask.jsonify(**request.form['text'])

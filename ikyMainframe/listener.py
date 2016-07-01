@@ -2,8 +2,8 @@ from celery import Celery
 from ikyWebServer.interface import execute_action
 
 import celeryconfig
-from ikyCore.predict import predict
-from ikyWebServer.mail import emailManager
+from ikyCore.sequenceLabeler import predict
+from ikyCommons.mail import emailManager
 
 app.config.from_object(celeryconfig)
 

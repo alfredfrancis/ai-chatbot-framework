@@ -18,9 +18,9 @@
 		  <div class="clearfix"></div>
 		</div>
 		<p class="flip">Create new story <span class="glyphicon glyphicon-menu-down"></span></p>
-		<div class="form-group new_story panel">
+		<div class="form-group newStory panel">
 		    <div class="span4">
-		      <input type="text" class="form-control" id="story_name" placeholder="Story name" required>
+		      <input type="text" class="form-control" id="storyName" placeholder="Story name" required>
 		      </div>
 		   <div class="span4">
 			<input class="form-control" placeholder="Lables" id="labels" type="text">
@@ -28,20 +28,20 @@
 			<div class="span4">
 				action,
 				<div class="span4">
-				    <select id="action_type" class="form-control">
-				      <option value=0>Python Function</option>
-				      <option value=1>SQL query</option>
-				      <option value=2>REST API</option>
-				      <option value=3>Custom message</option>
+				    <select id="actionType" class="form-control">
+				      <option value=1>Python Function</option>
+				      <option value=2>SQL query</option>
+				      <option value=3>REST API</option>
+				      <option value=4>Custom message</option>
 				    </select> 
 				  </div>
 				  <div class="span4">
-					<input class="form-control" placeholder="Action" size="50" id="action_name" type="text">
+					<input class="form-control" placeholder="Action" size="50" id="actionName" type="text">
 				</div>
 			</div>
 		    <div class="span4">
 			    <div class="pull-right">
-			      <button type="button" class="btn btn-primary" id="new_story" >Create</button>
+			      <button type="button" class="btn btn-primary" id="btnCreateStory" >Create</button>
 			      </div>
 		    </div>
 		</div>

@@ -6,14 +6,14 @@ from ikyActions import actions
 # ORACLE database connection
 # import cx_Oracle
 
-def execute_action(action_type, action, parameters):
+def executeAction(actionType, action, parameters):
     types = {
         0: python_function,
         1: sql_query,
         2: rest_api,
         3: custom_message
     }
-    return types[int(action_type)](action, parameters)
+    return types[int(actionType)](action, parameters)
 
 
 def python_function(action, parameters):

@@ -1,74 +1,79 @@
 $(document).ready(function() {
 	var NS = {};
-	function get_stories() 
+	function getStories()
 	{
-		$.post("/get_stories", {},
-			function(data) {
-				var obj = JSON.parse(data);
-				//alert(JSON.stringify(obj));
-				html =""
-				$.each(obj, function(idx, obj) 
-				{
-					html += '<div class="story" objid='+obj._id.$oid+'>\
-								<h2 class="">'+ obj.story_name +'</h2> \
-								<button type="button" class="btn btn-primary" id="btn_edit" objid='+obj._id.$oid+' >Edit</button>\
-								<button type="button" class="btn btn-primary" id="btn_train" objid='+obj._id.$oid+' >Train</button>\
-								<button type="button" class="btn btn-primary" id="btn_delete" objid='+obj._id.$oid+' >Delete</button>\
-								<button type="button" class="btn btn-primary" id="btn_build" objid='+obj._id.$oid+' >Build Model</button>\
-							</div>';
-				});
+		$.post("/getStories", {},
+			function(data)
+			{
+			    html = "<center>No stories found!</center>"
+			    if(data[0])
+			    {
+			        html =""
+                    $.each(data, function(idx, obj)
+                    {
+                        html += '<div class="story" objId='+obj._id.$oid+'>\
+                                    <h2 class="">'+ obj.storyName +'</h2> \
+                                    <button type="button" class="btn btn-primary" id="btnEdit" objId='+obj._id.$oid+' >Edit</button>\
+                                    <button type="button" class="btn btn-primary" id="btnTrain" objId='+obj._id.$oid+' >Train</button>\
+                                    <button type="button" class="btn btn-primary" id="btnDelete" objId='+obj._id.$oid+' >Delete</button>\
+                                    <button type="button" class="btn btn-primary" id="btnBuild" objId='+obj._id.$oid+' >Build Model</button>\
+                                </div>';
+                    });
+                }
 				$('.stories').html(html);
 			});
 	}
 
-	get_stories();
+	getStories();
 
-	$("#new_story").click(function() 
+	$("#btnCreateStory").click(function()
 	{
-		$.post("/create_story", {
-				user_id:"1",
-				story_name:$("#story_name").val(),
-				action_type:$("#action_type").val(),
-				action_name:$("#action_name").val(),
+		$.post("/createStory", {
+				userId:"1",
+				storyName:$("#storyName").val(),
+				actionType:$("#actionType").val(),
+				actionName:$("#actionName").val(),
 				labels:$("#labels").val()
 			});
-		$('#new_story').val ="";
-		get_stories();
+		$('#newStory').val ="";
+		getStories();
 	});
 
-	$(document).on('click', "button#btn_edit", function() {
-		_id = $(this).attr("objid");
-		window.open("/editStory?story_id="+_id);
+	$(document).on('click', "button#btnEdit", function() {
+		_id = $(this).attr("objId");
+		window.open("/editStory?storyId="+_id);
 	});
 
-	$(document).on('click', "button#btn_train", function() {
-		_id = $(this).attr("objid");
-		window.open("/train?story_id="+_id);
+	$(document).on('click', "button#btnTrain", function() {
+		_id = $(this).attr("objId");
+		window.open("/train?storyId="+_id);
 	});
 
-	$(document).on('click', "button#btn_delete", function() {
+	$(document).on('click', "button#btnDelete", function() {
 		var r =confirm("Do you want to continue?");
 		if (r == true) {
-		_id = $(this).attr("objid");
-		$.post("/delete_story", {
-				user_id:"1",
-				story_id:_id 
+		_id = $(this).attr("objId");
+		$.post("/deleteStory", {
+				userId:"1",
+				storyId:_id
 			},
 			function(data) {
-				 $( "div[objid="+_id+"]" ).remove();
+				 $( "div[objId="+_id+"]" ).remove();
+				 getStories();
 			});
 	}
 	});
-	$(document).on('click', "button#btn_build", function() {
-		_id = $(this).attr("objid");
-		$.post("/build_model", {
-				user_id:"1",
-				story_id:_id 
+	$(document).on('click', "button#btnBuild", function() {
+		_id = $(this).attr("objId");
+		$.post("/buildModel", {
+				userId:"1",
+				storyId:_id
 			},
 			function(data) {
 				 alert('build sucessfull');
 			});
 	});
+
 	$(".flip").click(function()
 	{
 		$(".panel").toggle();
