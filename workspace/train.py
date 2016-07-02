@@ -96,14 +96,14 @@ trainer.set_params({
 })
 trainer.params()
 
-trainer.train('iky.test.crfsuite')
+trainer.train('iky.workspace.crfsuite')
 
 query =raw_input("Enter : ")
 
 token_text = nltk.word_tokenize(query)
 tagged_token = nltk.pos_tag(token_text)
 tagger = pycrfsuite.Tagger()
-tagger.open('iky.test.crfsuite')
+tagger.open('iky.workspace.crfsuite')
 tagger.dump()
 tagged = tagger.tag(sent2features(tagged_token))
 print(tagger.probability(tagged))

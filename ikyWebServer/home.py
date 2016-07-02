@@ -3,7 +3,7 @@ from flask import render_template, request
 
 from ikyWebServer import app
 
-from ikyCore.models import User,Story
+from ikyCore.models import Story
 
 # Index
 @app.route('/')

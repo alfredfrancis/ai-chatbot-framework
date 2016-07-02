@@ -61,7 +61,6 @@ def saveEditStory():
 @app.route('/getStories', methods=['POST'])
 def getStories():
     stories = Story.objects(user=User.objects(email="iky@pealdatadirect.com")[0])
-    print (stories.to_json())
     return buildResponse.sentJson(stories.to_json())
 
 
@@ -83,7 +82,7 @@ def deleteLabeledSentences():
     story.save()
     return buildResponse.sentOk()
 
-
+#Not working
 @app.route("/saveToRepo", methods=['POST'])
 def saveToRepo():
 

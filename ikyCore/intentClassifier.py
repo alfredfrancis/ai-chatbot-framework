@@ -1,5 +1,5 @@
-from ikyCore.models import Story,LabeledSentences
-from bson.json_util import loads
+from ikyCore.models import Story
+
 
 import numpy as np
 from sklearn import preprocessing
@@ -18,13 +18,14 @@ class IntentClassifier(object):
 
         trainLabels = []
         self.labeledSentences = []
-
         for story in stories:
             labeledSentencesTemp = story.labeledSentences
-            for labeledSentence in labeledSentencesTemp:
-                self.labeledSentences.append(labeledSentence.data)
-                trainLabels.append([str(story.id)])
-
+            if labeledSentencesTemp:
+                for labeledSentence in labeledSentencesTemp:
+                    self.labeledSentences.append(labeledSentence.data)
+                    trainLabels.append(str(story.id))
+            else:
+                raise Exception('Error')
         self.Y = self.lb.fit_transform(trainLabels)
 
     def train(self):
@@ -37,7 +38,7 @@ class IntentClassifier(object):
                 else:
                     lq = token[0]
             trainFeatures.append(lq)
-        print (trainFeatures)
+
         self.X = np.array(trainFeatures)
 
         classifier = Pipeline([

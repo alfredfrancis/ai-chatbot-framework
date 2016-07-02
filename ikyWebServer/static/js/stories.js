@@ -70,7 +70,7 @@ $(document).ready(function() {
 				storyId:_id
 			},
 			function(data) {
-				 alert('build sucessfull');
+				 alert(data);
 			});
 	});
 

@@ -14,14 +14,14 @@ $(document).ready(function() {
 	};
 
 	var send_req = function() {
-		var user_say = $("#user-say").val();
-		$("#user-say").val("");
+		var userQuery = $("#userQuery").val();
+		$("#userQuery").val("");
 
 		$.ajax({
 			method: 'POST',
 			url: '/ikyParseAndExecute',
 			data: {
-				user_say: user_say
+				userQuery: userQuery
 			},
 			beforeSend: function() {
 				$('#wait').show();
@@ -34,14 +34,14 @@ $(document).ready(function() {
 		return true;
 	};
 
-	$('#user-say').keydown(function(e) {
+	$('#userQuery').keydown(function(e) {
 		if (e.keyCode == 13) {
 			send_req();
 		}
 	})
 	$("#mic").click(function() 
 	{
-		$("#user-say").focus();
+		$("#userQuery").focus();
 	    if (window.hasOwnProperty('webkitSpeechRecognition')) {
 	 
 	      var recognition = new webkitSpeechRecognition();
@@ -54,7 +54,7 @@ $(document).ready(function() {
 	 
 	      recognition.onresult = function(e) {
 	        recognition.stop();
-	        $("#user-say").val(e.results[0][0].transcript);
+	        $("#userQuery").val(e.results[0][0].transcript);
 	        setTimeout(send_req, 1000);
 	      };
 	 

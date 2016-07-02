@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-BROKER_URL = 'mongodb://localhost:27017/test'
+BROKER_URL = 'mongodb://localhost:27017/workspace'
 CELERY_RESULT_BACKEND = "mongodb"
 CELERY_MONGODB_BACKEND_SETTINGS = {
     "host": "127.0.0.1",

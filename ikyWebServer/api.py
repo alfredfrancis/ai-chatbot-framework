@@ -21,7 +21,7 @@ def ikyParseAndExecute():
         storyId = intentClassifier.predict(userQuery)
         if storyId:
             extractedEntities = sequenceLabeler.predict(storyId,userQuery)
-            resultDictonary = packResult(extractedEntities)
+            resultDictonary = packResult(storyId,extractedEntities)
             if "errorCode" not in resultDictonary:
                 result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'], resultDictonary["entities"])
             else:
@@ -56,10 +56,11 @@ def ikyParse():
 
 @app.route('/buildModel', methods=['POST'])
 def buildModel():
-
-    sequenceLabeler.train(request.form['storyId'])
-    IntentClassifier().train()
-
+    try:
+        sequenceLabeler.train(request.form['storyId'])
+        IntentClassifier().train()
+    except Exception, e:
+        return str(e)
     return buildResponse.sentOk()
 
 
