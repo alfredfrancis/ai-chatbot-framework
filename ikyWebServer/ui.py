@@ -1,8 +1,9 @@
 import os
+import ast
 
 from flask import request
 
-from ikyCore.models import User,Story
+from ikyCore.models import User,Story,LabeledSentences
 from ikyCore.intentClassifier import IntentClassifier
 from ikyWebServer import app
 
@@ -13,15 +14,18 @@ from ikyWareHouse.mongo import _insert, _retrieve, _delete,_update
 # Iky's tools
 import buildResponse
 
-@app.route('/_insert_tagged', methods=['POST'])
-def _insert_tagged():
-
-    data = {
-        "item": request.form['labeled_info'],
-        "user_id": "1",
-        "story_id": request.form['story_id']
-    }
-    return _insert("labled_queries", data)
+@app.route('/insertLabeledSentence', methods=['POST'])
+def insertLabeledSentence():
+    story = Story.objects.get(id=ObjectId(request.form['storyId']))
+    labeledSentence = LabeledSentences()
+    print(ast.literal_eval(request.form['labeledSentence']))
+    labeledSentence.data = ast.literal_eval(request.form['labeledSentence'])
+    story.labeledSentences.append(labeledSentence)
+    try:
+        story.save()
+    except Exception as e:
+        return {"error": e}
+    return buildResponse.sentOk()
 
 
 @app.route('/createStory', methods=['POST'])
@@ -47,7 +51,10 @@ def saveEditStory():
         "actionName": request.form['actionName'],
         "storyName": request.form['storyName'],
     }
-    story.update(**data)
+    try:
+        story.update(**data)
+    except Exception as e:
+        return {"error": e}
     return buildResponse.sentOk()
 
 
@@ -59,21 +66,21 @@ def getStories():
 
 
 @app.route('/deleteStory', methods=['POST'])
-def delete_story():
+def deleteStory():
     Story.objects.get(id=ObjectId(request.form['storyId'])).delete()
     IntentClassifier().train()
     try:
         os.remove("models/%s.model" % request.form['storyId'])
     except OSError:
         pass
-        return buildResponse.sentOk()
+    return buildResponse.sentOk()
 
 
 @app.route('/deleteLabeledSentences', methods=['POST'])
-def delete_sent():
-    story=Story.objects.get(id=ObjectId(request.form['storyId']))
-    labeledSentence=story.labeledSentences.update_one( pull__id=ObjectId(request.form['sentenceId']) )
-    labeledSentence.delete()
+def deleteLabeledSentences():
+    story = Story.objects.get(id=ObjectId(request.form['storyId']))
+    story.labeledSentences.filter(id=ObjectId(request.form['sentenceId'])).delete()
+    story.save()
     return buildResponse.sentOk()
 
 

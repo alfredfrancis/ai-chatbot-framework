@@ -58,14 +58,14 @@ hr{
     margin-bottom: 10px;
 }
 
-#train_query{
+#sentences{
     color: gray;
     padding:3px;
     height: 400px;
     font-size: 20px;
     overflow:scroll;
 }
-#train_query::selection {
+#sentences::selection {
     color:green;
 }
 

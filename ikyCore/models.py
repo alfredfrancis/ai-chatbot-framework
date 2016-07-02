@@ -11,7 +11,7 @@ class User(Document):
 
 
 class LabeledSentences(EmbeddedDocument):
-    _id = ObjectIdField(required=True, default=lambda: ObjectId())
+    id = ObjectIdField(required=True, default=lambda: ObjectId())
     data = ListField(required=True)
 
 
@@ -24,7 +24,7 @@ class Story(Document):
     labels = ListField(StringField())
     actionType = StringField(choices=ACTIONTYPE, required=True)
     actionName = StringField(max_length=50, required=True)
-    labeledSentences = ListField(EmbeddedDocumentField(LabeledSentences))
+    labeledSentences = EmbeddedDocumentListField(LabeledSentences)
     user = ReferenceField(User, required=True, reverse_delete_rule=CASCADE)
 
 
@@ -49,6 +49,5 @@ if __name__ == '__main__':
 
     newLabeledSentence = LabeledSentences()
     newLabeledSentence.data = [['hello', 'VB', 'O'], ['haai', 'VB', 'O']]
-    newLabeledSentence.story = newStory
     newStory.labeledSentences.append(newLabeledSentence)
     newStory.save()

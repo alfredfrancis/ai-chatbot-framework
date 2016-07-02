@@ -1,22 +1,22 @@
 $(document).ready(function() {
 	var NS = {};
 	
-	$("#train_button").click(function() {
-			var user_say = $('#train_query').html().replace("<br>"," ");
+	$("#trainButton").click(function() {
+			var sentences = $('#sentences').html().replace("<br>"," ");
 
-			$.post("/pos_tag", {
-					text: user_say
+			$.post("/posTagAndLabel", {
+					sentences: sentences
 				},
 				function(data) {
-					NS.tagged_data = data;
+					NS.taggedSentences = data;
 					$('#output').html("<pre>" + JSON.stringify(data) + "</pre>");
 				});
-			$("#token_label").prop('disabled', false);
-			$("#btn_add_test").prop('disabled', false);
+			$("#tokenLabel").prop('disabled', false);
+			$("#btnInsertLabeledSentence").prop('disabled', false);
 	});
 
-	$("#token_label").prop('disabled', true);
-    $("#btn_add_test").prop('disabled', true);
+	$("#tokenLabel").prop('disabled', true);
+    $("#btnInsertLabeledSentence").prop('disabled', true);
 
 	function getSelected() {
 		var t = '';
@@ -29,8 +29,8 @@ $(document).ready(function() {
 		}
 		return t;
 	}
-	editableEl = document.getElementById("train_query");
-	$("#train_query").mouseup(function() {
+	editableEl = document.getElementById("sentences");
+	$("#sentences").mouseup(function() {
 		selected = getSelected();
 		if (selected.toString().length > 1) {
 			NS.selected = selected.toString();
@@ -40,26 +40,26 @@ $(document).ready(function() {
 
             console.log($('<div>').append(range.cloneContents()).html());
 
-			$.post("/query_tokenize", {
-					text: $('<div>').append(range.cloneContents()).html()
+			$.post("/sentenceTokenize", {
+					sentences: $('<div>').append(range.cloneContents()).html()
 				},
 				function(data) {
 					if (data.trim()) {
-						NS.num_words = data.split(" ").length;
+						NS.wordCount = data.split(" ").length;
 					} else {
-						NS.num_words = 0;
+						NS.wordCount = 0;
 					}
 
 				});
 
-			$.post("/query_tokenize", {
-					text: NS.selected.trim()
+			$.post("/sentenceTokenize", {
+					sentences: NS.selected.trim()
 				},
 				function(data) {
 					if (data.trim()) {
-						NS.num_sel_words = data.split(" ").length;
+						NS.selectedWordsCount = data.split(" ").length;
 					} else {
-						NS.num_sel_words = 0;
+						NS.selectedWordsCount = 0;
 					}
 				});
 
@@ -72,14 +72,14 @@ $(document).ready(function() {
 			span.style.backgroundColor = "green";
 			span.style.color = "white";
 			range.insertNode(span);
-			$("#token_label").focus();
+			$("#tokenLabel").focus();
 		}
 	});
 
-	$('#token_label').keydown(function(e) {
+	$('#tokenLabel').keydown(function(e) {
 		if (e.keyCode == 13) {
-			//alert(NS.num_sel_words)
-			var label = $("#token_label").val().toUpperCase();
+			//alert(NS.selectedWordsCount)
+			var label = $("#tokenLabel").val().toUpperCase();
 			/*if($("#labels").val()!="")
 			{
 				$("#labels").val($("#labels").val() +"," + $("#token_label").val());
@@ -88,38 +88,38 @@ $(document).ready(function() {
 				$("#labels").val($("#token_label").val());
 			}*/
 
-			//$('#instance').append("before:"+NS.num_words+",count:"+NS.num_sel_words+"\n");
-			for (var i = 1; i <= NS.num_sel_words; i++) {
+			//$('#instance').append("before:"+NS.wordCount+",count:"+NS.selectedWordsCount+"\n");
+			for (var i = 1; i <= NS.selectedWordsCount; i++) {
 				if (i == 1) {
 					bio = "B-" + label;
 				} else {
 					bio = "I-" + label;
 				}
-				//$('#instance').append(","+NS.tagged_data[(NS.num_words + i)-1]+","+NS.tagged_data[(NS.num_words + i)-1][2]+"\n");
-				NS.tagged_data[(NS.num_words + i) - 1][2] = bio;
+				//$('#instance').append(","+NS.taggedSentences[(NS.wordCount + i)-1]+","+NS.taggedSentences[(NS.wordCount + i)-1][2]+"\n");
+				NS.taggedSentences[(NS.wordCount + i) - 1][2] = bio;
 			}
-			$('#output').html("<pre>" + JSON.stringify(NS.tagged_data) + "</pre>");
-			$("#token_label").val("");
+			$('#output').html("<pre>" + JSON.stringify(NS.taggedSentences) + "</pre>");
+			$("#tokenLabel").val("");
 		}
 	});
 
-	$("#btn_add_test").click(function()
+	$("#btnInsertLabeledSentence").click(function()
 	{
-		$.post("/_insert_tagged", {
-				story_id: $("input[name=story_id]").val(),
-				labeled_info: JSON.stringify(NS.tagged_data)
+		$.post("/insertLabeledSentence", {
+				storyId: $("input[name=storyId]").val(),
+				labeledSentence: JSON.stringify(NS.taggedSentences)
 			},
 			function(data) {
 				$('#output').html("Insertion sucessfull!");
 			});
-		$('#train_query').html("");
+		$('#sentences').html("");
 	});
 
-	$("#btn_clear").click(function() {
-		$('#train_query').html("");
+	$("#btnClear").click(function() {
+		$('#sentences').html("");
 	});
 
-	$("a#btn_dlt_sent").click(function(){
+	$("a#btnDeleteSentence").click(function(){
 		var r =confirm("Do you want to continue?");
 		if (r == true)
 		{
@@ -135,10 +135,9 @@ $(document).ready(function() {
 	});
 
 	$(document).on('click', "button#btnBuild", function() {
-		_id = $(this).attr("objid");
-		$.post("/build_model", {
-				user_id:"1",
-				story_id:_id
+		_id = $(this).attr("objId");
+		$.post("/buildModel", {
+				storyId:_id
 			},
 			function(data) {
 				 alert('build sucessfull');

@@ -1,8 +1,14 @@
 from flask import request
-from ikyCommons import errorCodes
+import html2text
+
+from ikyCore.packResult import packResult
 from ikyCore.intentClassifier import IntentClassifier
 from ikyCore.interface import executeAction
-from ikyCore.sequenceLabeler import predict
+from ikyCore import sequenceLabeler
+from ikyCore import nlp
+
+from ikyCommons import errorCodes
+
 from ikyWebServer import app, buildResponse
 
 
@@ -12,11 +18,12 @@ def ikyParseAndExecute():
     userQuery = request.form['userQuery']
     if userQuery:
         intentClassifier = IntentClassifier()
-        intent = intentClassifier.predict(userQuery)
-        if intent:
-            predicted = predict(userQuery)
-            if "errorCode" not in predicted:
-                result["output"] = executeAction(predicted['action_type'], predicted['intent'], predicted["labels"])
+        storyId = intentClassifier.predict(userQuery)
+        if storyId:
+            extractedEntities = sequenceLabeler.predict(storyId,userQuery)
+            resultDictonary = packResult(extractedEntities)
+            if "errorCode" not in resultDictonary:
+                result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'], resultDictonary["entities"])
             else:
                 result = errorCodes.UnableToExtractEntities
         else:
@@ -29,13 +36,17 @@ def ikyParseAndExecute():
 # Request Handler
 @app.route('/ikyParse', methods=['POST'])
 def ikyParse():
-    result = {}
     userQuery = request.form['userQuery']
     if userQuery:
         intentClassifier = IntentClassifier()
-        result["intent"] = intentClassifier.predict(userQuery)
-        if result["intent"]:
-            result["entities"] = predict(userQuery)
+        storyId = intentClassifier.predict(userQuery)
+        if storyId:
+            extractedEntities = sequenceLabeler.predict(storyId,userQuery)
+
+            if "errorCode" not in extractedEntities:
+                result = packResult(extractedEntities)
+            else:
+                result = errorCodes.UnableToExtractEntities
         else:
             result = errorCodes.UnidentifiedIntent
     else:
@@ -43,3 +54,25 @@ def ikyParse():
     return buildResponse.buildJson(result)
 
 
+@app.route('/buildModel', methods=['POST'])
+def buildModel():
+
+    sequenceLabeler.train(request.form['storyId'])
+    IntentClassifier().train()
+
+    return buildResponse.sentOk()
+
+
+@app.route('/sentenceTokenize', methods=['POST'])
+def sentenceTokenize():
+    sentences = html2text.html2text(request.form['sentences'])
+    result = nlp.sentenceTokenize(sentences)
+    return buildResponse.sentPlainText(result)
+
+
+@app.route('/posTagAndLabel', methods=['POST'])
+def posTagAndLabel():
+    sentences = request.form['sentences']
+    cleanSentences = html2text.html2text(sentences)
+    result = nlp.posTagAndLabel(cleanSentences)
+    return buildResponse.buildJson(result)

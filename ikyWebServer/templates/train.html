@@ -20,11 +20,11 @@
     </div>
     <div class="span4 train-area">
         <input type="hidden" name="storyId" value="{{ storyId }}" required>
-        <div class="form-control" id="train_query" placeholder="Enter the query" contenteditable="true"></div>
+        <div class="form-control" id="sentences" placeholder="Enter the query" contenteditable="true"></div>
         <br>
         <div class="pull-right">
-            <button type="button" class="btn btn-primary" id="btn_clear">Clear</button>
-            <button id="train_button" class="btn btn-primary">Start Labeling</button>
+            <button type="button" class="btn btn-primary" id="btnClear">Clear</button>
+            <button id="trainButton" class="btn btn-primary">Start Labeling</button>
         </div>
     </div>
     <div class="clearfix"></div>
@@ -38,15 +38,15 @@
             <div class="span4">
                 <label for="ex2" style="color:#337ab7">Mark label,</label>
             </div>
-            <input class="form-control" id="token_label" type="text" required>
+            <input class="form-control" id="tokenLabel" type="text" required>
         </div>
     </div>
     <div class="clearfix">
     </div>
     <div class="span4">
         <div class="pull-right">
-            <button type="button" class="btn btn-primary" id="btn_build" objid="{{ storyId }}">Build Model</button>
-            <button type="button" class="btn btn-primary" id="btn_add_test">Add to Test Set</button>
+            <button type="button" class="btn btn-primary" id="btnBuild" objid="{{ storyId }}">Build Model</button>
+            <button type="button" class="btn btn-primary" id="btnInsertLabeledSentence">Add to Test Set</button>
         </div>
     </div>
     <div class="row">
@@ -57,7 +57,7 @@
     <div class="row new_story panel" id="work">
         <ol>
             {% for entry in labeledSentences %}
-            <li _id="{{ entry._id}}">{{ entry.data }} <a id="btn_dlt_sent" _id="{{ entry._id}}"> Delete</a></li>
+            <li _id="{{ entry.id}}">{{ entry.data }} <a id="btnDeleteSentence" _id="{{ entry.id}}"> Delete</a></li>
             {% endfor %}
         </ol>
     </div>

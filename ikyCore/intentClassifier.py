@@ -1,5 +1,4 @@
-import ikyWareHouse.mongo
-
+from ikyCore.models import Story,LabeledSentences
 from bson.json_util import loads
 
 import numpy as np
@@ -15,27 +14,30 @@ from sklearn.svm import LinearSVC
 class IntentClassifier(object):
     def __init__(self):
         self.lb = preprocessing.MultiLabelBinarizer()
-        self.labeledStories = ikyWareHouse.mongo._retrieve("labled_queries", {"user_id": "1"})
+        stories = Story.objects
 
         trainLabels = []
+        self.labeledSentences = []
 
-        for story in self.labeledStories:
-            trainLabels.append([story['story_id']])
+        for story in stories:
+            labeledSentencesTemp = story.labeledSentences
+            for labeledSentence in labeledSentencesTemp:
+                self.labeledSentences.append(labeledSentence.data)
+                trainLabels.append([str(story.id)])
 
         self.Y = self.lb.fit_transform(trainLabels)
 
     def train(self):
         trainFeatures = []
-
-        for story in self.labeledStories:
+        for labeledSentence in self.labeledSentences:
             lq = ""
-            for i, token in enumerate(loads(story["item"])):
+            for i, token in enumerate(labeledSentence):
                 if i != 0:
                     lq += " " + token[0]
                 else:
                     lq = token[0]
             trainFeatures.append(lq)
-
+        print (trainFeatures)
         self.X = np.array(trainFeatures)
 
         classifier = Pipeline([
