@@ -1,5 +1,5 @@
 from ikyCore.models import Story
-
+from ikyCommons.validations import isListEmpty
 
 import numpy as np
 from sklearn import preprocessing
@@ -20,12 +20,12 @@ class IntentClassifier(object):
         self.labeledSentences = []
         for story in stories:
             labeledSentencesTemp = story.labeledSentences
-            if labeledSentencesTemp:
+            if not isListEmpty(labeledSentencesTemp):
                 for labeledSentence in labeledSentencesTemp:
                     self.labeledSentences.append(labeledSentence.data)
-                    trainLabels.append(str(story.id))
+                    trainLabels.append([str(story.id)])
             else:
-                raise Exception('Error')
+                continue
         self.Y = self.lb.fit_transform(trainLabels)
 
     def train(self):
@@ -38,7 +38,6 @@ class IntentClassifier(object):
                 else:
                     lq = token[0]
             trainFeatures.append(lq)
-
         self.X = np.array(trainFeatures)
 
         classifier = Pipeline([
@@ -52,14 +51,14 @@ class IntentClassifier(object):
         joblib.dump(classifier, 'ikyWareHouse/models/intent.pkl', compress=3)
         return True
 
-    def predict(self, user_say):
+    def predict(self, sentence):
         try:
             # Prediction using Model
             classifier = joblib.load('ikyWareHouse/models/intent.pkl')
         except IOError:
             return False
 
-        predicted = classifier.predict([user_say])
+        predicted = classifier.predict([sentence])
 
         if predicted.any():
             all_labels = self.lb.inverse_transform(predicted)

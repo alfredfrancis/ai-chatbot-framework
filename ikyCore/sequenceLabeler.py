@@ -70,11 +70,11 @@ def extractLabels(tagged):
     return labels
 
 
-def predict(stroyId,sentence):
+def predict(storyId,sentence):
     tokenizedSentence = word_tokenize(sentence)
     taggedToken = posTagger(sentence)
     tagger = pycrfsuite.Tagger()
-    tagger.open('ikyWareHouse/models/%s.model' % stroyId)
+    tagger.open('ikyWareHouse/models/%s.model' % storyId)
     predictedLabels = tagger.tag(sentToFeatures(taggedToken))
     labelsPredicted = set([x.lower() for x in extractLabels(predictedLabels)])
     extractedEntities = extractEntities(zip(tokenizedSentence, labelsPredicted))

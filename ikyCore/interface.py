@@ -8,10 +8,10 @@ from ikyActions import actions
 
 def executeAction(actionType, action, parameters):
     types = {
-        0: python_function,
-        1: sql_query,
-        2: rest_api,
-        3: custom_message
+        1: python_function,
+        2: sql_query,
+        3: rest_api,
+        4: custom_message
     }
     return types[int(actionType)](action, parameters)
 

@@ -37,6 +37,7 @@ def ikyParseAndExecute():
 @app.route('/ikyParse', methods=['POST'])
 def ikyParse():
     userQuery = request.form['userQuery']
+
     if userQuery:
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(userQuery)
@@ -44,7 +45,7 @@ def ikyParse():
             extractedEntities = sequenceLabeler.predict(storyId,userQuery)
 
             if "errorCode" not in extractedEntities:
-                result = packResult(extractedEntities)
+                result = packResult(storyId,extractedEntities)
             else:
                 result = errorCodes.UnableToExtractEntities
         else:
