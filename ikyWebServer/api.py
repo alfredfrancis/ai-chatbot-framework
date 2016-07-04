@@ -25,7 +25,7 @@ def ikyParseAndExecute():
             if "errorCode" not in resultDictonary:
                 result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'], resultDictonary["entities"])
             else:
-                result = errorCodes.UnableToExtractEntities
+                result = errorCodes.UnableToextractentities
         else:
             result = errorCodes.UnidentifiedIntent
     else:
@@ -61,7 +61,8 @@ def buildModel():
         sequenceLabeler.train(request.form['storyId'])
         IntentClassifier().train()
     except Exception, e:
-        return str(e)
+        result = errorCodes.NotEnoughData
+        return buildResponse.buildJson(result)
     return buildResponse.sentOk()
 
 

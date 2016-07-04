@@ -3,7 +3,6 @@ from bson import ObjectId
 from nltk import word_tokenize
 
 from ikyCore.nlp import posTagger
-from ikyCore.intentClassifier import IntentClassifier
 from ikyCore.models import Story
 from featuresExtractor import extractFeatures
 
@@ -20,12 +19,11 @@ def sentToTokens(sent):
 
 def train(storyId):
     story = Story.objects.get(id=ObjectId(storyId))
-
     labeledSentences = story.labeledSentences
 
     trainSentences = []
     for item in labeledSentences:
-        trainSentences.append(item["data"])
+        trainSentences.append(item.data)
 
     features = [sentToFeatures(s) for s in trainSentences]
     labels = [sentToLabels(s) for s in trainSentences]
@@ -43,15 +41,14 @@ def train(storyId):
         'feature.possible_transitions': True
     })
     trainer.train('ikyWareHouse/models/%s.model' % storyId)
-
-    IntentClassifier().train()
-    return "1"
+    return True
 
 
-def extractEntities(taggedSentences):
+# Extract Labeles from BIO tagged sentence
+def extractEntities(taggedSentence):
     labeled = {}
     labels = set()
-    for s, tp in taggedSentences:
+    for s, tp in taggedSentence:
         if tp != "O":
             label = tp[2:].lower()
             if tp.startswith("B"):
@@ -62,9 +59,9 @@ def extractEntities(taggedSentences):
     return labeled
 
 
-def extractLabels(tagged):
+def extractLabels(predictedLabels):
     labels = []
-    for tp in tagged:
+    for tp in predictedLabels:
         if tp != "O":
             labels.append(tp[2:])
     return labels
@@ -76,8 +73,8 @@ def predict(storyId,sentence):
     tagger = pycrfsuite.Tagger()
     tagger.open('ikyWareHouse/models/%s.model' % storyId)
     predictedLabels = tagger.tag(sentToFeatures(taggedToken))
-    labelsPredicted = set([x.lower() for x in extractLabels(predictedLabels)])
-    extractedEntities = extractEntities(zip(tokenizedSentence, labelsPredicted))
+    #labelsPredicted = set([x.lower() for x in extractLabels(predictedLabels)])
+    extractedEntities = extractEntities(zip(tokenizedSentence, predictedLabels))
     return extractedEntities
 
 

@@ -6,10 +6,23 @@ $(document).ready(function() {
 				<a href="#" class="close" data-dismiss="alert">&times;</a>';
 		$.each(bot_say["responseJSON"], function (index, data) {
 			html_data = html_data + index +" : "+data+"<br>";
-    	})	*/	
-    	console.log(bot_say)
+    	})	*/
+    	console.log(bot_say);
+    	if(bot_say["responseJSON"].errorCode)
+    	{
+    	    result = bot_say["responseJSON"].description;
+    	}
+    	else if (bot_say["responseJSON"].output)
+    	{
+    	     result = bot_say["responseJSON"].output;
+    	}
+    	else
+    	{
+    	    result = "Network error"
+    	}
+
 		html_data = '<div class="alert alert-success fade in">\
-				<a href="#" class="close" data-dismiss="alert">&times;</a>'+bot_say['responseText']+'</div>'
+				<a href="#" class="close" data-dismiss="alert">&times;</a>'+result+'</div>'
 		$(".result_area").prepend(html_data);
 	};
 

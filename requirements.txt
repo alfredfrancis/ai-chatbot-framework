@@ -4,6 +4,7 @@ beautifulsoup4==4.4.1
 billiard==3.3.0.23
 bs4==0.0.1
 celery==3.1.23
+email-reply-parser==0.3.0
 Flask==0.10.1
 Flask-Login==0.2.11
 Flask-OpenID==1.2.5
@@ -15,6 +16,7 @@ itsdangerous==0.24
 Jinja2==2.8
 kombu==3.0.35
 MarkupSafe==0.23
+mongoengine==0.10.6
 nltk==3.2.1
 numpy==1.11.0
 oauth2client==2.2.0

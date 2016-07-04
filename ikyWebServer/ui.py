@@ -67,7 +67,13 @@ def getStories():
 @app.route('/deleteStory', methods=['POST'])
 def deleteStory():
     Story.objects.get(id=ObjectId(request.form['storyId'])).delete()
-    IntentClassifier().train()
+
+    try:
+        intentClassifier = IntentClassifier()
+        intentClassifier.train()
+    except:
+        pass
+
     try:
         os.remove("models/%s.model" % request.form['storyId'])
     except OSError:

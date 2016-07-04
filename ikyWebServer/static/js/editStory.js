@@ -11,7 +11,13 @@ $(document).ready(function() {
 				labels:$("#labels").val()
 			},
 			function(data) {
-				 alert('Saved!');
+                if(data['responseJSON'].errorCode)
+                {
+                    alert(data['responseJSON'].description);
+                }else if (data['responseJSON'].result)
+                {
+                    alert("Sucess");
+                }
 			});
 	}
 	});

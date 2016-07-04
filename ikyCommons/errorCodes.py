@@ -1,5 +1,5 @@
-EmptyInput =  {"ErrorCode":601,"Description":"Empty input"}
-InvalidInput =  {"ErrorCode":602,"Description":"Invalid input"}
-UnidentifiedIntent = {"ErrorCode":701,"Description":"Can't identify the intent"}
-UnableToExtractEntities = {"ErrorCode": 801,"Description": "Unable extract entities"}
-
+emptyInpurt =  {"errorCode":601,"description":"empty input"}
+InvalidInput =  {"errorCode":602,"description":"Invalid input"}
+UnidentifiedIntent = {"errorCode":701,"description":"Can't identify the intent"}
+UnableToextractentities = {"errorCode": 801,"description": "Unable extract entities"}
+NotEnoughData = {"errorCode": 702,"description": "Not enough Training Data. Please Add more stories"}

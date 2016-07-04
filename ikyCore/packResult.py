@@ -1,7 +1,7 @@
 from ikyCore.models import Story
 from bson.objectid import ObjectId
 from ikyCore.functions import dateFromString
-
+from ikyCommons import errorCodes
 
 def packResult(storyId, extractedEntities):
 
@@ -9,7 +9,10 @@ def packResult(storyId, extractedEntities):
     story = story.to_mongo().to_dict()
 
     labelsOriginal = set(story['labels'])
-    print (labelsOriginal)
+
+    for label in labelsOriginal:
+        if label not in extractedEntities:
+            return errorCodes.UnableToextractentities
 
     result = dict()
     result["actionName"] = story['actionName']

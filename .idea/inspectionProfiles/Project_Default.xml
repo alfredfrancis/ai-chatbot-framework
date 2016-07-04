@@ -14,7 +14,7 @@
     <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="ignoredPackages">
         <value>
-          <list size="12">
+          <list size="13">
             <item index="0" class="java.lang.String" itemvalue="Flask-OpenID" />
             <item index="1" class="java.lang.String" itemvalue="Flask-GoogleLogin" />
             <item index="2" class="java.lang.String" itemvalue="ipaddress" />
@@ -27,6 +27,7 @@
             <item index="9" class="java.lang.String" itemvalue="python-openid" />
             <item index="10" class="java.lang.String" itemvalue="Flask-Login" />
             <item index="11" class="java.lang.String" itemvalue="simplejson" />
+            <item index="12" class="java.lang.String" itemvalue="scipy" />
           </list>
         </value>
       </option>

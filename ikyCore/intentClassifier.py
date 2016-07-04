@@ -15,7 +15,8 @@ class IntentClassifier(object):
     def __init__(self):
         self.lb = preprocessing.MultiLabelBinarizer()
         stories = Story.objects
-
+        if not stories:
+            raise Exception("NO_DATA")
         trainLabels = []
         self.labeledSentences = []
         for story in stories:
