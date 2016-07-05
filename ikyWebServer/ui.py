@@ -1,17 +1,13 @@
 import os
 import ast
+from bson.objectid import ObjectId
 
 from flask import request
+from ikyWebServer import app
 
 from ikyCore.models import User,Story,LabeledSentences
 from ikyCore.intentClassifier import IntentClassifier
-from ikyWebServer import app
 
-# DB stuff
-from bson.objectid import ObjectId
-from ikyWareHouse.mongo import _insert, _retrieve, _delete,_update
-
-# Iky's tools
 import buildResponse
 
 @app.route('/insertLabeledSentence', methods=['POST'])
@@ -88,7 +84,7 @@ def deleteLabeledSentences():
     story.save()
     return buildResponse.sentOk()
 
-#Not working
+"""
 @app.route("/saveToRepo", methods=['POST'])
 def saveToRepo():
 
@@ -99,3 +95,4 @@ def saveToRepo():
 
     print(data)
     return _insert("repo", data)
+"""

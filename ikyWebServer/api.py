@@ -1,11 +1,11 @@
 from flask import request
 import html2text
 
-from ikyCore.packResult import packResult
 from ikyCore.intentClassifier import IntentClassifier
-from ikyCore.interface import executeAction
 from ikyCore import sequenceLabeler
 from ikyCore import nlp
+from ikyCore.packResult import packResult
+from ikyCore.interface import executeAction
 
 from ikyCommons import errorCodes
 

@@ -6,6 +6,7 @@ from ikyCore.nlp import posTagger
 from ikyCore.models import Story
 from featuresExtractor import extractFeatures
 
+
 def sentToFeatures(sent):
     return [extractFeatures(sent, i) for i in range(len(sent))]
 
@@ -16,6 +17,7 @@ def sentToLabels(sent):
 
 def sentToTokens(sent):
     return [token for token, postag, label in sent]
+
 
 def train(storyId):
     story = Story.objects.get(id=ObjectId(storyId))
@@ -50,7 +52,7 @@ def extractEntities(taggedSentence):
     labels = set()
     for s, tp in taggedSentence:
         if tp != "O":
-            label = tp[2:].lower()
+            label = tp[2:]
             if tp.startswith("B"):
                 labeled[label] = s
                 labels.add(label)
@@ -67,17 +69,14 @@ def extractLabels(predictedLabels):
     return labels
 
 
-def predict(storyId,sentence):
+def predict(storyId, sentence):
     tokenizedSentence = word_tokenize(sentence)
     taggedToken = posTagger(sentence)
     tagger = pycrfsuite.Tagger()
     tagger.open('ikyWareHouse/models/%s.model' % storyId)
     predictedLabels = tagger.tag(sentToFeatures(taggedToken))
-    #labelsPredicted = set([x.lower() for x in extractLabels(predictedLabels)])
     extractedEntities = extractEntities(zip(tokenizedSentence, predictedLabels))
     return extractedEntities
-
-
 
     """
     result = {}

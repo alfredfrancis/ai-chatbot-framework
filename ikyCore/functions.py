@@ -4,7 +4,7 @@ from datetime import datetime
 import parsedatetime as pdt
 
 
-def re_check(user_say):
+def reCheck(userQuery):
     actions = ['call', 'wake', 'mail', 'kick', 'wish']
     patterns = [
         re.compile(r'.*(' + "|".join(actions[:]) + ').+in\s(\d+)\s(min|sec)'),
@@ -15,28 +15,14 @@ def re_check(user_say):
         re.compile(r'(convert)\s([0-9]+)\s(dollar|inr)\sto\s(inr|dollar)')
     ]
     for p in patterns:
-        result = p.findall(user_say)
+        result = p.findall(userQuery)
         if result:
             return result
     return False
 
 
-def extract_chunks(tagged_sent, chunk_type):
-    grp1, grp2, chunk_type = [], [], "-" + chunk_type
-    for ind, (s, tp) in enumerate(tagged_sent):
-        if tp.endswith(chunk_type):
-            if not tp.startswith("B"):
-                grp2.append(str(ind))
-                grp1.append(s)
-            else:
-                if grp1:
-                    yield " ".join(grp1), "-".join(grp2)
-                grp1, grp2 = [s], [str(ind)]
-    yield " ".join(grp1), "-".join(grp2)
-
-
-def dateFromString(time_string):
+def dateFromString(timeString):
     cal = pdt.Calendar()
     now = datetime.now()
-    result = str(cal.parseDT(time_string.strip(), now)[0])
+    result = str(cal.parseDT(timeString.strip(), now)[0])
     return result

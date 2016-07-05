@@ -1,10 +1,12 @@
-from ikyCore.models import Story
 from bson.objectid import ObjectId
+
+from ikyCore.models import Story
 from ikyCore.functions import dateFromString
+
 from ikyCommons import errorCodes
 
-def packResult(storyId, extractedEntities):
 
+def packResult(storyId, extractedEntities):
     story = Story.objects.get(id=ObjectId(storyId))
     story = story.to_mongo().to_dict()
 

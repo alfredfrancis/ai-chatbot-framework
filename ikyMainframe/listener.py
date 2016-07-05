@@ -1,26 +1,17 @@
 from celery import Celery
-from ikyWebServer.interface import execute_action
 
-import celeryconfig
-from ikyCore.sequenceLabeler import predict
+from ikyCore.intentClassifier import IntentClassifier
+from ikyCore import sequenceLabeler
+from ikyCore.packResult import packResult
+from ikyCore.interface import executeAction
+
 from ikyCommons.mail import emailManager
+from ikyCommons import errorCodes
 
-app.config.from_object(celeryconfig)
+celery = Celery()
 
-def make_celery(app):
-    celery = Celery(app.import_name,
-                    broker=app.config['BROKER_URL'])
-    celery.conf.update(app.config)
-    TaskBase = celery.Task
-    class ContextTask(TaskBase):
-        abstract = True
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return TaskBase.__call__(self, *args, **kwargs)
-    celery.Task = ContextTask
-    return celery
+celery.config_from_object('ikyMainframe.celeryconfig')
 
-celery = make_celery(app)
 
 gmailSmtp = "smtp.gmail.com"
 gmailImap = "imap.gmail.com"
@@ -32,18 +23,28 @@ gmailPassword = "ikytesting999"
 def addToSendEmailQueue(singleMail,result):
     emailSender = emailManager(gmailImap, gmailSmtp, gmailUsername, gmailPassword)
     emailSender.openSMTP()
-    body = "Hi,\n\n  %s \n\nCheers,\n\tiKY"%result
+    body = "Hi,\n\n  %s \n\nCheers,\n\t iKY" %result
     emailSender.sendEmail(singleMail["From"], "Reply to your query", body)
     emailSender.closeSMTP()
     return True
 
 @celery.task
 def processEmail(singleMail):
-    predicted = predict(singleMail['body'])
-    if "error_code" not in predicted:
-        result = execute_action(predicted['action_type'],predicted['intent'],predicted["labels"])
+    if singleMail["body"]:
+        intentClassifier = IntentClassifier()
+        storyId = intentClassifier.predict(singleMail["body"])
+        if storyId:
+            extractedEntities = sequenceLabeler.predict(storyId, singleMail["body"])
+            resultDictonary = packResult(storyId, extractedEntities)
+            if "errorCode" not in resultDictonary:
+                result = executeAction(resultDictonary['actionType'], resultDictonary['actionName'],
+                                                 resultDictonary["entities"])
+            else:
+                result = errorCodes.UnableToextractentities["description"]
+        else:
+            result = errorCodes.UnidentifiedIntent["description"]
     else:
-        result = "Sorry im not trained to handle this email."
+        result = errorCodes.EmptyInput["description"]
     addToSendEmailQueue.apply_async(args=[singleMail,result])
     return True
 
@@ -55,7 +56,12 @@ def listen():
     count = 0
     for singleMail in emailReader.getUnReadMessages():
         singleMail["body"] = emailReader.cleanEmail(singleMail["body"])
+        print(singleMail["body"])
         processEmail.apply_async(args=[singleMail])
         count += 1
     emailReader.closeIMAP()
     return count
+
+
+if __name__ == '__main__':
+    celery.start()

@@ -79,7 +79,7 @@ $(document).ready(function() {
 	$('#tokenLabel').keydown(function(e) {
 		if (e.keyCode == 13) {
 			//alert(NS.selectedWordsCount)
-			var label = $("#tokenLabel").val().toUpperCase();
+			var label = $("#tokenLabel").val();
 			/*if($("#labels").val()!="")
 			{
 				$("#labels").val($("#labels").val() +"," + $("#token_label").val());
