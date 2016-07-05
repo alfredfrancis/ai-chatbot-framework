@@ -1,6 +1,5 @@
-from ikyWebServer import app
 from pymongo import MongoClient
-from flask import request
+
 
 # Initialize MongoDb client with default local server
 client = MongoClient()
