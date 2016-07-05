@@ -2,24 +2,27 @@ from __future__ import print_function
 
 import requests
 import json
+import sys
 
 def hello(entities):
     return "hello"
-def statusDescription(statusDesc):
-    return {
-        'POSTED_TO_BANK': 'posted to bank',
-        'FOR_BIC_APPROVAL': 'pending for BICs Approavl'
-    }.get(statusDesc, 'Pass')
 
 def checkTransactionStatus(entities):
-    url = "http://172.30.10.119:7004/remit/txn/10/146281095932945"
-    parameters = {"txnno": entities['txnNo']}
-    response = requests.get(url, params=parameters)
-    json_dict = json.loads(response.content)
-    statusDesc = (json_dict['statusDesc'])
-    ##print ('The Transaction number %s is %s'%(entities['txnNo'],statusDescription(statusDesc)))
-    ##return('The Transaction number %s is %s'%(entities['txnNo'],statusDescription(statusDesc)))
-    return [statusDescription(statusDesc)]
+    url = "http://172.30.10.119:7023/remit/txn/enquiry/10/1232"
+    parameters = {"txnno": entities['txnno']}
+    if not entities['txnno']:
+        return "Empty or Invalid Transaction number"
+    try:
+        response = requests.get(url, params=parameters)
+        json_dict = json.loads(response.content)
+        statusDesc = (json_dict['statusDesc'])
+        if not (statusDesc):
+            return "Status not available in YOM"
+        else:
+            return (statusDesc)
+    except Exception as e:
+        return "Server Error"
+
 
 def addEventToGoogleCalender(tagged_json):
     from apiclient.discovery import build
