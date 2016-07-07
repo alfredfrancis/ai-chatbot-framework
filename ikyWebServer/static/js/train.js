@@ -140,7 +140,13 @@ $(document).ready(function() {
 				storyId:_id
 			},
 			function(data) {
-				 alert('build sucessfull');
+				 if(data.errorCode)
+                {
+                    alert(data.description);
+                }else if (data.result)
+                {
+                    alert("Build Sucessful!");
+                }
 			});
 	});
 

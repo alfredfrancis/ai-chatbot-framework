@@ -7,6 +7,7 @@ from ikyCore.interface import executeAction
 
 from ikyCommons.mail import emailManager
 from ikyCommons import errorCodes
+from ikyCommons import EFZP as zp
 
 celery = Celery()
 
@@ -24,7 +25,7 @@ def addToSendEmailQueue(singleMail,result):
     emailSender = emailManager(gmailImap, gmailSmtp, gmailUsername, gmailPassword)
     emailSender.openSMTP()
     body = "Hi,\n\n  %s \n\nCheers,\n\t iKY" %result
-    emailSender.sendEmail(singleMail["From"], "Reply to your query", body)
+    emailSender.sendEmail(singleMail["from"], "Reply to your query", body)
     emailSender.closeSMTP()
     return True
 
@@ -55,8 +56,12 @@ def listen():
     emailReader.openIMAP()
     count = 0
     for singleMail in emailReader.getUnReadMessages():
-        singleMail["body"] = emailReader.cleanEmail(singleMail["body"])
-        print(singleMail["body"])
+        singleMail["body"] = emailReader.cleanEmail(singleMail["body"]).replace(u'\u200b', '').replace("\r\n","\n")
+        print ("1",singleMail["body"])
+        singleMail["body"] = singleMail["body"].replace(u'\u200b', '').replace("\r\n","\n").replace("*","")
+        print("2",singleMail["body"])
+        singleMail["body"] = zp.parse(singleMail["body"])["body"].replace("\n"," ").strip()
+        print ("3",singleMail["body"])
         processEmail.apply_async(args=[singleMail])
         count += 1
     emailReader.closeIMAP()

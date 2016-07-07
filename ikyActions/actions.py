@@ -1,16 +1,14 @@
 from __future__ import print_function
-
 import requests
 import json
-import sys
 
 def hello(entities):
     return "hello"
 
 def checkTransactionStatus(entities):
     url = "http://172.30.10.119:7023/remit/txn/enquiry/10/1232"
-    parameters = {"txnno": entities['txnno']}
-    if not entities['txnno']:
+    parameters = {"txnno": entities['txnNo']}
+    if not entities['txnNo']:
         return "Empty or Invalid Transaction number"
     try:
         response = requests.get(url, params=parameters)
@@ -24,7 +22,7 @@ def checkTransactionStatus(entities):
         return "Server Error"
 
 
-def addEventToGoogleCalender(tagged_json):
+def addEventToGoogleCalender(entities):
     from apiclient.discovery import build
     from httplib2 import Http
     from oauth2client import file, client, tools
@@ -39,22 +37,22 @@ def addEventToGoogleCalender(tagged_json):
         flags = Nones
 
     SCOPES = 'https://www.googleapis.com/auth/calendar'
-    store = file.Storage('storage.json')
+    store = file.Storage('ikyActions/Zstorage.json')
     creds = store.get()
 
     if not creds or creds.invalid:
-        flow = client.flow_from_clientsecrets('ikyWebServer/client_secret.json', SCOPES)
+        flow = client.flow_from_clientsecrets('ikyActions/client_secret.json', SCOPES)
         creds = tools.run_flow(flow, store, flags) \
             if flags else tools.run(flow, store)
 
     CAL = build('calendar', 'v3', http=creds.authorize(Http()))
 
     GMT_OFF = '+05:30'  # GMT for india
-    date_time_object = datetime.strptime(tagged_json["date"], '%Y-%m-%d %H:%M:%S')
+    date_time_object = datetime.strptime(entities["date"], '%Y-%m-%d %H:%M:%S')
     START_DATE = date_time_object.strftime("%Y-%m-%dT%H:%M:%S"+GMT_OFF)
     END_DATE = (date_time_object + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S"+GMT_OFF)
     EVENT = {
-        'summary': tagged_json["event"],
+        'summary': entities["event"],
         'start': {'dateTime': START_DATE},
         'end': {'dateTime': END_DATE},
     }

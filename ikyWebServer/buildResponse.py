@@ -1,5 +1,6 @@
 from flask import Response
 import json
+
 def buildJson(result):
     return Response(response=json.dumps(result),
                     status=200,

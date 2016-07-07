@@ -3,7 +3,7 @@ from flask import render_template, request
 
 from ikyWebServer import app
 
-from ikyCore.models import Story
+from ikyCore.models import Story,Logs
 
 # Index
 @app.route('/')
@@ -39,9 +39,8 @@ def train():
 
 @app.route('/logs', methods=['GET'])
 def logs():
-    query = {}
-    logs = _retrieve("logs", query)
-    return render_template('predictionLogs.html', logs=logs)
+    logs = Logs.objects
+    return render_template('predictionLogs.html', logs=logs.to_mongo().to_dict())
 
 
 # Error handlers.
