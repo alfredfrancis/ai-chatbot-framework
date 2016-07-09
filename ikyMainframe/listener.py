@@ -24,7 +24,7 @@ gmailPassword = "ikytesting999"
 def addToSendEmailQueue(singleMail,result):
     emailSender = emailManager(gmailImap, gmailSmtp, gmailUsername, gmailPassword)
     emailSender.openSMTP()
-    body = "Hi,\n\n  %s \n\nCheers,\n\t iKY" %result
+    body = "Hi,\n\n%s\n\nCheers,\n\t iKY" %result
     emailSender.sendEmail(singleMail["from"], "Reply to your query", body)
     emailSender.closeSMTP()
     return True

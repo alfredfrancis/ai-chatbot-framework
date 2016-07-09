@@ -13,13 +13,13 @@ def checkTransactionStatus(entities):
     try:
         response = requests.get(url, params=parameters)
         json_dict = json.loads(response.content)
-        statusDesc = (json_dict['statusDesc'])
+        statusDesc = json_dict['statusDesc']
         if not (statusDesc):
             return "Status not available in YOM"
         else:
-            return (statusDesc)
+            return ("Your transaction no :%s is %s") % (entities['txnNo'],statusDesc)
     except Exception as e:
-        return "Server Error"
+        return "Server Error,Please try again later."
 
 
 def addEventToGoogleCalender(entities):
