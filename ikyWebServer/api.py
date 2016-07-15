@@ -11,26 +11,33 @@ from ikyCommons import errorCodes
 
 from ikyWebServer import app, buildResponse
 
+import requests
+
 
 @app.route('/ikyParseAndExecute', methods=['POST'])
-def ikyParseAndExecute():
+def ikyParseAndExecute(userQuery=None):
     result = {}
-    userQuery = request.form['userQuery']
+    if not userQuery:
+        userQuery = request.form['userQuery']
+
     if userQuery:
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(userQuery)
         if storyId:
-            extractedEntities = sequenceLabeler.predict(storyId,userQuery)
-            resultDictonary = packResult(storyId,extractedEntities)
+            extractedEntities = sequenceLabeler.predict(storyId, userQuery)
+            resultDictonary = packResult(storyId, extractedEntities)
             if "errorCode" not in resultDictonary:
-                result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'], resultDictonary["entities"])
+                result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'],
+                                                 resultDictonary["entities"])
             else:
                 result = errorCodes.UnableToextractentities
         else:
             result = errorCodes.UnidentifiedIntent
     else:
-        result = errorCodes.EmptyInput
-    return buildResponse.buildJson(result)
+        result = errorCodes.emptyInpurt
+    if request.form['userQuery']:
+        return buildResponse.buildJson(result)
+    return result
 
 
 # Request Handler
@@ -42,10 +49,10 @@ def ikyParse():
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(userQuery)
         if storyId:
-            extractedEntities = sequenceLabeler.predict(storyId,userQuery)
+            extractedEntities = sequenceLabeler.predict(storyId, userQuery)
 
             if "errorCode" not in extractedEntities:
-                result = packResult(storyId,extractedEntities)
+                result = packResult(storyId, extractedEntities)
             else:
                 result = errorCodes.UnableToExtractEntities
         else:
@@ -79,3 +86,36 @@ def posTagAndLabel():
     cleanSentences = html2text.html2text(sentences)
     result = nlp.posTagAndLabel(cleanSentences)
     return buildResponse.buildJson(result)
+
+
+@app.route('/mattermost/incoming/', methods=['POST'])
+def mattermost():
+    """
+      channel_id=hawos4dqtby53pd64o4a4cmeoo&
+      channel_name=town-square&
+      team_domain=someteam&
+      team_id=kwoknj9nwpypzgzy78wkw516qe&
+      post_id=axdygg1957njfe5pu38saikdho&
+      text=some+text+here&
+      timestamp=1445532266&
+      token=zmigewsanbbsdf59xnmduzypjc&
+      trigger_word=some&
+      user_id=rnina9994bde8mua79zqcg5hmo&
+      user_name=somename
+    """
+    TOKEN = "d7mrin8bcibu9fxbbtgpkpd6xa"
+    if (request.form['token'] == TOKEN):
+
+        userQuery = request.form['text']
+        resultDictonary = ikyParseAndExecute(userQuery)
+        if "errorCode" not in resultDictonary:
+            result = resultDictonary["output"]
+        else:
+            result = "Something went wrong,Contact Alfred."
+        try:
+            requests.post("http://localhost:8065/hooks/476f6pjigb84mnwxkbypcze45w",
+                          json={"username": "iky", "text": result})
+        except:
+            pass
+        return "Sucess"
+    return "This can only be accessed from Mattermost"

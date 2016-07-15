@@ -59,7 +59,7 @@ class emailManager:
     def closeIMAP(self):
         return self.imapConnection.close()
 
-    def get_decoded_email_body(self,msg):
+    def get_decoded_email_body2(self,msg):
         p = EmailParser()
         msgobj = p.parsestr(msg)
         body = None
@@ -82,6 +82,35 @@ class emailManager:
                     part.get_content_charset(),
                     'replace'
                 ).encode('utf8', 'replace')
+        return {
+            'body': body,
+            'html': html,
+            'from': parseaddr(msgobj.get('From'))[1],
+            'to': parseaddr(msgobj.get('To'))[1]
+        }
+    def get_decoded_email_body(self,msg):
+        p = EmailParser()
+        msgobj = p.parsestr(msg)
+        body = None
+        html = None
+        for part in msgobj.walk():
+            print (part.get_content_charset())
+            if part.get_content_type() == "text/plain":
+                if body is None:
+                    body = ""
+                body += unicode(
+                    part.get_payload(decode=True),
+                    "UTF-8",
+                    'replace'
+                )
+            elif part.get_content_type() == "text/html":
+                if html is None:
+                    html = ""
+                html += unicode(
+                    part.get_payload(decode=True),
+                    part.get_content_charset(),
+                    'replace'
+                )
         return {
             'body': body,
             'html': html,

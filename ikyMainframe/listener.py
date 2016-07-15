@@ -16,8 +16,8 @@ celery.config_from_object('ikyMainframe.celeryconfig')
 
 gmailSmtp = "smtp.gmail.com"
 gmailImap = "imap.gmail.com"
-gmailUsername = "ikytesting@gmail.com"
-gmailPassword = "ikytesting999"
+gmailUsername = "iky@pearldatadirect.com"
+gmailPassword = "mLZ*KFrmHHaB47e"
 
 
 @celery.task
@@ -56,6 +56,7 @@ def listen():
     emailReader.openIMAP()
     count = 0
     for singleMail in emailReader.getUnReadMessages():
+        print (" ",singleMail["body"])
         singleMail["body"] = emailReader.cleanEmail(singleMail["body"]).replace(u'\u200b', '').replace("\r\n","\n")
         print ("1",singleMail["body"])
         singleMail["body"] = singleMail["body"].replace(u'\u200b', '').replace("\r\n","\n").replace("*","")
