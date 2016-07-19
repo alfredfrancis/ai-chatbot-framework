@@ -103,7 +103,7 @@ def mattermost():
       user_id=rnina9994bde8mua79zqcg5hmo&
       user_name=somename
     """
-    TOKEN = "d7mrin8bcibu9fxbbtgpkpd6xa"
+    TOKEN = "zdb17ppgwpr178ja68wseghswr"
     if (request.form['token'] == TOKEN):
 
         userQuery = request.form['text']
@@ -111,9 +111,9 @@ def mattermost():
         if "errorCode" not in resultDictonary:
             result = resultDictonary["output"]
         else:
-            result = "Something went wrong,Contact Alfred."
+            result = resultDictonary["description"]
         try:
-            requests.post("http://localhost:8065/hooks/476f6pjigb84mnwxkbypcze45w",
+            requests.post("http://172.30.10.119:8075/hooks/nfsshnro73f9xproni3uazib7h",
                           json={"username": "iky", "text": result})
         except:
             pass

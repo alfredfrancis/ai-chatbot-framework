@@ -49,7 +49,8 @@ def calculateOutTime(entities):
     else:
         outTime = (datetime.combine(datetime.today(),inTime)  + timedelta(hours=8, minutes=30))
 
-    now = datetime.now()
+    now = datetime.now() + timedelta(hours=5, minutes=30)
+    print (now)
 
     if now.time() >= outTime.time() :
         result = "You can leave now. Have a nice time ahead :)"
@@ -59,8 +60,21 @@ def calculateOutTime(entities):
 
     return result
 
+def checkH2HTransactionStatus(entities):
+    url ="http://172.30.10.141:8094/callyourpartner/%s"%(entities["routingKey"])
+    data={"txnType": "2O", "method": "enquiryTxn", "txnRefNum": entities["txnNo"]}
+    try:
+        response = requests.get(url,data)
+        json_dict = json.loads(response.content)
+        if "statusDescription" not in json_dict:
+            return "Status not available in Red currant."
+        else:
+            json_dict["statusDescription"]
+    except:
+        return "Red currant Not avilable"
+
 def checkTransactionStatus(entities):
-    url = "http://172.30.10.119:7023/remit/txn/enquiry/10/1232"
+    url = "http://172.30.10.119:7003/customer/enquiry/10/146281095932945"
     parameters = {"txnno": entities['txnNo']}
     if not entities['txnNo']:
         return "Empty or Invalid Transaction number"
