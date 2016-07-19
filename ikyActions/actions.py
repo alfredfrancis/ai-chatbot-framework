@@ -1,9 +1,63 @@
 from __future__ import print_function
 import requests
 import json
-
+import re
+from datetime import datetime,timedelta
 def hello(entities):
     return "hello"
+
+def calculateOutTime(entities):
+    userId = "356000199"
+    password = "lulu@123"
+    if not userId or not password:
+        return "username or password cant be empty"
+
+    URL = 'http://172.30.15.124:2020/HRMS/j_acegi_security_check'
+    session = requests.session()
+
+    login_data = {
+        'j_username': userId,
+        'j_password': password,
+        'Submit.x': '50',
+        'Submit.y': '12',
+    }
+    headers = {
+        "Referer": "http://172.30.15.124:2020/HRMS/login.do",
+        "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:47.0) Gecko/20100101 Firefox/47.0",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+    try:
+        r = session.post(URL, data=login_data, headers=headers)
+        if "incorrect" in r.text:
+            return "username or password incorrect"
+    except:
+        return "Server can't be reached"
+
+    post_data = {
+        'attendancedate': '19 Jul 2016',
+        'dummyattendancedate': '19 Jul 2016'
+    }
+    attendence_url = 'http://172.30.15.124:2020/HRMS/attendance/swipeinfo.do?action=show'
+    r = session.post(attendence_url, post_data)
+    result = re.findall(r'<td nowrap="true">.*&nbsp;(.*?)</td>', r.text)
+    inTime = datetime.strptime(result[0], '%I:%M').time()
+    defaultTime = datetime.strptime("9:30", '%I:%M').time()
+
+    if (inTime <= defaultTime):
+        #outTime = (defaultTime + timedelta(hours=8, minutes=30)).strftime('%I:%M')
+        outTime = (datetime.combine(datetime.today(),defaultTime) + timedelta(hours=8, minutes=30))
+    else:
+        outTime = (datetime.combine(datetime.today(),inTime)  + timedelta(hours=8, minutes=30))
+
+    now = datetime.now()
+
+    if now.time() >= outTime.time() :
+        result = "You can leave now. Have a nice time ahead :)"
+    elif now.time() < outTime.time():
+        diff = "%s hours and %s Minutes"%(str(outTime - now).split(":")[0],str(outTime - now).split(":")[1])
+        result = "No. You punched in at %s, You can leave at %s ( %s more)"%(inTime,outTime.time(),diff)
+
+    return result
 
 def checkTransactionStatus(entities):
     url = "http://172.30.10.119:7023/remit/txn/enquiry/10/1232"

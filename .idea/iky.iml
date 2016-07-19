@@ -5,6 +5,7 @@
     <orderEntry type="jdk" jdkName="Python 2.7.11+ virtualenv at ~/virtualenvs/iky" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="tq" />
+    <orderEntry type="module" module-name="blu" />
   </component>
   <component name="TestRunnerService">
     <option name="PROJECT_TEST_RUNNER" value="Unittests" />
