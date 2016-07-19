@@ -18,7 +18,10 @@ import requests
 def ikyParseAndExecute(userQuery=None):
     result = {}
     if not userQuery:
+        webRequest = True
         userQuery = request.form['userQuery']
+    else:
+        webRequest = False
 
     if userQuery:
         intentClassifier = IntentClassifier()
@@ -35,7 +38,8 @@ def ikyParseAndExecute(userQuery=None):
             result = errorCodes.UnidentifiedIntent
     else:
         result = errorCodes.emptyInpurt
-    if request.form['userQuery']:
+
+    if webRequest:
         return buildResponse.buildJson(result)
     return result
 
@@ -90,32 +94,14 @@ def posTagAndLabel():
 
 @app.route('/mattermost/incoming/', methods=['POST'])
 def mattermost():
-    """
-      channel_id=hawos4dqtby53pd64o4a4cmeoo&
-      channel_name=town-square&
-      team_domain=someteam&
-      team_id=kwoknj9nwpypzgzy78wkw516qe&
-      post_id=axdygg1957njfe5pu38saikdho&
-      text=some+text+here&
-      timestamp=1445532266&
-      token=zmigewsanbbsdf59xnmduzypjc&
-      trigger_word=some&
-      user_id=rnina9994bde8mua79zqcg5hmo&
-      user_name=somename
-    """
-    TOKEN = "zdb17ppgwpr178ja68wseghswr"
+    TOKEN = "5tig46zh4i869xj7wprxcifprh"
     if (request.form['token'] == TOKEN):
-
         userQuery = request.form['text']
         resultDictonary = ikyParseAndExecute(userQuery)
         if "errorCode" not in resultDictonary:
             result = resultDictonary["output"]
         else:
             result = resultDictonary["description"]
-        try:
-            requests.post("http://172.30.10.119:8075/hooks/nfsshnro73f9xproni3uazib7h",
-                          json={"username": "iky", "text": result})
-        except:
-            pass
-        return "Sucess"
+        response = requests.post("http://172.30.10.141:9998/hooks/n5gtntoqejd5mr8fse4d67apmc",json={"username": "iky", "text": result})
+        return response
     return "This can only be accessed from Mattermost"
