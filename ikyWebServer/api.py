@@ -94,7 +94,7 @@ def posTagAndLabel():
 
 @app.route('/mattermost/incoming/', methods=['POST'])
 def mattermost():
-    TOKEN = "5tig46zh4i869xj7wprxcifprh"
+    TOKEN = "17utt33ncjbobym8r3n91omnoh"
     if (request.form['token'] == TOKEN):
         userQuery = request.form['text']
         resultDictonary = ikyParseAndExecute(userQuery)
@@ -102,6 +102,6 @@ def mattermost():
             result = resultDictonary["output"]
         else:
             result = resultDictonary["description"]
-        response = requests.post("http://172.30.10.141:9998/hooks/n5gtntoqejd5mr8fse4d67apmc",json={"username": "iky", "text": result})
+        response = requests.post("http://172.17.0.3:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",json={"username": "iky", "text": result})
         return response
     return "This can only be accessed from Mattermost"

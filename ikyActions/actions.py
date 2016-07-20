@@ -33,9 +33,10 @@ def calculateOutTime(entities):
     except:
         return "Server can't be reached"
 
+    now = datetime.now()
     post_data = {
-        'attendancedate': '19 Jul 2016',
-        'dummyattendancedate': '19 Jul 2016'
+        'attendancedate': now.strftime("%d %b %Y"),
+        'dummyattendancedate': now.strftime("%d %b %Y")
     }
     attendence_url = 'http://172.30.15.124:2020/HRMS/attendance/swipeinfo.do?action=show'
     r = session.post(attendence_url, post_data)
@@ -49,7 +50,7 @@ def calculateOutTime(entities):
     else:
         outTime = (datetime.combine(datetime.today(),inTime)  + timedelta(hours=8, minutes=30))
 
-    now = datetime.now() + timedelta(hours=5, minutes=30)
+    now += timedelta(hours=5, minutes=30)
     print (now)
 
     if now.time() >= outTime.time() :
@@ -61,7 +62,7 @@ def calculateOutTime(entities):
     return result
 
 def checkH2HTransactionStatus(entities):
-    url ="http://172.30.10.141:8094/callyourpartner/%s"%(entities["routingKey"])
+    url ="http://172.30.10.119:8094/callyourpartner/YOM/%s"%(entities["routingKey"])
     data={"txnType": "2O", "method": "enquiryTxn", "txnRefNum": entities["txnNo"]}
     try:
         response = requests.get(url,data)
