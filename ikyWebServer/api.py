@@ -94,7 +94,7 @@ def posTagAndLabel():
 
 @app.route('/mattermost/incoming/', methods=['POST'])
 def mattermost():
-    TOKEN = "17utt33ncjbobym8r3n91omnoh"
+    TOKEN = "c1yad6jwrb8n5be4ojfqy35ayw"
     if (request.form['token'] == TOKEN):
         userQuery = request.form['text']
         resultDictonary = ikyParseAndExecute(userQuery)
