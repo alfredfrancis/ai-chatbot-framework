@@ -98,10 +98,12 @@ def mattermost():
     if (request.form['token'] == TOKEN):
         userQuery = request.form['text']
         resultDictonary = ikyParseAndExecute(userQuery)
-        if "errorCode" not in resultDictonary:
-            result = resultDictonary["output"]
+        if resultDictonary["errorCode"] == 801:
+            result = "Can you be little more specific ?"
+        elif resultDictonary["errorCode"] == 701:
+            result = "Sorry! I'm not able to do that yet."
         else:
-            result = resultDictonary["description"]
+            result = resultDictonary["output"]
         response = requests.post("http://172.17.0.3:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",json={"username": "iky", "text": result})
         return response
     return "This can only be accessed from Mattermost"

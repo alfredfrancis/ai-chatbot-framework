@@ -2,9 +2,50 @@ from __future__ import print_function
 import requests
 import json
 import re
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
+
+
 def hello(entities):
     return "hello"
+
+
+def checkH2HTransactionStatus(entities):
+    url = "http://172.30.10.119:8094/callyourpartner/YOM/%s" % (entities["routingKey"])
+    data = {
+        "txnType": "2O",
+        "method": "enquiryTxn",
+        "txnRefNum": entities["txnNo"],
+        "serviceProviderCode": "LULUXAE#####",
+        "uploadDate": "20-07-2016"
+    }
+    try:
+        response = requests.get(url, data)
+        json_dict = json.loads(response.content)
+        if "statusDescription" not in json_dict:
+            return "Status not available in Red currant."
+        else:
+            json_dict["statusDescription"]
+    except:
+        return "Red currant Not avilable"
+
+
+def checkTransactionStatus(entities):
+    url = "http://172.30.10.119:7027/rateboard/enquiry/10/146281095932945"
+    parameters = {"txnno": entities['txnNo']}
+    if not entities['txnNo']:
+        return "Empty or Invalid Transaction number"
+    try:
+        response = requests.get(url, params=parameters)
+        responseDict = json.loads(response.text)
+        statusDesc = responseDict.get('statusDesc')
+        if not (statusDesc):
+            result = "Status not available in YOM"
+        else:
+            result = statusDesc
+        return ("Transaction no :%s, %s") % (entities['txnNo'], result)
+    except Exception as e:
+        return "Server Error,Please try again later."
+
 
 def calculateOutTime(entities):
     userId = "356000199"
@@ -45,50 +86,21 @@ def calculateOutTime(entities):
     defaultTime = datetime.strptime("9:30", '%I:%M').time()
 
     if (inTime <= defaultTime):
-        #outTime = (defaultTime + timedelta(hours=8, minutes=30)).strftime('%I:%M')
-        outTime = (datetime.combine(datetime.today(),defaultTime) + timedelta(hours=8, minutes=30))
+        # outTime = (defaultTime + timedelta(hours=8, minutes=30)).strftime('%I:%M')
+        outTime = (datetime.combine(datetime.today(), defaultTime) + timedelta(hours=8, minutes=30))
     else:
-        outTime = (datetime.combine(datetime.today(),inTime)  + timedelta(hours=8, minutes=30))
+        outTime = (datetime.combine(datetime.today(), inTime) + timedelta(hours=8, minutes=30))
 
     now += timedelta(hours=5, minutes=30)
-    print (now)
+    print(now)
 
-    if now.time() >= outTime.time() :
+    if now.time() >= outTime.time():
         result = "You can leave now. Have a nice time ahead :)"
     elif now.time() < outTime.time():
-        diff = "%s hours and %s Minutes"%(str(outTime - now).split(":")[0],str(outTime - now).split(":")[1])
-        result = "No. You punched in at %s, You can leave at %s ( %s more)"%(inTime,outTime.time(),diff)
+        diff = "%s hours and %s Minutes" % (str(outTime - now).split(":")[0], str(outTime - now).split(":")[1])
+        result = "No. You punched in at %s, You can leave at %s ( %s more)" % (inTime, outTime.time(), diff)
 
     return result
-
-def checkH2HTransactionStatus(entities):
-    url ="http://172.30.10.119:8094/callyourpartner/YOM/%s"%(entities["routingKey"])
-    data={"txnType": "2O", "method": "enquiryTxn", "txnRefNum": entities["txnNo"]}
-    try:
-        response = requests.get(url,data)
-        json_dict = json.loads(response.content)
-        if "statusDescription" not in json_dict:
-            return "Status not available in Red currant."
-        else:
-            json_dict["statusDescription"]
-    except:
-        return "Red currant Not avilable"
-
-def checkTransactionStatus(entities):
-    url = "http://172.30.10.119:7003/customer/enquiry/10/146281095932945"
-    parameters = {"txnno": entities['txnNo']}
-    if not entities['txnNo']:
-        return "Empty or Invalid Transaction number"
-    try:
-        response = requests.get(url, params=parameters)
-        json_dict = json.loads(response.content)
-        statusDesc = json_dict['statusDesc']
-        if not (statusDesc):
-            return "Status not available in YOM"
-        else:
-            return ("Your transaction no :%s is %s") % (entities['txnNo'],statusDesc)
-    except Exception as e:
-        return "Server Error,Please try again later."
 
 
 def addEventToGoogleCalender(entities):
@@ -118,8 +130,8 @@ def addEventToGoogleCalender(entities):
 
     GMT_OFF = '+05:30'  # GMT for india
     date_time_object = datetime.strptime(entities["date"], '%Y-%m-%d %H:%M:%S')
-    START_DATE = date_time_object.strftime("%Y-%m-%dT%H:%M:%S"+GMT_OFF)
-    END_DATE = (date_time_object + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S"+GMT_OFF)
+    START_DATE = date_time_object.strftime("%Y-%m-%dT%H:%M:%S" + GMT_OFF)
+    END_DATE = (date_time_object + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S" + GMT_OFF)
     EVENT = {
         'summary': entities["event"],
         'start': {'dateTime': START_DATE},
