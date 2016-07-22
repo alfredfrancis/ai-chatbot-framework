@@ -40,6 +40,7 @@ def ikyParseAndExecute(userQuery=None):
         result = errorCodes.emptyInpurt
 
     if webRequest:
+	print("hello")
         return buildResponse.buildJson(result)
     return result
 
@@ -98,12 +99,12 @@ def mattermost():
     if (request.form['token'] == TOKEN):
         userQuery = request.form['text']
         resultDictonary = ikyParseAndExecute(userQuery)
-        if resultDictonary["errorCode"] == 801:
+        if resultDictonary.get("errorCode") == 801:
             result = "Can you be little more specific ?"
-        elif resultDictonary["errorCode"] == 701:
+        elif resultDictonary.get("errorCode") == 701:
             result = "Sorry! I'm not able to do that yet."
         else:
             result = resultDictonary["output"]
         response = requests.post("http://172.17.0.3:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",json={"username": "iky", "text": result})
-        return response
+        return  "ok"
     return "This can only be accessed from Mattermost"
