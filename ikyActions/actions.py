@@ -25,8 +25,6 @@ def checkH2HTransactionStatus(entities):
             return responseDict["statusDescription"]
     except:
         return "Redcurrant Server Not avilable"
-
-
 def checkTransactionStatus(entities):
     routingKeyMatchTable = {
         11667: "DIBHH"
@@ -48,11 +46,10 @@ def checkTransactionStatus(entities):
             rcResult = checkH2HTransactionStatus(entities)
         else:
             yomResult = statusDesc
-        return ("***Transaction no :%s ***YOM status :%s ***RedCurrant status: %s")%(entities['txnNo'],
+        return ("Transaction no :**%s** YOM status :**%s** RedCurrant status: **%s**")%(entities['txnNo'],
                                                                             yomResult,rcResult)
     except Exception as e:
         return "Server Error,Please try again later."
-
 def calculateOutTime(entities):
     userId = "356000199"
     password = "lulu@123"
@@ -107,8 +104,6 @@ def calculateOutTime(entities):
         result = "No. You punched in at %s, You can leave at %s ( %s more)" % (inTime, outTime.time(), diff)
 
     return result
-
-
 def addEventToGoogleCalender(entities):
     from apiclient.discovery import build
     from httplib2 import Http

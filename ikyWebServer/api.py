@@ -106,5 +106,5 @@ def mattermost():
         else:
             result = resultDictonary["output"]
         response = requests.post("http://172.17.0.3:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",json={"username": "iky", "text": result})
-        return  "ok"
+        return  buildResponse.sentOk()
     return "This can only be accessed from Mattermost"
