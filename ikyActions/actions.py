@@ -21,8 +21,8 @@ def activateUser(entities):
         return "Status : %s"%(responseDict.get("customerRemarks"))
 
 def getDetailsFromMobileNumber(entities):
-    #http://172.30.20.87:8091/useraccount/mobile/10/12124?mobileno=5089005401
-    url = "http://172.30.20.87:8091/useraccount/mobile/10/12124"
+    #http://172.30.10.119:7002/useraccount/mobile/10/12124?mobileno=5089005401
+    url = "http://172.30.10.119:7002/useraccount/mobile/10/12124"
     parameters = {"mobileno": entities.get('mobileNumber').replace(" ", "").replace("-","")}
     try:
         response = requests.get(url, params=parameters)
@@ -30,11 +30,13 @@ def getDetailsFromMobileNumber(entities):
         return "Server Error,Please try again later."
     try:
         responseDict = json.loads(response.text)
-        return "Name : %s <br> User ID : %s <br> Status : %s"%(responseDict.get("firstName") +" "+ responseDict.get("lastName"),responseDict.g$
+        return "Name : %s <br> User ID : %s <br>DOB : %s <Br>Status : %s<br>Tell <i>Activate {user id} </i> for user Activation"%(responseDict.get("firstName") +" "
+                                                                           + responseDict.get("lastName"),
+                                                                           responseDict.get("userAccountId")
+                                                                           ,responseDict.get("dateOfBirthValue"),
+                                                               responseDict.get("status"))
     except:
         return "No User Data found for the Mobile Number"
-
-
 
 def hello(entities):
     return "hello"
@@ -178,4 +180,4 @@ def addEventToGoogleCalender(entities):
                          e['start']['dateTime']))
 
 
-print(activateUser({"userId":"146849084321731"}))
+print(getDetailsFromMobileNumber({"mobileNumber":"5089005401"}))

@@ -2,13 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/iky.iml" afterPath="$PROJECT_DIR$/.idea/iky.iml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/modules.xml" afterPath="$PROJECT_DIR$/.idea/modules.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/vcs.xml" afterPath="$PROJECT_DIR$/.idea/vcs.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/sound.wav" afterPath="" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyActions/actions.py" afterPath="$PROJECT_DIR$/ikyActions/actions.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWebServer/api.py" afterPath="$PROJECT_DIR$/ikyWebServer/api.py" />
     </list>
     <ignored path="iky.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -28,12 +23,18 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="app.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/../face/app.py">
+      <file leaf-file-name="actions.py" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="220">
-              <caret line="10" column="0" selection-start-line="10" selection-start-column="0" selection-end-line="10" selection-end-column="0" />
-              <folding />
+            <state relative-caret-position="470">
+              <caret line="182" column="60" selection-start-line="182" selection-start-column="60" selection-end-line="182" selection-end-column="60" />
+              <folding>
+                <element signature="e#151#667#0" expanded="false" />
+                <element signature="e#1880#2519#0" expanded="false" />
+                <element signature="e#2562#3719#0" expanded="false" />
+                <element signature="e#3756#5838#0" expanded="false" />
+                <element signature="e#5883#7326#0" expanded="false" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -108,8 +109,8 @@
         <option value="$PROJECT_DIR$/ikyWebServer/api.py" />
         <option value="$PROJECT_DIR$/../forecast/test.py" />
         <option value="$PROJECT_DIR$/../forecast/volume.csv" />
-        <option value="$PROJECT_DIR$/ikyActions/actions.py" />
         <option value="$PROJECT_DIR$/../face/app.py" />
+        <option value="$PROJECT_DIR$/ikyActions/actions.py" />
       </list>
     </option>
   </component>
@@ -163,6 +164,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scratches" />
       <pane id="Scope">
         <subPane subId="Project Files">
           <PATH>
@@ -173,7 +175,6 @@
           </PATH>
         </subPane>
       </pane>
-      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -189,6 +190,30 @@
             </PATH_ELEMENT>
             <PATH_ELEMENT>
               <option name="myItemId" value="face" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="iky" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="iky" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="iky" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="iky" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="ikyActions" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -502,7 +527,7 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="65" y="24" width="1301" height="744" extended-state="6" />
-    <editor active="false" />
+    <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.11815336" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -561,7 +586,7 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <option name="time" value="33" />
+      <option name="time" value="36" />
     </breakpoint-manager>
     <watches-manager />
   </component>
@@ -853,13 +878,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="154">
-          <caret line="16" column="189" selection-start-line="16" selection-start-column="8" selection-end-line="16" selection-end-column="189" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../superfla/openface/openface_server.lua">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-528">
@@ -921,6 +939,20 @@
         <state relative-caret-position="220">
           <caret line="10" column="0" selection-start-line="10" selection-start-column="0" selection-end-line="10" selection-end-column="0" />
           <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="470">
+          <caret line="182" column="60" selection-start-line="182" selection-start-column="60" selection-end-line="182" selection-end-column="60" />
+          <folding>
+            <element signature="e#151#667#0" expanded="false" />
+            <element signature="e#1880#2519#0" expanded="false" />
+            <element signature="e#2562#3719#0" expanded="false" />
+            <element signature="e#3756#5838#0" expanded="false" />
+            <element signature="e#5883#7326#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
