@@ -1,6 +1,6 @@
-from flask import request
+from flask import request,send_file
 import html2text
-
+import os
 from ikyCore.intentClassifier import IntentClassifier
 from ikyCore import sequenceLabeler
 from ikyCore import nlp
@@ -108,3 +108,16 @@ def mattermost():
         response = requests.post("http://172.17.0.3:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",json={"username": "iky", "text": result})
         return  buildResponse.sentOk()
     return "This can only be accessed from Mattermost"
+
+@app.route('/tts')
+def tts():
+    voices = {"american":"file://cmu_us_eey.flitevox",
+              "indian":"file://cmu_us_axb.flitevox"
+              }
+    os.system("echo \""+request.args.get("text")+"\" | flite -voice "+voices[request.args.get("country")]+"  -o sound.wav")
+    path_to_file = "../sound.wav"
+    return send_file(
+         path_to_file,
+         mimetype="audio/wav",
+         as_attachment=True,
+         attachment_filename="sound.wav")

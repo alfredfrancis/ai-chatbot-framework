@@ -5,6 +5,37 @@ import re
 from datetime import datetime, timedelta
 
 
+def activateUser(entities):
+    url = "http://172.30.10.22/useraccount/activate/10/%s"%entities.get("userId")
+    try:
+        response = requests.put(url)
+    except:
+        return "Server Error,Please try again later."
+
+    responseDict = json.loads(response.text)
+    if responseDict.get("code")==203:
+        return "Status : %s"%(responseDict.get("message"))
+    elif responseDict.get("status")==500:
+        return "No user account is registered with this user id"
+    else:
+        return "Status : %s"%(responseDict.get("customerRemarks"))
+
+def getDetailsFromMobileNumber(entities):
+    #http://172.30.20.87:8091/useraccount/mobile/10/12124?mobileno=5089005401
+    url = "http://172.30.20.87:8091/useraccount/mobile/10/12124"
+    parameters = {"mobileno": entities.get('mobileNumber').replace(" ", "").replace("-","")}
+    try:
+        response = requests.get(url, params=parameters)
+    except:
+        return "Server Error,Please try again later."
+    try:
+        responseDict = json.loads(response.text)
+        return "Name : %s <br> User ID : %s <br> Status : %s"%(responseDict.get("firstName") +" "+ responseDict.get("lastName"),responseDict.g$
+    except:
+        return "No User Data found for the Mobile Number"
+
+
+
 def hello(entities):
     return "hello"
 def checkH2HTransactionStatus(entities):
@@ -145,3 +176,6 @@ def addEventToGoogleCalender(entities):
     return ('''added Event : %r,
             at: %s''' % (e['summary'].encode('utf-8'),
                          e['start']['dateTime']))
+
+
+print(activateUser({"userId":"146849084321731"}))

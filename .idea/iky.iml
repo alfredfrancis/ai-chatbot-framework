@@ -7,6 +7,8 @@
     <orderEntry type="module" module-name="tq" />
     <orderEntry type="module" module-name="blu" />
     <orderEntry type="module" module-name="forecastSample" />
+    <orderEntry type="module" module-name="op" />
+    <orderEntry type="module" module-name="face" />
   </component>
   <component name="TestRunnerService">
     <option name="PROJECT_TEST_RUNNER" value="Unittests" />
