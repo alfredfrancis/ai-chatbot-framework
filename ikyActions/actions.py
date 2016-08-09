@@ -54,35 +54,32 @@ def checkH2HTransactionStatus(entities):
         responseDict = json.loads(response.text)
         if "statusDescription" not in responseDict:
             return "Status not available in Red currant."
+        elif "Info" in responseDict["statusDescription"]:
+            return responseDict["returnDescription"]
         else:
             return responseDict["statusDescription"]
     except:
         return "Redcurrant Server Not avilable"
+    
 def checkTransactionStatus(entities):
-    routingKeyMatchTable = {
-        11667: "DIBHH"
-    }
-    url = "http://172.30.10.119:7027/rateboard/enquiry/10/146281095932945"
+    #http://172.30.20.87:7027/rateboard/enquiry/0002/12312313?txnno=0100916121033804
+    url = "http://172.30.20.87:7027/rateboard/enquiry/0002/12312313"
     parameters = {"txnno": entities['txnNo']}
     if not entities['txnNo']:
         return "Empty or Invalid Transaction number"
-    try:
-        response = requests.get(url, params=parameters)
-        responseDict = json.loads(response.text)
-        statusDesc = responseDict.get('statusDesc')
-        rcResult=yomResult = "Not Avilable"
-        if not (statusDesc):
-            yomResult = "Status not available in YOM"
-        elif "Transmitted" in statusDesc:
-            yomResult = statusDesc
-            entities["routingKey"] = routingKeyMatchTable.get(responseDict.get('beneficiary').get('beneficiaryBank').get('draweeBankId'))
-            rcResult = checkH2HTransactionStatus(entities)
-        else:
-            yomResult = statusDesc
-        return ("Transaction no :**%s** YOM status :**%s** RedCurrant status: **%s**")%(entities['txnNo'],
-                                                                            yomResult,rcResult)
-    except Exception as e:
-        return "Server Error,Please try again later."
+
+    response = requests.get(url, params=parameters)
+    responseDict = json.loads(response.text)
+    statusDesc = responseDict.get('statusDesc')
+    if not (statusDesc):
+        return "Invalid transaction number/Status not available in YOM"
+    elif "HOST_2_HOST" in responseDict.get("paymentDetail").get("txnType2") and "Transmitted" in statusDesc:
+        entities["routingKey"] = responseDict.get('beneficiary').get("beneficiaryBank").get("draweeBankGroup")
+        result = checkH2HTransactionStatus(entities)
+    else:
+        result = statusDesc
+    return ("Transaction no :**%s** status :**%s**")%(entities['txnNo'],result)
+
 def calculateOutTime(entities):
     userId = "356000199"
     password = "lulu@123"
