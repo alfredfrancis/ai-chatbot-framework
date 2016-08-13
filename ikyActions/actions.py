@@ -62,8 +62,8 @@ def checkH2HTransactionStatus(entities):
         return "Redcurrant Server Not avilable"
     
 def checkTransactionStatus(entities):
-    #http://172.30.20.87:7027/rateboard/enquiry/0002/12312313?txnno=0100916121033804
-    url = "http://172.30.20.87:7027/rateboard/enquiry/0002/12312313"
+    #http://172.30.10.141:7027/rateboard/enquiry/0002/12312313?txnno=0107416113445215
+    url = "http://172.30.10.141:7027/rateboard/enquiry/0002/12312313"
     parameters = {"txnno": entities['txnNo']}
     if not entities['txnNo']:
         return "Empty or Invalid Transaction number"
