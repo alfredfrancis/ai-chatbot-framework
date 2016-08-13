@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyActions/actions.py" afterPath="$PROJECT_DIR$/ikyActions/actions.py" />
-    </list>
+    <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="" />
     <ignored path="iky.iws" />
     <ignored path=".idea/workspace.xml" />
     <ignored path=".idea/dataSources.local.xml" />
@@ -26,8 +24,8 @@
       <file leaf-file-name="actions.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="330">
-              <caret line="67" column="15" selection-start-line="67" selection-start-column="15" selection-end-line="67" selection-end-column="15" />
+            <state relative-caret-position="184">
+              <caret line="67" column="29" selection-start-line="67" selection-start-column="29" selection-end-line="67" selection-end-column="29" />
               <folding>
                 <element signature="e#151#667#0" expanded="false" />
                 <element signature="e#715#1793#0" expanded="false" />
@@ -964,8 +962,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="330">
-          <caret line="67" column="15" selection-start-line="67" selection-start-column="15" selection-end-line="67" selection-end-column="15" />
+        <state relative-caret-position="184">
+          <caret line="67" column="29" selection-start-line="67" selection-start-column="29" selection-end-line="67" selection-end-column="29" />
           <folding>
             <element signature="e#151#667#0" expanded="false" />
             <element signature="e#715#1793#0" expanded="false" />
