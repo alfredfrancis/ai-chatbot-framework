@@ -78,7 +78,7 @@ def checkTransactionStatus(entities):
         result = checkH2HTransactionStatus(entities)
     else:
         result = statusDesc
-    return ("Transaction no :**%s** status :**%s**")%(entities['txnNo'],result)
+    return ("Transaction no :**%s** Customer Name : **%s** status :**%s**")%(entities['txnNo'],responseDict.get('customerDetail').get('firstName')+" "+responseDict.get('customerDetail').get('lastName'),result)
 
 def calculateOutTime(entities):
     userId = "356000199"

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="" />
+    <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyActions/actions.py" afterPath="$PROJECT_DIR$/ikyActions/actions.py" />
+    </list>
     <ignored path="iky.iws" />
     <ignored path=".idea/workspace.xml" />
     <ignored path=".idea/dataSources.local.xml" />
@@ -24,14 +26,14 @@
       <file leaf-file-name="actions.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="184">
-              <caret line="67" column="29" selection-start-line="67" selection-start-column="29" selection-end-line="67" selection-end-column="29" />
+            <state relative-caret-position="352">
+              <caret line="80" column="199" selection-start-line="80" selection-start-column="199" selection-end-line="80" selection-end-column="199" />
               <folding>
                 <element signature="e#151#667#0" expanded="false" />
                 <element signature="e#715#1793#0" expanded="false" />
                 <element signature="e#1880#2630#0" expanded="false" />
-                <element signature="e#3630#5712#0" expanded="false" />
-                <element signature="e#5757#7200#0" expanded="false" />
+                <element signature="e#3760#5842#0" expanded="false" />
+                <element signature="e#5887#7330#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -962,14 +964,14 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="184">
-          <caret line="67" column="29" selection-start-line="67" selection-start-column="29" selection-end-line="67" selection-end-column="29" />
+        <state relative-caret-position="352">
+          <caret line="80" column="199" selection-start-line="80" selection-start-column="199" selection-end-line="80" selection-end-column="199" />
           <folding>
             <element signature="e#151#667#0" expanded="false" />
             <element signature="e#715#1793#0" expanded="false" />
             <element signature="e#1880#2630#0" expanded="false" />
-            <element signature="e#3630#5712#0" expanded="false" />
-            <element signature="e#5757#7200#0" expanded="false" />
+            <element signature="e#3760#5842#0" expanded="false" />
+            <element signature="e#5887#7330#0" expanded="false" />
           </folding>
         </state>
       </provider>
