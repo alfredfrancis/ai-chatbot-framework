@@ -112,7 +112,7 @@ def posTagAndLabel():
 
 @app.route('/mattermost/incoming/', methods=['POST'])
 def mattermost():
-    TOKEN = "ccs3t6oxapdoxdxqzti3mxrszc"
+    TOKEN = "sgh9ymndefgs8bopuao3xd8r3y"
     if (request.form['token'] == TOKEN):
         userQuery = request.form['text']
         resultDictonary = ikyParseAndExecute(userQuery)
@@ -122,7 +122,7 @@ def mattermost():
             result = "Sorry! I'm not able to do that yet."
         else:
             result = resultDictonary["output"]
-        response = requests.post("http://172.30.10.141:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",
+        response = requests.post("https://chat.luluone.com/hooks/opyufr1qsibcjqqhgkt93e149h",
                                  json={"username": "iky", "text": result})
         return buildResponse.sentOk()
     return "This can only be accessed from Mattermost"
