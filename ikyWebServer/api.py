@@ -1,4 +1,4 @@
-from flask import request,send_file
+from flask import request, send_file
 import html2text
 import os
 from ikyCore.intentClassifier import IntentClassifier
@@ -13,16 +13,32 @@ from ikyWebServer import app, buildResponse
 
 import requests
 
+# logging begins
+import logging
+
+import json_log_formatter
+
+formatter = json_log_formatter.JSONFormatter()
+json_handler = logging.FileHandler(filename='log.json')
+json_handler.setFormatter(formatter)
+
+logger = logging.getLogger('my_json')
+logger.addHandler(json_handler)
+logger.setLevel(logging.INFO)
+
+# logging ends
 
 @app.route('/ikyParseAndExecute', methods=['POST'])
 def ikyParseAndExecute(userQuery=None):
+    userId = "Alfred"
+    extractedEntities = {}
     result = {}
     if not userQuery:
         webRequest = True
-        userQuery = request.form['userQuery']
+        userId =  request.form['userId']
+        userQuery = request.form.get('userQuery')
     else:
         webRequest = False
-
     if userQuery:
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(userQuery)
@@ -38,9 +54,10 @@ def ikyParseAndExecute(userQuery=None):
             result = errorCodes.UnidentifiedIntent
     else:
         result = errorCodes.emptyInpurt
-
+    logger.info(userQuery, extra={'userId': userId,
+                                  'extractedEntities': extractedEntities,
+                                  'result': result})
     if webRequest:
-	print("hello")
         return buildResponse.buildJson(result)
     return result
 
@@ -105,19 +122,22 @@ def mattermost():
             result = "Sorry! I'm not able to do that yet."
         else:
             result = resultDictonary["output"]
-        response = requests.post("http://172.30.10.141:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",json={"username": "iky", "text": result})
-        return  buildResponse.sentOk()
+        response = requests.post("http://172.30.10.141:8065/hooks/uzmrc9txn38ytgxtkmfp7rzwwe",
+                                 json={"username": "iky", "text": result})
+        return buildResponse.sentOk()
     return "This can only be accessed from Mattermost"
+
 
 @app.route('/tts')
 def tts():
-    voices = {"american":"file://cmu_us_eey.flitevox",
-              "indian":"file://cmu_us_axb.flitevox"
+    voices = {"american": "file://cmu_us_eey.flitevox",
+              "indian": "file://cmu_us_axb.flitevox"
               }
-    os.system("echo \""+request.args.get("text")+"\" | flite -voice "+voices[request.args.get("country")]+"  -o sound.wav")
+    os.system("echo \"" + request.args.get("text") + "\" | flite -voice " + voices[
+        request.args.get("country")] + "  -o sound.wav")
     path_to_file = "../sound.wav"
     return send_file(
-         path_to_file,
-         mimetype="audio/wav",
-         as_attachment=True,
-         attachment_filename="sound.wav")
+        path_to_file,
+        mimetype="audio/wav",
+        as_attachment=True,
+        attachment_filename="sound.wav")

@@ -21,6 +21,9 @@ def stories():
 def repo():
     return render_template('repo.html')
 
+@app.route('/chat')
+def chat():
+    return render_template('chat.html')
 
 @app.route('/editStory', methods=['GET'])
 def editStory():

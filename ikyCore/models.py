@@ -2,7 +2,11 @@ from mongoengine import *
 from config import *
 from bson.objectid import ObjectId
 
-connect(IKY_DB)
+connect(
+    IKY_DB,
+    host='mongodb://172.30.10.141:27017/iky2',
+    port=27017
+)
 
 
 class User(Document):
