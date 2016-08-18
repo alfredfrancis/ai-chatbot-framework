@@ -41,13 +41,22 @@ def getDetailsFromMobileNumber(entities):
 def hello(entities):
     return "hello"
 def checkH2HTransactionStatus(entities):
-    if not entities["routingKey"]:
+    h2hSupportedBanks = {
+        "ICICIHH",
+        "DIBHH"
+    }
+    if not entities["routingKey"] and entities["routingKey"] not in h2hSupportedBanks:
         return "Routing key not supported."
     url = "http://172.30.10.119:8094/callyourpartner/YOM/%s"%entities["routingKey"]
+    # {"txnType": "2O", "method": "enquiryTxn",  "txnRefNum": "0100016123165891",
+    # "serviceProviderCode": "LULUXAE#####"
+    #  }
     data = {"payload": json.dumps({
         "txnType":"2O",
         "method":"enquiryTxn",
-        "txnRefNum":entities["txnNo"]}
+        "txnRefNum":entities["txnNo"],
+        "uploadDate": "2016-08-18 10:43:56.0",
+        "serviceProviderCode": entities["serviceProviderCode"]}
     )}
     try:
         response = requests.post(url, data=data)
@@ -74,8 +83,10 @@ def checkTransactionStatus(entities):
     if not (statusDesc):
         return "Invalid transaction number/Status not available in YOM"
     elif "HOST_2_HOST" in responseDict.get("paymentDetail").get("txnType2") and "Transmitted" in statusDesc:
-        entities["routingKey"] = responseDict.get('beneficiary').get("beneficiaryBank").get("draweeBankGroup")
-        result = checkH2HTransactionStatus(entities)
+        result = "Transmitted from YOM. Redcurrant API is offline"
+        # entities["routingKey"] = responseDict.get('beneficiary').get("beneficiaryBank").get("draweeBankGroup")
+        # entities["serviceProviderCode"] = responseDict.get('serviceProviderCode')
+        #result = checkH2HTransactionStatus(entities)
     else:
         result = statusDesc
     return ("Txn no : %s <br> Customer Name : %s <br> status :<b>%s</b> <br>")%(entities['txnNo'],responseDict.get('customerDetail').get('firstName')+" "+responseDict.get('customerDetail').get('lastName'),result)

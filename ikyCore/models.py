@@ -27,7 +27,7 @@ class Story(Document):
     storyName = StringField(max_length=100, required=True, unique=True)
     labels = ListField(StringField())
     actionType = StringField(choices=ACTIONTYPE, required=True)
-    actionName = StringField(max_length=50, required=True)
+    actionName = StringField(required=True)
     labeledSentences = EmbeddedDocumentListField(LabeledSentences)
     user = ReferenceField(User, required=True, reverse_delete_rule=CASCADE)
 

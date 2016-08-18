@@ -25,7 +25,6 @@ json_handler.setFormatter(formatter)
 logger = logging.getLogger('my_json')
 logger.addHandler(json_handler)
 logger.setLevel(logging.INFO)
-
 # logging ends
 
 @app.route('/ikyParseAndExecute', methods=['POST'])
