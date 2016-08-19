@@ -4,6 +4,27 @@ import json
 import re
 from datetime import datetime, timedelta
 
+def getIfsc(entities):
+    try:
+        url = 'http://www.google.com/search'
+
+        payload = {'q': 'site:ifsc.bankifsccode.com '+entities["bankName"], 'start': '0'}
+
+        my_headers = {'User-agent': 'Mozilla/11.0'}
+
+        r = requests.get(url, params=payload, headers=my_headers)
+    except:
+        return "Server again"
+
+    pattern=re.compile(r'<h3 class="r"><a .*>(IFSC.*)...</a></h3>')
+
+    result=pattern.findall(r.text.encode('utf-8'))
+
+    if len(result)==0:
+        result= "No match found"
+    else:
+        result = result[0] + "<br>" + result[1]
+    return result
 
 def activateUser(entities):
     url = "http://172.30.10.22/useraccount/activate/10/%s"%entities.get("userId")
