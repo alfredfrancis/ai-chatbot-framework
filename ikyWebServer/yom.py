@@ -20,13 +20,15 @@ json_handler.setFormatter(formatter)
 logger = logging.getLogger('my_json')
 logger.addHandler(json_handler)
 logger.setLevel(logging.INFO)
+
+
 # logging ends
 
 @app.route('/renderChat', methods=['POST'])
 def renderChat():
     extractedEntities = {}
     result = {}
-    userId =  request.form['userId']
+    userId = request.form['userId']
     userQuery = request.form.get('userQuery')
 
     if userQuery:
@@ -39,15 +41,22 @@ def renderChat():
                 result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'],
                                                  resultDictonary["entities"])
             else:
-                result = "Can you please rephrase that ?"
+                result = {
+                    "errorCode": "902",
+                    "description": "Can you please rephrase that ?"
+                }
         else:
-            result = "Sorry, i'm not able to understand that yet."
+            result = {
+                "errorCode": "902",
+                "description": "Sorry, i'm not able to understand that yet."
+            }
     else:
         result = errorCodes.emptyInput
     logger.info(userQuery, extra={'userId': userId,
                                   'extractedEntities': extractedEntities,
                                   'result': result})
     return buildResponse.buildJson(result)
+
 
 @app.route('/pingUser', methods=['POST'])
 def pingUser():
