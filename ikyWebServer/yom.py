@@ -41,13 +41,10 @@ def renderChat():
                 result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'],
                                                  resultDictonary["entities"])
             else:
-                result = {
-                    "errorCode": "902",
-                    "description": "Can you please rephrase that ?"
-                }
+                result = {"errorCode": 806,"description": "Can you please rephrase that ?"}
         else:
             result = {
-                "errorCode": "902",
+                "errorCode": 807,
                 "description": "Sorry, i'm not able to understand that yet."
             }
     else:
