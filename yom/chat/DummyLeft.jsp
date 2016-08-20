@@ -150,12 +150,15 @@
 	  <!---- iky -->
 	  <div class="container pull-right" id="chatWindow">
     	    <div class="panel panel-primary chatrr">
-              <div class="panel-heading">
+              <div class="panel-heading panel-collapsed">
                   <b> Iky </b> <small>online</small>
                   <a id="righta" href="#">+</a>
               </div>
-              <div class="panel-body"  style="height: 300px;">
+              <div class="panel-body"  >
                 <div class="clearfix"><blockquote class="you pull-left">Hi,How can i help you today ?</blockquote></div>
+              </div>
+              <div class="typing">
+                iky is typing..
               </div>
                 <div class="panel-footer inputBottom">
                 <fieldset>

@@ -39,12 +39,18 @@ $(document).ready(function () {
 		$.support.cors = true;
 		$.ajax({
 			method: 'POST',
-			url: 'http://10.45.0.172:8080/ikyParseAndExecute',
+			url: 'http://172.30.10.141:8092/ikyParseAndExecute',
 			data: {
+                userId: parent.frames[0].$("#userID").val(),
 				userQuery: userQuery
 			},
+            beforeSend: function() {
+                $('.typing').show();
+            },
             complete: function(data) {
 				put_text(data);
+                $('.typing').hide();
+                scrollToBottom();
 			}
 		});
 		return true;
@@ -59,6 +65,11 @@ $(document).ready(function () {
 			send_req();
 		}
 	})
+
+	function scrollToBottom() {
+        $(".panel-body")[0].scrollTop = $(".panel-body")[0].scrollHeight;
+    }
+
 });/**
  * Created by iky on 16/8/16.
  */

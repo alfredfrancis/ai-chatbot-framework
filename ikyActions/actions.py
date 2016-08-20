@@ -14,7 +14,7 @@ def getIfsc(entities):
 
         r = requests.get(url, params=payload, headers=my_headers)
     except:
-        return "Server again"
+        return "IFSC search service is not Avilable. Please Try again later"
 
     pattern=re.compile(r'<h3 class="r"><a .*>(IFSC.*)...</a></h3>')
 
@@ -23,7 +23,7 @@ def getIfsc(entities):
     if len(result)==0:
         result= "No match found"
     else:
-        result = result[0] + "<br>" + result[1]
+        result = result[0] + "<br><br>" + result[1]
     return result
 
 def activateUser(entities):

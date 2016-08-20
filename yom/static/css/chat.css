@@ -28,6 +28,8 @@
 }
 #chatWindow {
     width: 300px;
+    max-width:300px !important;
+    word-wrap: break-word;      /* IE */
     position: absolute;
     bottom: 0px;
     right: 0px;
@@ -35,6 +37,7 @@
 }
 .inputBottom textarea {
     max-width: 100% !important;
+    width: 100%;
 
 }
 
@@ -43,10 +46,12 @@
 }
 
 .panel-body{
+        max-width:300px !important;
         overflow-y: scroll;
+        height: 300px;
 }
-.panel-body div{
-        padding-bottom: 2px !important;
+blockquote{
+    margin-bottom: 5px !important;
 }
 .panel-heading a{
     font-size: 20px;
@@ -61,3 +66,8 @@
   background-color:#337ab7 !important;
 }
 
+.typing{
+    display: none;
+    font-style: italic;
+    margin-left: 6px;
+}

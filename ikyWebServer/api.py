@@ -52,7 +52,7 @@ def ikyParseAndExecute(userQuery=None):
         else:
             result = errorCodes.UnidentifiedIntent
     else:
-        result = errorCodes.emptyInpurt
+        result = errorCodes.emptyInput
     logger.info(userQuery, extra={'userId': userId,
                                   'extractedEntities': extractedEntities,
                                   'result': result})
