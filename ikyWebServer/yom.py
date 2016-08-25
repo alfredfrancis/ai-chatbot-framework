@@ -29,7 +29,7 @@ def renderChat():
     extractedEntities = {}
     result = {}
     userId = request.form['userId']
-    userQuery = request.form.get('userQuery')
+    userQuery = request.form['userQuery']
 
     if userQuery:
         intentClassifier = IntentClassifier()
@@ -41,7 +41,10 @@ def renderChat():
                 result["output"] = executeAction(resultDictonary['actionType'], resultDictonary['actionName'],
                                                  resultDictonary["entities"])
             else:
-                result = {"errorCode": 806,"description": "Can you please rephrase that ?"}
+                result = {
+                    "errorCode": 806,
+                    "description": "Can you please rephrase that ?"
+                }
         else:
             result = {
                 "errorCode": 807,
