@@ -1,4 +1,10 @@
 $(document).ready(function () {
+
+    $('.panel-heading a').parents('.panel').find('.panel-body').slideUp();
+    $('.panel-heading a').addClass('panel-collapsed');
+    $('.panel-heading a').text("+");
+    $(".inputBottom").hide();
+
     $(document).on('click', '.panel-heading a', function (e) {
         var $this = $(this);
         if (!$this.hasClass('panel-collapsed')) {
@@ -13,7 +19,8 @@ $(document).ready(function () {
             $(".inputBottom").show();
         }
     });
-    	var NS = {};
+    
+    var NS = {};
 
 	var put_text = function(bot_say) {
     	if(bot_say["responseJSON"].errorCode)
@@ -39,7 +46,7 @@ $(document).ready(function () {
 		$.support.cors = true;
 		$.ajax({
 			method: 'POST',
-			url: 'http://172.30.10.141:8092/ikyParseAndExecute',
+			url: 'http://172.30.10.141:8092/renderChat',
 			data: {
                 userId: parent.frames[0].$("#userID").val(),
 				userQuery: userQuery
@@ -64,12 +71,29 @@ $(document).ready(function () {
             $(".panel-body").append(html_data);
 			send_req();
 		}
-	})
+	});
 
 	function scrollToBottom() {
         $(".panel-body")[0].scrollTop = $(".panel-body")[0].scrollHeight;
     }
 
-});/**
- * Created by iky on 16/8/16.
- */
+    
+/*    socket = io.connect('http://10.45.0.172:4000', {
+    transports: ['polling']
+    });
+
+
+
+    socket.on(parent.frames[0].document.getElementById("#userID").val(), function(msg) {
+        if (!$('.panel-heading a').hasClass('panel-collapsed')) {    
+            $('.panel-heading a').parents('.panel').find('.panel-body').slideDown();
+            $('.panel-heading a').removeClass('panel-collapsed');
+            $('.panel-heading a').text("-");
+            $(".inputBottom").show();
+        }
+        html_data = '<div class="clearfix"><blockquote class="you pull-left">'+msg+'</blockquote></div>'
+        $(".panel-body").append(html_data);
+    });*/
+
+
+});
