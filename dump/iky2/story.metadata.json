@@ -1,1 +1,0 @@
-{"options":{},"indexes":[{"v":1,"key":{"_id":1},"name":"_id_","ns":"iky2.story"},{"v":1,"unique":true,"key":{"storyName":1},"name":"storyName_1","ns":"iky2.story","background":false,"sparse":false}]}

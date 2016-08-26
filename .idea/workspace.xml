@@ -2,24 +2,124 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7f07b474-b0b4-494b-9d7d-b32bd7f9e37b" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/ikyWebServer/static/css/chat.css" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/ikyWebServer/static/js/chat.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/ikyWebServer/templates/chat.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dump/iky2/story.bson" afterPath="$PROJECT_DIR$/dump/iky2/story.bson" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWareHouse/models/577a277f08d653104ff788d1.model" afterPath="$PROJECT_DIR$/ikyWareHouse/models/577a277f08d653104ff788d1.model" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWareHouse/models/577b969f08d653306dd1d97b.model" afterPath="$PROJECT_DIR$/ikyWareHouse/models/577b969f08d653306dd1d97b.model" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWareHouse/models/578dc8a808d6532c30da0cd8.model" afterPath="$PROJECT_DIR$/ikyWareHouse/models/578dc8a808d6532c30da0cd8.model" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWareHouse/models/intent.pkl" afterPath="$PROJECT_DIR$/ikyWareHouse/models/intent.pkl" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/celerybeat-schedule" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/dump/iky2/story.bson" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/dump/iky2/story.metadata.json" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/dump/iky2/user.bson" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/dump/iky2/user.metadata.json" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyActions/__init__.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyActions/actions.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyActions/client_secret.json" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyActions/googleCalender.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyActions/storage.json" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyCommons/EFZP.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyCommons/__init__.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyCommons/hello.txt" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyCommons/mail.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyCore/__init__.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyMainframe/__init__.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyMainframe/celeryconfig.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyMainframe/listener.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/dump/iky2/story.bson" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/dump/iky2/story.metadata.json" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/dump/iky2/user.bson" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/dump/iky2/user.metadata.json" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/577a277f08d653104ff788d1.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/577a3c1508d65323ce3e9810.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/577b68e208d6531cf52d62d9.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/577b969f08d653306dd1d97b.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/57837f3fb4b3c8568d1bcc88.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/578dc8a808d6532c30da0cd8.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/578dd636b4b3c82cf8b8c193.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/5797560316d60e02a9bd6d40.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/5797752f16d60e02da103d48.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/57b3f07b08d6530c21c2c475.model" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/models/intent.pkl" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWareHouse/mongo.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/static/css/bootstrap-theme.min.css" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/static/css/bootstrap.min.css" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/static/css/style.css" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/bootstrap.min.js" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/jquery.min.js" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/login.html" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/repo.html" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/ikyWebServer/yom.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/clean.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/clustering.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/date.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/db.txt" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/decorators.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/email.txt" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/h2htest.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/helpdesk.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/mail.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/mis/alseeb.csv" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/mis/alwahda.csv" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/models/intent.pkl" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/mongo.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/mtest.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/rb.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/test.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/train.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/try.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/wit.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/workspace/xauth.py" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/yom/chat/DummyLeft.jsp" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/yom/static/css/bootstrap-theme.min.css" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/yom/static/css/chat.css" afterPath="" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/yom/static/js/chat.js" afterPath="" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/cmu_us_eey.flitevox" afterPath="$PROJECT_DIR$/commons/fliteVoices/cmu_us_eey.flitevox" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCommons/errorCodes.py" afterPath="$PROJECT_DIR$/commons/errorCodes.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCommons/validations.py" afterPath="$PROJECT_DIR$/commons/validations.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/featuresExtractor.py" afterPath="$PROJECT_DIR$/core/featuresExtractor.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/functions.py" afterPath="$PROJECT_DIR$/commons/functions.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/intentClassifier.py" afterPath="$PROJECT_DIR$/core/intentClassifier.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/interface.py" afterPath="$PROJECT_DIR$/core/interface.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/mis.py" afterPath="$PROJECT_DIR$/core/mis.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/models.py" afterPath="$PROJECT_DIR$/core/models.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/nlp.py" afterPath="$PROJECT_DIR$/core/nlp.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/packResult.py" afterPath="$PROJECT_DIR$/core/packResult.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/sequenceLabeler.py" afterPath="$PROJECT_DIR$/core/sequenceLabeler.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyCore/tools.py" afterPath="$PROJECT_DIR$/core/tools.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWareHouse/__init__.py" afterPath="$PROJECT_DIR$/core/__init__.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/__init__.py" afterPath="$PROJECT_DIR$/webServer/__init__.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/api.py" afterPath="$PROJECT_DIR$/webServer/api.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/buildResponse.py" afterPath="$PROJECT_DIR$/webServer/buildResponse.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/home.py" afterPath="$PROJECT_DIR$/webServer/pages.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/css/chat.css" afterPath="$PROJECT_DIR$/webServer/static/css/chat.css" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/fonts/glyphicons-halflings-regular.eot" afterPath="$PROJECT_DIR$/webServer/static/fonts/glyphicons-halflings-regular.eot" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/fonts/glyphicons-halflings-regular.svg" afterPath="$PROJECT_DIR$/webServer/static/fonts/glyphicons-halflings-regular.svg" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/fonts/glyphicons-halflings-regular.ttf" afterPath="$PROJECT_DIR$/webServer/static/fonts/glyphicons-halflings-regular.ttf" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/fonts/glyphicons-halflings-regular.woff" afterPath="$PROJECT_DIR$/webServer/static/fonts/glyphicons-halflings-regular.woff" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/fonts/glyphicons-halflings-regular.woff2" afterPath="$PROJECT_DIR$/webServer/static/fonts/glyphicons-halflings-regular.woff2" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/img/iky.png" afterPath="$PROJECT_DIR$/webServer/static/img/iky.png" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/img/lulu-exchange-logo.png" afterPath="$PROJECT_DIR$/webServer/static/img/lulu-exchange-logo.png" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/img/mic.gif" afterPath="$PROJECT_DIR$/webServer/static/img/mic.gif" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/chat.js" afterPath="$PROJECT_DIR$/webServer/static/js/chat.js" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/editStory.js" afterPath="$PROJECT_DIR$/webServer/static/js/editStory.js" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/index.js" afterPath="$PROJECT_DIR$/webServer/static/js/index.js" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/repo.js" afterPath="$PROJECT_DIR$/webServer/static/js/repo.js" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/stories.js" afterPath="$PROJECT_DIR$/webServer/static/js/stories.js" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/train.js" afterPath="$PROJECT_DIR$/webServer/static/js/train.js" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/chat.html" afterPath="$PROJECT_DIR$/webServer/templates/chat.html" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/editStory.html" afterPath="$PROJECT_DIR$/webServer/templates/editStory.html" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/index.html" afterPath="$PROJECT_DIR$/webServer/templates/index.html" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/predictionLogs.html" afterPath="$PROJECT_DIR$/webServer/templates/logs.html" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/stories.html" afterPath="$PROJECT_DIR$/webServer/templates/stories.html" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/template.html" afterPath="$PROJECT_DIR$/webServer/templates/template.html" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/templates/train.html" afterPath="$PROJECT_DIR$/webServer/templates/train.html" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/ikyWebServer/ui.py" afterPath="$PROJECT_DIR$/webServer/ui.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/workspace/__init__.py" afterPath="$PROJECT_DIR$/commons/__init__.py" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/workspace/scrap.py" afterPath="$PROJECT_DIR$/README.md" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/yom/static/css/bootstrap.min.css" afterPath="$PROJECT_DIR$/webServer/static/css/bootstrap.min.css" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/yom/static/css/style.css" afterPath="$PROJECT_DIR$/webServer/static/css/style.css" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/yom/static/js/bootstrap.min.js" afterPath="$PROJECT_DIR$/webServer/static/js/bootstrap.min.js" />
+      <change type="MOVED" beforePath="$PROJECT_DIR$/yom/static/js/jquery.min.js" afterPath="$PROJECT_DIR$/webServer/static/js/jquery.min.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/dump/iky2/story.metadata.json" afterPath="$PROJECT_DIR$/dump/iky2/story.metadata.json" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyActions/actions.py" afterPath="$PROJECT_DIR$/ikyActions/actions.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyCore/models.py" afterPath="$PROJECT_DIR$/ikyCore/models.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWebServer/__init__.py" afterPath="$PROJECT_DIR$/ikyWebServer/__init__.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWebServer/api.py" afterPath="$PROJECT_DIR$/ikyWebServer/api.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWebServer/home.py" afterPath="$PROJECT_DIR$/ikyWebServer/home.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ikyWebServer/static/js/index.js" afterPath="$PROJECT_DIR$/ikyWebServer/static/js/index.js" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/config.py" afterPath="$PROJECT_DIR$/config.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/log.json" afterPath="$PROJECT_DIR$/log.json" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/requirements.txt" afterPath="$PROJECT_DIR$/requirements.txt" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/runIkyWebServer.py" afterPath="$PROJECT_DIR$/runIkyWebServer.py" />
     </list>
     <ignored path="iky.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -43,62 +143,120 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="actions.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
+      <file leaf-file-name="train.html" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/webServer/templates/train.html">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="440">
-              <caret line="80" column="71" selection-start-line="80" selection-start-column="71" selection-end-line="80" selection-end-column="71" />
-              <folding>
-                <element signature="e#151#667#0" expanded="false" />
-                <element signature="e#715#1793#0" expanded="false" />
-                <element signature="e#1880#2630#0" expanded="false" />
-                <element signature="e#3319#3474#0" expanded="false" />
-                <element signature="e#3763#5845#0" expanded="false" />
-                <element signature="e#5890#7333#0" expanded="false" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="api.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/ikyWebServer/api.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="308">
-              <caret line="29" column="0" selection-start-line="29" selection-start-column="0" selection-end-line="29" selection-end-column="0" />
-              <folding>
-                <element signature="e#0#36#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="index.js" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/ikyWebServer/static/js/index.js">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="242">
-              <caret line="31" column="33" selection-start-line="31" selection-start-column="33" selection-end-line="31" selection-end-column="33" />
+            <state relative-caret-position="-572">
+              <caret line="7" column="7" selection-start-line="7" selection-start-column="7" selection-end-line="7" selection-end-column="7" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="home.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/ikyWebServer/home.py">
+      <file leaf-file-name="api.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/webServer/api.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="330">
-              <caret line="15" column="2" selection-start-line="15" selection-start-column="2" selection-end-line="15" selection-end-column="2" />
+            <state relative-caret-position="154">
+              <caret line="31" column="25" selection-start-line="31" selection-start-column="25" selection-end-line="31" selection-end-column="25" />
               <folding>
-                <element signature="e#0#34#0" expanded="true" />
+                <element signature="e#0#36#0" expanded="true" />
+                <element signature="e#1933#2083#0" expanded="false" />
+                <element signature="e#2160#2340#0" expanded="false" />
+                <element signature="e#2394#2787#0" expanded="false" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="runIkyWebServer.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/runIkyWebServer.py">
+      <file leaf-file-name="index.js" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/webServer/static/js/index.js">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="66">
+              <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
+              <folding>
+                <element signature="e#0#1650#0" expanded="false" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="models.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/core/models.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="580">
+              <caret line="31" column="29" selection-start-line="31" selection-start-column="29" selection-end-line="31" selection-end-column="29" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="pages.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/webServer/pages.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-608">
+              <caret line="5" column="29" selection-start-line="5" selection-start-column="29" selection-end-line="5" selection-end-column="29" />
+              <folding>
+                <element signature="e#0#34#0" expanded="true" />
+                <element signature="e#793#1043#0" expanded="false" />
+                <element signature="e#1239#1275#0" expanded="false" />
+                <element signature="e#1333#1357#0" expanded="false" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="buildResponse.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/webServer/buildResponse.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="0">
               <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="config.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/config.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="22">
+              <caret line="1" column="8" selection-start-line="1" selection-start-column="0" selection-end-line="1" selection-end-column="8" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="__init__.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/__init__.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="0">
+              <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="ui.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/webServer/ui.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="286">
+              <caret line="56" column="7" selection-start-line="56" selection-start-column="7" selection-end-line="56" selection-end-column="7" />
+              <folding>
+                <element signature="e#324#736#0" expanded="false" />
+                <element signature="e#807#1207#0" expanded="false" />
+                <element signature="e#1281#1687#0" expanded="false" />
+                <element signature="e#1756#1886#0" expanded="false" />
+                <element signature="e#1957#2275#0" expanded="false" />
+                <element signature="e#2368#2566#0" expanded="false" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="README.md" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/README.md">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="22">
+              <caret line="1" column="47" selection-start-line="1" selection-start-column="47" selection-end-line="1" selection-end-column="47" />
               <folding />
             </state>
           </provider>
@@ -127,35 +285,12 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/ikyCore/actions.py" />
-        <option value="$PROJECT_DIR$/ikyCore/featuresExtractor.py" />
-        <option value="$PROJECT_DIR$/ikyCore/crf_train.py" />
-        <option value="$PROJECT_DIR$/__init__.py" />
-        <option value="$PROJECT_DIR$/ikyCore/crfTrain.py" />
-        <option value="$PROJECT_DIR$/ikyCore/predict.py" />
-        <option value="$PROJECT_DIR$/ikyCore/crfPredict.py" />
-        <option value="$PROJECT_DIR$/ikyCommons/buildResponse.py" />
-        <option value="$PROJECT_DIR$/ikyWebServer/templates/editStory.html" />
-        <option value="$PROJECT_DIR$/ikyWebServer/static/css/style.css" />
-        <option value="$PROJECT_DIR$/ikyCore/nlp.py" />
-        <option value="$PROJECT_DIR$/ikyWebServer/templates/index.html" />
-        <option value="$PROJECT_DIR$/ikyCommons/validations.py" />
-        <option value="$PROJECT_DIR$/ikyCore/interface.py" />
-        <option value="$PROJECT_DIR$/ikyWebServer/static/js/editStory.js" />
-        <option value="$PROJECT_DIR$/ikyCommons/errorCodes.py" />
-        <option value="$PROJECT_DIR$/ikyWebServer/static/js/stories.js" />
-        <option value="$PROJECT_DIR$/ikyCore/intentClassifier.py" />
-        <option value="$PROJECT_DIR$/ikyWebServer/ui.py" />
-        <option value="$PROJECT_DIR$/ikyWareHouse/mongo.py" />
-        <option value="$PROJECT_DIR$/ikyCore/functions.py" />
-        <option value="$PROJECT_DIR$/runIkyWebServer.py" />
         <option value="$PROJECT_DIR$/ikyCore/sequenceLabeler.py" />
         <option value="$PROJECT_DIR$/ikyWebServer/static/js/train.js" />
         <option value="$PROJECT_DIR$/ikyWebServer/templates/stories.html" />
         <option value="$PROJECT_DIR$/ikyWebServer/templates/train.html" />
         <option value="$PROJECT_DIR$/ikyWebServer/buildResponse.py" />
         <option value="$PROJECT_DIR$/workspace/email.txt" />
-        <option value="$PROJECT_DIR$/config.py" />
         <option value="$PROJECT_DIR$/ikyCommons/EFZP.py" />
         <option value="$PROJECT_DIR$/workspace/mtest.py" />
         <option value="$PROJECT_DIR$/workspace/rb.py" />
@@ -173,11 +308,34 @@
         <option value="$PROJECT_DIR$/ikyWebServer/static/js/chat.js" />
         <option value="$PROJECT_DIR$/ikyWebServer/templates/chat.html" />
         <option value="$PROJECT_DIR$/ikyWebServer/static/css/chat.css" />
-        <option value="$PROJECT_DIR$/ikyWebServer/__init__.py" />
-        <option value="$PROJECT_DIR$/ikyActions/actions.py" />
-        <option value="$PROJECT_DIR$/ikyCore/models.py" />
         <option value="$PROJECT_DIR$/ikyWebServer/static/js/index.js" />
         <option value="$PROJECT_DIR$/ikyWebServer/api.py" />
+        <option value="$PROJECT_DIR$/ikyActions/actions.py" />
+        <option value="$PROJECT_DIR$/ikyWebServer/__init__.py" />
+        <option value="$PROJECT_DIR$/ikyCore/models.py" />
+        <option value="$PROJECT_DIR$/webServer/ui.py" />
+        <option value="$PROJECT_DIR$/webServer/home.py" />
+        <option value="$PROJECT_DIR$/requirements.txt" />
+        <option value="$PROJECT_DIR$/webServer/__init__.py" />
+        <option value="$PROJECT_DIR$/webServer/templates/editStory.html" />
+        <option value="$PROJECT_DIR$/commons/functions.py" />
+        <option value="$PROJECT_DIR$/config.py" />
+        <option value="$PROJECT_DIR$/runIkyWebServer.py" />
+        <option value="$PROJECT_DIR$/commons/errorCodes.py" />
+        <option value="$PROJECT_DIR$/core/intentClassifier.py" />
+        <option value="$PROJECT_DIR$/core/sequenceLabeler.py" />
+        <option value="$PROJECT_DIR$/core/packResult.py" />
+        <option value="$PROJECT_DIR$/core/interface.py" />
+        <option value="$PROJECT_DIR$/webServer/pages.py" />
+        <option value="$PROJECT_DIR$/core/models.py" />
+        <option value="$PROJECT_DIR$/webServer/templates/stories.html" />
+        <option value="$PROJECT_DIR$/webServer/static/css/style.css" />
+        <option value="$PROJECT_DIR$/webServer/static/js/train.js" />
+        <option value="$PROJECT_DIR$/webServer/templates/train.html" />
+        <option value="$PROJECT_DIR$/README.md" />
+        <option value="$PROJECT_DIR$/log.json" />
+        <option value="$PROJECT_DIR$/webServer/api.py" />
+        <option value="$PROJECT_DIR$/webServer/static/js/index.js" />
       </list>
     </option>
   </component>
@@ -189,9 +347,9 @@
   </component>
   <component name="ProjectFrameBounds">
     <option name="x" value="65" />
-    <option name="y" value="24" />
-    <option name="width" value="1301" />
-    <option name="height" value="744" />
+    <option name="y" value="61" />
+    <option name="width" value="1291" />
+    <option name="height" value="686" />
   </component>
   <component name="ProjectInspectionProfilesVisibleTreeState">
     <entry key="Project Default">
@@ -247,7 +405,6 @@
           </PATH>
         </subPane>
       </pane>
-      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -276,16 +433,17 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
             <PATH_ELEMENT>
-              <option name="myItemId" value="ikyWebServer" />
+              <option name="myItemId" value="models" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
         </subPane>
       </pane>
+      <pane id="Scratches" />
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../superfla" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/commons" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
     <property name="settings.editor.splitter.proportion" value="0.2" />
     <property name="DefaultHtmlFileTemplate" value="HTML File" />
@@ -294,40 +452,22 @@
     <property name="list.type.of.created.stylesheet" value="CSS" />
   </component>
   <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/commons" />
+      <recent name="$PROJECT_DIR$/commons/fliteVoices" />
+      <recent name="$PROJECT_DIR$/../commons/fliteVoices" />
+      <recent name="$PROJECT_DIR$/ikyActions" />
+      <recent name="$PROJECT_DIR$/ikyWebServer" />
+    </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$USER_HOME$/Desktop" />
       <recent name="$PROJECT_DIR$/../forecast" />
       <recent name="$PROJECT_DIR$/ikyCore/models" />
       <recent name="$PROJECT_DIR$/iky_server/templates" />
       <recent name="$PROJECT_DIR$/iky_server/static/js" />
-      <recent name="$PROJECT_DIR$/iky_server" />
-    </key>
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/ikyActions" />
-      <recent name="$PROJECT_DIR$/ikyWebServer" />
-      <recent name="$PROJECT_DIR$/ikyCore" />
-      <recent name="$PROJECT_DIR$/ikyTools" />
-      <recent name="$PROJECT_DIR$/ikyWareHouse" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.run">
-    <configuration default="false" name="mail (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/ikyCommons" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="iky" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/ikyCommons/mail.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <method />
-    </configuration>
+  <component name="RunManager" selected="Python.models">
     <configuration default="false" name="decorators" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -396,6 +536,24 @@
       <module name="face" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../face/app.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <method />
+    </configuration>
+    <configuration default="false" name="models" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/ikyCore" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="iky" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" enabled="false" sample_coverage="true" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/ikyCore/models.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <method />
@@ -564,19 +722,19 @@
     </configuration>
     <list size="6">
       <item index="0" class="java.lang.String" itemvalue="Python.run" />
-      <item index="1" class="java.lang.String" itemvalue="Python.mail (1)" />
-      <item index="2" class="java.lang.String" itemvalue="Python.decorators" />
-      <item index="3" class="java.lang.String" itemvalue="Python.test" />
-      <item index="4" class="java.lang.String" itemvalue="Python.h2htest" />
-      <item index="5" class="java.lang.String" itemvalue="Python.app" />
+      <item index="1" class="java.lang.String" itemvalue="Python.decorators" />
+      <item index="2" class="java.lang.String" itemvalue="Python.test" />
+      <item index="3" class="java.lang.String" itemvalue="Python.h2htest" />
+      <item index="4" class="java.lang.String" itemvalue="Python.app" />
+      <item index="5" class="java.lang.String" itemvalue="Python.models" />
     </list>
     <recent_temporary>
       <list size="5">
-        <item index="0" class="java.lang.String" itemvalue="Python.app" />
-        <item index="1" class="java.lang.String" itemvalue="Python.test" />
-        <item index="2" class="java.lang.String" itemvalue="Python.h2htest" />
-        <item index="3" class="java.lang.String" itemvalue="Python.decorators" />
-        <item index="4" class="java.lang.String" itemvalue="Python.mail (1)" />
+        <item index="0" class="java.lang.String" itemvalue="Python.models" />
+        <item index="1" class="java.lang.String" itemvalue="Python.app" />
+        <item index="2" class="java.lang.String" itemvalue="Python.test" />
+        <item index="3" class="java.lang.String" itemvalue="Python.h2htest" />
+        <item index="4" class="java.lang.String" itemvalue="Python.decorators" />
       </list>
     </recent_temporary>
   </component>
@@ -605,28 +763,28 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="65" y="24" width="1301" height="744" extended-state="6" />
+    <frame x="65" y="61" width="1291" height="686" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.1228482" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.22791798" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3287037" sideWeight="0.5" order="10" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3282313" sideWeight="0.5" order="10" side_tool="true" content_ui="tabs" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3265306" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="11" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32817337" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.11394558" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24960877" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32817337" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39940387" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.0" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32817337" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39940387" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
     </layout>
     <layout-to-restore>
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -649,6 +807,9 @@
       <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39940387" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
     </layout-to-restore>
   </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.md" />
+  </component>
   <component name="Vcs.Log.UiProperties">
     <option name="RECENTLY_FILTERED_USER_GROUPS">
       <collection />
@@ -666,214 +827,11 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <option name="time" value="39" />
+      <option name="time" value="44" />
     </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/ikyMainframe/celeryconfig.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="330">
-          <caret line="15" column="6" selection-start-line="15" selection-start-column="6" selection-end-line="15" selection-end-column="6" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCore/nlp.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCommons/mail.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="288">
-          <caret line="102" column="25" selection-start-line="102" selection-start-column="25" selection-end-line="102" selection-end-column="25" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyMainframe/listener.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="220">
-          <caret line="58" column="17" selection-start-line="58" selection-start-column="17" selection-end-line="58" selection-end-column="17" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCore/tools.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/try.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/wit.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/xauth.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/email.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/date.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/decorators.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-102">
-          <caret line="13" column="0" selection-start-line="13" selection-start-column="0" selection-end-line="14" selection-end-column="38" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/clean.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/clustering.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-2508">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2">
-          <caret line="39" column="6" selection-start-line="39" selection-start-column="6" selection-end-line="39" selection-end-column="6" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyActions/googleCalender.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-66">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCore/intentClassifier.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-132">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCommons/validations.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCore/packResult.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="418">
-          <caret line="19" column="45" selection-start-line="19" selection-start-column="45" selection-end-line="19" selection-end-column="45" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../forecast/predictcsv.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../forecast/356187.pkl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCommons/errorCodes.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="66">
-          <caret line="3" column="56" selection-start-line="3" selection-start-column="45" selection-end-line="3" selection-end-column="56" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/PycharmProjects/blu/app.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="186">
-          <caret line="37" column="27" selection-start-line="37" selection-start-column="27" selection-end-line="37" selection-end-column="38" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/buildResponse.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/workspace/h2htest.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="110">
-          <caret line="5" column="0" selection-start-line="5" selection-start-column="0" selection-end-line="5" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/ui.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1430">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../forecast/ForecastModelMine.csv">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../forecast/export.csv">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../forecast/volume.csv">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="217">
-          <caret line="204" column="29" selection-start-line="204" selection-start-column="29" selection-end-line="204" selection-end-column="29" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../forecast/test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="3" column="14" selection-start-line="0" selection-start-column="0" selection-end-line="3" selection-end-column="14" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../superfla/openface/openface_server.lua">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-528">
@@ -937,10 +895,267 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/templates/index.html">
+    <entry file="file://$PROJECT_DIR$/webServer/static/js/chat.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-455">
+        <state relative-caret-position="242">
+          <caret line="11" column="22" selection-start-line="11" selection-start-column="22" selection-end-line="11" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/static/css/chat.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="792">
+          <caret line="36" column="16" selection-start-line="36" selection-start-column="16" selection-end-line="36" selection-end-column="16" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ikyWareHouse/mongo.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ikyWareHouse/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ikyMainframe/celeryconfig.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ikyCommons/EFZP.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ikyCommons/hello.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ikyCommons/mail.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-3424">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/static/img/iky.png">
+      <provider selected="true" editor-type-id="images">
+        <state />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="242">
+          <caret line="11" column="0" selection-start-line="11" selection-start-column="0" selection-end-line="11" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#23#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/templates/login.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/templates/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/featuresExtractor.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-80">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/commons/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/commons/errorCodes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="154">
+          <caret line="6" column="86" selection-start-line="6" selection-start-column="86" selection-end-line="6" selection-end-column="86" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/commons/validations.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/commons/functions.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="176">
+          <caret line="8" column="0" selection-start-line="8" selection-start-column="0" selection-end-line="8" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#29#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/intentClassifier.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="184">
+          <caret line="57" column="38" selection-start-line="57" selection-start-column="38" selection-end-line="57" selection-end-column="38" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/actions/actions.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/packResult.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="418">
+          <caret line="19" column="46" selection-start-line="19" selection-start-column="46" selection-end-line="19" selection-end-column="46" />
+          <folding>
+            <element signature="e#0#34#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/sequenceLabeler.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="426">
+          <caret line="78" column="28" selection-start-line="78" selection-start-column="28" selection-end-line="78" selection-end-column="28" />
+          <folding>
+            <element signature="e#0#17#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/runIkyWebServer.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="154">
+          <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="7" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#9#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/templates/template.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/templates/stories.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="748">
+          <caret line="32" column="44" selection-start-line="32" selection-start-column="44" selection-end-line="32" selection-end-column="44" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/templates/editStory.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="109">
+          <caret line="25" column="34" selection-start-line="25" selection-start-column="34" selection-end-line="25" selection-end-column="34" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/requirements.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="514">
+          <caret line="34" column="22" selection-start-line="34" selection-start-column="22" selection-end-line="34" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/templates/chat.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="43">
+          <caret line="15" column="31" selection-start-line="15" selection-start-column="25" selection-end-line="15" selection-end-column="31" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/static/css/style.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="360">
+          <caret line="65" column="4" selection-start-line="65" selection-start-column="4" selection-end-line="65" selection-end-column="4" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/interface.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="382">
+          <caret line="41" column="24" selection-start-line="41" selection-start-column="24" selection-end-line="41" selection-end-column="36" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+            <element signature="e#496#838#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/static/js/train.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="88">
+          <caret line="4" column="71" selection-start-line="4" selection-start-column="71" selection-end-line="4" selection-end-column="71" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="22">
+          <caret line="1" column="47" selection-start-line="1" selection-start-column="47" selection-end-line="1" selection-end-column="47" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -948,43 +1163,39 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/__init__.py">
+    <entry file="file://$PROJECT_DIR$/webServer/ui.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="88">
-          <caret line="4" column="9" selection-start-line="4" selection-start-column="9" selection-end-line="4" selection-end-column="9" />
+        <state relative-caret-position="286">
+          <caret line="56" column="7" selection-start-line="56" selection-start-column="7" selection-end-line="56" selection-end-column="7" />
           <folding>
-            <element signature="e#0#23#0" expanded="true" />
+            <element signature="e#324#736#0" expanded="false" />
+            <element signature="e#807#1207#0" expanded="false" />
+            <element signature="e#1281#1687#0" expanded="false" />
+            <element signature="e#1756#1886#0" expanded="false" />
+            <element signature="e#1957#2275#0" expanded="false" />
+            <element signature="e#2368#2566#0" expanded="false" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/static/js/chat.js">
+    <entry file="file://$PROJECT_DIR$/webServer/pages.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="242">
-          <caret line="11" column="22" selection-start-line="11" selection-start-column="22" selection-end-line="11" selection-end-column="22" />
+        <state relative-caret-position="-608">
+          <caret line="5" column="29" selection-start-line="5" selection-start-column="29" selection-end-line="5" selection-end-column="29" />
+          <folding>
+            <element signature="e#0#34#0" expanded="true" />
+            <element signature="e#793#1043#0" expanded="false" />
+            <element signature="e#1239#1275#0" expanded="false" />
+            <element signature="e#1333#1357#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/config.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="14" selection-start-line="0" selection-start-column="10" selection-end-line="0" selection-end-column="14" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/static/css/chat.css">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="792">
-          <caret line="36" column="16" selection-start-line="36" selection-start-column="16" selection-end-line="36" selection-end-column="16" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/runIkyWebServer.py">
+    <entry file="file://$PROJECT_DIR$/webServer/buildResponse.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
@@ -992,65 +1203,57 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ikyCore/models.py">
+    <entry file="file://$PROJECT_DIR$/config.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="198">
-          <caret line="9" column="0" selection-start-line="9" selection-start-column="0" selection-end-line="9" selection-end-column="0" />
-          <folding>
-            <element signature="e#0#25#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/templates/chat.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="330">
-          <caret line="15" column="31" selection-start-line="15" selection-start-column="25" selection-end-line="15" selection-end-column="31" />
-          <folding>
-            <element signature="n#style#0;n#div#1;n#div#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/home.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="330">
-          <caret line="15" column="2" selection-start-line="15" selection-start-column="2" selection-end-line="15" selection-end-column="2" />
-          <folding>
-            <element signature="e#0#34#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyActions/actions.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="440">
-          <caret line="80" column="71" selection-start-line="80" selection-start-column="71" selection-end-line="80" selection-end-column="71" />
-          <folding>
-            <element signature="e#151#667#0" expanded="false" />
-            <element signature="e#715#1793#0" expanded="false" />
-            <element signature="e#1880#2630#0" expanded="false" />
-            <element signature="e#3319#3474#0" expanded="false" />
-            <element signature="e#3763#5845#0" expanded="false" />
-            <element signature="e#5890#7333#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/static/js/index.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="242">
-          <caret line="31" column="33" selection-start-line="31" selection-start-column="33" selection-end-line="31" selection-end-column="33" />
+        <state relative-caret-position="22">
+          <caret line="1" column="8" selection-start-line="1" selection-start-column="0" selection-end-line="1" selection-end-column="8" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ikyWebServer/api.py">
+    <entry file="file://$PROJECT_DIR$/log.json">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="308">
-          <caret line="29" column="0" selection-start-line="29" selection-start-column="0" selection-end-line="29" selection-end-column="0" />
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="580">
+          <caret line="31" column="29" selection-start-line="31" selection-start-column="29" selection-end-line="31" selection-end-column="29" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/templates/train.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-572">
+          <caret line="7" column="7" selection-start-line="7" selection-start-column="7" selection-end-line="7" selection-end-column="7" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/api.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="154">
+          <caret line="31" column="25" selection-start-line="31" selection-start-column="25" selection-end-line="31" selection-end-column="25" />
           <folding>
             <element signature="e#0#36#0" expanded="true" />
+            <element signature="e#1933#2083#0" expanded="false" />
+            <element signature="e#2160#2340#0" expanded="false" />
+            <element signature="e#2394#2787#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/webServer/static/js/index.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="66">
+          <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#1650#0" expanded="false" />
           </folding>
         </state>
       </provider>

@@ -1,1 +1,2 @@
-IKY_DB = "iky2"
+IKY_DB = "iky-ai"
+IKY_PORT = 8080
