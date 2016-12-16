@@ -107,7 +107,6 @@ $(document).ready(function() {
 	{
 		$.post("/insertLabeledSentence", {
 				storyId: $("input[name=storyId]").val(),
-				plainText:
 				labeledSentence: JSON.stringify(NS.taggedSentences)
 			},
 			function(data) {

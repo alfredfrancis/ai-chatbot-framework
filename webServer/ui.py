@@ -5,7 +5,7 @@ from bson.objectid import ObjectId
 from flask import request
 from webServer import app
 
-from core.models import User,Story,LabeledSentences
+from core.models import Story,LabeledSentences
 from core.intentClassifier import IntentClassifier
 
 import buildResponse
@@ -27,7 +27,6 @@ def insertLabeledSentence():
 @app.route('/createStory', methods=['POST'])
 def createStory():
     story = Story()
-    story.user = User.objects(email="iky@pealdatadirect.com")[0]
     story.storyName = request.form['storyName']
     story.actionName = request.form['actionName']
     story.actionType = request.form['actionType']
@@ -56,7 +55,7 @@ def saveEditStory():
 
 @app.route('/getStories', methods=['POST'])
 def getStories():
-    stories = Story.objects(user=User.objects(email="iky@pealdatadirect.com")[0])
+    stories = Story.objects
     return buildResponse.sentJson(stories.to_json())
 
 
