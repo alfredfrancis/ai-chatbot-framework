@@ -49,13 +49,13 @@ class IntentClassifier(object):
         classifier.fit(self.X, self.Y)
 
         # dump generated model to file
-        joblib.dump(classifier, 'models/intent.pkl', compress=3)
+        joblib.dump(classifier, 'models/intent.model', compress=3)
         return True
 
     def predict(self, sentence):
         try:
             # Prediction using Model
-            classifier = joblib.load('models/intent.pkl')
+            classifier = joblib.load('models/intent.model')
         except IOError:
             return False
 

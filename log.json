@@ -1,3 +1,0 @@
-{"extractedEntities": {"name": "hello"}, "message": "hello", "userId": "Dev", "result": {"actionName": "Hello {name}", "ikySays": "Hello hello", "actionType": "4", "entities": {"name": "hello"}}, "time": "2016-08-26T10:37:42.889696"}
-{"extractedEntities": {"name": "hello"}, "message": "hello", "userId": "dev", "result": {"actionName": "Hello {name}", "ikySays": "Hello hello", "actionType": "4", "entities": {"name": "hello"}}, "time": "2016-08-26T10:39:22.586004"}
-{"extractedEntities": {"name": "hello"}, "message": "hello", "userId": "dev", "result": {"actionName": "Hello {name}", "ikySays": "Hello hello", "actionType": "4", "entities": {"name": "hello"}}, "time": "2016-08-26T10:39:59.439265"}

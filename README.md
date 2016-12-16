@@ -1,2 +1,2 @@
-IKY - Natural Language Interface for Developers
-===============================================
+Offline AI Chatbot framework
+============================
