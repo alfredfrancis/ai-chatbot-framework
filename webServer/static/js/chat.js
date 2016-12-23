@@ -1,45 +1,41 @@
 $(document).ready(function () {
-    $(document).on('click', '.panel-heading a', function (e) {
-        var $this = $(this);
-        if (!$this.hasClass('panel-collapsed')) {
-            $this.parents('.panel').find('.panel-body').slideUp();
-            $this.addClass('panel-collapsed');
-            $this.text("+");
-            $(".inputBottom").hide();
-        } else {
-            $this.parents('.panel').find('.panel-body').slideDown();
-            $this.removeClass('panel-collapsed');
-            $this.text("-");
-            $(".inputBottom").show();
-        }
-    });
-    	var NS = {};
+	function scrollToBottom() {
+        $(".chat")[0].scrollTop = $(".chat")[0].scrollHeight;
+    }
 
 	var put_text = function(bot_say) {
+		console.log(bot_say);
     	if(bot_say["responseJSON"].errorCode)
     	{
-    	    result = bot_say["responseJSON"].description;
+    	    result = "I'm sorry. I didn't quite grasp what you just said.";
     	}
-    	else if (bot_say["responseJSON"].output)
+    	else if (bot_say["responseJSON"].actionName)
     	{
-    	     result = bot_say["responseJSON"].output;
+    	     result = "Action : " + bot_say["responseJSON"].actionName +
+                 "<br>Parameters :"+ JSON.stringify(bot_say["responseJSON"].entities);
     	}
+    	else if (bot_say["responseJSON"].ikySays)
+    	{
+    		 result = bot_say["responseJSON"].ikySays;
+		}
     	else
     	{
     	    result = "Network error"
     	}
 
-		html_data = '<div class="clearfix"><blockquote class="you pull-left">'+result+'</blockquote></div>'
-		$(".panel-body").append(html_data);
+		html_data = '<li class="left clearfix"><div class="chat-body clearfix"><strong class="primary-font">Iky</strong><p>'+result+'</p> </div></li>';
+
+		$("ul.chat").append(html_data);
+		scrollToBottom();
 	};
 
 	var send_req = function() {
-		var userQuery = $("#userSay").val();
-		$("#userSay").val("");
+		var userQuery = $("#btn-input").val();
+		$("#btn-input").val("");
 
 		$.ajax({
 			method: 'POST',
-			url: '/ikyParseAndExecute',
+			url: '/api/v1',
 			data: {
 				userQuery: userQuery
 			},
@@ -50,15 +46,13 @@ $(document).ready(function () {
 		return true;
 	};
 
-	$('#userSay').keydown(function(e) {
+	$('#btn-input').keydown(function(e) {
 		if (e.keyCode == 13)
 		{
-            var userQuery = $("#userSay").val();
-		    html_data = '<div class="clearfix"><blockquote class="me pull-right">'+userQuery+'</blockquote></div>'
-            $(".panel-body").append(html_data);
+            var userQuery = $("#btn-input").val();
+		    html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">you</strong><p>'+userQuery+'</p> </div></li>';
+            $("ul.chat").append(html_data);
 			send_req();
 		}
 	})
-});/**
- * Created by iky on 16/8/16.
- */
+});

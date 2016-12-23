@@ -1,5 +1,4 @@
 from bson.objectid import ObjectId
-
 from commons import errorCodes
 from commons.functions import dateFromString
 from core.models import Story
@@ -16,16 +15,18 @@ def packResult(storyId, extractedEntities):
                 return errorCodes.UnableToextractentities
 
     result = dict()
-    result["actionName"] = story['actionName']
     result["actionType"] = story['actionType']
     if(story['actionType']=="4"):
-        result["ikySays"]=interface.messageTemplate(result["actionName"],extractedEntities)
+        result["ikySays"]=interface.messageTemplate(story['actionName'],extractedEntities)
+    else:
+        result["actionName"] = story['actionName']
+
 
 
     if len(story['labels'][0]) != 0:
         result["entities"] = extractedEntities
-        if "date" in result["entities"]:
-            result["entities"]["date"] = dateFromString(result["entities"]["date"])
+        # if "date" in result["entities"]:
+        #     result["entities"]["date"] = dateFromString(result["entities"]["date"])
     else:
         result["entities"] = {}
     return result

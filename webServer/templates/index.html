@@ -1,43 +1,40 @@
 <html>
 <head>
-	<link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
-	<link rel="stylesheet" type="text/css" href="static/css/style.css">
-	<script src="static/js/jquery.min.js"></script>
-	<script src="static/js/bootstrap.min.js"></script>
-	<script src="static/js/index.js"></script>
+    <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="static/css/chat.css">
+    <script src="static/js/jquery.min.js"></script>
+    <script src="static/js/bootstrap.min.js"></script>
+    <script src="static/js/chat.js"></script>
 </head>
 <body>
-	<div class="container">
-		<div class="page-header">
-			<div class="pull-left">
-				<a href="/" ><img class="logo-left" src="static/img/iky.png"></a>
-			</div>
-			<div class="pull-right">
-			</div>
-			<div class="clearfix"></div>
-		</div>
-	</div>
-	<div class="container">
-		<div class="search-box row">
-			<div class="col-sm-11" style="padding:8px;">
-				<input placeholder ="How can i help you ?" type="text" class="form-control" id="userQuery" required>
-				<i class="glyphicon glyphicon-flash"></i>
-			</div>
-			<div class="col-sm-1">
-				<img id="mic" src="static/img/mic.gif" />
-			</div>
-		</div>
-	</div>
-	<div class="container result_area">
-	    <div id="wait">
-			Loading..
-	    </div>
-	</div>
-	<div class="container">
-	    <footer class="footer">
-	    	<a href="/stories">Manage Stories</a> |
-			<a href="/logs">Logs</a>
-	    </footer>
-    </div>
+<div class="container chat-area">
+                    <ul class="chat">
+                        <li class="left clearfix">
+                            <div class="chat-body clearfix">
+                                <strong class="primary-font">Alfred</strong>
+                                <p>
+                                    Hi,How can i help you today ?
+                                </p>
+                            </div>
+                        </li>
+
+                    </ul>
+                <div class="footer">
+                    <div class="input-group">
+                        <input id="btn-input" type="text" class="form-control input-sm"
+                               placeholder="Type your message here..."/>
+                        <span class="input-group-btn">
+                                <button class="btn btn-warning btn-sm" id="btn-chat">
+                                    Send</button>
+                            </span>
+                    </div>
+                </div>
+</div>
+
+<div class="container">
+    <footer class="footer">
+        <a href="/stories">Manage Stories</a>
+    </footer>
+</div>
 </body>
 </html>

@@ -27,17 +27,17 @@ logger.setLevel(logging.INFO)
 
 
 # Request Handler
-@app.route('/ikyParse', methods=['POST'])
-def ikyParse():
+@app.route('/api/v1', methods=['POST'])
+def api():
     extractedEntities = {}
     userQuery = request.form['userQuery']
+    print (userQuery)
 
     if userQuery:
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(userQuery)
         if storyId:
             extractedEntities = sequenceLabeler.predict(storyId, userQuery)
-
             if "errorCode" not in extractedEntities:
                 result = packResult(storyId, extractedEntities)
             else:
@@ -46,10 +46,6 @@ def ikyParse():
             result = errorCodes.UnidentifiedIntent
     else:
         result = errorCodes.EmptyInput
-
-    logger.info(userQuery, extra={'userId': "dev",
-                                      'extractedEntities': extractedEntities,
-                                      'result': result})
     return buildResponse.buildJson(result)
 
 
