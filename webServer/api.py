@@ -51,12 +51,10 @@ def api():
 
 @app.route('/buildModel', methods=['POST'])
 def buildModel():
-    try:
-        sequenceLabeler.train(request.form['storyId'])
-        IntentClassifier().train()
-    except Exception, e:
-        result = errorCodes.NotEnoughData
-        return buildResponse.buildJson(result)
+
+    sequenceLabeler.train(request.form['storyId'])
+    IntentClassifier().train()
+
     return buildResponse.sentOk()
 
 

@@ -107,7 +107,7 @@ def predict(text,PATH):
         text
     ])
     return {
-        "class":model.labels_.inverse_transform(yhat),
+        "class":model.labels_.inverse_transform(yhat)[0],
         "accuracy":1
     }
 def show_most_informative_features(model, text=None, n=20):
