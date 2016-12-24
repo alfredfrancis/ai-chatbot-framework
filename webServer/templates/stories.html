@@ -32,7 +32,7 @@
                     <input type="text" class="form-control" id="storyName" placeholder="Story name" required>
                 </div>
                 <div class="span4">
-                    <input class="form-control" placeholder="Intent" size="50" id="actionName" type="text" required>
+                    <input class="form-control" placeholder="Intent" size="50" id="intentName" type="text" required>
                 </div>
                 <div class="span4">
                     <div class="panel-body">
@@ -41,24 +41,23 @@
                         </div>
                         <div class="col-md-4">
                             <div class="checkbox">
-                              <label><input type="checkbox" value="">Required</label>
+                              <label><input type="checkbox" id="paramRequired" value="">Required</label>
                             </div>
                         </div>
                         <div class="col-md-12">
-                        <textarea class="form-control" placeholder="Prompt" id="prompt"  required></textarea>
+                            <textarea class="form-control" placeholder="Prompt" id="prompt"  required></textarea>
                         </div>
                         <div class="pull-right">
                             <br>
-                            <button type="button" class="btn btn-info" id="btnAddParams">Add parameter</button>
+                            <button type="button" class="btn btn-info" id="btnAddParam">Add parameter</button>
                         </div>
                     </div>
                     <div class="panel-footer">
-
                     </div>
                 </div>
 
                 <div class="span4">
-                    <textarea class="form-control" placeholder="Speech response" size="50" id="speechresponse"  required></textarea>
+                    <textarea class="form-control" placeholder="Speech response" size="50" id="speechResponse"  required></textarea>
                 </div>
                 <div class="span4">
                     <div class="pull-right">
