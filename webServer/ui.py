@@ -5,7 +5,7 @@ from bson.objectid import ObjectId
 from flask import request
 from webServer import app
 
-from core.models import Story,LabeledSentences
+from core.models import Story,LabeledSentences,Parameter,update_document
 from core.intentClassifier import IntentClassifier
 
 import buildResponse
@@ -26,11 +26,17 @@ def insertLabeledSentence():
 
 @app.route('/createStory', methods=['POST'])
 def createStory():
+    content = request.get_json(silent=True)
+
     story = Story()
-    story.storyName = request.form['storyName']
-    story.actionName = request.form['actionName']
-    story.actionType = request.form['actionType']
-    story.labels = request.form['labels'].split(",")
+    story.storyName = content.get("storyName")
+    story.intentName = content.get("intentName")
+    story.speechResponse = content.get("speechResponse")
+    print content.get("parameters")
+    for param in content.get("parameters"):
+        parameter = Parameter()
+        update_document(parameter,param)
+        story.parameters.append(parameter)
     try:
         story.save()
     except Exception as e:

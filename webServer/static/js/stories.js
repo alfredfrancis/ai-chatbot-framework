@@ -1,5 +1,6 @@
 $(document).ready(function() {
-	var NS = {};
+	story = {};
+	$("#prompt").hide();
 	function getStories()
 	{
 		$.post("/getStories", {},
@@ -28,15 +29,31 @@ $(document).ready(function() {
 
 	$("#btnCreateStory").click(function()
 	{
-		$.post("/createStory", {
-				userId:"1",
-				storyName:$("#storyName").val(),
-				actionType:$("#actionType").val(),
-				actionName:$("#actionName").val(),
-				labels:$("#labels").val()
+		if($("#storyName")[0].value && $("#intentName")[0].value && $("#speechResponse")[0].value )
+		{
+			story.storyName=$("#storyName")[0].value;
+			story.intentName=$("#intentName")[0].value;
+			story.speechResponse=$("#speechResponse")[0].value;
+			console.log(story);
+			$.ajax({
+				url: '/createStory',
+				type: 'POST',
+				data: JSON.stringify(story),
+				contentType: 'application/json; charset=utf-8',
+				dataType: 'json',
+				async: false,
+				success: function(msg) {
+					alert("Story created successfully.");
+					getStories();
+					story = {};
+					$(".panel-footer")[0].innerHTML="";
+					$("#storyName")[0].value="";
+					$("#intentName")[0].value="";
+					$("#speechResponse")[0].value="";
+				}
 			});
-		$('#newStory').val ="";
-		getStories();
+        }
+
 	});
 
 	$(document).on('click', "button#btnEdit", function() {
@@ -63,6 +80,75 @@ $(document).ready(function() {
 			});
 	}
 	});
+
+	$(document).on('change', "input#paramRequired", function() {
+		 if(this.checked){
+		 	$("#prompt").show();
+		 }else{
+		 	$("#prompt").hide();
+		 }
+
+	});
+
+	renderParams =function() {
+
+		html ='<div class="row"><div class="col-md-2"><h4>No</h4></div> <div class="col-md-2"><h4>Name</h4></div> <div class="col-md-2"><h4>Required</h4></div> <div class="col-md-2"><h4>Prompt</h4></div> </div>';
+
+
+		$.each(story.parameters, function( index, param )
+		{
+			if(!param.required){
+				req = "False";
+				prom = "_";
+
+			}else{
+				req = "True";
+				prom = param.prompt;
+			}
+					html +='<div class="row"><div class="col-md-2">'+(index+1)+'</div> <div class="col-md-2">'+param.name+'</div> <div class="col-md-2">'+req+'</div> <div class="col-md-2">'+prom+'</div> </div>';
+		});
+
+		$(".panel-footer")[0].innerHTML=html;
+
+    }
+
+	$(document).on('click', "button#btnAddParam", function()
+	{
+		if(!$("#paramName")[0].value){
+			alert("Param name cant be empty");
+			$("#paramName")[0].focus();
+			return;
+		}else{
+			if($("#paramRequired")[0].checked && !$("#prompt")[0].value){
+				alert("prompt cant be empty");
+				$("#prompt")[0].focus();
+				return;
+			}
+		}
+
+		param = {
+			"name":$("#paramName")[0].value
+		}
+
+		$("#paramName")[0].value="";
+
+		 if($("#paramRequired")[0].checked){
+			param.required=$("#paramRequired")[0].checked;
+				param.prompt=$("#prompt")[0].value;
+		 }
+		 $("#paramRequired")[0].value="";
+		 $("#prompt")[0].value="";
+		 if(!story.parameters){
+		 	story.parameters = [];
+		 }
+		 story.parameters.push(param);
+		 renderParams();
+	});
+
+
+
+
+
 	$(document).on('click', "button#btnBuild", function() {
 		_id = $(this).attr("objId");
 		$.post("/buildModel", {
@@ -79,11 +165,6 @@ $(document).ready(function() {
                     alert("Sucess");
                 }
 			});
-	});
-
-	$(".flip").click(function()
-	{
-		$(".panel").toggle();
 	});
 
 });

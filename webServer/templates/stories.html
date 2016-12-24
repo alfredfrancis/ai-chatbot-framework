@@ -1,53 +1,72 @@
 <html>
 <head>
-	<link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
-	<link rel="stylesheet" type="text/css" href="static/css/style.css">
-	<script src="static/js/jquery.min.js"></script>
-	<script src="static/js/bootstrap.min.js"></script>
-	<script src="static/js/stories.js"></script>
+    <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="static/css/style.css">
+    <link rel="stylesheet" type="text/css" href="static/css/stories.css">
+    <script src="static/js/jquery.min.js"></script>
+    <script src="static/js/bootstrap.min.js"></script>
+    <script src="static/js/stories.js"></script>
 </head>
 <body>
-	<div class="container">
-		<div class="page-header">
-		  <div class="pull-left">
-		  	<h2>Iky's Stories</h2>
-			  <i>Always build with at least two trained stories.</i>
-		  </div>
-		  <div class="pull-right">
-		  <a href="/" ><img class="logo-left" src="static/img/iky.png"></a>
-		  </div>
-		  <div class="clearfix"></div>
-		</div>
-		<p class="flip">Create new story <span class="glyphicon glyphicon-menu-down"></span></p>
-		<div class="form-group newStory panel">
-		    <div class="span4">
-		      <input type="text" class="form-control" id="storyName" placeholder="Story name" required>
-		      </div>
-		   <div class="span4">
-			<input class="form-control" placeholder="Lables" id="labels" type="text">
-			</div>
-			<div class="span4">
-				action,
-				<div class="span4">
-				    <select id="actionType" class="form-control">
-				      <option value=1>Custom Function</option>
-				      <option value=4>Custom message</option>
-				    </select> 
-				  </div>
-				  <div class="span4">
-					<input class="form-control" placeholder="Action" size="50" id="actionName" type="text">
-				</div>
-			</div>
-		    <div class="span4">
-			    <div class="pull-right">
-			      <button type="button" class="btn btn-primary" id="btnCreateStory" >Create</button>
-			      </div>
-		    </div>
-		</div>
-		<div class="clear">
-		</div>
-		<div class="stories">
-		</div>
-	</div>
+<div class="container">
+    <div class="page-header">
+        <div class="pull-left">
+            <h2>Iky's Stories</h2>
+            <i>Always build with at least two trained stories.</i>
+        </div>
+        <div class="pull-right">
+            <a href="/"><img class="logo-left" src="static/img/iky.png"></a>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="stories">
+            </div>
+        </div>
+        <div class="col-md-8">
+            <h2>Create new story</h2>
+            <div class="form-group newStory panel">
+                <div class="span4">
+                    <input type="text" class="form-control" id="storyName" placeholder="Story name" required>
+                </div>
+                <div class="span4">
+                    <input class="form-control" placeholder="Intent" size="50" id="intentName" type="text" required>
+                </div>
+                <div class="span4">
+                    <div class="panel-body">
+                        <div class="col-md-8">
+                            <input class="form-control" placeholder="Parameter name" size="50" id="paramName" type="text">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="checkbox">
+                              <label><input type="checkbox" id="paramRequired" value="">Required</label>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <textarea class="form-control" placeholder="Prompt" id="prompt"  required></textarea>
+                        </div>
+                        <div class="pull-right">
+                            <br>
+                            <button type="button" class="btn btn-info" id="btnAddParam">Add parameter</button>
+                        </div>
+                    </div>
+                    <div class="panel-footer">
+                    </div>
+                </div>
+
+                <div class="span4">
+                    <textarea class="form-control" placeholder="Speech response" size="50" id="speechResponse"  required></textarea>
+                </div>
+                <div class="span4">
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-success" id="btnCreateStory">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
