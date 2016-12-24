@@ -45,6 +45,8 @@ $(document).ready(function() {
 				success: function(msg) {
 					alert("Story created successfully.");
 					getStories();
+					story = {};
+					$(".panel-footer")[0].innerHTML="";
 					$("#storyName")[0].value="";
 					$("#intentName")[0].value="";
 					$("#speechResponse")[0].value="";
