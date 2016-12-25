@@ -32,11 +32,12 @@ def createStory():
     story.storyName = content.get("storyName")
     story.intentName = content.get("intentName")
     story.speechResponse = content.get("speechResponse")
-    print content.get("parameters")
-    for param in content.get("parameters"):
-        parameter = Parameter()
-        update_document(parameter,param)
-        story.parameters.append(parameter)
+
+    if content.get("parameters"):
+        for param in content.get("parameters"):
+            parameter = Parameter()
+            update_document(parameter,param)
+            story.parameters.append(parameter)
     try:
         story.save()
     except Exception as e:
