@@ -17,6 +17,7 @@ $(document).ready(function () {
 
     var put_text = function (bot_say) {
         console.log(bot_say);
+        $(".payloadPreview")[0].innerHTML = JSON.stringify(bot_say, null,5);
         payload  = bot_say;
         html_data = '<li class="left clearfix"><div class="chat-body clearfix"><strong class="primary-font">Iky</strong><p>' + bot_say["speechResponse"] + '</p> </div></li>';
         $("ul.chat").append(html_data);
