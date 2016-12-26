@@ -29,7 +29,7 @@ def update_document(document, data_dict):
 
     return document
 
-connect(IKY_DB)
+connect(IKY_DB,host=IKY_DB_HOST)
 
 
 class LabeledSentences(EmbeddedDocument):

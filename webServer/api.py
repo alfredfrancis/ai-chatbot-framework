@@ -35,7 +35,6 @@ def api():
     if requestJson:
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(requestJson.get("input"))
-        print (storyId)
         story = Story.objects.get(id=ObjectId(storyId))
         if story.parameters:
             parameters = story.parameters
@@ -67,14 +66,13 @@ def api():
                             resultJson["missingParameters"].append(parameter.name)
                             missingParameters.append(parameter)
 
-
+                resultJson["extractedParameters"] = extractedParameters
                 if missingParameters:
                     resultJson["complete"] = False
                     currentNode = missingParameters[0]
                     resultJson["currentNode"] = currentNode["name"]
                     resultJson["speechResponse"] = currentNode["prompt"]
                 else:
-                    resultJson["extractedParameters"] = extractedParameters
                     resultJson["complete"] = True
                     resultJson["speechResponse"] = story.speechResponse
             else:
