@@ -35,6 +35,7 @@ def api():
     if requestJson:
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(requestJson.get("input"))
+        print (storyId)
         story = Story.objects.get(id=ObjectId(storyId))
         if story.parameters:
             parameters = story.parameters

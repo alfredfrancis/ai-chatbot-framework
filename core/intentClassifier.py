@@ -17,7 +17,7 @@ class IntentClassifier(object):
             if not isListEmpty(labeledSentencesTemp):
                 for labeledSentence in labeledSentencesTemp:
                     self.labeledSentences.append(labeledSentence.data)
-                    self.trainLabels.append(str(story.id))
+                    self.trainLabels.append([str(story.id)])
             else:
                 continue
 
@@ -31,13 +31,14 @@ class IntentClassifier(object):
                 else:
                     lq = token[0]
             trainFeatures.append(lq)
-        print(trainFeatures)
-        print (self.trainLabels)
         sentenceClassifer.train(trainFeatures,
                                 self.trainLabels,
                                 outpath=self.PATH)
         return True
 
     def predict(self, sentence):
-        predicted = sentenceClassifer.predict(sentence,self.PATH)["class"]
-        return predicted
+        predicted = sentenceClassifer.predict(sentence,self.PATH)
+        if not predicted:
+            return  Story.objects(intentName="fallback").first().id
+        else:
+            return predicted["class"]

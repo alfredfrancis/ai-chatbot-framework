@@ -13,9 +13,9 @@ nltk.download('punkt')
 newStory = Story()
 newStory.storyName = 'Default Fallback intent'
 newStory.intentName = 'fallback'
-newStory.speechResponse = 'Sorry i dont understand'
+newStory.speechResponse = "Sorry. I'm having trouble understanding you."
 newLabeledSentence = LabeledSentences()
-newLabeledSentence.data = [[' ', 'VB', 'O'], ['    ', 'VB', 'O']]
+newLabeledSentence.data = [['', 'VB', 'O']]
 newStory.labeledSentences.append(newLabeledSentence)
 newStory.save()
 
