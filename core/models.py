@@ -7,7 +7,7 @@ def update_document(document, data_dict):
 
     def field_value(field, value):
 
-        if field.__class__ in (fields.ListField, fields.SortedListField):
+        if field.__class__ in (fields.ListField, fields.SortedListField,fields.EmbeddedDocumentListField):
             return [
                 field_value(field.field, item)
                 for item in value
