@@ -47,7 +47,7 @@ class Story(Document):
     intentName = StringField(required=True)
     speechResponse = StringField(required=True)
     parameters = ListField(EmbeddedDocumentField(Parameter))
-    labeledSentences = ListField(EmbeddedDocumentField(LabeledSentences))
+    labeledSentences = EmbeddedDocumentListField(LabeledSentences)
 
 
 if __name__ == '__main__':
