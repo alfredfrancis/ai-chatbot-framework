@@ -28,10 +28,8 @@ def chat():
 @app.route('/editStory', methods=['GET'])
 def editStory():
     _id = request.args.get("storyId")
-    story = Story.objects.get(id=ObjectId(_id))
     return render_template('editStory.html',
                            storyId=_id,
-                           storyDetails=story.to_mongo().to_dict()
                            )
 
 

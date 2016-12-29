@@ -23,8 +23,8 @@ def update_document(document, data_dict):
             return value
 
     [setattr(
-        document, key,
-        field_value(document._fields[key], value)
+        document, key.replace("_id","id"),
+        field_value(document._fields[key.replace("_id","id")], value)
     ) for key, value in data_dict.items()]
 
     return document
@@ -46,8 +46,8 @@ class Story(Document):
     storyName = StringField(max_length=100, required=True, unique=True)
     intentName = StringField(required=True)
     speechResponse = StringField(required=True)
-    parameters = EmbeddedDocumentListField(Parameter)
-    labeledSentences = EmbeddedDocumentListField(LabeledSentences)
+    parameters = ListField(EmbeddedDocumentField(Parameter))
+    labeledSentences = ListField(EmbeddedDocumentField(LabeledSentences))
 
 
 if __name__ == '__main__':
