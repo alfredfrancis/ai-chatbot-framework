@@ -12,6 +12,20 @@ hr{
     height: 73px;
 
 }
+.panel {
+    height: 120px;
+    display: none;
+}
+p.flip {
+    line-height: 30px;
+    margin: auto;
+    font-size: 16px;
+    padding: 5px;
+    text-align: center;
+    background: #D6F5D6;
+    border: solid 1px #D6F5D6;
+    border-radius: 3px;
+}
 
 .span4{
     margin-top:  10px;
@@ -64,7 +78,7 @@ margin:8px 0px;
 
 ::-webkit-scrollbar
 {
-    width: 3px;
+    width: 4px;
     background-color: #F5F5F5;
 }
 

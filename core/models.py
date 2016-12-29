@@ -23,13 +23,13 @@ def update_document(document, data_dict):
             return value
 
     [setattr(
-        document, key,
-        field_value(document._fields[key], value)
+        document, key.replace("_id","id"),
+        field_value(document._fields[key.replace("_id","id")], value)
     ) for key, value in data_dict.items()]
 
     return document
 
-connect(IKY_DB)
+connect(IKY_DB,host=IKY_DB_HOST)
 
 
 class LabeledSentences(EmbeddedDocument):
@@ -46,7 +46,7 @@ class Story(Document):
     storyName = StringField(max_length=100, required=True, unique=True)
     intentName = StringField(required=True)
     speechResponse = StringField(required=True)
-    parameters = EmbeddedDocumentListField(Parameter)
+    parameters = ListField(EmbeddedDocumentField(Parameter))
     labeledSentences = EmbeddedDocumentListField(LabeledSentences)
 
 

@@ -27,9 +27,6 @@ class NLTKPreprocessor(BaseEstimator, TransformerMixin):
         self.lemmatizer = WordNetLemmatizer()
 
     def fit(self, X, y=None):
-        """
-        Fit simply returns self, no other information is needed.
-        """
         return self
 
     def inverse_transform(self, X):
@@ -43,7 +40,7 @@ class NLTKPreprocessor(BaseEstimator, TransformerMixin):
         Actually runs the preprocessing on each document.
         """
         return [
-            list(self.tokenize(doc)) for doc in X
+            " ".join(self.tokenize(doc)) for doc in X
         ]
 
     def tokenize(self, document):

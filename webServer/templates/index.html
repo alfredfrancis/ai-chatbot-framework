@@ -7,28 +7,32 @@
     <script src="static/js/chat.js"></script>
 </head>
 <body>
-<div class="container chat-area">
-                    <ul class="chat">
-                        <li class="left clearfix">
-                            <div class="chat-body clearfix">
-                                <strong class="primary-font">Alfred</strong>
-                                <p>
-                                    Hi,How can i help you today ?
-                                </p>
-                            </div>
-                        </li>
+<div class="container">
+    <div class="page-header">
+        <h1>Try your AI chatbot here.</h1>
+    </div>
 
-                    </ul>
-                <div class="footer">
-                    <div class="input-group">
-                        <input id="btn-input" type="text" class="form-control input-sm"
-                               placeholder="Type your message here..."/>
-                        <span class="input-group-btn">
+    <div class="row">
+        <div class="col-md-4 chat-area">
+            <ul class="chat">
+            </ul>
+            <div class="footer">
+                <div class="input-group">
+                    <input id="btn-input" type="text" class="form-control input-sm"
+                           placeholder="Type your message here..."/>
+                    <span class="input-group-btn">
                                 <button class="btn btn-warning btn-sm" id="btn-chat">
                                     Send</button>
                             </span>
-                    </div>
                 </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <h4 style="margin-left: 50px">POST /api/v1</h4>
+            <pre class="payloadPreview">
+            </pre>
+        </div>
+    </div>
 </div>
 
 <div class="container">

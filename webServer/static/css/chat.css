@@ -1,11 +1,6 @@
-.container{
-    width: 350px;
-    margin:0 auto;
-}
 .chat-area{
     box-shadow: .1px .3px .3px #101010;
     padding: 10px;
-margin-top: 50px;
 }
 .chat
 {
@@ -42,10 +37,23 @@ margin-top: 50px;
 .chat-area .footer{
     margin-top: 10px;
 }
-
-footer{
-    margin-top: 50px;
+.row{
+    margin: 0 auto;
 }
+.footer{
+    margin-top: 20px;
+}
+
+.payloadPreview{
+    margin-left: 50px;
+    color:brown;
+    border: 1px solid gray;
+    background-color: gainsboro;
+    padding: 10px;
+    height: 400px;
+    overflow-y: scroll;
+}
+
 
 ::-webkit-scrollbar-track
 {

@@ -1,8 +1,9 @@
 import os
 import ast
 from bson.objectid import ObjectId
+from bson.json_util import dumps,loads
 
-from flask import request
+from flask import request,Response
 from webServer import app
 
 from core.models import Story,LabeledSentences,Parameter,update_document
@@ -32,32 +33,33 @@ def createStory():
     story.storyName = content.get("storyName")
     story.intentName = content.get("intentName")
     story.speechResponse = content.get("speechResponse")
-    print content.get("parameters")
-    for param in content.get("parameters"):
-        parameter = Parameter()
-        update_document(parameter,param)
-        story.parameters.append(parameter)
+
+    if content.get("parameters"):
+        for param in content.get("parameters"):
+            parameter = Parameter()
+            update_document(parameter,param)
+            story.parameters.append(parameter)
     try:
         story.save()
     except Exception as e:
         return {"error": e}
     return buildResponse.sentOk()
 
-@app.route('/saveEditStory', methods=['POST'])
-def saveEditStory():
-    story = Story.objects.get(id=ObjectId(request.form['_id']))
-    data = {
-        "labels": request.form['labels'].split(","),
-        "actionType": request.form['actionType'],
-        "actionName": request.form['actionName'],
-        "storyName": request.form['storyName'],
-    }
-    try:
-        story.update(**data)
-    except Exception as e:
-        return {"error": e}
-    return buildResponse.sentOk()
 
+@app.route('/stories/<storyId>')
+def getStory(storyId):
+    return Response(response=dumps(Story.objects.get(id=ObjectId(storyId)).to_mongo().to_dict()),
+    status=200,
+    mimetype="application/json")
+
+@app.route('/stories/<storyId>',methods=['PUT'])
+def updateStory(storyId):
+    jsondata = loads(request.get_data())
+    print(jsondata)
+    story = Story.objects.get(id=ObjectId(storyId))
+    story = update_document(story,jsondata)
+    story.save()
+    return 'success', 200
 
 @app.route('/getStories', methods=['POST'])
 def getStories():

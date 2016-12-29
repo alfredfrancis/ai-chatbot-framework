@@ -11,7 +11,7 @@
     <div class="page-header">
         <div class="pull-left">
             <h1>Iky's Class Room</h1>
-            <i>Train iky with possible user inputs.<br>Tag required entities and give em labels</i>
+            <i>Train your story for possible user inputs.<br>Tag required parameters using mouse and give em labels</i>
         </div>
         <div class="pull-right">
             <a href="/"><img class="logo-left" src="static/img/iky.png"></a>
@@ -31,8 +31,8 @@
     <hr>
     <div class="span4">
         <div class="pull-left labels">
-            <span id="action"><b>Action</b> : {{ story.actionName }}</span><br>
-            <span id="labels"><b>Labels</b> : {{ ",".join(story.labels) }}</span>
+            <span id="action"><b>Intent</b> : {{ story.intentName }}</span><br>
+            <span id="labels"><b>Parameters</b> : {{ ",".join(parameters) }}</span>
         </div>
         <div class="pull-right">
             <div class="span4">

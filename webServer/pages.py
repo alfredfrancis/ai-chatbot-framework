@@ -28,8 +28,9 @@ def chat():
 @app.route('/editStory', methods=['GET'])
 def editStory():
     _id = request.args.get("storyId")
-    story = Story.objects.get(id=ObjectId(_id))
-    return render_template('editStory.html', storyId=_id, storyDetails=story.to_mongo().to_dict())
+    return render_template('editStory.html',
+                           storyId=_id,
+                           )
 
 
 # Training UI
@@ -38,7 +39,12 @@ def train():
     _id = request.args.get("storyId")
     story = Story.objects.get(id=ObjectId(_id))
     labeledSentences = story.labeledSentences
-    return render_template('train.html', storyId=_id, labeledSentences=labeledSentences, story=story.to_mongo().to_dict())
+    return render_template('train.html',
+                           storyId=_id,
+                           labeledSentences=labeledSentences,
+                           story=story.to_mongo().to_dict(),
+                           parameters=[parameter.name for parameter in story.parameters]
+                           )
 
 # log management Page
 @app.route('/logs', methods=['GET'])

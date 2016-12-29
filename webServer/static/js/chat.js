@@ -1,58 +1,56 @@
 $(document).ready(function () {
-	function scrollToBottom() {
+
+    payload = {
+        "currentNode": "",
+        "complete": null,
+        "parameters": [
+        ],
+        "extractedParameters": {},
+        "speechResponse": "",
+        "intent": {},
+        "input": "init_conversation",
+        "missingParameters": []
+    }
+    function scrollToBottom() {
         $(".chat")[0].scrollTop = $(".chat")[0].scrollHeight;
     }
 
-	var put_text = function(bot_say) {
-		console.log(bot_say);
-    	if(bot_say["responseJSON"].errorCode)
-    	{
-    	    result = "I'm sorry. I didn't quite grasp what you just said.";
-    	}
-    	else if (bot_say["responseJSON"].actionName)
-    	{
-    	     result = "Action : " + bot_say["responseJSON"].actionName +
-                 "<br>Parameters :"+ JSON.stringify(bot_say["responseJSON"].entities);
-    	}
-    	else if (bot_say["responseJSON"].ikySays)
-    	{
-    		 result = bot_say["responseJSON"].ikySays;
-		}
-    	else
-    	{
-    	    result = "Network error"
-    	}
+    var put_text = function (bot_say) {
+        console.log(bot_say);
+        $(".payloadPreview")[0].innerHTML = JSON.stringify(bot_say, null,5);
+        payload  = bot_say;
+        html_data = '<li class="left clearfix"><div class="chat-body clearfix"><strong class="primary-font">Iky</strong><p>' + bot_say["speechResponse"] + '</p> </div></li>';
+        $("ul.chat").append(html_data);
+        scrollToBottom();
+    };
 
-		html_data = '<li class="left clearfix"><div class="chat-body clearfix"><strong class="primary-font">Iky</strong><p>'+result+'</p> </div></li>';
+    var send_req = function (userQuery) {
+        payload["input"] = userQuery;
+        $.ajax({
+				url: '/api/v1',
+				type: 'POST',
+				data: JSON.stringify(payload),
+				contentType: 'application/json; charset=utf-8',
+				dataType: 'json',
+				success: function(data) {
+				    put_text(data);
 
-		$("ul.chat").append(html_data);
-		scrollToBottom();
-	};
+				}
+        });
+        return true;
+    };
 
-	var send_req = function() {
-		var userQuery = $("#btn-input").val();
-		$("#btn-input").val("");
+    send_req("init_conversation");
 
-		$.ajax({
-			method: 'POST',
-			url: '/api/v1',
-			data: {
-				userQuery: userQuery
-			},
-            complete: function(data) {
-				put_text(data);
-			}
-		});
-		return true;
-	};
 
-	$('#btn-input').keydown(function(e) {
-		if (e.keyCode == 13)
-		{
-            var userQuery = $("#btn-input").val();
-		    html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">you</strong><p>'+userQuery+'</p> </div></li>';
+    $('#btn-input').keydown(function (e) {
+        if (e.keyCode == 13) {
+            userQuery = $("#btn-input").val();
+            $("#btn-input").val("");
+            html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">you</strong><p>' + userQuery + '</p> </div></li>';
             $("ul.chat").append(html_data);
-			send_req();
-		}
-	})
+            send_req(userQuery);
+
+        }
+    })
 });
