@@ -2,8 +2,11 @@ from bson.objectid import ObjectId
 from mongoengine import *
 from mongoengine import fields
 
+from app import app
 
-connect(DB_NAME, host=DB_HOST)
+with app.app_context():
+    connect(app.config["DB_NAME"],
+            host=app.config["DB_HOST"])
 
 
 def update_document(document, data_dict):

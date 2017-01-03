@@ -1,22 +1,21 @@
 from bson.objectid import ObjectId
 import ast
-
 from flask import Blueprint, request, render_template
-
 import app.commons.buildResponse as buildResponse
 from app.stories.models import Story,LabeledSentences
 
-from app.core.intentClassifier import IntentClassifier
+train = Blueprint('train_blueprint', __name__,
+                  url_prefix='/train',
+                  template_folder='templates',
+                  static_folder='static'
+                  )
 
-train = Blueprint('train', __name__, url_prefix='/train')
-
-@train.route('/train', methods=['GET'])
-def train():
-    _id = request.args.get("storyId")
-    story = Story.objects.get(id=ObjectId(_id))
+@train.route('/<storyId>', methods=['GET'])
+def home(storyId):
+    story = Story.objects.get(id=ObjectId(storyId))
     labeledSentences = story.labeledSentences
-    return render_template('train/train.html',
-                           storyId=_id,
+    return render_template('train.html',
+                           storyId=storyId,
                            labeledSentences=labeledSentences,
                            story=story.to_mongo().to_dict(),
                            parameters=[parameter.name for parameter in story.parameters]

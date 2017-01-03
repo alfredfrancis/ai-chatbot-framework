@@ -7,11 +7,11 @@ from app.core.intentClassifier import IntentClassifier
 import app.core.sequenceLabeler as sequenceLabeler
 import app.core.nlp as nlp
 
-core = Blueprint('core', __name__, url_prefix='/core')
+core = Blueprint('core_blueprint', __name__, url_prefix='/core')
 
-@core.route('/buildModel', methods=['POST'])
-def buildModel():
-    sequenceLabeler.train(request.form['storyId'])
+@core.route('/buildModel/<storyId>', methods=['POST'])
+def buildModel(storyId):
+    sequenceLabeler.train(storyId)
     IntentClassifier().train()
     return buildResponse.sentOk()
 

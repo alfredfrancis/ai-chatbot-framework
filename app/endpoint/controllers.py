@@ -1,33 +1,17 @@
-import logging
 import os
-
-import html2text
-import json_log_formatter
-from app.core.intentClassifier import IntentClassifier
-from app.stories.models import Story
-from app.core import nlp
-from app.core import sequenceLabeler
 from bson import ObjectId
-from flask import Blueprint, request, render_template,request, send_file
+from flask import Blueprint,request, send_file
 
 from app.commons import errorCodes
 from app.commons import buildResponse
-
-formatter = json_log_formatter.JSONFormatter()
-json_handler = logging.FileHandler(filename='log.json')
-json_handler.setFormatter(formatter)
-
-logger = logging.getLogger('my_json')
-logger.addHandler(json_handler)
-logger.setLevel(logging.INFO)
-# logging ends
-
-
+from app.core.intentClassifier import IntentClassifier
+from app.core import sequenceLabeler
+from app.stories.models import Story
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
 # Request Handler
-@app.route('/api/v1', methods=['POST'])
+@endpoint.route('/v1', methods=['POST'])
 def api():
     requestJson = request.get_json(silent=True)
     resultJson = requestJson
@@ -109,10 +93,8 @@ def api():
     return buildResponse.buildJson(resultJson)
 
 
-
-
 # Text To Speech
-@app.route('/tts')
+@endpoint.route('/tts')
 def tts():
     voices = {
               "american": "file://commons/fliteVoices/cmu_us_eey.flitevox"

@@ -1,13 +1,12 @@
-from config.development import MODELS_DIR,INTENT_MODEL_NAME,DEFAULT_FALLBACK_INTENT_NAME
+import app.core.sentenceClassifer as sentenceClassifer
+from app.commons.validations import isListEmpty
+from app.stories.models import Story
+from app import app
 
-import sentenceClassifer
-from app.commons import isListEmpty
-from app.core import Story
-
-
-class IntentClassifier():
+class IntentClassifier(object):
     def __init__(self):
-        self.PATH = "{}/{}".format(MODELS_DIR,INTENT_MODEL_NAME)
+        self.PATH = "{}/{}".format(app.config["MODELS_DIR"],
+                                   app.config["INTENT_MODEL_NAME"])
 
     def train(self):
         stories = Story.objects
@@ -43,6 +42,7 @@ class IntentClassifier():
     def predict(self, sentence):
         predicted = sentenceClassifer.predict(sentence, self.PATH)
         if not predicted:
-            return  Story.objects(intentName=DEFAULT_FALLBACK_INTENT_NAME).first().id
+            return  Story.objects(
+                intentName=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id
         else:
             return predicted["class"]

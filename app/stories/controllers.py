@@ -1,21 +1,30 @@
 import os
 from bson.json_util import dumps,loads
 from bson.objectid import ObjectId
-
 from flask import Blueprint, request, render_template,Response
-
+from flask import current_app as app
 import app.commons.buildResponse as buildResponse
 from app.stories.models import Story,Parameter,update_document
 from app.core.intentClassifier import IntentClassifier
 
-stories = Blueprint('auth', __name__, url_prefix='/stories')
+
+
+stories = Blueprint('stories_blueprint', __name__,
+                    url_prefix='/stories',
+                    template_folder='templates')
 
 # Create Stories
-@stories.route('/manage')
-def stories():
-    return render_template('story/manage_stories.html')
+@stories.route('/home')
+def home():
+    return render_template('home.html')
 
-@stories.route('/createStory', methods=['POST'])
+@stories.route('/edit/<storyId>', methods=['GET'])
+def edit(storyId):
+    return render_template('edit.html',
+                           storyId=storyId,
+                           )
+
+@stories.route('/', methods=['POST'])
 def createStory():
     content = request.get_json(silent=True)
 
@@ -35,15 +44,13 @@ def createStory():
         return {"error": e}
     return buildResponse.sentOk()
 
-@stories.route('/edit', methods=['GET'])
-def editStory():
-    _id = request.args.get("storyId")
-    return render_template('story/edit_story.html',
-                           storyId=_id,
-                           )
+@stories.route('/')
+def readStories():
+    stories = Story.objects
+    return buildResponse.sentJson(stories.to_json())
 
-@stories.route('/stories/<storyId>')
-def getStory(storyId):
+@stories.route('/<storyId>')
+def readStory(storyId):
     return Response(response=dumps(
         Story.objects.get(
             id=ObjectId(
@@ -51,7 +58,7 @@ def getStory(storyId):
     status=200,
     mimetype="application/json")
 
-@stories.route('/stories/<storyId>',methods=['PUT'])
+@stories.route('/<storyId>',methods=['PUT'])
 def updateStory(storyId):
     jsondata = loads(request.get_data())
     print(jsondata)
@@ -60,15 +67,9 @@ def updateStory(storyId):
     story.save()
     return 'success', 200
 
-@stories.route('/getStories', methods=['POST'])
-def getStories():
-    stories = Story.objects
-    return buildResponse.sentJson(stories.to_json())
-
-
-@stories.route('/deleteStory', methods=['POST'])
-def deleteStory():
-    Story.objects.get(id=ObjectId(request.form['storyId'])).delete()
+@stories.route('/<storyId>', methods=['DEL'])
+def deleteStory(storyId):
+    Story.objects.get(id=ObjectId(storyId)).delete()
     try:
         intentClassifier = IntentClassifier()
         intentClassifier.train()
@@ -76,7 +77,15 @@ def deleteStory():
         pass
 
     try:
-        os.remove("model_files/%s.model" % request.form['storyId'])
+        os.remove("{}/{}.model".format(app.config["MODELS_DIR"],storyId))
     except OSError:
         pass
     return buildResponse.sentOk()
+
+
+
+
+
+
+
+

@@ -3,7 +3,7 @@ $(document).ready(function() {
 	$("#prompt").hide();
 	function getStories()
 	{
-		$.post("/getStories", {},
+		$.get("/stories", {},
 			function(data)
 			{
 			    html = "<center>No stories found!</center>"
@@ -36,7 +36,7 @@ $(document).ready(function() {
 			story.speechResponse=$("#speechResponse")[0].value;
 			console.log(story);
 			$.ajax({
-				url: '/createStory',
+				url: '/stories',
 				type: 'POST',
 				data: JSON.stringify(story),
 				contentType: 'application/json; charset=utf-8',
@@ -58,27 +58,28 @@ $(document).ready(function() {
 
 	$(document).on('click', "button#btnEdit", function() {
 		_id = $(this).attr("objId");
-		window.open("/editStory?storyId="+_id);
+		window.open("/stories/edit/"+_id);
 	});
 
 	$(document).on('click', "button#btnTrain", function() {
 		_id = $(this).attr("objId");
-		window.open("/train?storyId="+_id);
+		window.open("/train/"+_id);
 	});
 
 	$(document).on('click', "button#btnDelete", function() {
 		var r =confirm("Do you want to continue?");
-		if (r == true) {
-		_id = $(this).attr("objId");
-		$.post("/deleteStory", {
-				userId:"1",
-				storyId:_id
-			},
-			function(data) {
-				 $( "div[objId="+_id+"]" ).remove();
-				 getStories();
+		if (r == true)
+		{
+			_id = $(this).attr("objId");
+			$.ajax({
+				url:"/stories"+_id,
+				type: 'DELETE',
+				success: function(result) {
+					 $( "div[objId="+_id+"]" ).remove();
+					 getStories();
+				}
 			});
-	}
+		}
 	});
 
 	$(document).on('change', "input#paramRequired", function() {
@@ -146,14 +147,9 @@ $(document).ready(function() {
 	});
 
 
-
-
-
 	$(document).on('click', "button#btnBuild", function() {
 		_id = $(this).attr("objId");
-		$.post("/buildModel", {
-				userId:"1",
-				storyId:_id
+		$.post("/core/buildModel/"+_id, {
 			},
 			function(data) {
 			console.log(data);

@@ -4,7 +4,7 @@ $(document).ready(function() {
 	$("#trainButton").click(function() {
 			var sentences = $('#sentences').html().replace("<br>"," ");
 
-			$.post("/posTagAndLabel", {
+			$.post("/core/posTagAndLabel", {
 					sentences: sentences
 				},
 				function(data) {
@@ -40,7 +40,7 @@ $(document).ready(function() {
 
             console.log($('<div>').append(range.cloneContents()).html());
 
-			$.post("/sentenceTokenize", {
+			$.post("/core/sentenceTokenize", {
 					sentences: $('<div>').append(range.cloneContents()).html()
 				},
 				function(data) {
@@ -52,7 +52,7 @@ $(document).ready(function() {
 
 				});
 
-			$.post("/sentenceTokenize", {
+			$.post("/core/sentenceTokenize", {
 					sentences: NS.selected.trim()
 				},
 				function(data) {
@@ -105,7 +105,7 @@ $(document).ready(function() {
 
 	$("#btnInsertLabeledSentence").click(function()
 	{
-		$.post("/insertLabeledSentence", {
+		$.post("/train/insertLabeledSentence", {
 				storyId: $("input[name=storyId]").val(),
 				labeledSentence: JSON.stringify(NS.taggedSentences)
 			},
@@ -124,7 +124,7 @@ $(document).ready(function() {
 		if (r == true)
 		{
 			_id = $(this).attr("_id");
-			$.post("/deleteLabeledSentences", {
+			$.post("/train/deleteLabeledSentences", {
 					storyId: $("input[name=storyId]").val(),
 					sentenceId:_id
 				},
@@ -136,9 +136,7 @@ $(document).ready(function() {
 
 	$(document).on('click', "button#btnBuild", function() {
 		_id = $(this).attr("objId");
-		$.post("/buildModel", {
-				storyId:_id
-			},
+		$.post("/core/buildModel"+_id, {},
 			function(data) {
 				 if(data.errorCode)
                 {

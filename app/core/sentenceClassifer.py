@@ -38,8 +38,12 @@ def train(X, y,outpath=None, verbose=True):
     return model
 
 def predict(text,PATH):
-    with open(PATH, 'rb') as f:
-        model = pickle.load(f)
+    try:
+        with open(PATH, 'rb') as f:
+            model = pickle.load(f)
+    except IOError:
+        return False
+
 
     yhat = model.predict([
         text

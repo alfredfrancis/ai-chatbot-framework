@@ -2,8 +2,10 @@ import pycrfsuite
 from bson import ObjectId
 from nltk import word_tokenize
 
-from app.core import Story
-from app.core import posTagger
+from flask import current_app as app
+
+from app.stories.models import Story
+from app.core.nlp import posTagger
 from featuresExtractor import extractFeatures
 
 
@@ -73,7 +75,7 @@ def predict(storyId, sentence):
     tokenizedSentence = word_tokenize(sentence)
     taggedToken = posTagger(sentence)
     tagger = pycrfsuite.Tagger()
-    tagger.open('model_files/%s.model' % storyId)
+    tagger.open("{}/{}.model".format(app.config["MODELS_DIR"],storyId))
     predictedLabels = tagger.tag(sentToFeatures(taggedToken))
     extractedEntities = extractEntities(zip(tokenizedSentence, predictedLabels))
     return extractedEntities

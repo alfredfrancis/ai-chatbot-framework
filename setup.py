@@ -1,6 +1,6 @@
 import nltk
 
-from app.core import Story, LabeledSentences
+from app.stories.models import Story, LabeledSentences
 
 # Downloading necessary NLTK datasets
 
