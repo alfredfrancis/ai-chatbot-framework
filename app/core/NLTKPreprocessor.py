@@ -17,7 +17,7 @@ class NLTKPreprocessor(BaseEstimator, TransformerMixin):
 
     def __init__(self, stopwords=None, punct=None, lower=True, strip=True):
         """
-        Instantiates the preprocessor, which make load corpora, models, or do
+        Instantiates the preprocessor, which make load corpora, model_files, or do
         other time-intenstive NLTK data loading.
         """
         self.lower      = lower

@@ -1,8 +1,9 @@
 from bson.objectid import ObjectId
-from commons import errorCodes
-from commons.functions import dateFromString
-from core.models import Story
+
 import interface
+from app.commons import errorCodes
+from app.core import Story
+
 
 def packResult(storyId, extractedEntities):
     story = Story.objects.get(id=ObjectId(storyId))
@@ -17,7 +18,7 @@ def packResult(storyId, extractedEntities):
     result = dict()
     result["actionType"] = story['actionType']
     if(story['actionType']=="4"):
-        result["ikySays"]=interface.messageTemplate(story['actionName'],extractedEntities)
+        result["ikySays"]= interface.messageTemplate(story['actionName'], extractedEntities)
     else:
         result["actionName"] = story['actionName']
 

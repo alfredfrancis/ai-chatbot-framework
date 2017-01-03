@@ -2,8 +2,8 @@ import pycrfsuite
 from bson import ObjectId
 from nltk import word_tokenize
 
-from core.nlp import posTagger
-from core.models import Story
+from app.core import Story
+from app.core import posTagger
 from featuresExtractor import extractFeatures
 
 
@@ -42,7 +42,7 @@ def train(storyId):
         # include transitions that are possible, but not observed
         'feature.possible_transitions': True
     })
-    trainer.train('models/%s.model' % storyId)
+    trainer.train('model_files/%s.model' % storyId)
     return True
 
 
@@ -73,7 +73,7 @@ def predict(storyId, sentence):
     tokenizedSentence = word_tokenize(sentence)
     taggedToken = posTagger(sentence)
     tagger = pycrfsuite.Tagger()
-    tagger.open('models/%s.model' % storyId)
+    tagger.open('model_files/%s.model' % storyId)
     predictedLabels = tagger.tag(sentToFeatures(taggedToken))
     extractedEntities = extractEntities(zip(tokenizedSentence, predictedLabels))
     return extractedEntities

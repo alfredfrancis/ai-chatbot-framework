@@ -1,5 +1,4 @@
 import os
-import time
 import pickle
 
 from sklearn import preprocessing

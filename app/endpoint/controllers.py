@@ -1,20 +1,17 @@
-from flask import request, send_file
-import html2text
-import os
-from bson import ObjectId
-from core.intentClassifier import IntentClassifier
-from core import sequenceLabeler
-from core import nlp
-from core.packResult import packResult
-from core.models import Story
-from commons import errorCodes
-
-from webServer import app, buildResponse
-
-# logging begins
 import logging
+import os
 
+import html2text
 import json_log_formatter
+from app.core.intentClassifier import IntentClassifier
+from app.stories.models import Story
+from app.core import nlp
+from app.core import sequenceLabeler
+from bson import ObjectId
+from flask import Blueprint, request, render_template,request, send_file
+
+from app.commons import errorCodes
+from app.commons import buildResponse
 
 formatter = json_log_formatter.JSONFormatter()
 json_handler = logging.FileHandler(filename='log.json')
@@ -25,6 +22,9 @@ logger.addHandler(json_handler)
 logger.setLevel(logging.INFO)
 # logging ends
 
+
+
+endpoint = Blueprint('api', __name__, url_prefix='/api')
 
 # Request Handler
 @app.route('/api/v1', methods=['POST'])
@@ -49,8 +49,8 @@ def api():
 
             if parameters:
                 extractedParameters= sequenceLabeler.predict(storyId,
-                                                            requestJson.get("input")
-                                                            )
+                                                             requestJson.get("input")
+                                                             )
                 missingParameters = []
                 resultJson["missingParameters"] =[]
                 resultJson["extractedParameters"] = {}
@@ -109,26 +109,6 @@ def api():
     return buildResponse.buildJson(resultJson)
 
 
-@app.route('/buildModel', methods=['POST'])
-def buildModel():
-    sequenceLabeler.train(request.form['storyId'])
-    IntentClassifier().train()
-    return buildResponse.sentOk()
-
-
-@app.route('/sentenceTokenize', methods=['POST'])
-def sentenceTokenize():
-    sentences = html2text.html2text(request.form['sentences'])
-    result = nlp.sentenceTokenize(sentences)
-    return buildResponse.sentPlainText(result)
-
-
-@app.route('/posTagAndLabel', methods=['POST'])
-def posTagAndLabel():
-    sentences = request.form['sentences']
-    cleanSentences = html2text.html2text(sentences)
-    result = nlp.posTagAndLabel(cleanSentences)
-    return buildResponse.buildJson(result)
 
 
 # Text To Speech

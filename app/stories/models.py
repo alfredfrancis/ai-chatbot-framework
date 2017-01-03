@@ -1,7 +1,10 @@
-from mongoengine import *
-from config import *
 from bson.objectid import ObjectId
+from mongoengine import *
 from mongoengine import fields
+
+
+connect(DB_NAME, host=DB_HOST)
+
 
 def update_document(document, data_dict):
 
@@ -29,8 +32,6 @@ def update_document(document, data_dict):
 
     return document
 
-connect(IKY_DB,host=IKY_DB_HOST)
-
 
 class LabeledSentences(EmbeddedDocument):
     id = ObjectIdField(required=True, default=lambda: ObjectId())
@@ -48,24 +49,3 @@ class Story(Document):
     speechResponse = StringField(required=True)
     parameters = ListField(EmbeddedDocumentField(Parameter))
     labeledSentences = EmbeddedDocumentListField(LabeledSentences)
-
-
-if __name__ == '__main__':
-
-    newStory = Story()
-    newStory.storyName = 'Default Fallback intent'
-    newStory.intentName = 'fallback'
-    newStory.speechResponse = 'Sorry i dont understand'
-    newLabeledSentence = LabeledSentences()
-    newLabeledSentence.data = [[' ', 'VB', 'O'],['    ', 'VB', 'O']]
-    newStory.labeledSentences.append(newLabeledSentence)
-    newStory.save()
-
-    newStory = Story()
-    newStory.storyName = 'cancel'
-    newStory.intentName = 'cancel'
-    newStory.speechResponse = "Ok. Canceled."
-    newLabeledSentence = LabeledSentences()
-    newLabeledSentence.data = [['cancel', 'VB', 'O'],['close', 'VB', 'O']]
-    newStory.labeledSentences.append(newLabeledSentence)
-    newStory.save()
