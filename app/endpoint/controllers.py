@@ -100,9 +100,9 @@ def api():
 
                     template = Template(story.speechResponse, undefined=SilentUndefined)
 
-                    resultJson["speechResponse"] = template.render  ({
-                        parameters:resultJson["extractedParameters"],
-                        result:result})
+                    resultJson["speechResponse"] = template.render (
+                        parameters=resultJson["extractedParameters"],
+                        result=result)
             else:
                 resultJson["complete"] = True
                 resultJson["speechResponse"] = story.speechResponse
