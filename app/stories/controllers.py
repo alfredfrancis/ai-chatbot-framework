@@ -4,7 +4,7 @@ from bson.objectid import ObjectId
 from flask import Blueprint, request, render_template,Response
 from flask import current_app as app
 import app.commons.buildResponse as buildResponse
-from app.stories.models import Story,Parameter,update_document
+from app.stories.models import Story,Parameter,ApiDetails,update_document
 from app.core.intentClassifier import IntentClassifier
 
 
@@ -33,6 +33,15 @@ def createStory():
     story.intentName = content.get("intentName")
     story.speechResponse = content.get("speechResponse")
 
+    if content.get("apiTrigger") is True:
+        story.apiTrigger = True
+        apiDetails = ApiDetails()
+        apiDetails.url = content.get("apiDetails").get("url")
+        apiDetails.requestType = content.get("apiDetails").get("requestType")
+        story.apiDetails = apiDetails
+    else:
+        story.apiTrigger = False
+
     if content.get("parameters"):
         for param in content.get("parameters"):
             parameter = Parameter()
@@ -41,7 +50,7 @@ def createStory():
     try:
         story.save()
     except Exception as e:
-        return {"error": e}
+        return buildResponse.buildJson({"error": str(e)})
     return buildResponse.sentOk()
 
 @stories.route('/')

@@ -1,6 +1,10 @@
 import os
 from bson import ObjectId
+import json
+import requests
+
 from flask import Blueprint,request, send_file
+from jinja2 import Undefined, Template
 
 from app.commons import errorCodes
 from app.commons import buildResponse
@@ -8,7 +12,35 @@ from app.core.intentClassifier import IntentClassifier
 from app.core import sequenceLabeler
 from app.stories.models import Story
 
+class SilentUndefined(Undefined):
+    def _fail_with_undefined_error(self, *args, **kwargs):
+        return ''
+
+    __add__ = __radd__ = __mul__ = __rmul__ = __div__ = __rdiv__ = \
+        __truediv__ = __rtruediv__ = __floordiv__ = __rfloordiv__ = \
+        __mod__ = __rmod__ = __pos__ = __neg__ = __call__ = \
+        __getitem__ = __lt__ = __le__ = __gt__ = __ge__ = __int__ = \
+        __float__ = __complex__ = __pow__ = __rpow__ = \
+        _fail_with_undefined_error
+
 endpoint = Blueprint('api', __name__, url_prefix='/api')
+
+def callApi(url,type,parameters):
+    try:
+        if "GET" in type:
+            response = requests.get(url,params=parameters)
+        elif    "POST" in type:
+            response = requests.post(url,data=parameters)
+        elif "PUT" in type:
+            response = requests.put(url,data=parameters)
+        elif "DELETE" in type:
+            response = requests.delete(url)
+        else:
+            return {}
+        result = json.loads(response.text)
+    except:
+        return {}
+    return result
 
 # Request Handler
 @endpoint.route('/v1', methods=['POST'])
@@ -58,7 +90,19 @@ def api():
                     resultJson["speechResponse"] = currentNode["prompt"]
                 else:
                     resultJson["complete"] = True
-                    resultJson["speechResponse"] = story.speechResponse
+
+                    if story.apiTrigger:
+                        result = callApi(story.apiDetails.url,
+                                         story.apiDetails.requestType,
+                                         extractedParameters)
+                    else:
+                        result  = {}
+
+                    template = Template(story.speechResponse, undefined=SilentUndefined)
+
+                    resultJson["speechResponse"] = template.render  ({
+                        parameters:resultJson["extractedParameters"],
+                        result:result})
             else:
                 resultJson["complete"] = True
                 resultJson["speechResponse"] = story.speechResponse
@@ -73,7 +117,18 @@ def api():
 
                 if len(resultJson["missingParameters"])==0:
                     resultJson["complete"] = True
-                    resultJson["speechResponse"] = story.speechResponse
+                    if story.apiTrigger:
+                        result = callApi(story.apiDetails.url,
+                                         story.apiDetails.requestType,
+                                         resultJson["extractedParameters"])
+                    else:
+                        result  = {}
+
+                    template = Template(story.speechResponse, undefined=SilentUndefined)
+
+                    resultJson["speechResponse"] = template.render (
+                        parameters=resultJson["extractedParameters"],
+                        result=result)
                 else:
                     missingParameter = resultJson["missingParameters"][0]
                     resultJson["complete"] = False

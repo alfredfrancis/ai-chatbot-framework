@@ -46,9 +46,15 @@ class Parameter(EmbeddedDocument):
     required = BooleanField(default=False)
     prompt = StringField()
 
+class ApiDetails(EmbeddedDocument):
+    url = StringField(required=True)
+    requestType = StringField(choices=["POST","GET","DELETE","PUT"],required=True)
+
 class Story(Document):
     storyName = StringField(max_length=100, required=True, unique=True)
     intentName = StringField(required=True)
+    apiTrigger = BooleanField(required=True)
+    apiDetails = EmbeddedDocumentField(ApiDetails)
     speechResponse = StringField(required=True)
     parameters = ListField(EmbeddedDocumentField(Parameter))
     labeledSentences = EmbeddedDocumentListField(LabeledSentences)

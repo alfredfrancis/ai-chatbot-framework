@@ -35,6 +35,25 @@
                     <input class="form-control" placeholder="Intent" size="50" id="intentName" type="text" required>
                 </div>
                 <div class="span4">
+                     <div class="col-md-2">
+                            <div class="checkbox">
+                              <label><input type="checkbox" id="apiTrigger" value=""> API trigger </label>
+                            </div>
+                        </div>
+                    <div class="col-md-8">
+                        <input class="form-control" placeholder="API url" id="apiUrl" type="text" disabled>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-control" id="requestType" disabled>
+                            <option value="GET" selected="selected">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="POST">PUT</option>
+                            <option value="POST">DELETE</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="span4"><div class="clear"></div> </div>
+                <div class="span4">
                     <div class="panel-body">
                         <div class="col-md-8">
                             <input class="form-control" placeholder="Parameter name" size="50" id="paramName" type="text">
@@ -58,6 +77,7 @@
 
                 <div class="span4">
                     <textarea class="form-control" placeholder="Speech response" size="50" id="speechResponse"  required></textarea>
+                <i>Extracted parameters and api call response can be accessed from speech respone using "parameters" and "result" objects respectively</i>
                 </div>
                 <div class="span4">
                     <div class="pull-right">

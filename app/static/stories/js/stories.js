@@ -31,6 +31,17 @@ $(document).ready(function() {
 	{
 		if($("#storyName")[0].value && $("#intentName")[0].value && $("#speechResponse")[0].value )
 		{
+			if($("input#apiTrigger")[0].checked)
+			{
+				story.apiTrigger = true;
+				story.apiDetails = {
+					"url":$("input#apiUrl")[0].value,
+					"requestType":$( "select#requestType option:selected" )[0].value
+				};
+
+			}else{
+				story.apiTrigger = false ;
+			}
 			story.storyName=$("#storyName")[0].value;
 			story.intentName=$("#intentName")[0].value;
 			story.speechResponse=$("#speechResponse")[0].value;
@@ -89,6 +100,16 @@ $(document).ready(function() {
 		 	$("#prompt").hide();
 		 }
 
+	});
+
+	$(document).on('change', "input#apiTrigger", function() {
+		 if(this.checked){
+		 	$("input#apiUrl").prop( "disabled", false );
+		 	$("select#requestType").prop( "disabled", false );
+		 }else{
+		 	$("input#apiUrl").prop( "disabled", true );
+		 	$("select#requestType").prop( "disabled", true );
+		 }
 	});
 
 	renderParams =function() {
