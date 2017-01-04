@@ -36,7 +36,7 @@ $(document).ready(function() {
 			story.speechResponse=$("#speechResponse")[0].value;
 			console.log(story);
 			$.ajax({
-				url: '/stories',
+				url: '/stories/',
 				type: 'POST',
 				data: JSON.stringify(story),
 				contentType: 'application/json; charset=utf-8',
@@ -72,7 +72,7 @@ $(document).ready(function() {
 		{
 			_id = $(this).attr("objId");
 			$.ajax({
-				url:"/stories"+_id,
+				url:"/stories/"+_id,
 				type: 'DELETE',
 				success: function(result) {
 					 $( "div[objId="+_id+"]" ).remove();

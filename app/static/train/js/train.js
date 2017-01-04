@@ -136,7 +136,7 @@ $(document).ready(function() {
 
 	$(document).on('click', "button#btnBuild", function() {
 		_id = $(this).attr("objId");
-		$.post("/core/buildModel"+_id, {},
+		$.post("/core/buildModel/"+_id, {},
 			function(data) {
 				 if(data.errorCode)
                 {

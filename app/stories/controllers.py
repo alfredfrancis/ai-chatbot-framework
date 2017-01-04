@@ -67,7 +67,7 @@ def updateStory(storyId):
     story.save()
     return 'success', 200
 
-@stories.route('/<storyId>', methods=['DEL'])
+@stories.route('/<storyId>', methods=['DELETE'])
 def deleteStory(storyId):
     Story.objects.get(id=ObjectId(storyId)).delete()
     try:
