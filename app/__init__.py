@@ -1,7 +1,10 @@
 import os
-from flask import Flask, render_template
+from flask import Flask
+from flask_cors import CORS
 
 app = Flask(__name__)
+
+cors = CORS(app)
 
 # Configurations
 try:
@@ -9,7 +12,7 @@ try:
 except KeyError as e:
     # logging.error('Unknown environment key, defaulting to Development')
     env = 'Development'
-    app.config.from_object('config.%s' % env)
+app.config.from_object('config.%s' % env)
 
 @app.errorhandler(404)
 def not_found(error):
