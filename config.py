@@ -4,7 +4,7 @@ class Config(object):
     DB_HOST = "mongodb://127.0.0.1:27017/"
     DB_USERNAME = ""
     DB_PASSWORD = ""
-
+    CORS_HEADERS = 'Content-Type'
     # Web Server details
     WEB_SERVER_PORT = 8080
 
