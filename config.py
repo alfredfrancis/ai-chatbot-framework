@@ -1,6 +1,6 @@
 class Config(object):
     DEBUG = False
-    DB_NAME = "iky-ai"
+    DB_NAME = "iky-db"
     DB_HOST = "mongodb://127.0.0.1:27017/"
     DB_USERNAME = ""
     DB_PASSWORD = ""
@@ -11,6 +11,7 @@ class Config(object):
     MODELS_DIR = "model_files"
     INTENT_MODEL_NAME = "intent.model"
     DEFAULT_FALLBACK_INTENT_NAME = "fallback"
+    DEFAULT_WELCOME_INTENT_NAME = "init_conversation"
 
 class Production(Config):
     # MongoDB Database Details

@@ -1,7 +1,7 @@
 import os
 from bson import ObjectId
 from flask import Blueprint,request, send_file
-
+from app import app
 from app.commons import errorCodes
 from app.commons import buildResponse
 from app.core.intentClassifier import IntentClassifier
@@ -17,6 +17,24 @@ def api():
     resultJson = requestJson
 
     if requestJson:
+        if "init_conversation" in requestJson.get("input"):
+            story=Story.objects(
+                intentName=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
+            resultJson= {
+                     "currentNode": "",
+                     "complete": True,
+                     "parameters": [],
+                     "extractedParameters": {},
+                     "missingParameters": [],
+                     "intent": {
+                          "name": story.storyName,
+                          "storyId": str(story.id)
+                     },
+                     "input": requestJson.get("input"),
+                     "speechResponse": story.speechResponse
+                }
+            return buildResponse.buildJson(resultJson)
+
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(requestJson.get("input"))
         story = Story.objects.get(id=ObjectId(storyId))
