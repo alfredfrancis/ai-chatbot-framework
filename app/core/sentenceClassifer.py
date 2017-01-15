@@ -2,12 +2,19 @@ import os
 import pickle
 
 from sklearn import preprocessing
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 from NLTKPreprocessor import NLTKPreprocessor
+
+
+def identity(arg):
+    """
+    Simple identity function works as a passthrough.
+    """
+    return arg
+
 def train(X, y,outpath=None, verbose=True):
     def build(X, y=None):
         """
@@ -15,9 +22,8 @@ def train(X, y,outpath=None, verbose=True):
         """
         model = Pipeline([
             ('preprocessor',NLTKPreprocessor()),
-            ('vectorizer', CountVectorizer()),
-            ('tfidf', TfidfTransformer()),
-            ('clf', OneVsRestClassifier(LinearSVC(C=0.9)))])
+            ('vectorizer', TfidfVectorizer(tokenizer=identity, preprocessor=None, lowercase=False)),
+            ('clf', OneVsRestClassifier(LinearSVC()))])
 
         model.fit(X, y)
         return model
@@ -55,42 +61,3 @@ def predict(text,PATH):
         }
     else:
         return False
-
-
-if __name__ == "__main__":
-    PATH = "model.pickle"
-
-    if not os.path.exists(PATH):
-
-        X = ["hello",
-             "fuck you",
-             "hey",
-             "hii",
-             "how are you ?"]
-        y = ["greeting",
-             "bad",
-             "greeting",
-             "greeting",
-             "cool"]
-
-        model = train(X, y, outpath=PATH)
-
-    else:
-        with open(PATH, 'rb') as f:
-            model = pickle.load(f)
-
-    with open(PATH, 'rb') as f:
-        model = pickle.load(f)
-
-    yhat = model.predict([
-        "sdlfkjdf lkjdlsj dl ksgjdlk"
-    ])
-
-    if yhat.any():
-        all_labels = model.labels_.inverse_transform(yhat)
-        print all_labels[0][0]
-        os.remove(PATH)
-    else:
-        print False
-        os.remove(PATH)
-    # print(model.labels_.inverse_transform(yhat))
