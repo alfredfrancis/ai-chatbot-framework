@@ -9,6 +9,7 @@ from flask import Blueprint,request, send_file
 from app import app
 
 from app.commons import errorCodes
+from app.commons.logger import logger
 from app.commons import buildResponse
 from app.core.intentClassifier import IntentClassifier
 from app.core import sequenceLabeler
@@ -52,22 +53,15 @@ def api():
     resultJson = requestJson
 
     if requestJson:
-        if "init_conversation" in requestJson.get("input"):
+        if app.config["DEFAULT_WELCOME_INTENT_NAME"] in requestJson.get("input"):
             story=Story.objects(
                 intentName=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
-            resultJson= {
-                     "currentNode": "",
-                     "complete": True,
-                     "parameters": [],
-                     "extractedParameters": {},
-                     "missingParameters": [],
-                     "intent": {
-                          "name": story.storyName,
-                          "storyId": str(story.id)
-                     },
-                     "input": requestJson.get("input"),
-                     "speechResponse": story.speechResponse
-                }
+            resultJson["complete"] = True
+            resultJson["intent"]["name"] = story.storyName
+            resultJson["intent"]["storyId"] = str(story.id)
+            resultJson["input"] = requestJson.get("input")
+            resultJson["speechResponse"] = story.speechResponse
+            logger.info(requestJson.get("input"), extra=resultJson)
             return buildResponse.buildJson(resultJson)
 
         intentClassifier = IntentClassifier()
@@ -171,6 +165,8 @@ def api():
 
     else:
         resultJson = errorCodes.emptyInput
+
+    logger.info(requestJson.get("input"), extra=resultJson)
     return buildResponse.buildJson(resultJson)
 
 

@@ -1,3 +1,4 @@
 .idea/
+logs/*
 log.json
 *.pyc
