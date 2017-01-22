@@ -1,6 +1,6 @@
 # Jarvis
 ### An AI Chatbot framework build in Python
-JARVIS is a AI conversational dialog engine build in Python. It can be used to create Natural language conversation scenarios withour zero coding.The easy to use web UI makes it easy to create and train your conversations.
+JARVIS is an AI based conversational dialog interface built in Python. It can be used to create Natural language conversation scenarios with zero coding effort.The simple web UI makes it very easy to create and train your conversations. Jarvis's API can be used to integrate with any channel of your choice such as Messenger,Slack etc. This is a very basic project so you can satrt building on it.It may contain lots of bugs,please free to contribute via pull requests.
 
 ### Installation
 
@@ -56,7 +56,7 @@ See [NLTK documentation](www.nltk.org/)
 See [SKLearn documentation](http://scikit-learn.org/)
 
 #### CRFsuite
-See [SKLearn documentation](http://www.chokkan.org/software/crfsuite/)
+See [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
 
 See [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
