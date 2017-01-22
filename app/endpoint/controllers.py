@@ -3,7 +3,7 @@ from bson import ObjectId
 import json
 import requests
 
-from flask import Blueprint,request, send_file
+from flask import Blueprint, request, send_file
 from jinja2 import Undefined, Template
 
 from app.commons import errorCodes
@@ -11,6 +11,7 @@ from app.commons import buildResponse
 from app.core.intentClassifier import IntentClassifier
 from app.core import sequenceLabeler
 from app.stories.models import Story
+
 
 class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
@@ -23,24 +24,24 @@ class SilentUndefined(Undefined):
         __float__ = __complex__ = __pow__ = __rpow__ = \
         _fail_with_undefined_error
 
+
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
-def callApi(url,type,parameters):
-    try:
-        if "GET" in type:
-            response = requests.get(url,params=parameters)
-        elif    "POST" in type:
-            response = requests.post(url,data=parameters)
-        elif "PUT" in type:
-            response = requests.put(url,data=parameters)
-        elif "DELETE" in type:
-            response = requests.delete(url)
-        else:
-            return {}
-        result = json.loads(response.text)
-    except:
-        return {}
+
+def callApi(url, type, parameters):
+    if "GET" in type:
+        response = requests.get(url, params=parameters)
+    elif "POST" in type:
+        response = requests.post(url, data=parameters)
+    elif "PUT" in type:
+        response = requests.put(url, data=parameters)
+    elif "DELETE" in type:
+        response = requests.delete(url)
+    else:
+        raise Exception("unsupported request method.")
+    result = json.loads(response.text)
     return result
+
 
 # Request Handler
 @endpoint.route('/v1', methods=['POST'])
@@ -55,22 +56,22 @@ def api():
         if story.parameters:
             parameters = story.parameters
         else:
-            parameters=[]
+            parameters = []
 
         if ((requestJson.get("complete") is None) or (requestJson.get("complete") is True)):
             resultJson["intent"] = {
-                "name":story.intentName,
-                "storyId":str(story.id)
+                "name": story.intentName,
+                "storyId": str(story.id)
             }
 
             if parameters:
-                extractedParameters= sequenceLabeler.predict(storyId,
-                                                             requestJson.get("input")
-                                                             )
+                extractedParameters = sequenceLabeler.predict(storyId,
+                                                              requestJson.get("input")
+                                                              )
                 missingParameters = []
-                resultJson["missingParameters"] =[]
+                resultJson["missingParameters"] = []
                 resultJson["extractedParameters"] = {}
-                resultJson["parameters"]=[]
+                resultJson["parameters"] = []
                 for parameter in parameters:
                     resultJson["parameters"].append({
                         "name": parameter.name,
@@ -78,7 +79,7 @@ def api():
                     })
 
                     if parameter.required:
-                        if parameter.name not in  extractedParameters.keys():
+                        if parameter.name not in extractedParameters.keys():
                             resultJson["missingParameters"].append(parameter.name)
                             missingParameters.append(parameter)
 
@@ -90,19 +91,21 @@ def api():
                     resultJson["speechResponse"] = currentNode["prompt"]
                 else:
                     resultJson["complete"] = True
+                    context = {}
+                    context["parameters"] = extractedParameters
+                    try:
+                        if story.apiTrigger:
+                            result = callApi(story.apiDetails.url,
+                                             story.apiDetails.requestType,
+                                             extractedParameters)
+                        else:
+                            result = {}
+                        context["result"] = result
 
-                    if story.apiTrigger:
-                        result = callApi(story.apiDetails.url,
-                                         story.apiDetails.requestType,
-                                         extractedParameters)
-                    else:
-                        result  = {}
-
-                    template = Template(story.speechResponse, undefined=SilentUndefined)
-
-                    resultJson["speechResponse"] = template.render (
-                        parameters=resultJson["extractedParameters"],
-                        result=result)
+                        template = Template(story.speechResponse, undefined=SilentUndefined)
+                        resultJson["speechResponse"] = template.render(**context)
+                    except:
+                        resultJson["speechResponse"] = "Service not avilable."
             else:
                 resultJson["complete"] = True
                 resultJson["speechResponse"] = story.speechResponse
@@ -115,20 +118,23 @@ def api():
 
                 resultJson["missingParameters"].remove(requestJson.get("currentNode"))
 
-                if len(resultJson["missingParameters"])==0:
+                if len(resultJson["missingParameters"]) == 0:
                     resultJson["complete"] = True
-                    if story.apiTrigger:
-                        result = callApi(story.apiDetails.url,
-                                         story.apiDetails.requestType,
-                                         resultJson["extractedParameters"])
-                    else:
-                        result  = {}
+                    context = {}
+                    context["parameters"] = resultJson["extractedParameters"]
+                    try:
+                        if story.apiTrigger:
+                            result = callApi(story.apiDetails.url,
+                                             story.apiDetails.requestType,
+                                             resultJson["extractedParameters"])
+                        else:
+                            result = {}
+                        context["result"] = result
 
-                    template = Template(story.speechResponse, undefined=SilentUndefined)
-
-                    resultJson["speechResponse"] = template.render (
-                        parameters=resultJson["extractedParameters"],
-                        result=result)
+                        template = Template(story.speechResponse, undefined=SilentUndefined)
+                        resultJson["speechResponse"] = template.render(**context)
+                    except:
+                        resultJson["speechResponse"] = "Service not avilable."
                 else:
                     missingParameter = resultJson["missingParameters"][0]
                     resultJson["complete"] = False
@@ -152,8 +158,8 @@ def api():
 @endpoint.route('/tts')
 def tts():
     voices = {
-              "american": "file://commons/fliteVoices/cmu_us_eey.flitevox"
-              }
+        "american": "file://commons/fliteVoices/cmu_us_eey.flitevox"
+    }
     os.system("echo \"" + request.args.get("text") + "\" | flite -voice " + voices["american"] + "  -o sound.wav")
     path_to_file = "../sound.wav"
     return send_file(

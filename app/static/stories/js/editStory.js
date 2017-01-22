@@ -46,7 +46,6 @@ class Main extends React.Component {
     constructor() {
         super();
         this.state = {parameters: []}
-        this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
     }
 
@@ -68,6 +67,18 @@ class Main extends React.Component {
         var nextState = {}
         nextState[event.target.id] = event.target.value
         this.setState(nextState)
+    }
+
+    handleApiRequiredChange(event) {
+        var nextState = {}
+        nextState[event.target.id] = event.target.checked
+        this.setState(nextState)
+    }
+
+    handleApiValueChange(event) {
+        var nextState = this.state.apiDetails
+        nextState[event.target.id] = event.target.value
+        this.setState({"apiDetails":nextState})
     }
 
     handleSubmit(event) {
@@ -92,21 +103,25 @@ class Main extends React.Component {
     render() {
         return (
             <div>
-                <b>Story Name,</b><input className="form-control" id="storyName" type="text" value={ this.state.storyName} onChange={this.handleChange}/><br/>
-                <b>Intent Name,</b><input className="form-control" id="intentName" type="text" value={ this.state.intentName} onChange={this.handleChange}/><br/>
+                <div className="row">
+                    <b>Story Name,</b><input className="form-control" id="storyName" type="text"
+                                             value={ this.state.storyName} onChange={this.handleChange.bind(this)}/><br/>
+                    <b>Intent Name,</b><input className="form-control" id="intentName" type="text"
+                                              value={ this.state.intentName} onChange={this.handleChange.bind(this)}/><br/>
+                </div>
 
-                 <div className="span4">
-                     <div className="col-md-2">
-                            <div className="checkbox">
-                              <label><input type="checkbox" id="apiTrigger" value=""/> API trigger </label>
-                            </div>
+                <div className="row">
+                    <div className="col-md-2">
+                        <div className="checkbox">
+                            <label><input type="checkbox" id="apiTrigger" onChange={this.handleApiRequiredChange.bind(this)} checked={this.state.apiTrigger}/> API trigger </label>
                         </div>
+                    </div>
                     <div className="col-md-8">
-                        <input className="form-control" placeholder="API url" id="apiUrl" type="text" disabled/>
+                        <input className="form-control" placeholder="API url" id="url" type="text" value={this.state.apiTrigger ? this.state.apiDetails.url : ""} disabled={!this.state.apiTrigger} onChange={this.handleApiValueChange.bind(this)}/>
                     </div>
                     <div className="col-md-2">
-                        <select className="form-control" id="requestType" disabled>
-                            <option value="GET" selected="selected">GET</option>
+                        <select className="form-control" id="requestType" value={this.state.apiTrigger ? this.state.apiDetails.requestType : "GET"}  disabled={!this.state.apiTrigger} onChange={this.handleApiValueChange.bind(this)}>
+                            <option value="GET" >GET</option>
                             <option value="POST">POST</option>
                             <option value="POST">PUT</option>
                             <option value="POST">DELETE</option>
@@ -114,7 +129,7 @@ class Main extends React.Component {
                     </div>
                 </div>
                 <br/>
-                <div className="span4">Parameters</div>
+                <div className="row"><h3>Parameters</h3></div>
 
                 <div className="row">
                     <div className="col-md-2">
