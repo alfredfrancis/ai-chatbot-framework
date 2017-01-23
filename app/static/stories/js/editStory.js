@@ -65,6 +65,7 @@ class Main extends React.Component {
 
     handleChange(event) {
         var nextState = {}
+        console.log(event.target.value)
         nextState[event.target.id] = event.target.value
         this.setState(nextState)
     }
@@ -145,7 +146,7 @@ class Main extends React.Component {
                 { this.state.parameters.map((object, index) => <Parameters indexId={index} object={object}
                                                                            onUpdate={this.onUpdate.bind(this)}/>) }
                 <br/>
-                <b>Speech Response,</b><textarea onChange={this.handleChange} value={ this.state.speechResponse}
+                <b>Speech Response,</b><textarea onChange={this.handleChange.bind(this)} value={ this.state.speechResponse}
                                                  className="form-control" id="speechResponse"></textarea><br/>
                 <button onClick={this.handleSubmit} className="btn btn-success pull-right" type="submit">Save</button>
             </div>
