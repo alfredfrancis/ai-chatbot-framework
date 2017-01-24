@@ -22,3 +22,9 @@ p.flip {
     border: solid 1px #D6F5D6;
     border-radius: 3px;
 }
+
+#jsoneditor textarea{
+    display: none;
+    width: 100%;
+    height:200px;
+}

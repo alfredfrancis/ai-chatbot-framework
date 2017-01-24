@@ -35,9 +35,17 @@ $(document).ready(function() {
 			{
 				story.apiTrigger = true;
 				story.apiDetails = {
+				    "isJson":false,
 					"url":$("input#apiUrl")[0].value,
-					"requestType":$( "select#requestType option:selected" )[0].value
+					"requestType":$( "select#requestType option:selected" )[0].value,
+
 				};
+				if($("input#apiTrigger")[0].checked)
+				{
+				    story.apiDetails.isJson = true;
+				    story.apiDetails.jsonData = $("textarea#jsonData")[0].value;
+                }
+
 
 			}else{
 				story.apiTrigger = false ;
@@ -106,9 +114,19 @@ $(document).ready(function() {
 		 if(this.checked){
 		 	$("input#apiUrl").prop( "disabled", false );
 		 	$("select#requestType").prop( "disabled", false );
+		 	$("input#isJson").prop( "disabled", false );
 		 }else{
 		 	$("input#apiUrl").prop( "disabled", true );
 		 	$("select#requestType").prop( "disabled", true );
+		 	$("input#isJson").prop( "disabled", true );
+		 }
+	});
+
+    $(document).on('change', "input#isJson", function() {
+		 if(this.checked){
+		 	$("textarea#jsonData").show();
+		 }else{
+            $("textarea#jsonData").hide();
 		 }
 	});
 

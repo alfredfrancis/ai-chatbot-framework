@@ -49,6 +49,8 @@ class Parameter(EmbeddedDocument):
 class ApiDetails(EmbeddedDocument):
     url = StringField(required=True)
     requestType = StringField(choices=["POST","GET","DELETE","PUT"],required=True)
+    isJson = BooleanField(default=False)
+    jsonData = StringField(default="{}")
 
 class Story(Document):
     storyName = StringField(max_length=100, required=True, unique=True)

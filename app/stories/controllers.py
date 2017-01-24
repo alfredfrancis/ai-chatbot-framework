@@ -36,6 +36,11 @@ def createStory():
     if content.get("apiTrigger") is True:
         story.apiTrigger = True
         apiDetails = ApiDetails()
+        isJson = content.get("apiDetails").get("isJson")
+        apiDetails.isJson = isJson
+        if isJson:
+            apiDetails.jsonData = content.get("apiDetails").get("jsonData")
+
         apiDetails.url = content.get("apiDetails").get("url")
         apiDetails.requestType = content.get("apiDetails").get("requestType")
         story.apiDetails = apiDetails

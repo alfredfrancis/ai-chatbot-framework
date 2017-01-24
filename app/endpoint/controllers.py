@@ -18,7 +18,7 @@ from app.stories.models import Story
 
 class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
-        return ''
+        return 'undefined'
 
     __add__ = __radd__ = __mul__ = __rmul__ = __div__ = __rdiv__ = \
         __truediv__ = __rtruediv__ = __floordiv__ = __rfloordiv__ = \
@@ -31,13 +31,22 @@ class SilentUndefined(Undefined):
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
 
-def callApi(url, type, parameters):
+def callApi(url, type, parameters,isJson=False):
     if "GET" in type:
-        response = requests.get(url, params=parameters)
+        if isJson:
+            response = requests.get(url, params=parameters)
+        else:
+            response = requests.get(url, json=parameters)
     elif "POST" in type:
-        response = requests.post(url, data=parameters)
+        if isJson:
+            response = requests.post(url, data=parameters)
+        else:
+            response = requests.post(url, json=parameters)
     elif "PUT" in type:
-        response = requests.put(url, data=parameters)
+        if isJson:
+            response = requests.put(url, data=parameters)
+        else:
+            response = requests.put(url, json=parameters)
     elif "DELETE" in type:
         response = requests.delete(url)
     else:
@@ -67,6 +76,7 @@ def api():
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(requestJson.get("input"))
         story = Story.objects.get(id=ObjectId(storyId))
+
         if story.parameters:
             parameters = story.parameters
         else:
@@ -107,17 +117,29 @@ def api():
                     resultJson["complete"] = True
                     context = {}
                     context["parameters"] = extractedParameters
+                    context["context"] = requestJson["context"]
+
                     try:
                         if story.apiTrigger:
-                            result = callApi(story.apiDetails.url,
+                            isJson = False
+                            parameters = extractedParameters
+
+                            urlTemplate = Template(story.apiDetails.url, undefined=SilentUndefined)
+                            renderedUrl = urlTemplate.render(**context)
+                            if story.apiDetails.isJson:
+                                isJson = True
+                                requestTemplate = Template(story.apiDetails.jsonData, undefined=SilentUndefined)
+                                parameters = requestTemplate.render(**context)
+
+                            result = callApi(renderedUrl,
                                              story.apiDetails.requestType,
-                                             extractedParameters)
+                                             parameters,isJson)
                         else:
                             result = {}
-                        context["result"] = result
 
-                        template = Template(story.speechResponse, undefined=SilentUndefined)
-                        resultJson["speechResponse"] = template.render(**context)
+                        context["result"] = result
+                        resultTemplate = Template(story.speechResponse, undefined=SilentUndefined)
+                        resultJson["speechResponse"] = resultTemplate.render(**context)
                     except:
                         resultJson["speechResponse"] = "Service not avilable."
             else:
@@ -136,11 +158,22 @@ def api():
                     resultJson["complete"] = True
                     context = {}
                     context["parameters"] = resultJson["extractedParameters"]
+                    context["context"] = requestJson["context"]
                     try:
                         if story.apiTrigger:
-                            result = callApi(story.apiDetails.url,
+                            isJson = False
+                            parameters = resultJson["extractedParameters"]
+
+                            urlTemplate = Template(story.apiDetails.url, undefined=SilentUndefined)
+                            renderedUrl = urlTemplate.render(**context)
+                            if story.apiDetails.isJson:
+                                isJson = True
+                                requestTemplate = Template(story.apiDetails.jsonData, undefined=SilentUndefined)
+                                parameters = requestTemplate.render(**context)
+
+                            result = callApi(renderedUrl,
                                              story.apiDetails.requestType,
-                                             resultJson["extractedParameters"])
+                                             parameters,isJson)
                         else:
                             result = {}
                         context["result"] = result
