@@ -119,6 +119,8 @@ $(document).ready(function() {
 		 	$("input#apiUrl").prop( "disabled", true );
 		 	$("select#requestType").prop( "disabled", true );
 		 	$("input#isJson").prop( "disabled", true );
+		 	$("input#isJson").prop( "checked", false );
+		 	$("textarea#jsonData").hide();
 		 }
 	});
 

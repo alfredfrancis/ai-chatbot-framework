@@ -14,9 +14,12 @@ class Parameters extends React.Component {
                     <input className="form-control" onChange={this.handleRequiredChange.bind(this)} type="checkbox"
                            checked={this.props.object.required}/>
                 </div>
-                <div className="col-md-8">
+                <div className="col-md-6">
                     <textarea className="form-control" onChange={this.handlePromptChange.bind(this)}
                               value={this.props.object.prompt}></textarea>
+                </div>
+                <div className="col-md-2">
+                    <button className="btn btn-danger" onClick={this.handleParameterDelete.bind(this)}>Delete</button>
                 </div>
                 <br/>
             </div>
@@ -39,6 +42,9 @@ class Parameters extends React.Component {
         var items = this.props.object
         items["prompt"] = event.target.value
         this.props.onUpdate(this.props.indexId, items)
+    }
+    handleParameterDelete(){
+        this.props.onDeleteParam(this.props.indexId)
     }
 }
 
@@ -79,7 +85,19 @@ class Main extends React.Component {
     handleApiValueChange(event) {
         var nextState = this.state.apiDetails
         nextState[event.target.id] = event.target.value
-        this.setState({"apiDetails":nextState})
+        this.setState({"apiDetails": nextState})
+    }
+
+    handleIsJsonChange(event) {
+        var nextState = this.state.apiDetails
+        nextState[event.target.id] = event.target.checked
+        this.setState({"apiDetails": nextState})
+    }
+
+    handleJsonDataChange(event) {
+        var nextState = this.state.apiDetails
+        nextState[event.target.id] = event.target.value
+        this.setState({"apiDetails": nextState})
     }
 
     handleSubmit(event) {
@@ -95,6 +113,26 @@ class Main extends React.Component {
         });
     }
 
+    onDeleteParam(index){
+        var nextState = this.state
+        nextState.parameters.splice(index,1);
+        this.setState(nextState)
+    }
+    handleParameterSave(){
+        var newParam = {
+            "name":document.getElementById("name").value,
+            "required":document.getElementById("required").checked,
+            "prompt":document.getElementById("prompt").value
+        }
+
+        var nextState = this.state
+        nextState.parameters.push(newParam)
+        this.setState(nextState)
+
+        document.getElementById("name").value = "";
+        document.getElementById("required").checked = false;
+        document.getElementById("prompt").value ="";
+    }
     onUpdate(index, data) {
         var nextState = this.state
         nextState.parameters[index] = data
@@ -102,34 +140,24 @@ class Main extends React.Component {
     }
 
     render() {
+        var jsonEditor = {
+            width: "100%",
+            height: "200px",
+            display: "None"
+        }
+        if (this.state.apiDetails && this.state.apiDetails.isJson) {
+            jsonEditor.display = "inline-block";
+        }
         return (
             <div>
                 <div className="row">
                     <b>Story Name,</b><input className="form-control" id="storyName" type="text"
-                                             value={ this.state.storyName} onChange={this.handleChange.bind(this)}/><br/>
+                                             value={ this.state.storyName}
+                                             onChange={this.handleChange.bind(this)}/><br/>
                     <b>Intent Name,</b><input className="form-control" id="intentName" type="text"
-                                              value={ this.state.intentName} onChange={this.handleChange.bind(this)}/><br/>
+                                              value={ this.state.intentName}
+                                              onChange={this.handleChange.bind(this)}/><br/>
                 </div>
-
-                <div className="row">
-                    <div className="col-md-2">
-                        <div className="checkbox">
-                            <label><input type="checkbox" id="apiTrigger" onChange={this.handleApiRequiredChange.bind(this)} checked={this.state.apiTrigger}/> API trigger </label>
-                        </div>
-                    </div>
-                    <div className="col-md-8">
-                        <input className="form-control" placeholder="API url" id="url" type="text" value={this.state.apiTrigger ? this.state.apiDetails.url : ""} disabled={!this.state.apiTrigger} onChange={this.handleApiValueChange.bind(this)}/>
-                    </div>
-                    <div className="col-md-2">
-                        <select className="form-control" id="requestType" value={this.state.apiTrigger ? this.state.apiDetails.requestType : "GET"}  disabled={!this.state.apiTrigger} onChange={this.handleApiValueChange.bind(this)}>
-                            <option value="GET" >GET</option>
-                            <option value="POST">POST</option>
-                            <option value="POST">PUT</option>
-                            <option value="POST">DELETE</option>
-                        </select>
-                    </div>
-                </div>
-                <br/>
                 <div className="row"><h3>Parameters</h3></div>
 
                 <div className="row">
@@ -142,12 +170,72 @@ class Main extends React.Component {
                     <div className="col-md-2">
                         <h4>Prompt</h4>
                     </div>
+                    <div className="col-md-2">
+                    </div>
                 </div>
+
                 { this.state.parameters.map((object, index) => <Parameters indexId={index} object={object}
-                                                                           onUpdate={this.onUpdate.bind(this)}/>) }
+                                                                           onUpdate={this.onUpdate.bind(this)} onDeleteParam={this.onDeleteParam.bind(this)}/>) }
+                <div className="row">
+                <div className="col-md-2">
+                    <input className="form-control" id="name" type="text"
+                           />
+                </div>
+                <div className="col-md-2">
+                    <input className="form-control" id="required" type="checkbox"/>
+                </div>
+                <div className="col-md-6">
+                    <textarea id="prompt" className="form-control"
+                              ></textarea>
+                </div>
+                <div className="col-md-2">
+                    <button className="btn btn-info" onClick={this.handleParameterSave.bind(this)}>Save</button>
+                </div>
                 <br/>
-                <b>Speech Response,</b><textarea onChange={this.handleChange.bind(this)} value={ this.state.speechResponse}
-                                                 className="form-control" id="speechResponse"></textarea><br/>
+            </div>
+
+                <br/>
+                <div className="row">
+                    <div className="col-md-1">
+                        <div className="checkbox">
+                            <label><input type="checkbox" id="apiTrigger"
+                                          onChange={this.handleApiRequiredChange.bind(this)}
+                                          checked={this.state.apiTrigger}/> API trigger </label>
+                        </div>
+                    </div>
+                    <div className="col-md-1">
+                        <div className="checkbox">
+                            <label><input type="checkbox" id="isJson" onChange={this.handleIsJsonChange.bind(this)}
+                                          checked={this.state.apiTrigger ? this.state.apiDetails.isJson : false}/>Json
+                            </label>
+                        </div>
+                    </div>
+                    <div className="col-md-8">
+                        <input className="form-control" placeholder="API url" id="url" type="text"
+                               value={this.state.apiTrigger ? this.state.apiDetails.url : ""}
+                               disabled={!this.state.apiTrigger} onChange={this.handleApiValueChange.bind(this)}/>
+                    </div>
+                    <div className="col-md-2">
+                        <select className="form-control" id="requestType"
+                                value={this.state.apiTrigger ? this.state.apiDetails.requestType : "GET"}
+                                disabled={!this.state.apiTrigger} onChange={this.handleApiValueChange.bind(this)}>
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                </div>
+                <br/>
+                <div class="span4" id="jsoneditor">
+                    <textarea id="jsonData" onChange={this.handleJsonDataChange.bind(this)}
+                              value={ this.state.apiTrigger && this.state.apiDetails.isJson ? this.state.apiDetails.jsonData : ""}
+                              style={jsonEditor}>{}</textarea>
+                </div>
+                <hr/>
+                <b>Speech Response,</b><textarea onChange={this.handleChange.bind(this)}
+                                                 value={ this.state.speechResponse}
+                                                 className="form-control" id="speechResponse"> </textarea><br/>
                 <button onClick={this.handleSubmit} className="btn btn-success pull-right" type="submit">Save</button>
             </div>
         );

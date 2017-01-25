@@ -32,6 +32,7 @@ endpoint = Blueprint('api', __name__, url_prefix='/api')
 
 
 def callApi(url, type, parameters,isJson=False):
+    print(url,type,parameters,isJson)
     if "GET" in type:
         if isJson:
             response = requests.get(url, params=parameters)
@@ -180,7 +181,8 @@ def api():
 
                         template = Template(story.speechResponse, undefined=SilentUndefined)
                         resultJson["speechResponse"] = template.render(**context)
-                    except:
+                    except Exception as e:
+                        print(e)
                         resultJson["speechResponse"] = "Service not avilable."
                 else:
                     missingParameter = resultJson["missingParameters"][0]
