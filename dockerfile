@@ -10,15 +10,13 @@ RUN apt-get update
 
 RUN apt-get install -y gunicorn
 
-COPY requirements.txt requirements.txt
+ADD . /app-container
+
+WORKDIR app-container/
 
 RUN pip install -r requirements.txt
 
 RUN python -m nltk.downloader "averaged_perceptron_tagger"; python
 RUN python -m nltk.downloader "punkt"; python
-
-WORKDIR app-container/
-
-EXPOSE 8080
-
-ENTRYPOINT ["gunicorn","--bind", "0.0.0.0:8080", "run:app"]
+RUN python -m nltk.downloader "stopwords"; python
+RUN python -m nltk.downloader "wordnet"; python

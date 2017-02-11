@@ -1,0 +1,16 @@
+web:
+  build: .
+  command: gunicorn --bind 0.0.0.0:8080 run:app
+  ports:
+      - "8080:8080"
+  volumes:
+    - ./:/app-container
+  environment:
+    APPLICATION_ENV: Production
+
+  links:
+    - mongodb
+
+mongodb:
+  image: mongo
+  hostname: mongodb
