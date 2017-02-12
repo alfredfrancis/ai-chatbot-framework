@@ -35,19 +35,19 @@ def callApi(url, type, parameters,isJson=False):
     print(url,type,parameters,isJson)
     if "GET" in type:
         if isJson:
-            response = requests.get(url, params=parameters)
-        else:
             response = requests.get(url, json=parameters)
+        else:
+            response = requests.get(url, params=parameters)
     elif "POST" in type:
         if isJson:
-            response = requests.post(url, data=parameters)
-        else:
             response = requests.post(url, json=parameters)
+        else:
+            response = requests.post(url, data=parameters)
     elif "PUT" in type:
         if isJson:
-            response = requests.put(url, data=parameters)
-        else:
             response = requests.put(url, json=parameters)
+        else:
+            response = requests.put(url, data=parameters)
     elif "DELETE" in type:
         response = requests.delete(url)
     else:
