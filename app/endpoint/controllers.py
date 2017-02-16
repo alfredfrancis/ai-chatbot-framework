@@ -2,6 +2,7 @@ import os
 from bson import ObjectId
 import json
 import requests
+import io
 
 from jinja2 import Undefined, Template
 
@@ -35,17 +36,17 @@ def callApi(url, type, parameters,isJson=False):
     print(url,type,parameters,isJson)
     if "GET" in type:
         if isJson:
-            response = requests.get(url, json=parameters)
+            response = requests.get(url, json=json.loads(parameters))
         else:
             response = requests.get(url, params=parameters)
     elif "POST" in type:
         if isJson:
-            response = requests.post(url, json=parameters)
+            response = requests.post(url, json=json.loads(parameters))
         else:
             response = requests.post(url, data=parameters)
     elif "PUT" in type:
         if isJson:
-            response = requests.put(url, json=parameters)
+            response = requests.put(url, json=json.loads(parameters))
         else:
             response = requests.put(url, data=parameters)
     elif "DELETE" in type:
@@ -212,9 +213,13 @@ def tts():
         "american": "file://commons/fliteVoices/cmu_us_eey.flitevox"
     }
     os.system("echo \"" + request.args.get("text") + "\" | flite -voice " + voices["american"] + "  -o sound.wav")
-    path_to_file = "../sound.wav"
+    path_to_file = "sound.wav"
+
+    with open(path_to_file, mode='rb') as file:  # b is important -> binary
+        fileContent = file.read()
+    os.remove(path_to_file)
     return send_file(
-        path_to_file,
+        io.BytesIO(fileContent),
         mimetype="audio/wav",
         as_attachment=True,
         attachment_filename="sound.wav")
