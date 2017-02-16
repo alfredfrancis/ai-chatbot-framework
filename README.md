@@ -39,12 +39,13 @@ That's it.
 ```sh
 docker build -t "ai-chat-bot" .
 docker run --name=chabot-live-node-1  -e="APPLICATION_ENV=Production" -v ./:/app-container -p 8001:8080 -it ai-chat-bot
+```
 
 #### docker-compose.yml
 ```sh
 docker-compose build
 docker-compose up -d
-```sh
+```
 
 ### running
 * Development
