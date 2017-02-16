@@ -77,7 +77,15 @@ class Main extends React.Component {
     }
 
     handleApiRequiredChange(event) {
-        var nextState = {}
+        var nextState = this.state
+        if (!nextState[event.target.id].apiTrigger) {
+            nextState["apiDetails"] = {
+                "url": "",
+                "requestType": "GET",
+                "isJson": false,
+                "jsonData": ""
+            }
+        }
         nextState[event.target.id] = event.target.checked
         this.setState(nextState)
     }
