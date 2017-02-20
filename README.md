@@ -1,6 +1,6 @@
 # Jarvis
-### An AI Chatbot framework build in Python
-JARVIS is an AI based conversational dialog interface built in Python. It can be used to create Natural language conversation scenarios with zero coding effort.The simple web UI makes it very easy to create and train your conversations. Jarvis's API can be used to integrate with any channel of your choice such as Messenger,Slack etc. This is a very basic project so you can satrt building on it.It may contain lots of bugs,please free to contribute via pull requests.
+### An AI Chatbot framework built in Python
+JARVIS is an AI based conversational dialog interface built in Python. It can be used to create Natural language conversation scenarios with zero coding effort.The simple web UI makes it very easy to create and train your conversations. Jarvis's API can be used to integrate with any channel of your choice such as Messenger,Slack etc. This is a very basic project so you can start building on it.It may contain lots of bugs,please free to contribute via pull requests.
 
 
 ### Demo
@@ -25,16 +25,6 @@ class Development(Config):
     DEBUG = True
 ```
 
-* Then use pip to install all required python packages
-```sh
-pip install -r requirments.txt
-```
-* Run setup script for setting up some default intents
-```sh
-$ python setup.py
-```
-That's it.
-
 ### Docker
 ```sh
 docker build -t "ai-chat-bot" .
@@ -47,8 +37,17 @@ docker exec -it chabot-node-1 python /app-container/setup.py
 docker-compose build
 docker-compose up -d
 ```
+### without docker
 
-### running
+* Then use pip to install all required python packages
+```sh
+pip install -r requirments.txt
+```
+* Run setup script for setting up some default intents
+```sh
+$ python setup.py
+```
+
 * Development
 ```sh
 $ python run.py
@@ -57,6 +56,8 @@ $ python run.py
 ```sh
 $ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8080 run:app
 ```
+That's it.
+
 ### Creating and Training your stories
 Navigate to http://localhost:8080
 
