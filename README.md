@@ -31,8 +31,8 @@ docker build -t "ai-chat-bot" .
 docker run --name=chabot-node-1  -e="APPLICATION_ENV=Production" -v ./:/app-container -p 8001:8080 -it ai-chat-bot gunicorn --bind 0.0.0.0:8080 run:app
 docker exec -it chabot-node-1 python /app-container/setup.py
 ```
-
-#### docker-compose.yml ( Recommended)
+#### OR
+#### Docker Compose ( Recommended)
 ```sh
 docker-compose build
 docker-compose up -d
