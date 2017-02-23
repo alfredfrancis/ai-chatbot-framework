@@ -32,7 +32,7 @@ docker run --name=chabot-node-1  -e="APPLICATION_ENV=Production" -v ./:/app-cont
 docker exec -it chabot-node-1 python /app-container/setup.py
 ```
 
-#### docker-compose.yml
+#### docker-compose.yml ( Recommended)
 ```sh
 docker-compose build
 docker-compose up -d
@@ -54,12 +54,12 @@ $ python run.py
 ```
 * Production
 ```sh
-$ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8080 run:app
+$ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8001 run:app
 ```
 That's it.
 
 ### Creating and Training your stories
-Navigate to http://localhost:8080
+Navigate to http://localhost:8001
 
 #### NLTK
 See [NLTK documentation](www.nltk.org/)
