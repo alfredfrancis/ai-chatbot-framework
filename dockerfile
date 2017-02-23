@@ -8,9 +8,7 @@ RUN \
 
 RUN apt-get update
 
-RUN apt-get install -y gunicorn
-
-ADD . /app-container
+COPY requirements.txt /app-container/requirements.txt
 
 WORKDIR app-container/
 
@@ -20,3 +18,5 @@ RUN python -m nltk.downloader "averaged_perceptron_tagger"; python
 RUN python -m nltk.downloader "punkt"; python
 RUN python -m nltk.downloader "stopwords"; python
 RUN python -m nltk.downloader "wordnet"; python
+
+ADD . /app-container

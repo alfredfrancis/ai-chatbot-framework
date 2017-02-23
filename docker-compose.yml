@@ -1,9 +1,8 @@
 web:
   build: .
-  command: python setup.py
-  command: gunicorn --bind 0.0.0.0:8080 run:app
+  command: bash -c "python setup.py && gunicorn gunicorn run:app --bind 0.0.0.0:8080 --access-logfile=logs/gunicorn-access.log --error-logfile logs/gunicorn-error.log"
   ports:
-      - "8080:8080"
+      - "8001:8080"
   volumes:
     - ./:/app-container
   environment:
