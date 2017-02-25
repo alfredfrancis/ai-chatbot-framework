@@ -1,10 +1,10 @@
 web:
   build: .
-  command: bash -c "python setup.py && gunicorn gunicorn run:app --bind 0.0.0.0:8001 --access-logfile=logs/gunicorn-access.log --error-logfile logs/gunicorn-error.log"
+  command: bash -c "python setup.py && gunicorn run:app --bind 0.0.0.0:8001 --access-logfile=logs/gunicorn-access.log --error-logfile logs/gunicorn-error.log"
   ports:
       - "8001:8001"
   volumes:
-    - ./:/app-container
+    - ./:/usr/src/app/
   environment:
     APPLICATION_ENV: Production
 
