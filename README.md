@@ -5,6 +5,10 @@ JARVIS is an AI based conversational dialog interface built in Python. It can be
 
 ### Demo
 
+Checkout this basic tutorial on youtube,
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/S1Fj7WinaBA/0.jpg)](https://www.youtube.com/watch?v=S1Fj7WinaBA)
+
 Please visit my [website](http://alfredfrancis.github.io) to see my personal chatbot in action
 
 ### Installation
