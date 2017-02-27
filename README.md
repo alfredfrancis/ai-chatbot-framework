@@ -1,11 +1,7 @@
 # Jarvis
 ### An AI Chatbot framework built in Python
 JARVIS is an AI based conversational dialog interface built in Python. It can be used to create Natural language conversation scenarios with zero coding effort.The simple web UI makes it very easy to create and train your conversations. Jarvis's API can be used to integrate with any channel of your choice such as Messenger,Slack etc. This is a very basic project so you can start building on it.It may contain lots of bugs,please free to contribute via pull requests.
-
-
-### Demo
-
-Please visit my [website](http://alfredfrancis.github.io) to see my personal chatbot in action
+![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
 
 ### Installation
 
@@ -31,8 +27,8 @@ docker build -t "ai-chat-bot" .
 docker run --name=chabot-node-1  -e="APPLICATION_ENV=Production" -v ./:/app-container -p 8001:8080 -it ai-chat-bot gunicorn --bind 0.0.0.0:8080 run:app
 docker exec -it chabot-node-1 python /app-container/setup.py
 ```
-
-#### docker-compose.yml
+#### OR
+#### Docker Compose ( Recommended)
 ```sh
 docker-compose build
 docker-compose up -d
@@ -54,12 +50,20 @@ $ python run.py
 ```
 * Production
 ```sh
-$ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8080 run:app
+$ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8001 run:app
 ```
 That's it.
 
 ### Creating and Training your stories
-Navigate to http://localhost:8080
+Navigate to http://localhost:8001
+
+### Tutorial
+
+Checkout this basic tutorial on youtube,
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/S1Fj7WinaBA/0.jpg)](https://www.youtube.com/watch?v=S1Fj7WinaBA)
+
+Please visit my [website](http://alfredfrancis.github.io) to see my personal chatbot in action
 
 #### NLTK
 See [NLTK documentation](www.nltk.org/)
