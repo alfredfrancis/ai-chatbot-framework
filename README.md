@@ -1,6 +1,6 @@
-# Jarvis
+# IKY
 ### An AI Chatbot framework built in Python
-JARVIS is an AI based conversational dialog interface built in Python. It can be used to create Natural language conversation scenarios with zero coding effort.The simple web UI makes it very easy to create and train your conversations. Jarvis's API can be used to integrate with any channel of your choice such as Messenger,Slack etc. This is a very basic project so you can start building on it.It may contain lots of bugs,please free to contribute via pull requests.
+IKY is an AI based conversational dialog interface built in Python. It can be used to create Natural language conversation scenarios with zero coding effort.The simple web UI makes it very easy to create and train your conversations. Iky's API can be used to integrate with any channel of your choice such as Messenger,Slack etc. This is a very basic project so you can start building on it.It may contain lots of bugs,please free to contribute via pull requests.
 ![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
 
 ### Installation
