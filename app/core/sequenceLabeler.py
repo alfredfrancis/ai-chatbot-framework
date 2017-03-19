@@ -6,7 +6,7 @@ from flask import current_app as app
 
 from app.stories.models import Story
 from app.core.nlp import posTagger
-from featuresExtractor import extractFeatures
+from app.core.featuresExtractor import extractFeatures
 
 
 def sentToFeatures(sent):
