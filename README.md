@@ -37,7 +37,7 @@ docker-compose up -d
 
 * Then use pip to install all required python packages
 ```sh
-pip install -r requirments.txt
+pip install -r requirements.txt
 ```
 * Run setup script for setting up some default intents
 ```sh
