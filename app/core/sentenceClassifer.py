@@ -6,7 +6,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
-from NLTKPreprocessor import NLTKPreprocessor
+from app.core.NLTKPreprocessor import NLTKPreprocessor
 
 
 def identity(arg):
