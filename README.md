@@ -61,7 +61,7 @@ Navigate to http://localhost:8001
 
 Checkout this basic tutorial on youtube,
 
-[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/S1Fj7WinaBA/0.jpg)](https://www.youtube.com/watch?v=S1Fj7WinaBA)
+[![IMAGE ALT TEXT HERE](https://preview.ibb.co/fj9N3v/Screenshot_from_2017_04_05_03_11_04.png)](https://www.youtube.com/watch?v=S1Fj7WinaBA)
 
 Please visit my [website](http://alfredfrancis.github.io) to see my personal chatbot in action
 
