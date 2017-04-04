@@ -2,11 +2,10 @@ import os
 from bson import ObjectId
 import json
 import requests
-import io
 
 from jinja2 import Undefined, Template
 
-from flask import Blueprint,request, send_file
+from flask import Blueprint,request, send_file,abort
 from app import app
 
 from app.commons import errorCodes
@@ -34,9 +33,12 @@ endpoint = Blueprint('api', __name__, url_prefix='/api')
 
 def callApi(url, type, parameters,isJson=False):
     print(url,type,parameters,isJson)
+
     if "GET" in type:
         if isJson:
+            print(parameters)
             response = requests.get(url, json=json.loads(parameters))
+
         else:
             response = requests.get(url, params=parameters)
     elif "POST" in type:
@@ -54,6 +56,7 @@ def callApi(url, type, parameters,isJson=False):
     else:
         raise Exception("unsupported request method.")
     result = json.loads(response.text)
+    print(result)
     return result
 
 
@@ -64,6 +67,10 @@ def api():
     resultJson = requestJson
 
     if requestJson:
+
+        context = {}
+        context["context"] = requestJson["context"]
+
         if app.config["DEFAULT_WELCOME_INTENT_NAME"] in requestJson.get("input"):
             story=Story.objects(
                 intentName=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
@@ -71,13 +78,16 @@ def api():
             resultJson["intent"]["name"] = story.storyName
             resultJson["intent"]["storyId"] = str(story.id)
             resultJson["input"] = requestJson.get("input")
-            resultJson["speechResponse"] = story.speechResponse
+            template = Template(story.speechResponse, undefined=SilentUndefined)
+            resultJson["speechResponse"] = template.render(**context)
+
             logger.info(requestJson.get("input"), extra=resultJson)
             return buildResponse.buildJson(resultJson)
 
         intentClassifier = IntentClassifier()
         storyId = intentClassifier.predict(requestJson.get("input"))
         story = Story.objects.get(id=ObjectId(storyId))
+
 
         if story.parameters:
             parameters = story.parameters
@@ -110,6 +120,7 @@ def api():
                             missingParameters.append(parameter)
 
                 resultJson["extractedParameters"] = extractedParameters
+
                 if missingParameters:
                     resultJson["complete"] = False
                     currentNode = missingParameters[0]
@@ -117,9 +128,9 @@ def api():
                     resultJson["speechResponse"] = currentNode["prompt"]
                 else:
                     resultJson["complete"] = True
-                    context = {}
+
                     context["parameters"] = extractedParameters
-                    context["context"] = requestJson["context"]
+
 
                     try:
                         if story.apiTrigger:
@@ -136,17 +147,21 @@ def api():
                             result = callApi(renderedUrl,
                                              story.apiDetails.requestType,
                                              parameters,isJson)
+
                         else:
                             result = {}
 
                         context["result"] = result
                         resultTemplate = Template(story.speechResponse, undefined=SilentUndefined)
                         resultJson["speechResponse"] = resultTemplate.render(**context)
-                    except:
-                        resultJson["speechResponse"] = "Service not avilable."
+                    except Exception as e:
+                        print(e)
+                        resultJson["speechResponse"] = "Service is not available."
             else:
                 resultJson["complete"] = True
-                resultJson["speechResponse"] = story.speechResponse
+                resultTemplate = Template(story.speechResponse, undefined=SilentUndefined)
+                resultJson["speechResponse"] = resultTemplate.render(**context)
+
 
         elif (requestJson.get("complete") is False):
             if "cancel" not in story.intentName:
@@ -176,6 +191,7 @@ def api():
                             result = callApi(renderedUrl,
                                              story.apiDetails.requestType,
                                              parameters,isJson)
+                            print(result)
                         else:
                             result = {}
                         context["result"] = result
@@ -184,7 +200,7 @@ def api():
                         resultJson["speechResponse"] = template.render(**context)
                     except Exception as e:
                         print(e)
-                        resultJson["speechResponse"] = "Service not avilable."
+                        resultJson["speechResponse"] = "Service is not available. "
                 else:
                     missingParameter = resultJson["missingParameters"][0]
                     resultJson["complete"] = False
@@ -197,13 +213,15 @@ def api():
                 resultJson["parameters"] = {}
                 resultJson["intent"] = {}
                 resultJson["complete"] = True
-                resultJson["speechResponse"] = story.speechResponse
-
+                template = Template(story.speechResponse, undefined=SilentUndefined)
+                resultJson["speechResponse"] = template.render(**context)
+        logger.info(requestJson.get("input"), extra=resultJson)
+        return buildResponse.buildJson(resultJson)
     else:
-        resultJson = errorCodes.emptyInput
+        return abort(400)
 
-    logger.info(requestJson.get("input"), extra=resultJson)
-    return buildResponse.buildJson(resultJson)
+
+
 
 
 # Text To Speech
@@ -213,13 +231,9 @@ def tts():
         "american": "file://commons/fliteVoices/cmu_us_eey.flitevox"
     }
     os.system("echo \"" + request.args.get("text") + "\" | flite -voice " + voices["american"] + "  -o sound.wav")
-    path_to_file = "sound.wav"
-
-    with open(path_to_file, mode='rb') as file:  # b is important -> binary
-        fileContent = file.read()
-    os.remove(path_to_file)
+    path_to_file = "../sound.wav"
     return send_file(
-        io.BytesIO(fileContent),
+        path_to_file,
         mimetype="audio/wav",
         as_attachment=True,
         attachment_filename="sound.wav")
