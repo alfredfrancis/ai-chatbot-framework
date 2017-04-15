@@ -9,6 +9,8 @@ IKY is an AI based conversational dialog interface built in Python. It can be us
 
 ### Installation
 
+[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
+
 * add your dev/production configurations in config.py 
 
 ```python
