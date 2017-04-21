@@ -6,10 +6,6 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 
 ![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
 
-### DEMO (read only)
-
-[![Live Demo](https://cdn.meme.am/instances/250x250/66568783.jpg)](http://iky-ai.herokuapp.com/)
-
 ### Installation
 
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
