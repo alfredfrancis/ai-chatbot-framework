@@ -91,10 +91,6 @@ See [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
 License
 ----
-[MIT](https://opensource.org/licenses/MIT) 
-
-
-
 **Free Software, Hell Yeah!**
 <hr></hr>
 
