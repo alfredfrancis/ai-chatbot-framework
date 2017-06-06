@@ -91,6 +91,14 @@ $(document).ready(function () {
         }
     })
 
+    $('#btn-chat').click(function () {
+        userQuery = $("#btn-input").val();
+        $("#btn-input").val("");
+        html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">you</strong><p>' + userQuery + '</p> </div></li>';
+        $("ul.chat").append(html_data);
+        send_req(userQuery);
+    })
+
     function Speech(say) {
       if ('speechSynthesis' in window && talking) {
         var utterance = new SpeechSynthesisUtterance(say);
