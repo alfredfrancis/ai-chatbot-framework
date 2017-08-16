@@ -50,3 +50,11 @@ try:
     newStory.save()
 except:
     print("Stories already exists..skipping..")
+    
+try:
+    print("Training models..")
+    from app.core.intentClassifier import IntentClassifier
+    IntentClassifier().train()
+    print("Training models finished..")
+except:
+    print("Could train models..")
