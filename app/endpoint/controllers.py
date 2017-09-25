@@ -111,6 +111,7 @@ def api():
                 for parameter in parameters:
                     resultJson["parameters"].append({
                         "name": parameter.name,
+                        "type": parameter.type,
                         "required": parameter.required
                     })
 

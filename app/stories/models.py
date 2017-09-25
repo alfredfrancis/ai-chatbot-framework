@@ -44,6 +44,7 @@ class Parameter(EmbeddedDocument):
     id = ObjectIdField(default=lambda: ObjectId())
     name = StringField(required=True)
     required = BooleanField(default=False)
+    type = StringField(required=False)
     prompt = StringField()
 
 class ApiDetails(EmbeddedDocument):

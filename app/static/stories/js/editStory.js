@@ -10,11 +10,21 @@ class Parameters extends React.Component {
                     <input className="form-control" onChange={this.handleNameChange.bind(this)} type="text"
                            value={this.props.object.name}/>
                 </div>
-                <div className="col-md-2">
+                <div className="col-md-3">
+                    <select className="form-control" id="paramEntityType" value={this.props.object.type ? this.props.object.type : null}
+                        onChange={this.handleTypeValueChange.bind(this)}>
+                        <option value="mobile">Mobile number</option>
+                        <option value="email">Email</option>
+                        <option value="free_text">Free Text</option>
+                        <option value="number">Number</option>
+                        <option value="list">List</option>
+                    </select>
+                </div>
+                <div className="col-md-1">
                     <input className="form-control" onChange={this.handleRequiredChange.bind(this)} type="checkbox"
                            checked={this.props.object.required}/>
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-4">
                     <textarea className="form-control" onChange={this.handlePromptChange.bind(this)}
                               value={this.props.object.prompt}></textarea>
                 </div>
@@ -29,6 +39,12 @@ class Parameters extends React.Component {
     handleNameChange(event) {
         var items = this.props.object
         items["name"] = event.target.value
+        this.props.onUpdate(this.props.indexId, items)
+    }
+
+    handleTypeValueChange(event) {
+        var items = this.props.object
+        items["type"] = event.target.value
         this.props.onUpdate(this.props.indexId, items)
     }
 
@@ -129,6 +145,7 @@ class Main extends React.Component {
     handleParameterSave(){
         var newParam = {
             "name":document.getElementById("name").value,
+            "type":document.getElementById("paramType").value,
             "required":document.getElementById("required").checked,
             "prompt":document.getElementById("prompt").value
         }
@@ -172,10 +189,13 @@ class Main extends React.Component {
                     <div className="col-md-2">
                         <h4>Name</h4>
                     </div>
-                    <div className="col-md-2">
+                    <div className="col-md-3">
+                        <h4>Type</h4>
+                    </div>
+                    <div className="col-md-1">
                         <h4>Required</h4>
                     </div>
-                    <div className="col-md-2">
+                    <div className="col-md-4">
                         <h4>Prompt</h4>
                     </div>
                     <div className="col-md-2">
@@ -189,10 +209,19 @@ class Main extends React.Component {
                     <input className="form-control" id="name" type="text"
                            />
                 </div>
-                <div className="col-md-2">
+                <div className="col-md-3">
+                    <select className="form-control" id="paramType">
+                        <option value="mobile">Mobile number</option>
+                        <option value="email">Email</option>
+                        <option value="free_text" selected>Free Text</option>
+                        <option value="number">Number</option>
+                        <option value="list">List</option>
+                    </select>
+                </div>
+                <div className="col-md-1">
                     <input className="form-control" id="required" type="checkbox"/>
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-4">
                     <textarea id="prompt" className="form-control"
                               ></textarea>
                 </div>

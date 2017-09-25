@@ -169,7 +169,8 @@ $(document).ready(function() {
 		}
 
 		param = {
-			"name":$("#paramName")[0].value
+			"name":$("#paramName")[0].value,
+			"type":$("#paramEntityType")[0].value
 		}
 
 		$("#paramName")[0].value="";
