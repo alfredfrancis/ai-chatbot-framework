@@ -1,6 +1,6 @@
 # IKY
 ### An AI Chatbot framework built in Python
-Building a chatbot can sound daunting, but it’s totally doable. IKY is an AI powered conversational dialog interface built in Python. With IKY it’s easy to create Natural Language conversational scenarios with no coding efforts whatsoever. The smooth UI makes it effortless to create and train conversations to the bot and it continuously gets smarter as it learns from conversations it has with people. IKY can live on any channel of your choice (such as Messenger, Slack etc.) by integrating it’s API with that platform. 
+Building a chatbot can sound daunting, but it’s totally doable. IKY is an AI powered conversational dialog interface built in Python. With IKY it’s easy to create Natural Language conversational scenarios with no coding efforts whatsoever. The smooth UI makes it effortless to create and train conversations to the bot and it continuously gets smarter as it learns from conversations it has with people. IKY can live on any channel of your choice (such as Messenger, Slack etc.) by integrating it’s API with that platform.
 
 You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has artificial intelligence. With this basic project you can create an artificial intelligence powered chatting machine in no time.There may be scores of bugs. So feel free to contribute  via pull requests.
 
@@ -10,7 +10,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
 
-* add your dev/production configurations in config.py 
+* add your dev/production configurations in config.py
 
 ```python
 class Production(Config):
@@ -36,7 +36,7 @@ docker exec -it chabot-node-1 python /app-container/setup.py
 #### Docker Compose ( Recommended)
 ```sh
 docker-compose build
-docker-compose up -d
+docker-compose up
 ```
 ### without docker
 
@@ -58,6 +58,21 @@ $ python run.py
 $ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8001 run:app
 ```
 That's it.
+
+### DB
+#### Backup
+`docker-compose exec mongodb bash`
+`cd data/`
+`mongodump`
+`exit`
+`docker cp aichatbotframework_mongodb_1:/data/dump .`
+
+#### Restore
+`docker cp dump aichatbotframework_mongodb_1:/data/`
+`docker-compose exec mongodb bash`
+`cd data`
+`mongorestore --drop --db=iky-ai --dir=dump/iky-ai/`
+`exit`
 
 ### Creating and Training your stories
 Navigate to http://localhost:8001
@@ -91,7 +106,7 @@ See [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
  - Improve intent classification accuracy
  - Add parameter types
  - Migrate UI to React JS
- 
+
 **Free Software, Hell Yeah!**
 <hr></hr>
 
