@@ -91,24 +91,18 @@ Watch tutorial on [Fullfilling your Chatbot Intent with an API Call - Recipe Sea
 
 Please visit my [website](http://alfredfrancis.github.io) to see my personal chatbot in action
 
-#### NLTK
-See [NLTK documentation](www.nltk.org/)
-
-#### SKlearn
-See [SKLearn documentation](http://scikit-learn.org/)
-
-#### CRFsuite
-See [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
-
-See [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
+### Dependencies documentations
+* [NLTK documentation](www.nltk.org/)
+* [SKLearn documentation](http://scikit-learn.org/)
+* [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
+* [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
 
 ### Todos
-
- - Write Unit Tests
- - Improve intent classification accuracy
- - Add parameter types
- - Migrate UI to React JS
+ *  Write Unit Tests
+ *  Improve intent classification accuracy
+ *  Add parameter types
+ *  Migrate UI to React JS
 
 **Free Software, Hell Yeah!**
 <hr></hr>
