@@ -7,23 +7,12 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
 
 ### Installation
+After any of next methods, you will need to ![import db](https://github.com/alfredfrancis/ai-chatbot-framework#Restore), and navigate to http://localhost:8001.
 
-[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
-
-* add your dev/production configurations in config.py
-
-```python
-class Production(Config):
-    # MongoDB Database Details
-    DB_HOST = "mongodb://127.0.0.1:27017/"
-    DB_USERNAME = ""
-    DB_PASSWORD = ""
-
-    # Web Server details
-    WEB_SERVER_PORT = 80
-
-class Development(Config):
-    DEBUG = True
+### Docker Compose
+```sh
+docker-compose build
+docker-compose up
 ```
 
 ### Docker
@@ -32,12 +21,7 @@ docker build -t "ai-chat-bot" .
 docker run --name=chabot-node-1  -e="APPLICATION_ENV=Production" -v ./:/app-container -p 8001:8080 -it ai-chat-bot gunicorn --bind 0.0.0.0:8080 run:app
 docker exec -it chabot-node-1 python /app-container/setup.py
 ```
-#### OR
-#### Docker Compose ( Recommended)
-```sh
-docker-compose build
-docker-compose up
-```
+
 ### without docker
 
 * Then use pip to install all required python packages
@@ -57,7 +41,25 @@ $ python run.py
 ```sh
 $ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8001 run:app
 ```
-That's it.
+
+### Heroku
+[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
+
+* add your dev/production configurations in config.py
+
+```python
+class Production(Config):
+    # MongoDB Database Details
+    DB_HOST = "mongodb://127.0.0.1:27017/"
+    DB_USERNAME = ""
+    DB_PASSWORD = ""
+
+    # Web Server details
+    WEB_SERVER_PORT = 80
+
+class Development(Config):
+    DEBUG = True
+```
 
 ### DB
 #### Backup
@@ -73,9 +75,6 @@ That's it.
 `cd data`
 `mongorestore --drop --db=iky-ai --dir=dump/iky-ai/`
 `exit`
-
-### Creating and Training your stories
-Navigate to http://localhost:8001
 
 ### Tutorial
 
