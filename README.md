@@ -63,18 +63,22 @@ class Development(Config):
 
 ### DB
 #### Backup
-`docker-compose exec mongodb bash`
-`cd data/`
-`mongodump`
-`exit`
-`docker cp aichatbotframework_mongodb_1:/data/dump .`
+```
+docker-compose exec mongodb bash
+cd data/
+mongodump
+exit
+docker cp aichatbotframework_mongodb_1:/data/dump .
+```
 
 #### Restore
-`docker cp dump aichatbotframework_mongodb_1:/data/`
-`docker-compose exec mongodb bash`
-`cd data`
-`mongorestore --drop --db=iky-ai --dir=dump/iky-ai/`
-`exit`
+```
+docker cp dump aichatbotframework_mongodb_1:/data/
+docker-compose exec mongodb bash
+cd data
+mongorestore --drop --db=iky-ai --dir=dump/iky-ai/
+exit
+```
 
 ### Tutorial
 
