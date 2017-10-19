@@ -7,7 +7,7 @@ nltk.download("wordnet")
 nltk.download('averaged_perceptron_tagger')
 nltk.download('punkt')
 
-#creating directory for storing chat logs
+# creating directory for storing chat logs
 if not os.path.exists("logs"):
     os.makedirs("logs")
 
@@ -48,13 +48,13 @@ try:
     ]]
     newStory.labeledSentences.append(newLabeledSentence)
     newStory.save()
-except:
+except BaseException:
     print("Stories already exists..skipping..")
-    
+
 try:
     print("Training models..")
     from app.core.intentClassifier import IntentClassifier
     IntentClassifier().train()
     print("Training models finished..")
-except:
+except BaseException:
     print("Could train models..")

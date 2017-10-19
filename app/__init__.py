@@ -14,9 +14,11 @@ except KeyError as e:
     env = 'Development'
 app.config.from_object('config.%s' % env)
 
+
 @app.errorhandler(404)
 def not_found(error):
     return "Not found", 404
+
 
 from app.core.controllers import core as core
 from app.stories.controllers import stories as stories
