@@ -1,18 +1,26 @@
-web:
-  build: .
-  command: bash -c "python setup.py && gunicorn run:app --bind 0.0.0.0:8001 --access-logfile=logs/gunicorn-access.log --error-logfile logs/gunicorn-error.log"
-  ports:
-      - "8001:8001"
-  volumes:
-    - ./:/usr/src/app/
-  environment:
-    APPLICATION_ENV: Production
+version: '2'
+services:
+  web:
+    build: .
+    command: bash -c "python setup.py && gunicorn run:app --bind 0.0.0.0:8001 --access-logfile=logs/gunicorn-access.log --error-logfile logs/gunicorn-error.log"
+    ports:
+        - "8001:8001"
+    volumes:
+      - ./:/usr/src/app/
+    environment:
+      APPLICATION_ENV: Production
+    links:
+      - mongodb
+    depends_on:
+      - mongodb
 
-  links:
-    - mongodb
+  mongodb:
+    image: mongo
+    hostname: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodbdata:/data
 
-mongodb:
-  image: mongo
-  hostname: mongodb
-  ports:
-    - "27017:27017"
+volumes:
+  mongodbdata:
