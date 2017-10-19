@@ -7,7 +7,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
 
 ### Installation
-After any of next methods, you will need to ![import db](https://github.com/alfredfrancis/ai-chatbot-framework#Restore), and navigate to http://localhost:8001.
+After any of next methods, you will need to [import db](#restore), and navigate to http://localhost:8001.
 
 ### Docker Compose
 ```sh
