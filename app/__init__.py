@@ -13,6 +13,11 @@ except KeyError as e:
     # logging.error('Unknown environment key, defaulting to Development')
     env = 'Development'
 app.config.from_object('config.%s' % env)
+app.config.update(
+    DEBUG=True,
+    TESTING=True,
+    TEMPLATES_AUTO_RELOAD=True
+)
 
 @app.errorhandler(404)
 def not_found(error):
