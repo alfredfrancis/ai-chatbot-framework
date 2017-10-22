@@ -2,7 +2,7 @@ from bson.objectid import ObjectId
 import ast
 from flask import Blueprint, request, render_template
 import app.commons.buildResponse as buildResponse
-from app.stories.models import Story,LabeledSentences
+from app.stories.models import Story, LabeledSentences
 
 train = Blueprint('train_blueprint', __name__,
                   url_prefix='/train',
@@ -10,16 +10,18 @@ train = Blueprint('train_blueprint', __name__,
                   static_folder='static'
                   )
 
+
 @train.route('/<storyId>', methods=['GET'])
 def home(storyId):
     story = Story.objects.get(id=ObjectId(storyId))
     labeledSentences = story.labeledSentences
-    return render_template('train.html',
-                           storyId=storyId,
-                           labeledSentences=labeledSentences,
-                           story=story.to_mongo().to_dict(),
-                           parameters=[parameter.name for parameter in story.parameters]
-                           )
+    return render_template(
+        'train.html',
+        storyId=storyId,
+        labeledSentences=labeledSentences,
+        story=story.to_mongo().to_dict(),
+        parameters=[
+            parameter.name for parameter in story.parameters])
 
 
 @train.route('/insertLabeledSentence', methods=['POST'])
@@ -39,6 +41,7 @@ def insertLabeledSentence():
 @train.route('/deleteLabeledSentences', methods=['POST'])
 def deleteLabeledSentences():
     story = Story.objects.get(id=ObjectId(request.form['storyId']))
-    story.labeledSentences.filter(id=ObjectId(request.form['sentenceId'])).delete()
+    story.labeledSentences.filter(id=ObjectId(
+        request.form['sentenceId'])).delete()
     story.save()
     return buildResponse.sentOk()

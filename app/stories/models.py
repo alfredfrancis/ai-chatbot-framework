@@ -13,7 +13,10 @@ def update_document(document, data_dict):
 
     def field_value(field, value):
 
-        if field.__class__ in (fields.ListField, fields.SortedListField,fields.EmbeddedDocumentListField):
+        if field.__class__ in (
+                fields.ListField,
+                fields.SortedListField,
+                fields.EmbeddedDocumentListField):
             return [
                 field_value(field.field, item)
                 for item in value
@@ -29,8 +32,8 @@ def update_document(document, data_dict):
             return value
 
     [setattr(
-        document, key.replace("_id","id"),
-        field_value(document._fields[key.replace("_id","id")], value)
+        document, key.replace("_id", "id"),
+        field_value(document._fields[key.replace("_id", "id")], value)
     ) for key, value in data_dict.items()]
 
     return document
@@ -40,6 +43,7 @@ class LabeledSentences(EmbeddedDocument):
     id = ObjectIdField(required=True, default=lambda: ObjectId())
     data = ListField(required=True)
 
+
 class Parameter(EmbeddedDocument):
     id = ObjectIdField(default=lambda: ObjectId())
     name = StringField(required=True)
@@ -47,11 +51,19 @@ class Parameter(EmbeddedDocument):
     type = StringField(required=False)
     prompt = StringField()
 
+
 class ApiDetails(EmbeddedDocument):
     url = StringField(required=True)
-    requestType = StringField(choices=["POST","GET","DELETE","PUT"],required=True)
+    requestType = StringField(
+        choices=[
+            "POST",
+            "GET",
+            "DELETE",
+            "PUT"],
+        required=True)
     isJson = BooleanField(default=False)
     jsonData = StringField(default="{}")
+
 
 class Story(Document):
     storyName = StringField(max_length=100, required=True, unique=True)

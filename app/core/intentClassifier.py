@@ -3,6 +3,7 @@ from app.commons.validations import isListEmpty
 from app.stories.models import Story
 from app import app
 
+
 class IntentClassifier(object):
     def __init__(self):
         self.PATH = "{}/{}".format(app.config["MODELS_DIR"],
@@ -42,7 +43,7 @@ class IntentClassifier(object):
     def predict(self, sentence):
         predicted = sentenceClassifer.predict(sentence, self.PATH)
         if not predicted:
-            return  Story.objects(
+            return Story.objects(
                 intentName=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id
         else:
             return predicted["class"]
