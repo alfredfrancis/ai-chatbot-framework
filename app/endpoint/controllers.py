@@ -134,36 +134,6 @@ def api():
                     resultJson["complete"] = True
 
                     context["parameters"] = extractedParameters
-
-                    try:
-                        if story.apiTrigger:
-                            isJson = False
-                            parameters = extractedParameters
-
-                            urlTemplate = Template(
-                                story.apiDetails.url, undefined=SilentUndefined)
-                            renderedUrl = urlTemplate.render(**context)
-                            if story.apiDetails.isJson:
-                                isJson = True
-                                requestTemplate = Template(
-                                    story.apiDetails.jsonData, undefined=SilentUndefined)
-                                parameters = requestTemplate.render(**context)
-
-                            result = callApi(renderedUrl,
-                                             story.apiDetails.requestType,
-                                             parameters, isJson)
-
-                        else:
-                            result = {}
-
-                        context["result"] = result
-                        resultTemplate = Template(
-                            story.speechResponse, undefined=SilentUndefined)
-                        resultJson["speechResponse"] = resultTemplate.render(
-                            **context)
-                    except Exception as e:
-                        print(e)
-                        resultJson["speechResponse"] = "Service is not available."
             else:
                 resultJson["complete"] = True
                 resultTemplate = Template(
@@ -185,35 +155,6 @@ def api():
                     context = {}
                     context["parameters"] = resultJson["extractedParameters"]
                     context["context"] = requestJson["context"]
-                    try:
-                        if story.apiTrigger:
-                            isJson = False
-                            parameters = resultJson["extractedParameters"]
-
-                            urlTemplate = Template(
-                                story.apiDetails.url, undefined=SilentUndefined)
-                            renderedUrl = urlTemplate.render(**context)
-                            if story.apiDetails.isJson:
-                                isJson = True
-                                requestTemplate = Template(
-                                    story.apiDetails.jsonData, undefined=SilentUndefined)
-                                parameters = requestTemplate.render(**context)
-
-                            result = callApi(renderedUrl,
-                                             story.apiDetails.requestType,
-                                             parameters, isJson)
-                            print(result)
-                        else:
-                            result = {}
-                        context["result"] = result
-
-                        template = Template(
-                            story.speechResponse, undefined=SilentUndefined)
-                        resultJson["speechResponse"] = template.render(
-                            **context)
-                    except Exception as e:
-                        print(e)
-                        resultJson["speechResponse"] = "Service is not available. "
                 else:
                     missingParameter = resultJson["missingParameters"][0]
                     resultJson["complete"] = False
@@ -231,6 +172,34 @@ def api():
                     story.speechResponse,
                     undefined=SilentUndefined)
                 resultJson["speechResponse"] = template.render(**context)
+
+        if resultJson["complete"] and story.apiTrigger:
+            isJson = False
+            parameters = resultJson["extractedParameters"]
+
+            urlTemplate = Template(story.apiDetails.url, undefined=SilentUndefined)
+            renderedUrl = urlTemplate.render(**context)
+            if story.apiDetails.isJson:
+                isJson = True
+                requestTemplate = Template(story.apiDetails.jsonData, undefined=SilentUndefined)
+                parameters = requestTemplate.render(**context)
+
+            try:
+                result = callApi(renderedUrl,
+                                 story.apiDetails.requestType,
+                                 parameters,isJson)
+            except Exception as e:
+                print(e)
+                resultJson["speechResponse"] = "Service is not available. "
+            else:
+                print(result)
+                context["result"] = result
+                template = Template(story.speechResponse, undefined=SilentUndefined)
+                resultJson["speechResponse"] = template.render(**context)
+        else:
+            context["result"] = {}
+            template = Template(story.speechResponse, undefined=SilentUndefined)
+            resultJson["speechResponse"] = template.render(**context)
         logger.info(requestJson.get("input"), extra=resultJson)
         return buildResponse.buildJson(resultJson)
     else:
