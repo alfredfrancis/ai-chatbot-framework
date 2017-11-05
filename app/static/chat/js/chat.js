@@ -82,22 +82,63 @@ $(document).ready(function () {
 
     $('#btn-input').keydown(function (e) {
         if (e.keyCode == 13) {
-            userQuery = $("#btn-input").val();
-            $("#btn-input").val("");
-            html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">you</strong><p>' + userQuery + '</p> </div></li>';
-            $("ul.chat").append(html_data);
-            send_req(userQuery);
-
+            sendMessage();
         }
     })
 
     $('#btn-chat').click(function () {
+        sendMessage();
+    });
+
+    function sendMessage(){
         userQuery = $("#btn-input").val();
-        $("#btn-input").val("");
-        html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">you</strong><p>' + userQuery + '</p> </div></li>';
-        $("ul.chat").append(html_data);
-        send_req(userQuery);
-    })
+        validateAnswer(userQuery)
+        .then(r=>{
+            $("#btn-input").val("");
+            if(r){
+                html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">you</strong><p>' + userQuery + '</p> </div></li>';
+                send_req(userQuery);
+            }else{
+                html_data = '<li class="right clearfix"><div class="chat-body clearfix"><strong class="primary-font">Iky</strong><p>This is not a valid input, please try again</p> </div></li>';
+            }
+            $("ul.chat").append(html_data);
+        })
+    }
+
+    function validateAnswer(value){
+        return new Promise((resolve, reject)=>{
+            bot_say = JSON.parse($(".payloadPreview")[0].innerHTML);
+            if(bot_say.missingParameters && bot_say.missingParameters.length>0){
+                const missing = bot_say.missingParameters[0];
+                const parameter = bot_say.parameters.find(p=>p.name===missing);
+                if(parameter){
+                    switch(parameter.type){
+                        case "name":
+                            return resolve(/^[A-Za-z\s]+ [A-Za-z\s]+$/.test(value));
+                            break;
+                        case "free_text":
+                            return resolve(value.length>0);
+                            break;
+                        case "mobile":
+                            return resolve(/^(\+91-|\+91|0)?\d{10}$/.test(value));
+                            break;
+                        case "email":
+                            return resolve(/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(value));
+                            break;
+                        case "number":
+                            return resolve(!isNaN(value));
+                            break;
+                        case "api":
+                            return resolve(true);
+                            break;
+                    }
+    
+                }
+            }
+            return resolve(true);
+        });
+        
+    }
 
     function Speech(say) {
       if ('speechSynthesis' in window && talking) {
