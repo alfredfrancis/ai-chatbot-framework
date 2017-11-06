@@ -50,8 +50,6 @@ class Parameter(EmbeddedDocument):
     required = BooleanField(default=False)
     type = StringField(required=False)
     prompt = StringField()
-    apirequestType = StringField()
-    apiurl = StringField()
 
 
 class ApiDetails(EmbeddedDocument):

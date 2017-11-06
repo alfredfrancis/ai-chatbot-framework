@@ -1,0 +1,19 @@
+
+<h1>
+  Stories
+</h1>
+
+<div>
+  <mat-card class="example-card" *ngFor="let story of stories">
+    <mat-card-header>
+      <div mat-card-avatar class="example-header-image"></div>
+      <mat-card-title>story.storyName</mat-card-title>
+    </mat-card-header>
+    <mat-card-actions>
+      <button mat-button (click)="edit(story)" >Edit</button>
+      <button mat-button (click)="train(story)" >Train</button>
+      <button mat-button (click)="delete(story)" >Delete</button>
+      <button mat-button (click)="build(story)" >Build</button>
+    </mat-card-actions>
+  </mat-card>
+</div>

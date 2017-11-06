@@ -149,9 +149,7 @@ class Main extends React.Component {
             "name":document.getElementById("name").value,
             "type":document.getElementById("paramType").value,
             "required":document.getElementById("required").checked,
-            "prompt":document.getElementById("prompt").value,
-            "apiurl":document.getElementById("apiurl").value,
-            "apirequestType":document.getElementById("apirequestType").value
+            "prompt":document.getElementById("prompt").value
         }
 
         var nextState = this.state
@@ -161,8 +159,6 @@ class Main extends React.Component {
         document.getElementById("name").value = "";
         document.getElementById("required").checked = false;
         document.getElementById("prompt").value ="";
-        document.getElementById("apirequestType").checked = false;
-        document.getElementById("apiurl").value ="";
     }
     onUpdate(index, data) {
         var nextState = this.state
@@ -223,7 +219,6 @@ class Main extends React.Component {
                         <option value="number">Number</option>
                         <option value="list">List</option>
                         <option value="name">Name</option>
-                        <option value="api">API Validation</option>
                     </select>
                 </div>
                 <div className="col-md-1">
@@ -236,21 +231,6 @@ class Main extends React.Component {
                 <div className="col-md-2">
                     <button className="btn btn-info" onClick={this.handleParameterSave.bind(this)}>Save</button>
                 </div>
-                <div className="row">
-                    <div className="col-md-8">
-                        <input className="form-control" placeholder="API validation: ex.: http://localhost/api/check?query=${value}" id="apiurl" type="text"/>
-                    </div>
-                    <div className="col-md-2">
-                        <select className="form-control" id="apirequestType">
-                            <option value="GET">GET</option>
-                            <option value="POST">POST</option>
-                            <option value="PUT">PUT</option>
-                            <option value="DELETE">DELETE</option>
-                        </select>
-                    </div>
-                </div>
-
-
                 <br/>
             </div>
 
