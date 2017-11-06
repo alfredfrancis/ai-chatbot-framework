@@ -89,7 +89,7 @@ const sendMessage = function (userQuery = null) {
 
 const validateAnswer = function (value) {
     return new Promise((resolve, reject) => {
-        bot_say = JSON.parse($(".payloadPreview")[0].innerHTML);
+        bot_say = state.payload;
         if (bot_say.missingParameters && bot_say.missingParameters.length > 0) {
             const missing = bot_say.missingParameters[0];
             const parameter = bot_say.parameters.find(p => p.name === missing);
@@ -134,7 +134,7 @@ const translations = {
 }
 
 const state ={
-    talking: false,
+    talking: true,
     translate: translations.en,
     last_bot_say: null
 }
