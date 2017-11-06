@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Http, RequestOptions , Headers } from '@angular/http';
+import { Http, RequestOptions, Headers } from '@angular/http';
 
 @Injectable()
 export class CoreService {
@@ -21,8 +21,12 @@ export class CoreService {
       // if (resJson) {
       //   promise = promise.then(res => res.json());
       // }
-      return promise.subscribe(data => {
-        resolve(data);
+      return promise.subscribe((data: any) => {
+        if (data && data._body) {
+          resolve(JSON.parse(data._body));
+        } else {
+          resolve(data);
+        }
       },
         error => {
           reject(error);
@@ -75,8 +79,12 @@ export class CoreService {
       console.log(`POST: ${CoreService.apiUrl + url}`);
       return this.http.post(CoreService.apiUrl + url, formData, options)
         // .map(res => res.json())
-        .subscribe( (dataAnswer: any) => {
-          resolve(dataAnswer);
+        .subscribe((dataAnswer: any) => {
+          if (dataAnswer && dataAnswer._body) {
+            resolve(JSON.parse(dataAnswer._body));
+          } else {
+            resolve(dataAnswer);
+          }
         },
         error => {
           reject(error);

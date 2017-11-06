@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { StoryService } from './story.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-stories',
@@ -10,7 +11,7 @@ export class StoriesComponent implements OnInit {
 
   stories: any;
 
-  constructor(public storyService: StoryService) { }
+  constructor(private router: Router, public storyService: StoryService) { }
 
   ngOnInit() {
     this.storyService.getStories().then((s: any) => {
@@ -18,22 +19,28 @@ export class StoriesComponent implements OnInit {
     });
   }
 
+  add() {
+    this.router.navigate([`/story/new`]);
+  }
+
   edit(story) {
-    // route change
-   }
+    this.router.navigate([`/story/${story._id.$oid}`]);
+  }
 
   train(story) {
-   // route change
+    this.router.navigate([`/story/train/${story._id.$oid}`]);
   }
 
   delete(story) {
-    this.storyService.deleteStory(story._id.$od).then((s: any) => {
-      this.stories = s;
-    });
+    if (confirm('Are u sure want to delete this story?')) {
+      this.storyService.deleteStory(story._id.$oid).then((s: any) => {
+        this.stories = s;
+      });
+    }
   }
 
   build(story) {
-    this.storyService.buildStory(story._id.$od).then((s: any) => {
+    this.storyService.buildStory(story._id.$oid).then((s: any) => {
       this.stories = s;
     });
   }
