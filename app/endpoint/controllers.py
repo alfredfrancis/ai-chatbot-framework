@@ -132,13 +132,9 @@ def api():
                     resultJson["speechResponse"] = currentNode["prompt"]
                 else:
                     resultJson["complete"] = True
-
                     context["parameters"] = extractedParameters
             else:
                 resultJson["complete"] = True
-                resultTemplate = Template(
-                    story.speechResponse, undefined=SilentUndefined)
-                resultJson["speechResponse"] = resultTemplate.render(**context)
 
         elif (requestJson.get("complete") is False):
             if "cancel" not in story.intentName:
@@ -168,38 +164,35 @@ def api():
                 resultJson["parameters"] = {}
                 resultJson["intent"] = {}
                 resultJson["complete"] = True
-                template = Template(
-                    story.speechResponse,
-                    undefined=SilentUndefined)
-                resultJson["speechResponse"] = template.render(**context)
 
-        if resultJson["complete"] and story.apiTrigger:
-            isJson = False
-            parameters = resultJson["extractedParameters"]
+        if resultJson["complete"]: 
+            if story.apiTrigger:
+                isJson = False
+                parameters = resultJson["extractedParameters"]
 
-            urlTemplate = Template(story.apiDetails.url, undefined=SilentUndefined)
-            renderedUrl = urlTemplate.render(**context)
-            if story.apiDetails.isJson:
-                isJson = True
-                requestTemplate = Template(story.apiDetails.jsonData, undefined=SilentUndefined)
-                parameters = requestTemplate.render(**context)
+                urlTemplate = Template(story.apiDetails.url, undefined=SilentUndefined)
+                renderedUrl = urlTemplate.render(**context)
+                if story.apiDetails.isJson:
+                    isJson = True
+                    requestTemplate = Template(story.apiDetails.jsonData, undefined=SilentUndefined)
+                    parameters = requestTemplate.render(**context)
 
-            try:
-                result = callApi(renderedUrl,
-                                 story.apiDetails.requestType,
-                                 parameters,isJson)
-            except Exception as e:
-                print(e)
-                resultJson["speechResponse"] = "Service is not available. "
+                try:
+                    result = callApi(renderedUrl,
+                                     story.apiDetails.requestType,
+                                     parameters,isJson)
+                except Exception as e:
+                    print(e)
+                    resultJson["speechResponse"] = "Service is not available. "
+                else:
+                    print(result)
+                    context["result"] = result
+                    template = Template(story.speechResponse, undefined=SilentUndefined)
+                    resultJson["speechResponse"] = template.render(**context)
             else:
-                print(result)
-                context["result"] = result
+                context["result"] = {}
                 template = Template(story.speechResponse, undefined=SilentUndefined)
                 resultJson["speechResponse"] = template.render(**context)
-        else:
-            context["result"] = {}
-            template = Template(story.speechResponse, undefined=SilentUndefined)
-            resultJson["speechResponse"] = template.render(**context)
         logger.info(requestJson.get("input"), extra=resultJson)
         return buildResponse.buildJson(resultJson)
     else:
