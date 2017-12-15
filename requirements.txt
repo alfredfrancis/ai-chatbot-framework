@@ -11,7 +11,7 @@ nltk==3.2.5
 scipy==0.17.1
 numpy==1.13.3
 pandas==0.21.1
-parsedatetime==2.1
+parsedatetime==2.4
 python-crfsuite==0.9.5
 python-dateutil==2.6.1
 requests==2.18.4
