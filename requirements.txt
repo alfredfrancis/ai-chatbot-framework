@@ -3,7 +3,7 @@ Flask==0.11.1
 Flask-Cors==3.0.3
 html2text==2017.10.4
 httplib2==0.10.3
-ipaddress==1.0.16
+ipaddress==1.0.18
 Jinja2==2.10
 JSON-log-formatter==0.2.0
 mongoengine==0.15.0
