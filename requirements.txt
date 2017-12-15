@@ -12,7 +12,7 @@ scipy==0.17.1
 numpy==1.13.3
 pandas==0.21.1
 parsedatetime==2.1
-python-crfsuite==0.8.4
+python-crfsuite==0.9.5
 python-dateutil==2.5.3
 requests==2.10.0
 scikit-learn==0.17.1
