@@ -14,7 +14,7 @@ pandas==0.21.1
 parsedatetime==2.1
 python-crfsuite==0.9.5
 python-dateutil==2.6.1
-requests==2.10.0
+requests==2.18.4
 scikit-learn==0.17.1
 simplejson==3.13.2
 Werkzeug==0.13
