@@ -7,7 +7,7 @@ ipaddress==1.0.16
 Jinja2==2.10
 JSON-log-formatter==0.2.0
 mongoengine==0.15.0
-nltk==3.2.1
+nltk==3.2.5
 scipy==0.17.1
 numpy==1.13.3
 pandas==0.21.1
