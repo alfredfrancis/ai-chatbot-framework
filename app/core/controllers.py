@@ -9,6 +9,7 @@ import app.core.nlp as nlp
 
 core = Blueprint('core_blueprint', __name__, url_prefix='/core')
 
+
 @core.route('/buildModel/<storyId>', methods=['POST'])
 def buildModel(storyId):
     sequenceLabeler.train(storyId)

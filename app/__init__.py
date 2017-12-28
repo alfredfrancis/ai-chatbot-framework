@@ -19,9 +19,11 @@ app.config.update(
     TEMPLATES_AUTO_RELOAD=True
 )
 
+
 @app.errorhandler(404)
 def not_found(error):
     return "Not found", 404
+
 
 from app.core.controllers import core as core
 from app.stories.controllers import stories as stories
