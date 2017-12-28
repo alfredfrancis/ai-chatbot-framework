@@ -20,3 +20,4 @@ simplejson==3.8.2
 Werkzeug==0.11.10
 gunicorn
 gevent
+pytest
