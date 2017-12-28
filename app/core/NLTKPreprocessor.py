@@ -14,10 +14,10 @@ class NLTKPreprocessor(BaseEstimator, TransformerMixin):
 
     def __init__(self, stopwords=None, punct=None,
                  lower=True, strip=True):
-        self.lower      = lower
-        self.strip      = strip
+        self.lower = lower
+        self.strip = strip
         #self.stopwords  = stopwords or set(sw.words('english'))
-        self.punct      = punct or set(string.punctuation)
+        self.punct = punct or set(string.punctuation)
         self.lemmatizer = WordNetLemmatizer()
 
     def fit(self, X, y=None):

@@ -2,3 +2,5 @@
 logs/*
 !logs/
 *.pyc
+venv/
+env/
