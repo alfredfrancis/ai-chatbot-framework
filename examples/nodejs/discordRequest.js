@@ -1,7 +1,7 @@
 module.exports = {
   //"msg" here is equal to the "message" object in discord.js. It represents a message sent by the user.
   chatRequest: function (msg) {
-    //There are just here for modularity and can be removed if they're already set in the file calling this function.
+    //These are just here for modularity and can be removed if they're already set in the file calling this function.
     const Discord = require('discord.js');
     const request = require('request');
  
