@@ -19,5 +19,5 @@ try:
 except Exception as e:
     e = str(e)
     if e == "NO_DATA":
-        e = "load Data first into mongodb https://github.com/brianray/ai-chatbot-framework#restore"
+        e = "load Data first into mongodb. Reffer Readme."
     print("Could not train models..skipping.. (reason: {})".format(e))
