@@ -1,5 +1,6 @@
 # IKY
 [![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/alfredfrancis/ai-chatbot-framework.svg?branch=master)](https://travis-ci.org/alfredfrancis/ai-chatbot-framework)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Falfredfrancis%2Fai-chatbot-framework.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Falfredfrancis%2Fai-chatbot-framework?ref=badge_shield)
 ### An AI Chatbot framework built in Python
 
 
@@ -112,3 +113,7 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 <hr></hr>
 
 _Made with :heart: at God's Own Country_.
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Falfredfrancis%2Fai-chatbot-framework.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Falfredfrancis%2Fai-chatbot-framework?ref=badge_large)
