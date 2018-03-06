@@ -73,3 +73,8 @@ class Story(Document):
     speechResponse = StringField(required=True)
     parameters = ListField(EmbeddedDocumentField(Parameter))
     labeledSentences = EmbeddedDocumentListField(LabeledSentences)
+    bot = ObjectIdField()
+
+class Bot(Document):
+    botName = StringField(max_length=100, required=True, unique=True)
+    

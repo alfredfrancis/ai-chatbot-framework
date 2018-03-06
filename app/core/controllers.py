@@ -13,7 +13,12 @@ core = Blueprint('core_blueprint', __name__, url_prefix='/core')
 @core.route('/buildModel/<storyId>', methods=['POST'])
 def buildModel(storyId):
     sequenceLabeler.train(storyId)
-    IntentClassifier().train()
+    intentClassifier = IntentClassifier()
+    botId='default'
+    if request.args.get('botId'):
+        botId=request.args.get('botId')
+    intentClassifier.setBotId(botId)
+    intentClassifier.train()
     return buildResponse.sentOk()
 
 

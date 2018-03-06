@@ -4,7 +4,7 @@ from bson.objectid import ObjectId
 from flask import Blueprint, request, render_template, Response
 from flask import current_app as app
 import app.commons.buildResponse as buildResponse
-from app.stories.models import Story, Parameter, ApiDetails, update_document
+from app.stories.models import Story, Parameter, ApiDetails, update_document, Bot
 from app.core.intentClassifier import IntentClassifier
 
 
@@ -61,10 +61,16 @@ def createStory():
         return buildResponse.buildJson({"error": str(e)})
     return buildResponse.sentOk()
 
-
+import json
 @stories.route('/')
 def readStories():
-    stories = Story.objects
+    botId=request.args.get('botId')
+    if botId:
+        stories = Story.objects(bot= botId)
+        
+    else:
+        stories = Story.objects
+        #stories = [a.to_json() for a in stories if not a.bot]
     return buildResponse.sentJson(stories.to_json())
 
 
@@ -92,12 +98,46 @@ def deleteStory(storyId):
     Story.objects.get(id=ObjectId(storyId)).delete()
     try:
         intentClassifier = IntentClassifier()
+        botId='default'
+        if request.args.get('botId'):
+            botId=request.args.get('botId')
+        intentClassifier.setBotId(botId)
         intentClassifier.train()
     except BaseException:
         pass
 
     try:
-        os.remove("{}/{}.model".format(app.config["MODELS_DIR"], storyId))
+        botId='default'
+        if request.args.get('botId'):
+            botId=request.args.get('botId')
+        os.remove("{}/{},{}.model".format(app.config["MODELS_DIR"],botId, storyId))
     except OSError:
         pass
     return buildResponse.sentOk()
+
+
+@stories.route('/bot')
+def readBots():
+    bots = Bot.objects
+    return buildResponse.sentJson(bots.to_json())
+
+@stories.route('/bot', methods=['POST'])
+def createBot():
+    content = request.get_json(silent=True)
+
+    bot = Bot()
+    bot.botName = content.get("botName")
+
+    try:
+        bot.save()
+    except Exception as e:
+        return buildResponse.buildJson({"error": str(e)})
+    return buildResponse.sentOk()
+
+@stories.route('/bot/<botId>', methods=['PUT'])
+def updateBot(botId):
+    jsondata = loads(request.get_data())
+    bot = Bot.objects.get(id=ObjectId(botId))
+    bot = update_document(bot, jsondata)
+    bot.save()
+    return 'success', 200

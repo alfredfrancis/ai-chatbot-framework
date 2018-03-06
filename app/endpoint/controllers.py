@@ -88,6 +88,10 @@ def api():
             return buildResponse.buildJson(resultJson)
 
         intentClassifier = IntentClassifier()
+        botId='default'
+        if request.args.get('botId'):
+            botId=request.args.get('botId')
+        intentClassifier.setBotId(botId)
         storyId = intentClassifier.predict(requestJson.get("input"))
         story = Story.objects.get(id=ObjectId(storyId))
 
