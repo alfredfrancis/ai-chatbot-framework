@@ -28,6 +28,9 @@ docker exec -it chabot-node-1 python /app-container/setup.py
 ```sh
 pip install -r requirements.txt
 ```
+
+If you have issues installing requirements, try to use ``` pip install -r requirements.txt --user```
+
 * Run setup script for setting up some default intents
 ```sh
 $ python setup.py
