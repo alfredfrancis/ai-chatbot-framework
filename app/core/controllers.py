@@ -26,7 +26,12 @@ def sentenceTokenize():
 
 @core.route('/posTagAndLabel', methods=['POST'])
 def posTagAndLabel():
-    sentences = request.form['sentences']
+    content = request.get_json(silent=True)
+    sentences = None
+    if content:
+        sentences = content.get("sentences")
+    if not sentences:
+        sentences = request.form['sentences']
     cleanSentences = html2text.html2text(sentences)
     result = nlp.posTagAndLabel(cleanSentences)
     return buildResponse.buildJson(result)

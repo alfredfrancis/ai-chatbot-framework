@@ -104,6 +104,8 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 * [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
 * [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
+### Angular 
+There is a project with the chat and manage stories as Angular Components to be included in any project.
 
 ### Todos
  *  Write Unit Tests
