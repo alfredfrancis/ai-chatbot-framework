@@ -16,5 +16,8 @@ try:
     from app.core.intentClassifier import IntentClassifier
     IntentClassifier().train()
     print("Training models finished..")
-except BaseException:
-    print("Could not train models..skipping..")
+except Exception as e:
+    e = str(e)
+    if e == "NO_DATA":
+        e = "load Data first into mongodb. Reffer Readme."
+    print("Could not train models..skipping.. (reason: {})".format(e))
