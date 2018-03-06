@@ -9,12 +9,3 @@ chat = Blueprint('chat_blueprint', __name__,
 @chat.route('/', methods=['GET'])
 def home():
     return render_template('chat.html')
-
-
-@chat.route('/angular', methods=['GET'])
-def home_angular():
-    return render_template('../apps/chat-angular/dist/index.html')
-
-@chat.route('/admin/angular', methods=['GET'])
-def home_admin_angular():
-    return render_template('../apps/admin-angular/dist/index.html')

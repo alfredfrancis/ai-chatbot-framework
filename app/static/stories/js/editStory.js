@@ -18,8 +18,6 @@ class Parameters extends React.Component {
                         <option value="free_text">Free Text</option>
                         <option value="number">Number</option>
                         <option value="list">List</option>
-                        <option value="name">Name</option>
-                        <option value="api">API Validation</option>
                     </select>
                 </div>
                 <div className="col-md-1">
