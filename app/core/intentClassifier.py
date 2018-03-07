@@ -9,7 +9,7 @@ class IntentClassifier(object):
         self.PATH = "{}/{}".format(app.config["MODELS_DIR"],
                                    app.config["INTENT_MODEL_NAME"])
 
-    def setBotId(self, botId):
+    def setBotId(self, botId='default'):
         self.PATH = "{}/{}/{}".format(app.config["MODELS_DIR"],botId,
                                    app.config["INTENT_MODEL_NAME"])
         self.botId=botId

@@ -14,6 +14,10 @@ class Config(object):
     DEFAULT_FALLBACK_INTENT_NAME = "fallback"
     DEFAULT_WELCOME_INTENT_NAME = "init_conversation"
 
+    #PROTECTED = True
+    PROTECTED = False
+    
+
 
 class Development(Config):
     DEBUG = True

@@ -76,5 +76,9 @@ class Story(Document):
     bot = ObjectIdField()
 
 class Bot(Document):
+    _id = ObjectIdField(default=lambda: ObjectId())
     botName = StringField(max_length=100, required=True, unique=True)
+    username = StringField(max_length=100)
+    password = StringField(max_length=100)
+    meta = {'strict': False}
     
