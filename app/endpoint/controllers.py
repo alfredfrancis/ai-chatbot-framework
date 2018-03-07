@@ -5,7 +5,7 @@ import requests
 
 from jinja2 import Undefined, Template
 
-from flask import Blueprint, request, send_file, abort
+from flask import Blueprint, request, send_file, abort, g
 from app import app
 
 from app.commons import errorCodes

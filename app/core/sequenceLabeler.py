@@ -22,6 +22,8 @@ def sentToTokens(sent):
 
 
 def train(storyId, botId='default'):
+    if botId == None:
+      botId='default'
     story = Story.objects.get(id=ObjectId(storyId))
     labeledSentences = story.labeledSentences
 

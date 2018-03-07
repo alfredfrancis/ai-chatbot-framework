@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, g
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -24,6 +24,9 @@ app.config.update(
 def not_found(error):
     return "Not found", 404
 
+@app.before_request
+def before_request():
+    g.botId = None
 
 from app.core.controllers import core as core
 from app.stories.controllers import stories as stories
