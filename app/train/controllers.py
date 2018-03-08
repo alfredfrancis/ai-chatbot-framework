@@ -32,7 +32,10 @@ def home(storyId):
 @train.route('/insertLabeledSentence', methods=['POST'])
 @requires_auth
 def insertLabeledSentence():
-    story = Story.objects.get(id=ObjectId(request.form['storyId']), bot=g.botId)
+    if g.botId:
+      story = Story.objects.get(id=ObjectId(request.form['storyId']), bot=g.botId)
+    else:
+      story = Story.objects.get(id=ObjectId(request.form['storyId']))
     labeledSentence = LabeledSentences()
     print(ast.literal_eval(request.form['labeledSentence']))
     labeledSentence.data = ast.literal_eval(request.form['labeledSentence'])
