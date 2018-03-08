@@ -14,7 +14,9 @@ if not os.path.exists("logs"):
 try:
     print("Training models..")
     from app.core.intentClassifier import IntentClassifier
-    IntentClassifier().train()
+    intentClassifier = IntentClassifier()
+    intentClassifier.setBotId('default')
+    intentClassifier.train()
     print("Training models finished..")
 except Exception as e:
     e = str(e)

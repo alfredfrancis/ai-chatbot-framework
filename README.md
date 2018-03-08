@@ -32,6 +32,9 @@ docker exec -it chabot-node-1 python /usr/src/app/setup.py
 ```sh
 pip install -r requirements.txt
 ```
+
+If you have issues installing requirements, try to use ``` pip install -r requirements.txt --user```
+
 * Run setup script for setting up some default intents
 ```sh
 $ python setup.py
@@ -101,6 +104,8 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 * [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
 * [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
+### Angular 
+There is a project with the chat and manage stories as Angular Components to be included in any project.
 
 ### Todos
  *  Write Unit Tests

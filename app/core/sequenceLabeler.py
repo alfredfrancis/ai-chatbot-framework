@@ -21,7 +21,9 @@ def sentToTokens(sent):
     return [token for token, postag, label in sent]
 
 
-def train(storyId):
+def train(storyId, botId='default'):
+    if botId == None:
+      botId='default'
     story = Story.objects.get(id=ObjectId(storyId))
     labeledSentences = story.labeledSentences
 
@@ -44,7 +46,8 @@ def train(storyId):
         # include transitions that are possible, but not observed
         'feature.possible_transitions': True
     })
-    trainer.train('model_files/%s.model' % storyId)
+
+    trainer.train("{}/{}/{}.model".format(app.config["MODELS_DIR"] , botId,storyId))
     return True
 
 
@@ -71,11 +74,11 @@ def extractLabels(predictedLabels):
     return labels
 
 
-def predict(storyId, sentence):
+def predict(storyId, sentence, botId='default'):
     tokenizedSentence = word_tokenize(sentence)
     taggedToken = posTagger(sentence)
     tagger = pycrfsuite.Tagger()
-    tagger.open("{}/{}.model".format(app.config["MODELS_DIR"], storyId))
+    tagger.open("{}/{}/{}.model".format(app.config["MODELS_DIR"],botId, storyId))
     predictedLabels = tagger.tag(sentToFeatures(taggedToken))
     extractedEntities = extractEntities(
         zip(tokenizedSentence, predictedLabels))

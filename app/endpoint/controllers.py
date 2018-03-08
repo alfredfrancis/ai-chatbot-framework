@@ -5,7 +5,7 @@ import requests
 
 from jinja2 import Undefined, Template
 
-from flask import Blueprint, request, send_file, abort
+from flask import Blueprint, request, send_file, abort, g
 from app import app
 
 from app.commons import errorCodes
@@ -88,6 +88,7 @@ def api():
             return buildResponse.buildJson(resultJson)
 
         intentClassifier = IntentClassifier()
+        intentClassifier.setBotId(g.botId)
         storyId = intentClassifier.predict(requestJson.get("input"))
         story = Story.objects.get(id=ObjectId(storyId))
 
