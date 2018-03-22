@@ -76,7 +76,7 @@ def api():
             story = Story.objects(
                 intentName=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
             resultJson["complete"] = True
-            resultJson["intent"]["name"] = story.storyName
+            resultJson["intent"]["name"] = story.intentName
             resultJson["intent"]["storyId"] = str(story.id)
             resultJson["input"] = requestJson.get("input")
             template = Template(
