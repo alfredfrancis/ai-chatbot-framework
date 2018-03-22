@@ -136,7 +136,7 @@ def api():
             else:
                 resultJson["complete"] = True
 
-        elif (requestJson.get("complete") is False):
+        elif requestJson.get("complete") is False:
             if "cancel" not in story.intentName:
                 storyId = requestJson["intent"]["storyId"]
                 story = Story.objects.get(id=ObjectId(storyId))
