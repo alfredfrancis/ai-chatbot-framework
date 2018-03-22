@@ -8,7 +8,6 @@ from jinja2 import Undefined, Template
 from flask import Blueprint, request, send_file, abort
 from app import app
 
-from app.commons import errorCodes
 from app.commons.logger import logger
 from app.commons import buildResponse
 from app.core.intentClassifier import IntentClassifier
