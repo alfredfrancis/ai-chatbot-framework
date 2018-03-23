@@ -8,7 +8,6 @@ from jinja2 import Undefined, Template
 from flask import Blueprint, request, send_file, abort
 from app import app
 
-from app.commons import errorCodes
 from app.commons.logger import logger
 from app.commons import buildResponse
 from app.core.intentClassifier import IntentClassifier
@@ -76,7 +75,7 @@ def api():
             story = Story.objects(
                 intentName=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
             resultJson["complete"] = True
-            resultJson["intent"]["name"] = story.storyName
+            resultJson["intent"]["name"] = story.intentName
             resultJson["intent"]["storyId"] = str(story.id)
             resultJson["input"] = requestJson.get("input")
             template = Template(
@@ -136,7 +135,7 @@ def api():
             else:
                 resultJson["complete"] = True
 
-        elif (requestJson.get("complete") is False):
+        elif requestJson.get("complete") is False:
             if "cancel" not in story.intentName:
                 storyId = requestJson["intent"]["storyId"]
                 story = Story.objects.get(id=ObjectId(storyId))
