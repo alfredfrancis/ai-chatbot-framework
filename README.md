@@ -104,10 +104,13 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 
 ### Todos
  *  Write Unit Tests
- *  Improve intent classification accuracy
- *  Add parameter types
- *  Migrate UI to React JS
-
+ *  PEP-8 compliance
+ *  Migrate UI to Angular 5
+ *  Word2Vec Integration
+ *  NLTK to Spacy
+ *  PyCRFSuite to sklearn-crfsuite
+ *  Supoportef follow up conversations
+ 
 **Free Software, Hell Yeah!**
 <hr></hr>
 
