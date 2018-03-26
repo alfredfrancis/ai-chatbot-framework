@@ -186,11 +186,15 @@ def api():
                 else:
                     print(result)
                     context["result"] = result
-                    template = Template(story.speechResponse, undefined=SilentUndefined)
+                    responses = story.speechResponse.split('\n')
+                    response = random.choice(responses)
+                    template = Template(response, undefined=SilentUndefined)
                     resultJson["speechResponse"] = template.render(**context)
             else:
                 context["result"] = {}
-                template = Template(story.speechResponse, undefined=SilentUndefined)
+                responses = story.speechResponse.split('\n')
+                response = random.choice(responses)
+                template = Template(response, undefined=SilentUndefined)
                 resultJson["speechResponse"] = template.render(**context)
         logger.info(requestJson.get("input"), extra=resultJson)
         return buildResponse.buildJson(resultJson)
