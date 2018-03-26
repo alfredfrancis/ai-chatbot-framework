@@ -1,5 +1,6 @@
 from bson.objectid import ObjectId
 from mongoengine import *
+from mongoengine import fields
 
 from app import app
 
