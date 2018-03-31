@@ -25,6 +25,25 @@ export class IntentComponent implements OnInit {
     public coreService: CoreService,
     public storyService: IntentService,
     private _activatedRoute: ActivatedRoute, private _router: Router) {
+
+
+      this.storyTypes = IntentService.storyTypes;
+      this.storyTypesArray = Object.keys(this.storyTypes);
+      this.storyFormFields = {
+        _id: [''],
+        storyName: [''],
+        intentName: [''],
+        speechResponse: [''],
+        apiTrigger: [''],
+        apiDetails: this.initApiDetails(),
+        parameters: this.fb.array(
+          this.story && this.story.parameters ? this.story.parameters.map(n => {
+            return this.initParameter(n);
+          }) : []
+        )
+      };
+      this.storyForm = this.fb.group(this.storyFormFields);
+      
   }
 
   ngOnInit() {
@@ -40,33 +59,11 @@ export class IntentComponent implements OnInit {
         console.log("selected intent =>>")
         console.log(data.story)
         this.story = data.story;
+        this.coreService.setDataForm(this.storyForm, this.storyFormFields, this.story);
 
     });   
 
-    this.storyTypes = IntentService.storyTypes;
-    this.storyTypesArray = Object.keys(this.storyTypes);
-    this.storyFormFields = {
-      _id: [''],
-      storyName: [''],
-      intentName: [''],
-      speechResponse: [''],
-      apiTrigger: [''],
-      apiDetails: this.initApiDetails(),
-      parameters: this.fb.array(
-        this.story && this.story.parameters ? this.story.parameters.map(n => {
-          return this.initParameter(n);
-        }) : []
-      )
-    };
-    this.storyForm = this.fb.group(this.storyFormFields);
-  }
 
-
-  ngAfterViewInit()
-  {
-    if (this.story) {
-      this.coreService.setDataForm(this.storyForm, this.storyFormFields, this.story)
-    }
   }
 
   addParameter() {
