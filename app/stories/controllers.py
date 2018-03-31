@@ -56,10 +56,13 @@ def createStory():
             update_document(parameter, param)
             story.parameters.append(parameter)
     try:
-        story.save()
+        story_id = story.save()
     except Exception as e:
         return buildResponse.buildJson({"error": str(e)})
-    return buildResponse.sentOk()
+
+    return buildResponse.buildJson({
+        "_id":str(story_id.id)
+    })
 
 
 @stories.route('/')
