@@ -9,7 +9,7 @@ import {CoreService} from '../services/core.service'
 
 /* Material UI imports begins here */
 import {MatIconModule,MatCardModule,MatInputModule,
-MatOptionModule,MatSelectModule,MatCheckboxModule} from '@angular/material';
+MatOptionModule,MatSelectModule,MatCheckboxModule,MatButtonModule} from '@angular/material';
 import { IntentComponent } from './intent/intent.component';
 import { TrainComponent } from './train/train.component';
 /* Material UI imports ends here */
@@ -17,6 +17,7 @@ import { TrainComponent } from './train/train.component';
 
 /* Services imports begins here */
 import { IntentService } from '../services/intent.service';
+import {TrainingService} from '../services/training.service'
 import {IntentResolverService} from '../services/intent-resolver.service'
 
 
@@ -31,10 +32,11 @@ import {IntentResolverService} from '../services/intent-resolver.service'
     MatInputModule,
     MatOptionModule,
     MatSelectModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatButtonModule
 
   ],
   declarations: [IntentsComponent, IntentComponent, TrainComponent],
-  providers:[IntentService,CoreService,IntentResolverService]
+  providers:[IntentService,CoreService,IntentResolverService,TrainingService]
 })
 export class AgentModule { }

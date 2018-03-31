@@ -47,22 +47,5 @@ export class IntentService {
   deleteStory(id) {
     return this.http.delete(environment.ikyBackend + `stories/${id}`, {}).toPromise();
   }
-
-  /**
-   *
-   * @param sentences ex.: i'm searching product
-   */
-  startLabeling(sentences) {
-    return this.http.post(environment.ikyBackend + `core/posTagAndLabel?json=true`, { sentences }).toPromise();
-  }
-
-  /**
-   *
-   * @param storyId  ex.:59fddff51ec5e81bf9d6e021
-   * @param labeledSentence   ex.: [["i","NN","O"],["'m","VBP","O"],["searching","VBG","O"],["product","NN","O"]]
-   */
-  addToTestSet(storyId, labeledSentence, botId = 'default') {
-    return this.http.post(environment.ikyBackend + `train/insertLabeledSentence`, { storyId, botId, labeledSentence }).toPromise();
-  }
 }
 
