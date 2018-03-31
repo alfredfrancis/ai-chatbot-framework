@@ -1,0 +1,78 @@
+<h2>{{message}}</h2>
+
+<form [formGroup]="storyForm" *ngIf="storyForm" (submit)="save()" class="row">
+  <mat-input-container class="col-md-6">
+    <textarea matInput formControlName="storyName" placeholder="Story name"></textarea>
+  </mat-input-container>
+
+  <mat-input-container class="col-md-6">
+    <textarea matInput formControlName="intentName" placeholder="Intent key"></textarea>
+  </mat-input-container>
+
+  <h2 class="col-md-12">Parameters
+    <button type="button" (click)="addParameter()" mat-button>add</button>
+  </h2>
+  <section class="col-md-12 parameters" formArrayName="parameters">
+    <div *ngFor="let paremeter of storyForm.controls.parameters.controls; let i=index;">
+
+      <div [formGroup]="paremeter" class="row">
+        <mat-input-container class="col-md-5">
+          <textarea matInput formControlName="name" placeholder="Parameter name"></textarea>
+        </mat-input-container>
+
+        <mat-input-container class="col-md-4">
+          <mat-select formControlName="type" placeholder="Parameter type">
+            <mat-option *ngFor="let story of storyTypesArray" [value]="story">
+              {{ storyTypes[story] }}
+            </mat-option>
+          </mat-select>
+        </mat-input-container>
+
+        <mat-checkbox class="col-md-2" formControlName="required">Required</mat-checkbox>
+
+        <mat-input-container class="col-md-10" *ngIf="paremeter.controls.required.value">
+          <textarea matInput formControlName="prompt" placeholder="Message to prompt when require"></textarea>
+        </mat-input-container>
+
+        <button type="button" class="col-md-1" (click)="deleteParameter(i)" mat-button>delete</button>
+      </div>
+    </div>
+
+
+  </section>
+
+
+  <h2 class="col-md-12">
+    <mat-checkbox formControlName="apiTrigger">API trigger</mat-checkbox>
+  </h2>
+  <section class="row" [formGroup]="storyForm.controls.apiDetails" *ngIf="apiTrigger()">
+
+    <mat-checkbox class="col-md-2" formControlName="isJson">JSON</mat-checkbox>
+
+    <mat-input-container class="col-md-6">
+      <textarea matInput formControlName="url" placeholder="API url"></textarea>
+    </mat-input-container>
+
+    <mat-input-container class="col-md-2">
+      <mat-select formControlName="requestType" placeholder="API method">
+        <mat-option value="GET">GET</mat-option>
+        <mat-option value="POST">POST</mat-option>
+        <mat-option value="PUT">PUT</mat-option>
+        <mat-option value="DELETE">DELETE</mat-option>
+      </mat-select>
+    </mat-input-container>
+
+    <mat-input-container class="col-md-12">
+      <textarea matInput formControlName="jsonData" placeholder="JsonData"></textarea>
+    </mat-input-container>
+  </section>
+  <mat-input-container class="col-md-12">
+    <textarea matInput formControlName="speechResponse" placeholder="Intent key"></textarea>
+  </mat-input-container>
+
+  <p>
+    Extracted parameters and api call response can be accessed from speech respone using "parameters" and "result" objects respectively
+  </p>
+
+  <button class="col-md-1" mat-button>Save</button>
+</form>

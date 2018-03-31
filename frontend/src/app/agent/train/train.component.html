@@ -1,0 +1,32 @@
+<p>
+  Train your story for possible user inputs. Tag required parameters using mouse and give em labels
+</p>
+
+<form [formGroup]="trainForm" *ngIf="trainForm" (submit)="startLabeling()" class="row">
+  <mat-input-container class="col-md-10">
+    <textarea matInput rows="3" formControlName="input" placeholder="Enter a sample input"></textarea>
+  </mat-input-container>
+  <button class="col-md-1" type="button" (click)="clear()" mat-button>Clear</button>
+  <button class="col-md-1" mat-button>Start Labeling</button>
+</form>
+
+<form [formGroup]="testForm" *ngIf="testForm" (submit)="addTest()" class="row">
+  <mat-input-container class="col-md-8">
+    <input type="text" matInput formControlName="input" placeholder="Mark as label">
+  </mat-input-container>
+  <button type="button" class="col-md-2" (click)="buildModel()" mat-button>Build Model</button>
+  <button mat-button class="col-md-2">Add To Test Set</button>
+</form>
+
+<p *ngIf="labelled">
+  {{labelled}}
+</p>
+
+<h2>View labeled sentences</h2>
+<section class="labeledSentences" *ngIf="story">
+  <div *ngFor="let trainS of story.labeledSentences; let i=index;" class="row">
+    <p clas="col-md-10">{{trainS.data}}
+    </p>
+    <button type="button" class="col-md-2" (click)="deleteSetence(i)" mat-button>delete</button>
+  </div>
+</section>
