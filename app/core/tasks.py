@@ -36,7 +36,7 @@ def train_intent_classifier(stories):
         trainingData = story.trainingData
         for example in trainingData:
             X.append(example.get("text"))
-            y.append(str(story.id))
+            y.append([str(story.id)])
 
     PATH = "{}/{}".format(app.config["MODELS_DIR"],
                                    app.config["INTENT_MODEL_NAME"])
