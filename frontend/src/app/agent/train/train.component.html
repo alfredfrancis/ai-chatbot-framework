@@ -5,7 +5,6 @@
   <textarea cols="30" [(ngModel)]="newExampleText"></textarea> <button (click)="addNewExample()">Add new example</button>
 </div>
 
-
 <div *ngFor="let example of trainingData;let example_index = index">
 
     <div id="textarea_highlight" contenteditable="true"
@@ -25,6 +24,7 @@
               <span *ngIf="this.selectionInfo.value == ''; else elseBlock" class="round-button"> Select text to annotate </span>
       
               <ng-template #elseBlock>
+                <input type="text" [(ngModel)]="newEntityName" placeholder="entity name">
                 <span class="round-button" (click)="addNewEntity(example_index)"> Add an entity for <b >"{{this.selectionInfo.value}}"</b> </span>
               </ng-template>
           </div>

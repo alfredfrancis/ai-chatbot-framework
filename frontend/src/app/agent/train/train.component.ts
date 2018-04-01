@@ -24,6 +24,7 @@ export class TrainComponent implements OnInit {
 
   trainingData = [];
   newExampleText: String;
+  newEntityName: String;
 
   message;
 
@@ -43,6 +44,8 @@ export class TrainComponent implements OnInit {
     private _activatedRoute: ActivatedRoute,
      private _router: Router,
      private trainingService: TrainingService) {
+
+      this.newEntityName = null;
 
     this.trainFormFields = {
       input: [''],
@@ -142,7 +145,8 @@ export class TrainComponent implements OnInit {
 
   addNewEntity(example_index){
     let currentSelection = this.selectionInfo;
-    currentSelection["name"]="entity1";
+    currentSelection["name"]=this.newEntityName;
+    this.newEntityName = null;
     this.trainingData[example_index]["entities"].push(currentSelection)
      console.log(this.trainingData)
   }

@@ -29,25 +29,29 @@ export class IntentComponent implements OnInit {
 
       this.storyTypes = IntentService.storyTypes;
       this.storyTypesArray = Object.keys(this.storyTypes);
-      this.storyFormFields = {
-        _id: [''],
-        storyName: [''],
-        intentName: [''],
-        speechResponse: [''],
-        apiTrigger: [''],
-        apiDetails: this.initApiDetails(),
-        parameters: this.fb.array(
-          this.story && this.story.parameters ? this.story.parameters.map(n => {
-            return this.initParameter(n);
-          }) : []
-        )
-      };
-      this.storyForm = this.fb.group(this.storyFormFields);
+
       
   }
 
-  ngOnInit() {
+  loadForm(){
+    this.storyFormFields = {
+      _id: [''],
+      storyName: [''],
+      intentName: [''],
+      speechResponse: [''],
+      apiTrigger: [''],
+      apiDetails: this.initApiDetails(),
+      parameters: this.fb.array(
+        this.story && this.story.parameters ? this.story.parameters.map(n => {
+          return this.initParameter(n);
+        }) : []
+      )
+    };
+    this.storyForm = this.fb.group(this.storyFormFields);
+  }
 
+  ngOnInit() {
+    this.loadForm()
 
     this._activatedRoute.params.subscribe((params: Params) => {
       console.log("active agent reached " + params['intent_id'])
@@ -59,9 +63,10 @@ export class IntentComponent implements OnInit {
         console.log("selected intent =>>")
         console.log(data.story)
         this.story = data.story;
+        this.loadForm();
         this.coreService.setDataForm(this.storyForm, this.storyFormFields, this.story);
-
     });   
+
 
 
   }
