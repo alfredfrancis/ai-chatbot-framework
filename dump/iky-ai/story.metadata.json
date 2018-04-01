@@ -1,1 +1,1 @@
-{"options":{},"indexes":[{"v":2,"key":{"_id":1},"name":"_id_","ns":"iky-ai.story"},{"v":2,"unique":true,"key":{"storyName":1},"name":"storyName_1","background":false,"sparse":false,"ns":"iky-ai.story"}]}
+{"options":{},"indexes":[{"v":2,"key":{"_id":1},"name":"_id_","ns":"iky-ai.story"},{"v":2,"unique":true,"key":{"storyName":1},"name":"storyName_1","background":false,"sparse":false,"ns":"iky-ai.story"}],"uuid":"3c2dce0f2dcf4ed9808dd49256a7d9b4"}
