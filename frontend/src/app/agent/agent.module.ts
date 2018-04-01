@@ -21,7 +21,8 @@ import { TrainComponent } from './train/train.component';
 /* Services imports begins here */
 import { IntentService } from '../services/intent.service';
 import {TrainingService} from '../services/training.service'
-import {IntentResolverService} from '../services/intent-resolver.service'
+import {IntentResolverService} from '../services/intent-resolver.service';
+import { SettingsComponent } from './settings/settings.component'
 
 
 @NgModule({
@@ -41,7 +42,7 @@ import {IntentResolverService} from '../services/intent-resolver.service'
 
 
   ],
-  declarations: [IntentsComponent, IntentComponent, TrainComponent,TextareaExpandedComponent],
+  declarations: [IntentsComponent, IntentComponent, TrainComponent,TextareaExpandedComponent, SettingsComponent],
   providers:[IntentService,CoreService,IntentResolverService,TrainingService]
 })
 export class AgentModule { }

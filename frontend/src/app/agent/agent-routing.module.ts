@@ -4,7 +4,7 @@ import { Routes, RouterModule } from '@angular/router';
 import {IntentsComponent} from './intents/intents.component'
 import {IntentComponent} from './intent/intent.component';
 import {TrainComponent} from './train/train.component';
-
+import {SettingsComponent} from './settings/settings.component'
 import {IntentResolverService} from '../services/intent-resolver.service'
 
 const routes: Routes = [
@@ -26,6 +26,9 @@ const routes: Routes = [
 			story: IntentResolverService,
 		},
     path: 'train-intent/:intent_id', component: TrainComponent,
+  },
+  {
+    path: 'settings', component: SettingsComponent,
   },
 ];
 

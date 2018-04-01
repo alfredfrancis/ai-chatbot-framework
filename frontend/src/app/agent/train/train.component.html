@@ -1,11 +1,17 @@
-<p>
-  Train your story for possible user inputs. Tag required parameters using mouse and give em labels
-</p>
-<div>
-  <textarea cols="30" [(ngModel)]="newExampleText"></textarea> <button (click)="addNewExample()">Add new example</button>
+<div class="header">
+  <p>
+    Train your story for possible user inputs. Tag required parameters using mouse and give em labels
+  </p>
+
+  <button mat-raised-button (click)="updateTrainingData()" color="primary">Save Training Data </button>
+  <br>
+  <mat-form-field class="full-width">
+    <textarea matInput [(ngModel)]="newExampleText" placeholder="enter example text here"></textarea> 
+  </mat-form-field >
+  <button mat-raised-button  (click)="addNewExample()">Add new example</button>
 </div>
 
-<div *ngFor="let example of trainingData;let example_index = index">
+<mat-card *ngFor="let example of trainingData;let example_index = index">
 
     <div id="textarea_highlight" contenteditable="true"
     role="textarea" (mouseup)="annotate()">{{example.text}}</div>
@@ -31,7 +37,5 @@
 
         
     </div>
-    <button>delete example</button>
-</div>
-
-<button (click)="updateTrainingData()">Save Training Data </button>
+    <button >delete example</button>
+  </mat-card>
