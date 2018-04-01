@@ -13,8 +13,7 @@ import {TextareaExpandedComponent} from '../directives/text-area-expanded/text-a
 /* Material UI imports begins here */
 import {MatIconModule,MatCardModule,MatInputModule,
 MatOptionModule,MatSelectModule,MatCheckboxModule,MatButtonModule} from '@angular/material';
-import { IntentComponent } from './intent/intent.component';
-import { TrainComponent } from './train/train.component';
+
 /* Material UI imports ends here */
 
 
@@ -22,8 +21,12 @@ import { TrainComponent } from './train/train.component';
 import { IntentService } from '../services/intent.service';
 import {TrainingService} from '../services/training.service'
 import {IntentResolverService} from '../services/intent-resolver.service';
-import { SettingsComponent } from './settings/settings.component'
+import {ChatService} from '../services/chat.service'
 
+import { SettingsComponent } from './settings/settings.component';
+import { ChatComponent } from './chat/chat.component'
+import { IntentComponent } from './intent/intent.component';
+import { TrainComponent } from './train/train.component';
 
 @NgModule({
   imports: [
@@ -42,7 +45,7 @@ import { SettingsComponent } from './settings/settings.component'
 
 
   ],
-  declarations: [IntentsComponent, IntentComponent, TrainComponent,TextareaExpandedComponent, SettingsComponent],
-  providers:[IntentService,CoreService,IntentResolverService,TrainingService]
+  declarations: [IntentsComponent, IntentComponent, TrainComponent,TextareaExpandedComponent, SettingsComponent, ChatComponent],
+  providers:[IntentService,CoreService,IntentResolverService,TrainingService,ChatService]
 })
 export class AgentModule { }
