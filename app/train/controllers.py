@@ -45,3 +45,15 @@ def deleteLabeledSentences():
         request.form['sentenceId'])).delete()
     story.save()
     return buildResponse.sentOk()
+
+@train.route('/<storyId>/data', methods=['POST'])
+def save_training_data(storyId):
+    story = Story.objects.get(id=ObjectId(storyId))
+    story.trainingData = request.json
+    story.save()
+    return buildResponse.sentOk()
+
+@train.route('/<storyId>/data', methods=['GET'])
+def get_training_data(storyId):
+    story = Story.objects.get(id=ObjectId(storyId))
+    return buildResponse.buildJson(story.trainingData)

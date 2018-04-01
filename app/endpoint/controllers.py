@@ -10,7 +10,6 @@ from app import app
 
 from app.commons.logger import logger
 from app.commons import buildResponse
-from app.core.intentClassifier import IntentClassifier
 from app.core import sequenceLabeler
 from app.stories.models import Story
 
@@ -58,6 +57,26 @@ def callApi(url, type, parameters, isJson=False):
     print(result)
     return result
 
+from app.core.sentenceClassifer import SentenceClassifier
+
+def predict(sentence):
+    """
+    :param sentence:
+    :return:
+    """
+
+    PATH = "{}/{}".format(app.config["MODELS_DIR"],
+                          app.config["INTENT_MODEL_NAME"])
+
+    sentenceClassifier = SentenceClassifier()
+    predicted = sentenceClassifier.predict(sentence, PATH)
+
+    if not predicted:
+        return Story.objects(
+            intentName=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id
+    else:
+        return predicted["class"]
+
 
 # Request Handler
 @endpoint.route('/v1', methods=['POST'])
@@ -86,8 +105,7 @@ def api():
             logger.info(requestJson.get("input"), extra=resultJson)
             return buildResponse.buildJson(resultJson)
 
-        intentClassifier = IntentClassifier()
-        storyId = intentClassifier.predict(requestJson.get("input"))
+        storyId = predict(requestJson.get("input"))
         story = Story.objects.get(id=ObjectId(storyId))
 
         if story.parameters:
@@ -196,23 +214,3 @@ def api():
         return buildResponse.buildJson(resultJson)
     else:
         return abort(400)
-
-
-# Text To Speech
-@endpoint.route('/tts')
-def tts():
-    voices = {
-        "american": "file://commons/fliteVoices/cmu_us_eey.flitevox"
-    }
-    os.system(
-        "echo \"" +
-        request.args.get("text") +
-        "\" | flite -voice " +
-        voices["american"] +
-        "  -o sound.wav")
-    path_to_file = "../sound.wav"
-    return send_file(
-        path_to_file,
-        mimetype="audio/wav",
-        as_attachment=True,
-        attachment_filename="sound.wav")

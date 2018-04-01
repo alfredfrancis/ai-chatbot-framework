@@ -1,0 +1,14 @@
+.round-button{
+    border:1px solid;border-radius:5px;padding:5px
+}
+.round-button:hover{
+    cursor: pointer;
+    background-color: gray;
+    color:#fff;
+}
+.entity-table{
+    padding:5px;
+    .add-entity{
+        margin-top: 10px;
+    }
+}

@@ -73,3 +73,4 @@ class Story(Document):
     speechResponse = StringField(required=True)
     parameters = ListField(EmbeddedDocumentField(Parameter))
     labeledSentences = EmbeddedDocumentListField(LabeledSentences)
+    trainingData = ListField(required=False)

@@ -5,7 +5,7 @@ from flask import Blueprint, request, render_template, Response
 from flask import current_app as app
 import app.commons.buildResponse as buildResponse
 from app.stories.models import Story, Parameter, ApiDetails, update_document
-from app.core.intentClassifier import IntentClassifier
+
 
 
 stories = Blueprint('stories_blueprint', __name__,
@@ -35,6 +35,7 @@ def createStory():
     story.storyName = content.get("storyName")
     story.intentName = content.get("intentName")
     story.speechResponse = content.get("speechResponse")
+    story.trainingData = []
 
     if content.get("apiTrigger") is True:
         story.apiTrigger = True
@@ -89,16 +90,18 @@ def updateStory(storyId):
     story.save()
     return 'success', 200
 
+from app.core.tasks import train_models
 
 @stories.route('/<storyId>', methods=['DELETE'])
 def deleteStory(storyId):
     Story.objects.get(id=ObjectId(storyId)).delete()
+
     try:
-        intentClassifier = IntentClassifier()
-        intentClassifier.train()
+        train_models()
     except BaseException:
         pass
 
+    # remove NER model for the deleted stoy
     try:
         os.remove("{}/{}.model".format(app.config["MODELS_DIR"], storyId))
     except OSError:

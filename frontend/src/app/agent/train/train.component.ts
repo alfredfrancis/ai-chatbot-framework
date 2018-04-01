@@ -14,6 +14,17 @@ import { TrainingService } from '../../services/training.service';
 })
 export class TrainComponent implements OnInit {
 
+  selectionInfo = {
+    "value":"",
+    "begin":0,
+    "end":0
+  };
+
+  intentId:string = null ;
+
+  trainingData = [];
+  newExampleText: String;
+
   message;
 
   trainForm: FormGroup;
@@ -48,8 +59,16 @@ export class TrainComponent implements OnInit {
   ngOnInit() {
 
 
+
     this._activatedRoute.params.subscribe((params: Params) => {
-      console.log("active agent reached " + params['intent_id'])
+      console.log("current intent " + params['intent_id'])
+      this.intentId = params['intent_id']
+      this.trainingService.getTrainingData(params['intent_id']).then(
+        (result: Array<any>)=>{
+          this.trainingData = result;
+        }
+      )
+
     });
 
 
@@ -67,6 +86,14 @@ export class TrainComponent implements OnInit {
         this.story._id = this.story._id.$oid;
       }
     }
+  }
+
+  addNewExample(){
+    this.trainingData.unshift({
+      "text":this.newExampleText,
+      "entities":[]
+    })
+    this.newExampleText = "";
   }
 
   addTest() {
@@ -103,7 +130,43 @@ export class TrainComponent implements OnInit {
     const array = this.story.labeledSentences;
     array.splice(i, 1);
   }
+  
+  getSelectionInfo(){
+    let selection = window.getSelection(); 
+    return {
+      "value":selection.toString(),
+      "begin":selection.anchorOffset,
+      "end": selection.extentOffset
+    }
+  }
 
+  addNewEntity(example_index){
+    let currentSelection = this.selectionInfo;
+    currentSelection["name"]="entity1";
+    this.trainingData[example_index]["entities"].push(currentSelection)
+     console.log(this.trainingData)
+  }
+
+  annotate(){
+    this.selectionInfo = this.getSelectionInfo();
+
+    console.log(this.selectionInfo);  
+
+    // let activeEl = document.getElementById("textarea_highlight");
+    //   let selected = this.getSelectedText();
+    //   if (selected.toString().length > 1) {
+    //     let range = selected.getRangeAt(0).cloneRange();
+    //     range.collapse(true);
+    //     range.setStart(activeEl, 0);
+    //     console.log(range);
+    //   }
+  }
+
+  updateTrainingData(){
+    this.trainingService.saveTrainingData(this.intentId,this.trainingData).then(()=>{
+      console.log("Success");
+    })
+  }
 
 
 }

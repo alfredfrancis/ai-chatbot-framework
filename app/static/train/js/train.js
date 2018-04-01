@@ -40,6 +40,7 @@ $(document).ready(function() {
 
             console.log($('<div>').append(range.cloneContents()).html());
 
+
 			$.post("/core/sentenceTokenize", {
 					sentences: $('<div>').append(range.cloneContents()).html()
 				},
@@ -98,6 +99,8 @@ $(document).ready(function() {
 				//$('#instance').append(","+NS.taggedSentences[(NS.wordCount + i)-1]+","+NS.taggedSentences[(NS.wordCount + i)-1][2]+"\n");
 				NS.taggedSentences[(NS.wordCount + i) - 1][2] = bio;
 			}
+
+
 			$('#output').html("<pre>" + JSON.stringify(NS.taggedSentences) + "</pre>");
 			$("#tokenLabel").val("");
 		}

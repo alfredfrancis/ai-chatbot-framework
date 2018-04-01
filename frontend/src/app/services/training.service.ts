@@ -23,4 +23,19 @@ export class TrainingService {
   addToTestSet(storyId, labeledSentence, botId = 'default') {
     return this.http.post(environment.ikyBackend + `train/insertLabeledSentence`, { storyId, botId, labeledSentence }).toPromise();
   }
+  
+  saveTrainingData(intent_id,data) {
+    return this.http.post(environment.ikyBackend + `train/${intent_id}/data`, data).toPromise();
+  }
+
+  getTrainingData(intent_id) {
+    return this.http.get(environment.ikyBackend + `train/${intent_id}/data`).toPromise();
+  }
+
+  trainModels() {
+    return this.http.post(environment.ikyBackend + `core/buildModels`, {}).toPromise();
+  }
+
 }
+
+

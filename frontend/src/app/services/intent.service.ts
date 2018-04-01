@@ -40,10 +40,6 @@ export class IntentService {
     return this.http.put(environment.ikyBackend + `stories/${story._id}`, story).toPromise();
   }
 
-  buildStory(id) {
-    return this.http.post(environment.ikyBackend + `core/buildModel/${id}`, {}).toPromise();
-  }
-
   deleteStory(id) {
     return this.http.delete(environment.ikyBackend + `stories/${id}`, {}).toPromise();
   }

@@ -1,11 +1,9 @@
 import pycrfsuite
-from bson import ObjectId
 from nltk import word_tokenize
 
 from flask import current_app as app
 
-from app.stories.models import Story
-from app.core.nlp import posTagger
+from app.core.nlp import posTagger,sentenceTokenize,posTagAndLabel
 from app.core.featuresExtractor import extractFeatures
 
 
@@ -21,13 +19,7 @@ def sentToTokens(sent):
     return [token for token, postag, label in sent]
 
 
-def train(storyId):
-    story = Story.objects.get(id=ObjectId(storyId))
-    labeledSentences = story.labeledSentences
-
-    trainSentences = []
-    for item in labeledSentences:
-        trainSentences.append(item.data)
+def train(trainSentences,model_name):
 
     features = [sentToFeatures(s) for s in trainSentences]
     labels = [sentToLabels(s) for s in trainSentences]
@@ -44,7 +36,7 @@ def train(storyId):
         # include transitions that are possible, but not observed
         'feature.possible_transitions': True
     })
-    trainer.train('model_files/%s.model' % storyId)
+    trainer.train('model_files/%s.model' % model_name)
     return True
 
 
@@ -71,12 +63,58 @@ def extractLabels(predictedLabels):
     return labels
 
 
-def predict(storyId, sentence):
+def predict(model_name, sentence):
     tokenizedSentence = word_tokenize(sentence)
     taggedToken = posTagger(sentence)
     tagger = pycrfsuite.Tagger()
-    tagger.open("{}/{}.model".format(app.config["MODELS_DIR"], storyId))
+    tagger.open("{}/{}.model".format(app.config["MODELS_DIR"], model_name))
     predictedLabels = tagger.tag(sentToFeatures(taggedToken))
     extractedEntities = extractEntities(
         zip(tokenizedSentence, predictedLabels))
     return extractedEntities
+
+
+def json2crf(trainingData):
+    """
+    Takes json annotated data and convert to CRF representation
+    :param trainingData:
+    :return labeled_examples:
+    """
+    labeled_examples = []
+
+    for example in trainingData:
+        tagged_example = posTagAndLabel(example.get("text"))
+
+        # find no of words before selection
+        for enitity in example.get("entities"):
+            word_count = 0
+            char_count = 0
+            for i,item in enumerate(tagged_example):
+                char_count += len(item[0])
+                if enitity.get("begin") == 0:
+                    word_count = 0
+                    break
+                elif char_count == enitity.get("begin"):
+                    word_count += 1
+                    break
+                elif  char_count < enitity.get("begin"):
+                    word_count += 1
+                else:
+                    break
+
+            selection = example.get("text")[enitity.get("begin"):enitity.get("end")]
+            tokens = sentenceTokenize(selection).split(" ")
+            selection_word_count = len(tokens)
+
+            # build BIO tagging
+            for i in range(1, selection_word_count+1):
+                print("word "+str(i))
+                if i ==1:
+                    bio = "B-" + enitity.get("name")
+                else:
+                    bio = "I-" + enitity.get("name")
+                print(bio)
+                tagged_example[(word_count + i) - 1][2] = bio
+
+        labeled_examples.append(tagged_example)
+    return labeled_examples

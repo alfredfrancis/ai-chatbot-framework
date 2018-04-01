@@ -21,7 +21,4 @@ def posTagAndLabel(sentence):
 
 def sentenceTokenize(sentences):
     tokenizedSentences = word_tokenize(sentences)
-    tokenizedSentencesPlainText = ""
-    for t in tokenizedSentences:
-        tokenizedSentencesPlainText += " " + t
-    return tokenizedSentencesPlainText
+    return " ".join(tokenizedSentences)
