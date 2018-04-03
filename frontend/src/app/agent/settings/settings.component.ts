@@ -20,7 +20,7 @@ export class SettingsComponent implements OnInit {
   }
   handleFileInput(files: FileList) {
     this.fileToUpload = files.item(0);
-}
+  }
 
 uploadFileToActivity() {
   this.intentService.importStories(this.fileToUpload).then ((result)=>{

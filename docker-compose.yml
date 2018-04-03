@@ -11,6 +11,13 @@ services:
     depends_on:
       - mongodb
 
+  frontend:
+    build: frontend/
+    ports:
+        - "8081:80"
+    depends_on:
+      - web
+      
   mongodb:
     image: mongo
     hostname: mongodb
