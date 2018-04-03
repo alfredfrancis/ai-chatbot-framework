@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { FlexLayoutModule } from '@angular/flex-layout';
 
 import { AgentRoutingModule } from './agent-routing.module';
 import { IntentsComponent } from './intents/intents.component';
@@ -11,7 +12,8 @@ import {CoreService} from '../services/core.service'
 /* Material UI imports begins here */
 import {MatIconModule,MatCardModule,MatInputModule,
 MatOptionModule,MatSelectModule,MatCheckboxModule,MatButtonModule} from '@angular/material';
-
+import {MatGridListModule} from '@angular/material/grid-list';
+import {MatDividerModule} from '@angular/material/divider';
 /* Material UI imports ends here */
 
 
@@ -32,7 +34,10 @@ import { TrainComponent } from './train/train.component';
     ReactiveFormsModule,
     HttpClientModule,
     FormsModule,
+    FlexLayoutModule,
+    
     AgentRoutingModule,
+    
     MatIconModule,
     MatCardModule,
     MatInputModule,
@@ -40,7 +45,8 @@ import { TrainComponent } from './train/train.component';
     MatSelectModule,
     MatCheckboxModule,
     MatButtonModule,
-
+    MatGridListModule,
+    MatDividerModule
 
   ],
   declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent],

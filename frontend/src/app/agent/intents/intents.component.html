@@ -1,24 +1,31 @@
-
-<h1>
-  Intents 
-  <button mat-mini-fab (click)="add()">
-    <mat-icon aria-label="Example icon-button with a heart icon">add</mat-icon>
-  </button>
-
-  <button mat-raised-button color="primary" (click)="trainModels()" >Build  Agent</button>
-
-</h1>
-
-<div class="row">
-  <mat-card class="col-md-6" *ngFor="let story of stories">
-    <mat-card-header>
-      <div mat-card-avatar class="example-header-image"></div>
-      <mat-card-title>{{story.storyName}}</mat-card-title>
-    </mat-card-header>
-    <mat-card-actions>
-      <button mat-button (click)="edit(story)" color="accent" >Edit</button>
-      <button mat-button (click)="train(story)" color="primary" >Train</button>
-      <button mat-button (click)="delete(story)" color="warn" >Delete</button>
-    </mat-card-actions>
-  </mat-card>
+<div class="header" fxLayout="row" fxLayoutAlign=" center">
+    <h1 fxFlex>List of Intents </h1>
+    <button mat-raised-button color="primary" (click)="trainModels()">Build  Agent</button>
 </div>
+
+
+
+  <mat-card >
+    <div *ngFor="let story of stories" fxLayout="row" fxLayoutAlign=" center" class="intent-container">
+        <div  fxFlex="60" >
+            {{story.storyName}}     
+        </div>
+      <div  fxFlex="40" >
+          <button mat-button (click)="train(story)" color="primary" >Train</button>
+          <button mat-icon-button  (click)="edit(story)" color="accent" >
+              <mat-icon aria-label="Delete this intent">edit</mat-icon>
+            </button>
+          <button mat-icon-button (click)="delete(story)" color="warn" >
+              <mat-icon aria-label="Delete this intent">delete</mat-icon>
+            </button>
+      </div>
+    </div>
+    <br>
+    <div  fxLayoutAlign="end" >
+        <button mat-mini-fab (click)="add()">
+            <mat-icon aria-label="Example icon-button with a heart icon">add</mat-icon>
+          </button>
+    </div>
+
+    
+  </mat-card>

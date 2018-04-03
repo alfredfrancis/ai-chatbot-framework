@@ -8,6 +8,7 @@ import { AppComponent } from './app.component';
 
 /* Material UI imports begins here */
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
+
 /* Material UI imports ends here */
 
 
@@ -24,7 +25,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     BrowserModule,
     AppRoutingModule,
     BrowserAnimationsModule,
-    DashboardModule,
+    DashboardModule
   ],
   providers: [],
   bootstrap: [AppComponent]
