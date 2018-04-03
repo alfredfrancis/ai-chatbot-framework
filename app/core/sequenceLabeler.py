@@ -108,12 +108,10 @@ def json2crf(trainingData):
 
             # build BIO tagging
             for i in range(1, selection_word_count+1):
-                print("word "+str(i))
                 if i ==1:
                     bio = "B-" + enitity.get("name")
                 else:
                     bio = "I-" + enitity.get("name")
-                print(bio)
                 tagged_example[(word_count + i) - 1][2] = bio
 
         labeled_examples.append(tagged_example)
