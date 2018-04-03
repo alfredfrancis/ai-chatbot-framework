@@ -8,8 +8,6 @@ import { AgentRoutingModule } from './agent-routing.module';
 import { IntentsComponent } from './intents/intents.component';
 import {CoreService} from '../services/core.service'
 
-import {TextareaExpandedComponent} from '../directives/text-area-expanded/text-area-expanded.component'
-
 /* Material UI imports begins here */
 import {MatIconModule,MatCardModule,MatInputModule,
 MatOptionModule,MatSelectModule,MatCheckboxModule,MatButtonModule} from '@angular/material';
@@ -45,7 +43,7 @@ import { TrainComponent } from './train/train.component';
 
 
   ],
-  declarations: [IntentsComponent, IntentComponent, TrainComponent,TextareaExpandedComponent, SettingsComponent, ChatComponent],
+  declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent],
   providers:[IntentService,CoreService,IntentResolverService,TrainingService,ChatService]
 })
 export class AgentModule { }
