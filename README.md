@@ -21,8 +21,8 @@ docker-compose up -d
 
 ### Run Backend in Docker
 ```sh
-docker build -t "ai-chat-bot" .
-docker run --name=chabot-node-1  -e="APPLICATION_ENV=Production" -v ./:/usr/src/app -p 8001:8080 -it ai-chat-bot gunicorn --bind 0.0.0.0:8080 run:app
+docker build -t iky:3.0.0 .
+docker run --name=iky_backend -e="APPLICATION_ENV=Production" -v ./:/usr/src/app -p 8080:8080 iky:3.0.0
 ```
 
 ### without docker
@@ -45,19 +45,6 @@ $ make run_prod
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
 
 * add your dev/production configurations in config.py
-
-```python
-class Production(Config):
-    # MongoDB Database Details
-    DB_HOST = "mongodb://127.0.0.1:27017/"
-    DB_USERNAME = ""
-    DB_PASSWORD = ""
-
-
-
-class Development(Config):
-    DEBUG = True
-```
 
 ### DB
 
