@@ -4,23 +4,91 @@ from nltk import word_tokenize
 from flask import current_app as app
 
 from app.core.nlp import posTagger,sentenceTokenize,posTagAndLabel
-from app.core.featuresExtractor import extractFeatures
+
+def extractFeatures(sent, i):
+    """
+    Extract features for a given sentence
+    :param sent:
+    :param i:
+    :return:
+    """
+    word = sent[i][0]
+    postag = sent[i][1]
+    features = [
+        'bias',
+        'word.lower=' + word.lower(),
+        'word[-3:]=' + word[-3:],
+        'word[-2:]=' + word[-2:],
+        'word.isupper=%s' % word.isupper(),
+        'word.istitle=%s' % word.istitle(),
+        'word.isdigit=%s' % word.isdigit(),
+        'postag=' + postag,
+        'postag[:2]=' + postag[:2],
+    ]
+    if i > 0:
+        word1 = sent[i - 1][0]
+        postag1 = sent[i - 1][1]
+        features.extend([
+            '-1:word.lower=' + word1.lower(),
+            '-1:word.istitle=%s' % word1.istitle(),
+            '-1:word.isupper=%s' % word1.isupper(),
+            '-1:postag=' + postag1,
+            '-1:postag[:2]=' + postag1[:2],
+        ])
+    else:
+        features.append('BOS')
+
+    if i < len(sent) - 1:
+        word1 = sent[i + 1][0]
+        postag1 = sent[i + 1][1]
+        features.extend([
+            '+1:word.lower=' + word1.lower(),
+            '+1:word.istitle=%s' % word1.istitle(),
+            '+1:word.isupper=%s' % word1.isupper(),
+            '+1:postag=' + postag1,
+            '+1:postag[:2]=' + postag1[:2],
+        ])
+    else:
+        features.append('EOS')
+
+    return features
+
 
 
 def sentToFeatures(sent):
+    """
+    Extract features from training Data
+    :param sent:
+    :return:
+    """
     return [extractFeatures(sent, i) for i in range(len(sent))]
 
 
 def sentToLabels(sent):
+    """
+    Extract labels from training data
+    :param sent:
+    :return:
+    """
     return [label for token, postag, label in sent]
 
 
 def sentToTokens(sent):
+    """
+    Extract tokens from training data
+    :param sent:
+    :return:
+    """
     return [token for token, postag, label in sent]
 
 
 def train(trainSentences,model_name):
-
+    """
+    Train NER model for given model
+    :param trainSentences:
+    :param model_name:
+    :return:
+    """
     features = [sentToFeatures(s) for s in trainSentences]
     labels = [sentToLabels(s) for s in trainSentences]
 
@@ -42,6 +110,11 @@ def train(trainSentences,model_name):
 
 # Extract Labeles from BIO tagged sentence
 def extractEntities(taggedSentence):
+    """
+    Extract label-value pair from NER prediction output
+    :param taggedSentence:
+    :return:
+    """
     labeled = {}
     labels = set()
     for s, tp in taggedSentence:
@@ -56,6 +129,11 @@ def extractEntities(taggedSentence):
 
 
 def extractLabels(predictedLabels):
+    """
+    Extract name of labels from NER
+    :param predictedLabels:
+    :return:
+    """
     labels = []
     for tp in predictedLabels:
         if tp != "O":
@@ -64,6 +142,12 @@ def extractLabels(predictedLabels):
 
 
 def predict(model_name, sentence):
+    """
+    Predict NER labels for given model and query
+    :param model_name:
+    :param sentence:
+    :return:
+    """
     tokenizedSentence = word_tokenize(sentence)
     taggedToken = posTagger(sentence)
     tagger = pycrfsuite.Tagger()
@@ -110,7 +194,7 @@ def json2crf(trainingData):
                 else:
                     bio = "I-" + enitity.get("name")
                 tagged_example[(word_count + i) - 1][2] = bio
-
+        print(tagged_example)
         labeled_examples.append(tagged_example)
     print labeled_examples
     return labeled_examples

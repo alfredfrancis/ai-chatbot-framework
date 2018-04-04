@@ -14,7 +14,12 @@ from app.core import sequenceLabeler
 from app.stories.models import Story
 
 
+endpoint = Blueprint('api', __name__, url_prefix='/api')
+
 class SilentUndefined(Undefined):
+    """
+    Class to suppress jinja2 errors and warnings
+    """
     def _fail_with_undefined_error(self, *args, **kwargs):
         return 'undefined'
 
@@ -26,10 +31,15 @@ class SilentUndefined(Undefined):
         _fail_with_undefined_error
 
 
-endpoint = Blueprint('api', __name__, url_prefix='/api')
-
-
 def callApi(url, type, parameters, isJson=False):
+    """
+    Call external API
+    :param url:
+    :param type:
+    :param parameters:
+    :param isJson:
+    :return:
+    """
     print(url, type, parameters, isJson)
 
     if "GET" in type:
@@ -61,6 +71,7 @@ from app.core.sentenceClassifer import SentenceClassifier
 
 def predict(sentence):
     """
+    Predict Intent using Intent classifier
     :param sentence:
     :return:
     """
@@ -81,6 +92,11 @@ def predict(sentence):
 # Request Handler
 @endpoint.route('/v1', methods=['POST'])
 def api():
+    """
+    Endpoint to converse with chatbot
+    :param json:
+    :return:
+    """
     requestJson = request.get_json(silent=True)
     resultJson = requestJson
 

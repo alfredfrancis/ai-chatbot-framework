@@ -17,9 +17,20 @@ class SentenceClassifier():
 
 
     def train(self,X, y, outpath=None, verbose=True):
+        """
+        Train intent classifier for given training data
+        :param X:
+        :param y:
+        :param outpath:
+        :param verbose:
+        :return:
+        """
         def build(X, y=None):
             """
             Inner build function that builds a single model.
+            :param X:
+            :param y:
+            :return:
             """
             model = Pipeline([
                 ('preprocessor', NLTKPreprocessor()),
@@ -48,6 +59,12 @@ class SentenceClassifier():
 
 
     def predict(self,text, PATH):
+        """
+        Predict class label for given model
+        :param text:
+        :param PATH:
+        :return:
+        """
         try:
             with open(PATH, 'rb') as f:
                 model = cloudpickle.load(f)

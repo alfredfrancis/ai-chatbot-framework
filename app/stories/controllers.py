@@ -29,6 +29,11 @@ def edit(storyId):
 
 @stories.route('/', methods=['POST'])
 def createStory():
+    """
+    Create a story from the provided json
+    :param json:
+    :return:
+    """
     content = request.get_json(silent=True)
 
     story = Story()
@@ -68,12 +73,21 @@ def createStory():
 
 @stories.route('/')
 def readStories():
+    """
+    find list of stories for the agent
+    :return:
+    """
     stories = Story.objects
     return buildResponse.sentJson(stories.to_json())
 
 
 @stories.route('/<storyId>')
 def readStory(storyId):
+    """
+    Find details for the given storyId
+    :param storyId:
+    :return:
+    """
     return Response(response=dumps(
         Story.objects.get(
             id=ObjectId(
@@ -84,6 +98,12 @@ def readStory(storyId):
 
 @stories.route('/<storyId>', methods=['PUT'])
 def updateStory(storyId):
+    """
+    Update a story from the provided json
+    :param storyId:
+    :param json:
+    :return:
+    """
     jsondata = loads(request.get_data())
     story = Story.objects.get(id=ObjectId(storyId))
     story = update_document(story, jsondata)
@@ -94,6 +114,11 @@ from app.core.tasks import train_models
 
 @stories.route('/<storyId>', methods=['DELETE'])
 def deleteStory(storyId):
+    """
+    Delete a story
+    :param storyId:
+    :return:
+    """
     Story.objects.get(id=ObjectId(storyId)).delete()
 
     try:
@@ -113,6 +138,10 @@ import StringIO
 
 @stories.route('/export', methods=['GET'])
 def export_stories():
+    """
+    Deserialize and export Mongoengines as jsonfile
+    :return:
+    """
     strIO = StringIO.StringIO()
     strIO.write(Story.objects.to_json())
     strIO.seek(0)
@@ -127,6 +156,10 @@ from bson.json_util import loads
 
 @stories.route('/import', methods=['POST'])
 def import_stories():
+    """
+    Convert json files to Stories objects and insert to MongoDB
+    :return:
+    """
     # check if the post request has the file part
     if 'file' not in request.files:
         abort(400,'No file part')
