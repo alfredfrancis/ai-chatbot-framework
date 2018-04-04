@@ -109,7 +109,7 @@ class EntityExtractor():
 
 
     # Extract Labeles from BIO tagged sentence
-    def extract_entities(self,tagged_sentence):
+    def crf2json(self, tagged_sentence):
         """
         Extract label-value pair from NER prediction output
         :param tagged_sentence:
@@ -128,7 +128,7 @@ class EntityExtractor():
         return labeled
 
 
-    def extract_labels(self,predicted_labels):
+    def extract_ner_labels(self, predicted_labels):
         """
         Extract name of labels from NER
         :param predicted_labels:
@@ -149,13 +149,13 @@ class EntityExtractor():
         :return:
         """
         from app.nlu.tasks import pos_tagger
-        
+
         tokenized_sentence = word_tokenize(sentence)
         tagged_token = pos_tagger(sentence)
         tagger = pycrfsuite.Tagger()
         tagger.open("{}/{}.model".format(app.config["MODELS_DIR"], model_name))
         predicted_labels = tagger.tag(self.sent_to_features(tagged_token))
-        extracted_entities = self.extract_entities(
+        extracted_entities = self.crf2json(
             zip(tokenized_sentence, predicted_labels))
         return extracted_entities
 
