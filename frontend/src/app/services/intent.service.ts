@@ -43,5 +43,13 @@ export class IntentService {
   deleteStory(id) {
     return this.http.delete(environment.ikyBackend + `stories/${id}`, {}).toPromise();
   }
+
+  importStories(fileToUpload: File){
+    const formData: FormData = new FormData();
+    formData.append('file', fileToUpload, fileToUpload.name);
+    return this.http
+      .post(environment.ikyBackend +"stories/import", formData).toPromise();
+  }
+
 }
 

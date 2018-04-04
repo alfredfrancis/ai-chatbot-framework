@@ -1,6 +1,10 @@
-.row{
-    padding:10px;
-    mat-card{
-        margin-bottom:10px;
+mat-card{
+    margin:10px;
+    .intent-container{
+        border-bottom: 1px solid lightgray;
+        padding:10px;
     }
+}
+.header{
+    margin: 10px;
 }

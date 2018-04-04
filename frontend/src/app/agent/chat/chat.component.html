@@ -1,44 +1,45 @@
-<mat-card>
-    {{title}}
-    <div *ngFor="let chat of chats">
+<!-- https://tburleson-layouts-demos.firebaseapp.com/#/docs -->
+<div fxLayout="row" fxFill>
+  <mat-card fxFlex="60" >
+      {{title}}
+      <div *ngFor="let chat of chats">
   
-  
-      <div class="row" *ngIf="chat.owner=='user'">
-        <div class="col-md-10">
-          <h4 class="textright fullwidth">{{chat.input}}</h4>
+        <div fxLayout="row" fxLayoutAlign="end center" *ngIf="chat.owner=='user'">
+          <div class="col-md-10">
+            <h4 class="textright fullwidth">{{chat.input}}</h4>
+          </div>
+          <div class="col-md-1" class="textcenter">
+            <mat-icon color="primary"> face </mat-icon>
+          </div>
         </div>
-        <div class="col-md-1" class="textcenter">
-          <mat-icon> face </mat-icon>
+    
+    
+        <div fxLayout="row" fxLayoutAlign="start center" *ngIf="chat.owner=='chat'">
+          <div class="textcenter">
+            <mat-icon color="accent"> android </mat-icon>
+          </div>
+          <div class="col-md-10">
+            <h4 class="textleft fullwidth" [innerHTML]="chat.speechResponse"></h4>
+          </div>
         </div>
+    
+        <!-- <mat-divider></mat-divider> -->
       </div>
-  
-  
-      <div class="row" *ngIf="chat.owner=='chat'">
-        <div class="col-md-1" class="textcenter">
-          <mat-icon> android </mat-icon>
-        </div>
-        <div class="col-md-10">
-          <h4 class="textleft fullwidth" [innerHTML]="chat.speechResponse"></h4>
-        </div>
-      </div>
-  
-      <!-- <p mat-line style="text-color: #ccc"> {{chat.date | date}} </p> -->
-  
-      <!-- <mat-divider></mat-divider> -->
-    </div>
-  
-    <form [formGroup]="chatForm" *ngIf="chatForm" (submit)="send()">
-      <mat-input-container>
-        <input type="text" matInput formControlName="input" placeholder="Type your message here">
-      </mat-input-container>
-      <button mat-button>send</button>
-    </form>
-  
-  </mat-card>
-  
-  <mat-card>
-    POST /api/v1
-    <pre>
-      {{prettyChatCurrent}}
-    </pre>
-  </mat-card>
+    
+      <form [formGroup]="chatForm" *ngIf="chatForm" (submit)="send()" fxLayout="row">
+        <mat-input-container fxFlex="80" >
+          <input type="text" matInput formControlName="input" placeholder="Type your message here" autocomplete=off>
+        </mat-input-container>
+        <button mat-button fxFlex="20" >send</button>
+      </form>
+    
+    </mat-card>
+    
+    <mat-card fxFlex="40">
+      <h3>POST /api/v1</h3>
+      <br>
+      <pre>
+        {{prettyChatCurrent}}
+      </pre>
+    </mat-card>
+</div> 

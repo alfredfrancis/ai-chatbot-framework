@@ -178,9 +178,6 @@ def json2crf(trainingData):
                 if enitity.get("begin") == 0:
                     word_count = 0
                     break
-                elif char_count == enitity.get("begin"):
-                    word_count += 1
-                    break
                 elif  char_count < enitity.get("begin"):
                     word_count += 1
                 else:
@@ -192,13 +189,12 @@ def json2crf(trainingData):
 
             # build BIO tagging
             for i in range(1, selection_word_count+1):
-                print("word "+str(i))
                 if i ==1:
                     bio = "B-" + enitity.get("name")
                 else:
                     bio = "I-" + enitity.get("name")
-                print(bio)
                 tagged_example[(word_count + i) - 1][2] = bio
         print(tagged_example)
         labeled_examples.append(tagged_example)
+    print labeled_examples
     return labeled_examples

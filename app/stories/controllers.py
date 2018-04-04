@@ -107,3 +107,36 @@ def deleteStory(storyId):
     except OSError:
         pass
     return buildResponse.sentOk()
+
+from flask import send_file
+import StringIO
+
+@stories.route('/export', methods=['GET'])
+def export_stories():
+    strIO = StringIO.StringIO()
+    strIO.write(Story.objects.to_json())
+    strIO.seek(0)
+    return send_file(strIO,
+                     attachment_filename="iky_stories.json",
+                     as_attachment=True)
+
+
+
+from flask import abort
+from bson.json_util import loads
+
+@stories.route('/import', methods=['POST'])
+def import_stories():
+    # check if the post request has the file part
+    if 'file' not in request.files:
+        abort(400,'No file part')
+    file = request.files['file']
+
+    json_data = file.read()
+    # stories = Story.objects.from_json(json_data)
+    stories = loads(json_data)
+    for story in stories:
+        new_story = Story()
+        new_story = update_document(new_story,story)
+        new_story.save()
+    return buildResponse.buildJson({"no_stories_created":len(stories)})

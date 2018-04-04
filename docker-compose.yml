@@ -2,11 +2,8 @@ version: '2'
 services:
   web:
     build: .
-    command: bash -c "python setup.py && gunicorn run:app --bind 0.0.0.0:8001 --access-logfile=logs/gunicorn-access.log --error-logfile logs/gunicorn-error.log"
     ports:
-        - "8001:8001"
-    volumes:
-      - ./:/usr/src/app/
+        - "8080:8080"
     environment:
       APPLICATION_ENV: Production
     links:
@@ -14,6 +11,13 @@ services:
     depends_on:
       - mongodb
 
+  frontend:
+    build: frontend/
+    ports:
+        - "8081:80"
+    depends_on:
+      - web
+      
   mongodb:
     image: mongo
     hostname: mongodb

@@ -1,7 +1,17 @@
-<mat-card>
+<mat-card fxLayout="column">
+  <button mat-raised-button (click)="export()" color="primary">Export stories</button>
+  <br>
+  <div class="import-group" fxLayout="row" fxLayoutAlign=" center">
+    <div fxFlex>
+        <input type="file"
+               id="file"
+               (change)="handleFileInput($event.target.files)">
+    </div>
+    <div fxLayoutAlign="end" >  <button mat-raised-button (click)="uploadFileToActivity()" [disabled]="!fileToUpload">Import stories</button></div>  
+  </div>
+
   <h2>API Endpoint goes here</h2>
 
   <h2>Javascript snippet goes here</h2>
 
-  <h2>export/import</h2>
 </mat-card>

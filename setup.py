@@ -13,8 +13,8 @@ if not os.path.exists("logs"):
 
 try:
     print("Training models..")
-    from app.core.intentClassifier import IntentClassifier
-    IntentClassifier().train()
+    from app.core.tasks import train_models
+    train_models()
     print("Training models finished..")
 except Exception as e:
     e = str(e)
