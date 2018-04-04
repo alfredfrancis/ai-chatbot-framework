@@ -48,6 +48,11 @@ def deleteLabeledSentences():
 
 @train.route('/<storyId>/data', methods=['POST'])
 def save_training_data(storyId):
+    """
+    Save training data for given story
+    :param storyId:
+    :return:
+    """
     story = Story.objects.get(id=ObjectId(storyId))
     story.trainingData = request.json
     story.save()
@@ -55,5 +60,10 @@ def save_training_data(storyId):
 
 @train.route('/<storyId>/data', methods=['GET'])
 def get_training_data(storyId):
+    """
+    retrive training data for a given story
+    :param storyId:
+    :return:
+    """
     story = Story.objects.get(id=ObjectId(storyId))
     return buildResponse.buildJson(story.trainingData)
