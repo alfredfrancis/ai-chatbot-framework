@@ -1,5 +1,5 @@
 
-import app.core.SequenceLabeler as SequenceLabeler
+import app.core.entity_extraction as EntityExtraction
 from app.stories.models import Story
 
 from app import app
@@ -58,6 +58,6 @@ def train_all_ner(story_id, training_data):
     :return:
     """
     # generate crf training data
-    ner_training_data = SequenceLabeler.json2crf(training_data)
+    ner_training_data = EntityExtraction.json2crf(training_data)
     # train and store ner model
-    SequenceLabeler.train(ner_training_data, story_id)
+    EntityExtraction.train(ner_training_data, story_id)

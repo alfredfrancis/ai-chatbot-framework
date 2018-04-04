@@ -10,7 +10,7 @@ from app import app
 
 from app.commons.logger import logger
 from app.commons import build_response
-from app.core import SequenceLabeler
+from app.core import entity_extraction
 from app.stories.models import Story
 
 
@@ -141,7 +141,7 @@ def api():
             }
 
             if parameters:
-                extracted_parameters = SequenceLabeler.predict(
+                extracted_parameters = entity_extraction.predict(
                     story_id, request_json.get("input"))
                 missing_parameters = []
                 result_json["missingParameters"] = []
