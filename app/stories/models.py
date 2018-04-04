@@ -1,6 +1,11 @@
 from bson.objectid import ObjectId
-from mongoengine import *
-from mongoengine import fields
+from mongoengine import connect as connect
+from mongoengine.fields import  ListField,SortedListField,\
+    EmbeddedDocumentListField,EmbeddedDocumentField,\
+    GenericEmbeddedDocumentField, ReferenceField,\
+    GenericReferenceField,EmbeddedDocument,\
+    ObjectIdField,StringField,\
+    BooleanField,Document
 
 from app import app
 
@@ -10,22 +15,28 @@ with app.app_context():
 
 
 def update_document(document, data_dict):
+    """
+    Recreate Document object from python dictionary
+    :param document:
+    :param data_dict:
+    :return:
+    """
 
     def field_value(field, value):
 
         if field.__class__ in (
-                fields.ListField,
-                fields.SortedListField,
-                fields.EmbeddedDocumentListField):
+                ListField,
+                SortedListField,
+                EmbeddedDocumentListField):
             return [
                 field_value(field.field, item)
                 for item in value
             ]
         if field.__class__ in (
-            fields.EmbeddedDocumentField,
-            fields.GenericEmbeddedDocumentField,
-            fields.ReferenceField,
-            fields.GenericReferenceField
+            EmbeddedDocumentField,
+            GenericEmbeddedDocumentField,
+            ReferenceField,
+            GenericReferenceField
         ):
             return field.document_type(**value)
         else:
