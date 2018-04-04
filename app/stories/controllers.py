@@ -95,7 +95,7 @@ def update_story(story_id):
     return 'success', 200
 
 
-from app.core.tasks import train_models
+from app.nlu.tasks import train_models
 
 
 @stories.route('/<story_id>', methods=['DELETE'])

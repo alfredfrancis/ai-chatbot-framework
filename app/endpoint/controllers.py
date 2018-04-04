@@ -1,4 +1,3 @@
-import os
 from bson import ObjectId
 import json
 import requests
@@ -10,7 +9,7 @@ from app import app
 
 from app.commons.logger import logger
 from app.commons import build_response
-from app.core import entity_extraction
+from app.nlu.entity_extractor import EntityExtractor
 from app.stories.models import Story
 
 
@@ -70,7 +69,7 @@ def call_api(url, type, parameters, is_json=False):
     return result
 
 
-from app.core.intent_classifer import IntentClassifier
+from app.nlu.intent_classifer import IntentClassifier
 
 
 def predict(sentence):
@@ -141,8 +140,11 @@ def api():
             }
 
             if parameters:
+                # Extract NER entities
+                entity_extraction = EntityExtractor()
                 extracted_parameters = entity_extraction.predict(
                     story_id, request_json.get("input"))
+
                 missing_parameters = []
                 result_json["missingParameters"] = []
                 result_json["extractedParameters"] = {}

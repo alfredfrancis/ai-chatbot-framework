@@ -5,7 +5,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
-from app.core.nltk_preprocessor import NLTKPreprocessor
+from app.nlu.nltk_preprocessor import NLTKPreprocessor
 
 
 class IntentClassifier():
