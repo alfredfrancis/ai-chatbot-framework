@@ -3,16 +3,16 @@ from bson.json_util import dumps
 from bson.objectid import ObjectId
 from flask import Blueprint, request, Response
 from flask import current_app as app
-import app.commons.buildResponse as buildResponse
+from app.commons import build_response
 from app.stories.models import Story, Parameter, ApiDetails, update_document
-
 
 
 stories = Blueprint('stories_blueprint', __name__,
                     url_prefix='/stories')
 
+
 @stories.route('/', methods=['POST'])
-def createStory():
+def create_story():
     """
     Create a story from the provided json
     :param json:
@@ -28,15 +28,15 @@ def createStory():
 
     if content.get("apiTrigger") is True:
         story.apiTrigger = True
-        apiDetails = ApiDetails()
+        api_details = ApiDetails()
         isJson = content.get("apiDetails").get("isJson")
-        apiDetails.isJson = isJson
+        api_details.isJson = isJson
         if isJson:
-            apiDetails.jsonData = content.get("apiDetails").get("jsonData")
+            api_details.jsonData = content.get("apiDetails").get("jsonData")
 
-        apiDetails.url = content.get("apiDetails").get("url")
-        apiDetails.requestType = content.get("apiDetails").get("requestType")
-        story.apiDetails = apiDetails
+        api_details.url = content.get("apiDetails").get("url")
+        api_details.requestType = content.get("apiDetails").get("requestType")
+        story.apiDetails = api_details
     else:
         story.apiTrigger = False
 
@@ -48,62 +48,64 @@ def createStory():
     try:
         story_id = story.save()
     except Exception as e:
-        return buildResponse.buildJson({"error": str(e)})
+        return build_response.build_json({"error": str(e)})
 
-    return buildResponse.buildJson({
-        "_id":str(story_id.id)
+    return build_response.build_json({
+        "_id": str(story_id.id)
     })
 
 
 @stories.route('/')
-def readStories():
+def read_stories():
     """
     find list of stories for the agent
     :return:
     """
     stories = Story.objects
-    return buildResponse.sentJson(stories.to_json())
+    return build_response.sent_json(stories.to_json())
 
 
-@stories.route('/<storyId>')
-def readStory(storyId):
+@stories.route('/<story_id>')
+def read_story(story_id):
     """
     Find details for the given storyId
-    :param storyId:
+    :param story_id:
     :return:
     """
     return Response(response=dumps(
         Story.objects.get(
             id=ObjectId(
-                storyId)).to_mongo().to_dict()),
+                story_id)).to_mongo().to_dict()),
         status=200,
         mimetype="application/json")
 
 
-@stories.route('/<storyId>', methods=['PUT'])
-def updateStory(storyId):
+@stories.route('/<story_id>', methods=['PUT'])
+def update_story(story_id):
     """
     Update a story from the provided json
-    :param storyId:
+    :param story_id:
     :param json:
     :return:
     """
-    jsondata = loads(request.get_data())
-    story = Story.objects.get(id=ObjectId(storyId))
-    story = update_document(story, jsondata)
+    json_data = loads(request.get_data())
+    story = Story.objects.get(id=ObjectId(story_id))
+    story = update_document(story, json_data)
     story.save()
     return 'success', 200
 
+
 from app.core.tasks import train_models
 
-@stories.route('/<storyId>', methods=['DELETE'])
-def deleteStory(storyId):
+
+@stories.route('/<story_id>', methods=['DELETE'])
+def delete_story(story_id):
     """
     Delete a story
-    :param storyId:
+    :param story_id:
     :return:
     """
-    Story.objects.get(id=ObjectId(storyId)).delete()
+    Story.objects.get(id=ObjectId(story_id)).delete()
 
     try:
         train_models()
@@ -112,13 +114,15 @@ def deleteStory(storyId):
 
     # remove NER model for the deleted stoy
     try:
-        os.remove("{}/{}.model".format(app.config["MODELS_DIR"], storyId))
+        os.remove("{}/{}.model".format(app.config["MODELS_DIR"], story_id))
     except OSError:
         pass
-    return buildResponse.sentOk()
+    return build_response.sent_ok()
+
 
 from flask import send_file
 import StringIO
+
 
 @stories.route('/export', methods=['GET'])
 def export_stories():
@@ -134,9 +138,9 @@ def export_stories():
                      as_attachment=True)
 
 
-
 from flask import abort
 from bson.json_util import loads
+
 
 @stories.route('/import', methods=['POST'])
 def import_stories():
@@ -146,7 +150,7 @@ def import_stories():
     """
     # check if the post request has the file part
     if 'file' not in request.files:
-        abort(400,'No file part')
+        abort(400, 'No file part')
     file = request.files['file']
 
     json_data = file.read()
@@ -154,6 +158,6 @@ def import_stories():
     stories = loads(json_data)
     for story in stories:
         new_story = Story()
-        new_story = update_document(new_story,story)
+        new_story = update_document(new_story, story)
         new_story.save()
-    return buildResponse.buildJson({"no_stories_created":len(stories)})
+    return build_response.build_json({"no_stories_created": len(stories)})

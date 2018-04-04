@@ -1,11 +1,11 @@
 from bson.objectid import ObjectId
 from mongoengine import connect as connect
-from mongoengine.fields import  ListField,SortedListField,\
-    EmbeddedDocumentListField,EmbeddedDocumentField,\
+from mongoengine.fields import ListField, SortedListField,\
+    EmbeddedDocumentListField, EmbeddedDocumentField,\
     GenericEmbeddedDocumentField, ReferenceField,\
-    GenericReferenceField,EmbeddedDocument,\
-    ObjectIdField,StringField,\
-    BooleanField,Document
+    GenericReferenceField, EmbeddedDocument,\
+    ObjectIdField, StringField,\
+    BooleanField, Document
 
 from app import app
 

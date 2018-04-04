@@ -25,22 +25,22 @@ export class IntentService {
 
   saveStory(story) {
     if (story._id) {
-      return this.updateStory(story);
+      return this.update_story(story);
     } else {
       delete story._id;
-      return this.createStory(story);
+      return this.create_story(story);
     }
   }
 
-  createStory(story) {
+  create_story(story) {
     return this.http.post(environment.ikyBackend + `stories/`, story).toPromise();
   }
 
-  updateStory(story) {
+  update_story(story) {
     return this.http.put(environment.ikyBackend + `stories/${story._id}`, story).toPromise();
   }
 
-  deleteStory(id) {
+  delete_story(id) {
     return this.http.delete(environment.ikyBackend + `stories/${id}`, {}).toPromise();
   }
 

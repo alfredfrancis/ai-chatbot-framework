@@ -41,7 +41,7 @@ export class IntentsComponent implements OnInit {
 
   delete(story) {
     if (confirm('Are u sure want to delete this story?')) {
-      this.storyService.deleteStory(story._id.$oid).then((s: any) => {
+      this.storyService.delete_story(story._id.$oid).then((s: any) => {
         this.ngOnInit();
       });
     }

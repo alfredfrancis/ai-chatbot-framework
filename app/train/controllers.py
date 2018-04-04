@@ -1,7 +1,7 @@
 from bson.objectid import ObjectId
 import ast
-from flask import Blueprint, request, render_template
-import app.commons.buildResponse as buildResponse
+from flask import Blueprint, request
+from app.commons import build_response
 from app.stories.models import Story, LabeledSentences
 
 train = Blueprint('train_blueprint', __name__,
@@ -10,46 +10,27 @@ train = Blueprint('train_blueprint', __name__,
 
 
 
-@train.route('/insertLabeledSentence', methods=['POST'])
-def insertLabeledSentence():
-    story = Story.objects.get(id=ObjectId(request.form['storyId']))
-    labeledSentence = LabeledSentences()
-    print(ast.literal_eval(request.form['labeledSentence']))
-    labeledSentence.data = ast.literal_eval(request.form['labeledSentence'])
-    story.labeledSentences.append(labeledSentence)
-    try:
-        story.save()
-    except Exception as e:
-        return {"error": e}
-    return buildResponse.sentOk()
 
 
-@train.route('/deleteLabeledSentences', methods=['POST'])
-def deleteLabeledSentences():
-    story = Story.objects.get(id=ObjectId(request.form['storyId']))
-    story.labeledSentences.filter(id=ObjectId(
-        request.form['sentenceId'])).delete()
-    story.save()
-    return buildResponse.sentOk()
-
-@train.route('/<storyId>/data', methods=['POST'])
-def save_training_data(storyId):
+@train.route('/<story_id>/data', methods=['POST'])
+def save_training_data(story_id):
     """
     Save training data for given story
-    :param storyId:
+    :param story_id:
     :return:
     """
-    story = Story.objects.get(id=ObjectId(storyId))
+    story = Story.objects.get(id=ObjectId(story_id))
     story.trainingData = request.json
     story.save()
-    return buildResponse.sentOk()
+    return build_response.sent_ok()
 
-@train.route('/<storyId>/data', methods=['GET'])
-def get_training_data(storyId):
+
+@train.route('/<story_id>/data', methods=['GET'])
+def get_training_data(story_id):
     """
     retrive training data for a given story
-    :param storyId:
+    :param story_id:
     :return:
     """
-    story = Story.objects.get(id=ObjectId(storyId))
-    return buildResponse.buildJson(story.trainingData)
+    story = Story.objects.get(id=ObjectId(story_id))
+    return build_response.build_json(story.trainingData)

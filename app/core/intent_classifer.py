@@ -5,18 +5,18 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
-from app.core.NLTKPreprocessor import NLTKPreprocessor
+from app.core.nltk_preprocessor import NLTKPreprocessor
 
-class SentenceClassifier():
 
-    def identity(self,arg):
+class IntentClassifier():
+
+    def identity(self, arg):
         """
         Simple identity function works as a passthrough.
         """
         return arg
 
-
-    def train(self,X, y, outpath=None, verbose=True):
+    def train(self, X, y, outpath=None, verbose=True):
         """
         Train intent classifier for given training data
         :param X:
@@ -57,8 +57,7 @@ class SentenceClassifier():
 
         return model
 
-
-    def predict(self,text, PATH):
+    def predict(self, text, PATH):
         """
         Predict class label for given model
         :param text:

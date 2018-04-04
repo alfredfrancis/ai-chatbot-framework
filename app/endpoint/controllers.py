@@ -5,21 +5,23 @@ import requests
 
 from jinja2 import Undefined, Template
 
-from flask import Blueprint, request, send_file, abort
+from flask import Blueprint, request, abort
 from app import app
 
 from app.commons.logger import logger
-from app.commons import buildResponse
-from app.core import sequenceLabeler
+from app.commons import build_response
+from app.core import SequenceLabeler
 from app.stories.models import Story
 
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
+
 class SilentUndefined(Undefined):
     """
     Class to suppress jinja2 errors and warnings
     """
+
     def _fail_with_undefined_error(self, *args, **kwargs):
         return 'undefined'
 
@@ -31,31 +33,31 @@ class SilentUndefined(Undefined):
         _fail_with_undefined_error
 
 
-def callApi(url, type, parameters, isJson=False):
+def call_api(url, type, parameters, is_json=False):
     """
     Call external API
     :param url:
     :param type:
     :param parameters:
-    :param isJson:
+    :param is_json:
     :return:
     """
-    print(url, type, parameters, isJson)
+    print(url, type, parameters, is_json)
 
     if "GET" in type:
-        if isJson:
+        if is_json:
             print(parameters)
             response = requests.get(url, json=json.loads(parameters))
 
         else:
             response = requests.get(url, params=parameters)
     elif "POST" in type:
-        if isJson:
+        if is_json:
             response = requests.post(url, json=json.loads(parameters))
         else:
             response = requests.post(url, data=parameters)
     elif "PUT" in type:
-        if isJson:
+        if is_json:
             response = requests.put(url, json=json.loads(parameters))
         else:
             response = requests.put(url, data=parameters)
@@ -67,7 +69,9 @@ def callApi(url, type, parameters, isJson=False):
     print(result)
     return result
 
-from app.core.sentenceClassifer import SentenceClassifier
+
+from app.core.intent_classifer import IntentClassifier
+
 
 def predict(sentence):
     """
@@ -79,8 +83,8 @@ def predict(sentence):
     PATH = "{}/{}".format(app.config["MODELS_DIR"],
                           app.config["INTENT_MODEL_NAME"])
 
-    sentenceClassifier = SentenceClassifier()
-    predicted = sentenceClassifier.predict(sentence, PATH)
+    sentence_classifier = IntentClassifier()
+    predicted = sentence_classifier.predict(sentence, PATH)
 
     if not predicted:
         return Story.objects(
@@ -97,136 +101,140 @@ def api():
     :param json:
     :return:
     """
-    requestJson = request.get_json(silent=True)
-    resultJson = requestJson
+    request_json = request.get_json(silent=True)
+    result_json = request_json
 
-    if requestJson:
+    if request_json:
 
         context = {}
-        context["context"] = requestJson["context"]
+        context["context"] = request_json["context"]
 
-        if app.config["DEFAULT_WELCOME_INTENT_NAME"] in requestJson.get(
+        if app.config["DEFAULT_WELCOME_INTENT_NAME"] in request_json.get(
                 "input"):
             story = Story.objects(
                 intentName=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
-            resultJson["complete"] = True
-            resultJson["intent"]["name"] = story.intentName
-            resultJson["intent"]["storyId"] = str(story.id)
-            resultJson["input"] = requestJson.get("input")
+            result_json["complete"] = True
+            result_json["intent"]["name"] = story.intentName
+            result_json["intent"]["storyId"] = str(story.id)
+            result_json["input"] = request_json.get("input")
             template = Template(
                 story.speechResponse,
                 undefined=SilentUndefined)
-            resultJson["speechResponse"] = template.render(**context)
+            result_json["speechResponse"] = template.render(**context)
 
-            logger.info(requestJson.get("input"), extra=resultJson)
-            return buildResponse.buildJson(resultJson)
+            logger.info(request_json.get("input"), extra=result_json)
+            return build_response.build_json(result_json)
 
-        storyId = predict(requestJson.get("input"))
-        story = Story.objects.get(id=ObjectId(storyId))
+        story_id = predict(request_json.get("input"))
+        story = Story.objects.get(id=ObjectId(story_id))
 
         if story.parameters:
             parameters = story.parameters
         else:
             parameters = []
 
-        if ((requestJson.get("complete") is None) or (
-                requestJson.get("complete") is True)):
-            resultJson["intent"] = {
+        if ((request_json.get("complete") is None) or (
+                request_json.get("complete") is True)):
+            result_json["intent"] = {
                 "name": story.intentName,
                 "storyId": str(story.id)
             }
 
             if parameters:
-                extractedParameters = sequenceLabeler.predict(
-                    storyId, requestJson.get("input"))
-                missingParameters = []
-                resultJson["missingParameters"] = []
-                resultJson["extractedParameters"] = {}
-                resultJson["parameters"] = []
+                extracted_parameters = SequenceLabeler.predict(
+                    story_id, request_json.get("input"))
+                missing_parameters = []
+                result_json["missingParameters"] = []
+                result_json["extractedParameters"] = {}
+                result_json["parameters"] = []
                 for parameter in parameters:
-                    resultJson["parameters"].append({
+                    result_json["parameters"].append({
                         "name": parameter.name,
                         "type": parameter.type,
                         "required": parameter.required
                     })
 
                     if parameter.required:
-                        if parameter.name not in extractedParameters.keys():
-                            resultJson["missingParameters"].append(
+                        if parameter.name not in extracted_parameters.keys():
+                            result_json["missingParameters"].append(
                                 parameter.name)
-                            missingParameters.append(parameter)
+                            missing_parameters.append(parameter)
 
-                resultJson["extractedParameters"] = extractedParameters
+                result_json["extractedParameters"] = extracted_parameters
 
-                if missingParameters:
-                    resultJson["complete"] = False
-                    currentNode = missingParameters[0]
-                    resultJson["currentNode"] = currentNode["name"]
-                    resultJson["speechResponse"] = currentNode["prompt"]
+                if missing_parameters:
+                    result_json["complete"] = False
+                    current_node = missing_parameters[0]
+                    result_json["currentNode"] = current_node["name"]
+                    result_json["speechResponse"] = current_node["prompt"]
                 else:
-                    resultJson["complete"] = True
-                    context["parameters"] = extractedParameters
+                    result_json["complete"] = True
+                    context["parameters"] = extracted_parameters
             else:
-                resultJson["complete"] = True
+                result_json["complete"] = True
 
-        elif requestJson.get("complete") is False:
+        elif request_json.get("complete") is False:
             if "cancel" not in story.intentName:
-                storyId = requestJson["intent"]["storyId"]
-                story = Story.objects.get(id=ObjectId(storyId))
-                resultJson["extractedParameters"][requestJson.get(
-                    "currentNode")] = requestJson.get("input")
+                story_id = request_json["intent"]["storyId"]
+                story = Story.objects.get(id=ObjectId(story_id))
+                result_json["extractedParameters"][request_json.get(
+                    "currentNode")] = request_json.get("input")
 
-                resultJson["missingParameters"].remove(
-                    requestJson.get("currentNode"))
+                result_json["missingParameters"].remove(
+                    request_json.get("currentNode"))
 
-                if len(resultJson["missingParameters"]) == 0:
-                    resultJson["complete"] = True
+                if len(result_json["missingParameters"]) == 0:
+                    result_json["complete"] = True
                     context = {}
-                    context["parameters"] = resultJson["extractedParameters"]
-                    context["context"] = requestJson["context"]
+                    context["parameters"] = result_json["extractedParameters"]
+                    context["context"] = request_json["context"]
                 else:
-                    missingParameter = resultJson["missingParameters"][0]
-                    resultJson["complete"] = False
-                    currentNode = [
-                        node for node in story.parameters if missingParameter in node.name][0]
-                    resultJson["currentNode"] = currentNode.name
-                    resultJson["speechResponse"] = currentNode.prompt
+                    missing_parameter = result_json["missingParameters"][0]
+                    result_json["complete"] = False
+                    current_node = [
+                        node for node in story.parameters if missing_parameter in node.name][0]
+                    result_json["currentNode"] = current_node.name
+                    result_json["speechResponse"] = current_node.prompt
             else:
-                resultJson["currentNode"] = None
-                resultJson["missingParameters"] = []
-                resultJson["parameters"] = {}
-                resultJson["intent"] = {}
-                resultJson["complete"] = True
+                result_json["currentNode"] = None
+                result_json["missingParameters"] = []
+                result_json["parameters"] = {}
+                result_json["intent"] = {}
+                result_json["complete"] = True
 
-        if resultJson["complete"]: 
+        if result_json["complete"]:
             if story.apiTrigger:
                 isJson = False
-                parameters = resultJson["extractedParameters"]
+                parameters = result_json["extractedParameters"]
 
-                urlTemplate = Template(story.apiDetails.url, undefined=SilentUndefined)
-                renderedUrl = urlTemplate.render(**context)
+                url_template = Template(
+                    story.apiDetails.url, undefined=SilentUndefined)
+                rendered_url = url_template.render(**context)
                 if story.apiDetails.isJson:
                     isJson = True
-                    requestTemplate = Template(story.apiDetails.jsonData, undefined=SilentUndefined)
-                    parameters = requestTemplate.render(**context)
+                    request_template = Template(
+                        story.apiDetails.jsonData, undefined=SilentUndefined)
+                    parameters = request_template.render(**context)
 
                 try:
-                    result = callApi(renderedUrl,
-                                     story.apiDetails.requestType,
-                                     parameters,isJson)
+                    result = call_api(rendered_url,
+                                      story.apiDetails.requestType,
+                                      parameters, isJson)
                 except Exception as e:
                     print(e)
-                    resultJson["speechResponse"] = "Service is not available. "
+                    result_json["speechResponse"] = "Service is not available. "
                 else:
                     print(result)
                     context["result"] = result
-                    template = Template(story.speechResponse, undefined=SilentUndefined)
-                    resultJson["speechResponse"] = template.render(**context)
+                    template = Template(
+                        story.speechResponse, undefined=SilentUndefined)
+                    result_json["speechResponse"] = template.render(**context)
             else:
                 context["result"] = {}
-                template = Template(story.speechResponse, undefined=SilentUndefined)
-                resultJson["speechResponse"] = template.render(**context)
-        logger.info(requestJson.get("input"), extra=resultJson)
-        return buildResponse.buildJson(resultJson)
+                template = Template(story.speechResponse,
+                                    undefined=SilentUndefined)
+                result_json["speechResponse"] = template.render(**context)
+        logger.info(request_json.get("input"), extra=result_json)
+        return build_response.build_json(result_json)
     else:
         return abort(400)
