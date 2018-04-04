@@ -1,7 +1,7 @@
 import os
-from bson.json_util import dumps, loads
+from bson.json_util import dumps
 from bson.objectid import ObjectId
-from flask import Blueprint, request, render_template, Response
+from flask import Blueprint, request, Response
 from flask import current_app as app
 import app.commons.buildResponse as buildResponse
 from app.stories.models import Story, Parameter, ApiDetails, update_document
@@ -9,23 +9,7 @@ from app.stories.models import Story, Parameter, ApiDetails, update_document
 
 
 stories = Blueprint('stories_blueprint', __name__,
-                    url_prefix='/stories',
-                    template_folder='templates')
-
-# Create Stories
-
-
-@stories.route('/home')
-def home():
-    return render_template('home.html')
-
-
-@stories.route('/edit/<storyId>', methods=['GET'])
-def edit(storyId):
-    return render_template('edit.html',
-                           storyId=storyId,
-                           )
-
+                    url_prefix='/stories')
 
 @stories.route('/', methods=['POST'])
 def createStory():

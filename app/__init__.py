@@ -29,10 +29,8 @@ from app.core.controllers import core as core
 from app.stories.controllers import stories as stories
 from app.train.controllers import train as train
 from app.endpoint.controllers import endpoint as endpoint
-from app.chat.controllers import chat as chat
 
 app.register_blueprint(core)
 app.register_blueprint(stories)
 app.register_blueprint(train)
 app.register_blueprint(endpoint)
-app.register_blueprint(chat)

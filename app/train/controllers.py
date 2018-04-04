@@ -5,23 +5,9 @@ import app.commons.buildResponse as buildResponse
 from app.stories.models import Story, LabeledSentences
 
 train = Blueprint('train_blueprint', __name__,
-                  url_prefix='/train',
-                  template_folder='templates',
-                  static_folder='static'
+                  url_prefix='/train'
                   )
 
-
-@train.route('/<storyId>', methods=['GET'])
-def home(storyId):
-    story = Story.objects.get(id=ObjectId(storyId))
-    labeledSentences = story.labeledSentences
-    return render_template(
-        'train.html',
-        storyId=storyId,
-        labeledSentences=labeledSentences,
-        story=story.to_mongo().to_dict(),
-        parameters=[
-            parameter.name for parameter in story.parameters])
 
 
 @train.route('/insertLabeledSentence', methods=['POST'])
