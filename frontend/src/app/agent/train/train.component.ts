@@ -99,17 +99,6 @@ export class TrainComponent implements OnInit {
     this.newExampleText = "";
   }
 
-  startLabeling() {
-    const form = this.trainForm.value;
-    this.trainingService.startLabeling(form.input)
-      .then(c => {
-        this.labelled = c;
-        // this.message = 'Build sucessfull';
-      })
-      .catch(c => {
-        this.message = 'Error on labelling';
-      })
-  }
 
   deleteSetence(i) {
     const array = this.story.labeledSentences;
