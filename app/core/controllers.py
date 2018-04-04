@@ -35,8 +35,13 @@ def posTagAndLabel():
     result = nlp.posTagAndLabel(cleanSentences)
     return buildResponse.buildJson(result)
 
-@core.route('/prepare/<storyId>', methods=['GET'])
+
 def prepare_training_data(storyId):
+    """
+    Reference function
+    :param storyId:
+    :return:
+    """
     story = Story.objects.get(id=ObjectId(storyId))
     labeled_examples = []
 
