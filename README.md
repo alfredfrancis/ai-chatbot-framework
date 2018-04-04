@@ -19,10 +19,10 @@ docker-compose build
 docker-compose up -d
 ```
 
-### Run Backend in Docker
+### Using Docker (backend only)
 ```sh
 docker build -t iky:3.0.0 .
-docker run --name=iky_backend -e="APPLICATION_ENV=Production" -v ./:/usr/src/app -p 8080:8080 iky:3.0.0
+docker run --name=iky_backend -e="APPLICATION_ENV=Production" -p 8080:8080 iky:3.0.0
 ```
 
 ### without docker
