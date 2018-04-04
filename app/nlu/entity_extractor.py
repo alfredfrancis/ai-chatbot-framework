@@ -180,7 +180,6 @@ class EntityExtractor():
                 for i, item in enumerate(tagged_example):
                     char_count += len(item[0])
                     if enitity.get("begin") == 0:
-                        word_count = 0
                         break
                     elif char_count < enitity.get("begin"):
                         word_count += 1
