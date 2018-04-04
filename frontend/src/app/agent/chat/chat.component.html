@@ -1,7 +1,6 @@
 <!-- https://tburleson-layouts-demos.firebaseapp.com/#/docs -->
 <div fxLayout="row" fxFill>
   <mat-card fxFlex="60" >
-      {{title}}
       <div *ngFor="let chat of chats">
   
         <div fxLayout="row" fxLayoutAlign="end center" *ngIf="chat.owner=='user'">
