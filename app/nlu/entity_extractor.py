@@ -162,7 +162,7 @@ class EntityExtractor():
     @staticmethod
     def json2crf(training_data):
         """
-        Takes json annotated data and convert to CRF representation
+        Takes json annotated data and converts to CRFSuite training data representation
         :param training_data:
         :return labeled_examples:
         """
@@ -171,32 +171,33 @@ class EntityExtractor():
         labeled_examples = []
 
         for example in training_data:
+            # POS tag and initialize bio label as 'O' for all the tokens
             tagged_example = pos_tag_and_label(example.get("text"))
 
             # find no of words before selection
             for enitity in example.get("entities"):
-                word_count = 0
-                char_count = 0
-                for i, item in enumerate(tagged_example):
-                    char_count += len(item[0])
-                    if enitity.get("begin") == 0:
-                        break
-                    elif char_count < enitity.get("begin"):
-                        word_count += 1
-                    else:
-                        break
 
-                selection = example.get(
-                    "text")[enitity.get("begin"):enitity.get("end")]
-                tokens = sentence_tokenize(selection).split(" ")
-                selection_word_count = len(tokens)
+                try:
+                    # find no of words before the entity
+                    inverse_selection = example.get("text")[0:enitity.get("begin")-1].split(" ")
+                    inverse_word_count = len(inverse_selection)
 
-                # build BIO tagging
-                for i in range(1, selection_word_count+1):
-                    if i == 1:
-                        bio = "B-" + enitity.get("name")
-                    else:
-                        bio = "I-" + enitity.get("name")
-                    tagged_example[(word_count + i) - 1][2] = bio
+                    # get the entity value from seletion
+                    selection = example.get(
+                        "text")[enitity.get("begin"):enitity.get("end")]
+                    tokens = sentence_tokenize(selection).split(" ")
+                    selection_word_count = len(tokens)
+
+                    # build BIO tagging
+                    for i in range(1, selection_word_count+1):
+                        if i == 1:
+                            bio = "B-" + enitity.get("name")
+                        else:
+                            bio = "I-" + enitity.get("name")
+                        tagged_example[(inverse_word_count + i) - 1][2] = bio
+                except:
+                    # catches and skips invalid offsets and annotation
+                    continue
+                    
             labeled_examples.append(tagged_example)
         return labeled_examples

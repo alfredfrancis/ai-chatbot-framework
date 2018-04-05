@@ -1,20 +1,18 @@
 version: '2'
 services:
-  backend:
+  iky_backend:
     build: .
     environment:
       APPLICATION_ENV: Production
-    links:
-      - mongodb
     depends_on:
       - mongodb
 
-  frontend:
+  iky_gateway:
     build: frontend/
     ports:
         - "8080:80"
     depends_on:
-      - backend
+      - iky_backend
 
   mongodb:
     image: mongo

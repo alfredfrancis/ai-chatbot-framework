@@ -13,32 +13,38 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ### Installation
 After any of next methods, you will need to [import default intents](#restore), and navigate to http://localhost:8080.
 
-### Docker Compose
+### Using cocker-compose (Recommended) 
 ```sh
 docker-compose build
 docker-compose up -d
 ```
 
-### Using Docker (backend only)
+### Using Docker
 ```sh
-docker build -t iky:3.0.0 .
-docker run --name=iky_backend -e="APPLICATION_ENV=Production" -p 8080:8080 iky:3.0.0
+
+# build docker images
+docker build -t iky_backend:3.0.0 .
+docker build -t iky_gateway:3.0.0 frontend/.
+
+# start iky backend
+docker run --name=iky_backend -e="APPLICATION_ENV=Production" iky_backend:3.0.0
+
+# start iky gateway with frontend
+docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:3.0.0
+
 ```
 
 ### without docker
 
-* Then use pip to install all required python packages
+* Setup Virtualenv and install python requirements
 ```sh
-pip install -r requirements.txt
-```
+make setup
 
-* Development
-```sh
-$ make run_dev
+make run_dev
 ```
 * Production
 ```sh
-$ make run_prod
+make run_prod
 ```
 
 ### Heroku
@@ -52,7 +58,8 @@ $ make run_prod
 You can import some default intents using follwing steps
 
 - goto http://localhost:8080/agent/default/settings
-- choose file examples/iky_stories.json
+- click 'choose file'
+- choose 'examples/iky_stories.json file'
 - click import
 
 
