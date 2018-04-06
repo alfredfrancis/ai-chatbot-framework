@@ -144,15 +144,6 @@ export class TrainComponent implements OnInit {
       this.selectionInfo = result;
 
     console.log(this.selectionInfo);  
-
-    // let activeEl = document.getElementById("textarea_highlight");
-    //   let selected = this.getSelectedText();
-    //   if (selected.toString().length > 1) {
-    //     let range = selected.getRangeAt(0).cloneRange();
-    //     range.collapse(true);
-    //     range.setStart(activeEl, 0);
-    //     console.log(range);
-    //   }
   }
 
   updateTrainingData(){
@@ -166,7 +157,7 @@ export class TrainComponent implements OnInit {
 
     // Check for existence of window.getSelection() and that it has a
     // modify() method. IE 9 has both selection APIs but no modify() method.
-    if (window.getSelection && (sel = window.getSelection()).modify) {
+    if (window.getSelection && (<any>(sel = window.getSelection())).modify) {
         sel = window.getSelection();
         if (!sel.isCollapsed) {
 
@@ -194,7 +185,7 @@ export class TrainComponent implements OnInit {
             sel.modify("extend", direction[1], "character");
             sel.modify("extend", direction[0], "word");
         }
-    } else if ( (sel = document.selection) && sel.type != "Control") {
+    } else if ( (sel = (<any>document).selection) && sel.type != "Control") {
         var textRange = sel.createRange();
         if (textRange.text) {
             textRange.expand("word");
