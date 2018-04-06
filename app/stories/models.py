@@ -1,17 +1,10 @@
 from bson.objectid import ObjectId
-from mongoengine import connect as connect
 from mongoengine.fields import ListField, SortedListField,\
     EmbeddedDocumentListField, EmbeddedDocumentField,\
     GenericEmbeddedDocumentField, ReferenceField,\
     GenericReferenceField, EmbeddedDocument,\
     ObjectIdField, StringField,\
     BooleanField, Document
-
-from app import app
-
-with app.app_context():
-    connect(app.config["DB_NAME"],
-            host=app.config["DB_HOST"])
 
 
 def update_document(document, data_dict):

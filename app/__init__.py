@@ -20,6 +20,9 @@ app.config.update(
 )
 
 
+from flask_mongoengine import MongoEngine
+db = MongoEngine(app)
+
 @app.errorhandler(404)
 def not_found(error):
     return "Not found", 404
