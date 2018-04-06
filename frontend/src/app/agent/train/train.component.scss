@@ -6,11 +6,12 @@
     background-color: gray;
     color:#fff;
 }
+.add-entity{
+    margin-top: 10px;
+}
 .entity-table{
     padding:5px;
-    .add-entity{
-        margin-top: 10px;
-    }
+
 }
 .full-width {
     width: 100%;
@@ -20,7 +21,19 @@ mat-card{
     margin: 5px;
 
 }
+.mat-accordion {
+    margin: 5px;
+}
 
 .header{
     padding:5px;
+}
+#textarea_highlight{
+    border-radius: 5px;
+    padding:10px;
+    background-color:#efefef;
+}
+.table-header{
+    padding: 10px;
+    background: #e9eaeb;
 }

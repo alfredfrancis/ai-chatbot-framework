@@ -22,7 +22,7 @@ export class TrainComponent implements OnInit {
 
   intentId:string = null ;
 
-  trainingData = [];
+  trainingData: Array<any>;
   newExampleText: String;
   newEntityName: String;
 
@@ -44,6 +44,8 @@ export class TrainComponent implements OnInit {
     private _activatedRoute: ActivatedRoute,
      private _router: Router,
      private trainingService: TrainingService) {
+
+      this.trainingData = []
 
       this.newEntityName = null;
 
@@ -99,10 +101,13 @@ export class TrainComponent implements OnInit {
     this.newExampleText = "";
   }
 
+  deleteExample(example_index){
+    this.trainingData.splice(example_index,1)
+  }
 
-  deleteSetence(i) {
-    const array = this.story.labeledSentences;
-    array.splice(i, 1);
+  deleteEntity(example_index,entity_index){
+    this.trainingData[example_index].entities.splice(example_index,1)
+
   }
   
   getSelectionInfo():any {

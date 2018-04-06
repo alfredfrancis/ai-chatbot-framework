@@ -14,6 +14,7 @@ import {MatIconModule,MatCardModule,MatInputModule,
 MatOptionModule,MatSelectModule,MatCheckboxModule,MatButtonModule} from '@angular/material';
 import {MatGridListModule} from '@angular/material/grid-list';
 import {MatDividerModule} from '@angular/material/divider';
+import {MatExpansionModule} from '@angular/material/expansion';
 /* Material UI imports ends here */
 
 
@@ -27,6 +28,8 @@ import { SettingsComponent } from './settings/settings.component';
 import { ChatComponent } from './chat/chat.component'
 import { IntentComponent } from './intent/intent.component';
 import { TrainComponent } from './train/train.component';
+
+import { AutofocusDirective } from '../directives/autofocus.directive';
 
 @NgModule({
   imports: [
@@ -46,10 +49,11 @@ import { TrainComponent } from './train/train.component';
     MatCheckboxModule,
     MatButtonModule,
     MatGridListModule,
-    MatDividerModule
+    MatDividerModule,
+    MatExpansionModule
 
   ],
-  declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent],
+  declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent,AutofocusDirective],
   providers:[IntentService,CoreService,IntentResolverService,TrainingService,ChatService]
 })
 export class AgentModule { }

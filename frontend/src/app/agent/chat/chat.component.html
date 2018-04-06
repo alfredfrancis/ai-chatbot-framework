@@ -1,6 +1,7 @@
 <!-- https://tburleson-layouts-demos.firebaseapp.com/#/docs -->
 <div fxLayout="row" fxFill>
-  <mat-card fxFlex="60" >
+  <mat-card fxFlex="90" fxLayout="column" >
+    <div fxFlex="90" class="chat-messages">
       <div *ngFor="let chat of chats">
   
         <div fxLayout="row" fxLayoutAlign="end center" *ngIf="chat.owner=='user'">
@@ -24,17 +25,22 @@
     
         <!-- <mat-divider></mat-divider> -->
       </div>
+    </div>
     
-      <form [formGroup]="chatForm" *ngIf="chatForm" (submit)="send()" fxLayout="row">
-        <mat-input-container fxFlex="80" >
+      <form [formGroup]="chatForm" *ngIf="chatForm" (submit)="send()" fxLayout="row" fxFlex="10" >
+        <mat-input-container fxFlex="90" >
           <input type="text" matInput formControlName="input" placeholder="Type your message here" autocomplete=off>
         </mat-input-container>
-        <button mat-button fxFlex="20" >send</button>
+
+        <button mat-icon-button fxFlex="10" >
+            <mat-icon aria-label="Send">send</mat-icon>
+          </button>
+
       </form>
     
     </mat-card>
     
-    <mat-card fxFlex="40">
+    <mat-card fxFlex="40" class="json-response">
       <h3>POST /api/v1</h3>
       <br>
       <pre>

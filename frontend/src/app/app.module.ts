@@ -14,6 +14,7 @@ import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 
 /* Project Components imports begins here */
 import { DashboardModule } from './dashboard/dashboard.module';
+
 /* Project Components imports ends here */
 
 
