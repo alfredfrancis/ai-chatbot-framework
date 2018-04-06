@@ -7,8 +7,6 @@ class Config(object):
     DB_HOST = "mongodb://127.0.0.1:27017/"
     DB_USERNAME = ""
     DB_PASSWORD = ""
-    # Web Server details
-    WEB_SERVER_PORT = 8001
 
     # Intent Classifier model detials
     MODELS_DIR = "model_files"

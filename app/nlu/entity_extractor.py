@@ -198,6 +198,6 @@ class EntityExtractor():
                 except:
                     # catches and skips invalid offsets and annotation
                     continue
-                    
+
             labeled_examples.append(tagged_example)
         return labeled_examples
