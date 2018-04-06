@@ -80,7 +80,7 @@ export class IntentComponent implements OnInit {
     const fields = {
       name: [''],
       type: [''],
-      required: [''],
+      required: [false],
       prompt: ['']
     };
     const g = this.fb.group(fields);
@@ -98,7 +98,6 @@ export class IntentComponent implements OnInit {
 
   initApiDetails(parameter = null) {
     const fields = {
-
       isJson: [''],
       url: [''],
       requestType: [''],

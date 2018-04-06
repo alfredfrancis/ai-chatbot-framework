@@ -11,31 +11,33 @@
   </mat-form-field>
 
   <h2 >Parameters
-    <button type="button" (click)="addParameter()" mat-button>add</button>
+    <button mat-mini-fab (click)="addParameter()" color="primary">
+      <mat-icon aria-label="New Parameter" >add</mat-icon>
+    </button>
   </h2>
   <section class="parameters" formArrayName="parameters">
-    <div *ngFor="let paremeter of storyForm.controls.parameters.controls; let i=index;">
+    <div *ngFor="let paremeter of storyForm.controls.parameters.controls; let i=index;" class="parameter">
 
-      <div [formGroup]="paremeter">
-        <mat-form-field>
-          <textarea matInput formControlName="name" placeholder="Parameter name"></textarea>
+      <div [formGroup]="paremeter"  fxLayout="row" fxLayoutGap="10px" >
+        <mat-form-field fxFlex="30">
+          <input matInput formControlName="name" placeholder="Parameter name">
         </mat-form-field>
 
-        <mat-form-field class="col-md-4">
+        <mat-form-field class="col-md-4" fxFlex="10">
           <mat-select formControlName="type" placeholder="Parameter type">
             <mat-option *ngFor="let story of storyTypesArray" [value]="story">
               {{ storyTypes[story] }}
             </mat-option>
           </mat-select>
         </mat-form-field>
-
-        <mat-checkbox formControlName="required">Required</mat-checkbox>
-
-        <mat-form-field  *ngIf="paremeter.controls.required.value">
+        <mat-checkbox formControlName="required" fxFlex="10">Required</mat-checkbox>
+        <mat-form-field  *ngIf="paremeter.controls.required.value" fxFlex="45">
           <textarea matInput formControlName="prompt" placeholder="Message to prompt when require"></textarea>
         </mat-form-field>
 
-        <button type="button" class="col-md-1" (click)="deleteParameter(i)" mat-button>delete</button>
+        <button mat-icon-button (click)="deleteParameter(i)" >
+            <mat-icon aria-label="Delete this intent">delete</mat-icon>
+          </button>
       </div>
     </div>
 
@@ -43,36 +45,47 @@
   </section>
 
 
-  <h2 >
+  <h3 >
     <mat-checkbox formControlName="apiTrigger">API trigger</mat-checkbox>
-  </h2>
-  <section [formGroup]="storyForm.controls.apiDetails" *ngIf="apiTrigger()">
+  </h3>
+  <section [formGroup]="storyForm.controls.apiDetails" *ngIf="apiTrigger()" fxLayout="column" fxLayoutGap="10px" >
 
-    <mat-checkbox  formControlName="isJson">JSON</mat-checkbox>
 
-    <mat-form-field >
-      <textarea matInput formControlName="url" placeholder="API url"></textarea>
+
+    <div fxLayout="row" fxLayoutGap="20px" >
+      <mat-form-field fxFlex="90">
+        <input matInput formControlName="url" placeholder="API url">
+      </mat-form-field>
+  
+      <mat-form-field fxFlex="10">
+        <mat-select formControlName="requestType" placeholder="API method">
+          <mat-option value="GET">GET</mat-option>
+          <mat-option value="POST">POST</mat-option>
+          <mat-option value="PUT">PUT</mat-option>
+          <mat-option value="DELETE">DELETE</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <mat-checkbox  formControlName="isJson">JSON payload</mat-checkbox>
+    <div  *ngIf="storyForm.value.apiDetails.isJson">
+        Extracted parameters can be used to build your json. Example, <pre> {{ '\{ 
+    "name": \{\{ parameters\[\"name\"\] \}\} 
+ \}' }}</pre>
+      </div>
+    <mat-form-field class="full-width" *ngIf="storyForm.value.apiDetails.isJson">
+      <textarea matInput formControlName="jsonData" placeholder="JsonData" rows="8" placeholder="JSON payload"></textarea>
     </mat-form-field>
 
-    <mat-form-field >
-      <mat-select formControlName="requestType" placeholder="API method">
-        <mat-option value="GET">GET</mat-option>
-        <mat-option value="POST">POST</mat-option>
-        <mat-option value="PUT">PUT</mat-option>
-        <mat-option value="DELETE">DELETE</mat-option>
-      </mat-select>
-    </mat-form-field>
-
-    <mat-form-field class="full-width">
-      <textarea matInput formControlName="jsonData" placeholder="JsonData"></textarea>
-    </mat-form-field>
   </section>
+ <br>
   <mat-form-field class="full-width">
-    <textarea matInput formControlName="speechResponse" placeholder="Speech Response"></textarea>
+    <textarea matInput formControlName="speechResponse" placeholder="Speech Response" rows="5" ></textarea>
   </mat-form-field>
 
   <p>
-    Extracted parameters and api call response can be accessed from speech respone using "parameters" and "result" objects respectively
+    Extracted parameters and api call response can be accessed from speech respone using "parameters" and "result" objects respectively. 
+    <a href="http://jinja.pocoo.org/docs/2.10/templates/" target="_blank">Jinja</a> Templating enabled.
   </p>
 
   

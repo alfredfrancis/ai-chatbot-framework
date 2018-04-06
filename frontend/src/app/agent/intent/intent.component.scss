@@ -3,5 +3,13 @@ mat-card{
     .full-width {
         width: 100%;
       }
+      .parameter{
+          padding:15px;
+          margin-bottom: 10px;
+      }
+      pre{
+          background-color:lightgray;
+          padding: 5px; 
+      }
 }
 
