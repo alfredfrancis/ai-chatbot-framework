@@ -11,39 +11,40 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
 
 ### Installation
-After any of next methods, you will need to [import db](#restore), and navigate to http://localhost:8001.
+After any of next methods, you will need to [import default intents](#restore), and navigate to http://localhost:8080.
 
-### Docker Compose
+### Using cocker-compose (Recommended) 
 ```sh
 docker-compose build
-docker-compose up
+docker-compose up -d
 ```
 
-### Docker
+### Using Docker
 ```sh
-docker build -t "ai-chat-bot" .
-docker run --name=chabot-node-1  -e="APPLICATION_ENV=Production" -v ./:/usr/src/app -p 8001:8080 -it ai-chat-bot gunicorn --bind 0.0.0.0:8080 run:app
-docker exec -it chabot-node-1 python /usr/src/app/setup.py
+
+# build docker images
+docker build -t iky_backend:3.0.0 .
+docker build -t iky_gateway:3.0.0 frontend/.
+
+# start iky backend
+docker run --name=iky_backend -e="APPLICATION_ENV=Production" iky_backend:3.0.0
+
+# start iky gateway with frontend
+docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:3.0.0
+
 ```
 
 ### without docker
 
-* Then use pip to install all required python packages
+* Setup Virtualenv and install python requirements
 ```sh
-pip install -r requirements.txt
-```
-* Run setup script for setting up some default intents
-```sh
-$ python setup.py
-```
+make setup
 
-* Development
-```sh
-$ python run.py
+make run_dev
 ```
 * Production
 ```sh
-$ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8001 run:app
+make run_prod
 ```
 
 ### Heroku
@@ -51,38 +52,16 @@ $ APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8001 run:app
 
 * add your dev/production configurations in config.py
 
-```python
-class Production(Config):
-    # MongoDB Database Details
-    DB_HOST = "mongodb://127.0.0.1:27017/"
-    DB_USERNAME = ""
-    DB_PASSWORD = ""
-
-    # Web Server details
-    WEB_SERVER_PORT = 80
-
-class Development(Config):
-    DEBUG = True
-```
-
 ### DB
-#### Backup
-```
-docker-compose exec mongodb bash
-cd data/
-mongodump
-exit
-docker cp aichatbotframework_mongodb_1:/data/dump .
-```
 
 #### Restore
-```
-docker cp dump aichatbotframework_mongodb_1:/data/
-docker-compose exec mongodb bash
-cd data
-mongorestore --drop --db=iky-ai --dir=dump/iky-ai/
-exit
-```
+You can import some default intents using follwing steps
+
+- goto http://localhost:8080/agent/default/settings
+- click 'choose file'
+- choose 'examples/iky_stories.json file'
+- click import
+
 
 ### Tutorial
 
@@ -98,7 +77,6 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 ### Todos
  *  Write Unit Tests
  *  PEP-8 compliance
- *  Migrate UI to Angular 5
  *  Word2Vec Integration
  *  NLTK to Spacy migration
  *  PyCRFSuite to sklearn-crfsuite migration

@@ -1,18 +1,18 @@
 version: '2'
 services:
-  web:
+  iky_backend:
     build: .
-    command: bash -c "python setup.py && gunicorn run:app --bind 0.0.0.0:8001 --access-logfile=logs/gunicorn-access.log --error-logfile logs/gunicorn-error.log"
-    ports:
-        - "8001:8001"
-    volumes:
-      - ./:/usr/src/app/
     environment:
       APPLICATION_ENV: Production
-    links:
-      - mongodb
     depends_on:
       - mongodb
+
+  iky_gateway:
+    build: frontend/
+    ports:
+        - "8080:80"
+    depends_on:
+      - iky_backend
 
   mongodb:
     image: mongo

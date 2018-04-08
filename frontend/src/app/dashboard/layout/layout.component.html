@@ -1,0 +1,8 @@
+<mat-sidenav-container fullscreen>
+  <mat-sidenav #start [opened]="true" mode="side">
+    <app-sidebar></app-sidebar>
+  </mat-sidenav>
+  <mat-sidenav-content>
+    <router-outlet></router-outlet>
+  </mat-sidenav-content>
+</mat-sidenav-container>
