@@ -17,8 +17,6 @@ services:
   mongodb:
     image: mongo
     hostname: mongodb
-    ports:
-      - "27017:27017"
     volumes:
       - mongodbdata:/data
 
