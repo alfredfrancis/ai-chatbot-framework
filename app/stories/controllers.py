@@ -151,13 +151,21 @@ def import_stories():
     # check if the post request has the file part
     if 'file' not in request.files:
         abort(400, 'No file part')
-    file = request.files['file']
+    json_file = request.files['file']
+    stories = import_json(json_file)
 
-    json_data = file.read()
+    return build_response.build_json({"no_stories_created": len(stories)})
+
+
+def import_json(json_file):
+    json_data = json_file.read()
     # stories = Story.objects.from_json(json_data)
     stories = loads(json_data)
+
+    creates_stories = []
     for story in stories:
         new_story = Story()
         new_story = update_document(new_story, story)
         new_story.save()
-    return build_response.build_json({"no_stories_created": len(stories)})
+        creates_stories.append(new_story)
+    return creates_stories

@@ -3,6 +3,7 @@ setup: venv/bin/activate
 venv/bin/activate: requirements.txt
 	test -d venv || virtualenv venv
 	. venv/bin/activate; pip install -Ur requirements.txt
+	. venv/bin/activate; python manage.py install_nltk_dependencies
 
 restore_db: 
 	mongorestore --drop --db=iky-ai --dir=dump/iky-ai/
