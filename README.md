@@ -36,6 +36,8 @@ docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gate
 
 ### without docker
 
+#### backend
+
 * Setup Virtualenv and install python requirements
 ```sh
 make setup
@@ -46,6 +48,20 @@ make run_dev
 ```sh
 make run_prod
 ```
+
+#### frontend
+* Development
+```sh
+cd frontend
+npm install
+ng serve
+```
+* Production
+```sh
+cd frontend
+ng build --prod
+```
+serve files in dist/ folder using nginx or any webserver
 
 ### Heroku
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
