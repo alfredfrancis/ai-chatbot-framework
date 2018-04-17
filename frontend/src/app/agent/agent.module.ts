@@ -30,6 +30,8 @@ import { IntentComponent } from './intent/intent.component';
 import { TrainComponent } from './train/train.component';
 
 import { AutofocusDirective } from '../directives/autofocus.directive';
+import { EntitiesComponent } from './entities/entities.component';
+import { EntityComponent } from './entity/entity.component';
 
 @NgModule({
   imports: [
@@ -53,7 +55,7 @@ import { AutofocusDirective } from '../directives/autofocus.directive';
     MatExpansionModule
 
   ],
-  declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent,AutofocusDirective],
+  declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent,AutofocusDirective, EntitiesComponent, EntityComponent],
   providers:[IntentService,CoreService,IntentResolverService,TrainingService,ChatService]
 })
 export class AgentModule { }
