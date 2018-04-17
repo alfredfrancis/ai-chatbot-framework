@@ -4,7 +4,8 @@ from bson.objectid import ObjectId
 from flask import Blueprint, request, Response
 from flask import current_app as app
 from app.commons import build_response
-from app.intents.models import Intent, Parameter, ApiDetails, update_document
+from app.intents.models import Intent, Parameter, ApiDetails
+from app.commons.functions import update_document
 
 
 intents = Blueprint('intents_blueprint', __name__,
