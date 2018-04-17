@@ -14,15 +14,15 @@ export class IntentsComponent implements OnInit {
 
 
 
-  stories: any;
+  intents: any;
 
-  constructor(public storyService: IntentService, private _activatedRoute: ActivatedRoute,
+  constructor(public intentService: IntentService, private _activatedRoute: ActivatedRoute,
      private _router: Router,private trainingService:TrainingService) { }
 
   ngOnInit() {
 
-    this.storyService.getStories().then((s: any) => {
-      this.stories = s;
+    this.intentService.getIntents().then((s: any) => {
+      this.intents = s;
     });
   }
 
@@ -31,17 +31,17 @@ export class IntentsComponent implements OnInit {
     this._router.navigate(["/agent/default/create-intent"])
   }
 
-  edit(story) {
-    this._router.navigate(["/agent/default/edit-intent", story._id.$oid])
+  edit(intent) {
+    this._router.navigate(["/agent/default/edit-intent", intent._id.$oid])
   }
 
-  train(story) {
-    this._router.navigate(["/agent/default/train-intent", story._id.$oid])
+  train(intent) {
+    this._router.navigate(["/agent/default/train-intent", intent._id.$oid])
   }
 
-  delete(story) {
+  delete(intent) {
     if (confirm('Are u sure want to delete this story?')) {
-      this.storyService.delete_story(story._id.$oid).then((s: any) => {
+      this.intentService.delete_intent(intent._id.$oid).then((s: any) => {
         this.ngOnInit();
       });
     }

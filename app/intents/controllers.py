@@ -4,15 +4,15 @@ from bson.objectid import ObjectId
 from flask import Blueprint, request, Response
 from flask import current_app as app
 from app.commons import build_response
-from app.stories.models import Story, Parameter, ApiDetails, update_document
+from app.intents.models import Intent, Parameter, ApiDetails, update_document
 
 
-stories = Blueprint('stories_blueprint', __name__,
-                    url_prefix='/stories')
+intents = Blueprint('intents_blueprint', __name__,
+                    url_prefix='/intents')
 
 
-@stories.route('/', methods=['POST'])
-def create_story():
+@intents.route('/', methods=['POST'])
+def create_intent():
     """
     Create a story from the provided json
     :param json:
@@ -20,14 +20,14 @@ def create_story():
     """
     content = request.get_json(silent=True)
 
-    story = Story()
-    story.storyName = content.get("storyName")
-    story.intentName = content.get("intentName")
-    story.speechResponse = content.get("speechResponse")
-    story.trainingData = []
+    intent = Intent()
+    intent.name = content.get("name")
+    intent.intentId = content.get("intentId")
+    intent.speechResponse = content.get("speechResponse")
+    intent.trainingData = []
 
     if content.get("apiTrigger") is True:
-        story.apiTrigger = True
+        intent.apiTrigger = True
         api_details = ApiDetails()
         isJson = content.get("apiDetails").get("isJson")
         api_details.isJson = isJson
@@ -36,17 +36,17 @@ def create_story():
 
         api_details.url = content.get("apiDetails").get("url")
         api_details.requestType = content.get("apiDetails").get("requestType")
-        story.apiDetails = api_details
+        intent.apiDetails = api_details
     else:
-        story.apiTrigger = False
+        intent.apiTrigger = False
 
     if content.get("parameters"):
         for param in content.get("parameters"):
             parameter = Parameter()
             update_document(parameter, param)
-            story.parameters.append(parameter)
+            intent.parameters.append(parameter)
     try:
-        story_id = story.save()
+        story_id = intent.save()
     except Exception as e:
         return build_response.build_json({"error": str(e)})
 
@@ -55,57 +55,57 @@ def create_story():
     })
 
 
-@stories.route('/')
-def read_stories():
+@intents.route('/')
+def read_intents():
     """
-    find list of stories for the agent
+    find list of intents for the agent
     :return:
     """
-    stories = Story.objects
-    return build_response.sent_json(stories.to_json())
+    intents = Intent.objects
+    return build_response.sent_json(intents.to_json())
 
 
-@stories.route('/<story_id>')
-def read_story(story_id):
+@intents.route('/<id>')
+def read_intent(id):
     """
-    Find details for the given storyId
-    :param story_id:
+    Find details for the given intent id
+    :param id:
     :return:
     """
     return Response(response=dumps(
-        Story.objects.get(
+        Intent.objects.get(
             id=ObjectId(
-                story_id)).to_mongo().to_dict()),
+                id)).to_mongo().to_dict()),
         status=200,
         mimetype="application/json")
 
 
-@stories.route('/<story_id>', methods=['PUT'])
-def update_story(story_id):
+@intents.route('/<id>', methods=['PUT'])
+def update_intent(id):
     """
     Update a story from the provided json
-    :param story_id:
+    :param intent_id:
     :param json:
     :return:
     """
     json_data = loads(request.get_data())
-    story = Story.objects.get(id=ObjectId(story_id))
-    story = update_document(story, json_data)
-    story.save()
+    intent = Intent.objects.get(id=ObjectId(id))
+    intent = update_document(intent, json_data)
+    intent.save()
     return 'success', 200
 
 
 from app.nlu.tasks import train_models
 
 
-@stories.route('/<story_id>', methods=['DELETE'])
-def delete_story(story_id):
+@intents.route('/<id>', methods=['DELETE'])
+def delete_intent(id):
     """
-    Delete a story
-    :param story_id:
+    Delete a intent
+    :param id:
     :return:
     """
-    Story.objects.get(id=ObjectId(story_id)).delete()
+    Intent.objects.get(id=ObjectId(id)).delete()
 
     try:
         train_models()
@@ -114,7 +114,7 @@ def delete_story(story_id):
 
     # remove NER model for the deleted stoy
     try:
-        os.remove("{}/{}.model".format(app.config["MODELS_DIR"], story_id))
+        os.remove("{}/{}.model".format(app.config["MODELS_DIR"], id))
     except OSError:
         pass
     return build_response.sent_ok()
@@ -124,17 +124,17 @@ from flask import send_file
 import StringIO
 
 
-@stories.route('/export', methods=['GET'])
-def export_stories():
+@intents.route('/export', methods=['GET'])
+def export_intents():
     """
     Deserialize and export Mongoengines as jsonfile
     :return:
     """
     strIO = StringIO.StringIO()
-    strIO.write(Story.objects.to_json())
+    strIO.write(Intent.objects.to_json())
     strIO.seek(0)
     return send_file(strIO,
-                     attachment_filename="iky_stories.json",
+                     attachment_filename="iky_intents.json",
                      as_attachment=True)
 
 
@@ -142,30 +142,30 @@ from flask import abort
 from bson.json_util import loads
 
 
-@stories.route('/import', methods=['POST'])
-def import_stories():
+@intents.route('/import', methods=['POST'])
+def import_intents():
     """
-    Convert json files to Stories objects and insert to MongoDB
+    Convert json files to Intents objects and insert to MongoDB
     :return:
     """
     # check if the post request has the file part
     if 'file' not in request.files:
         abort(400, 'No file part')
     json_file = request.files['file']
-    stories = import_json(json_file)
+    intents = import_json(json_file)
 
-    return build_response.build_json({"no_stories_created": len(stories)})
+    return build_response.build_json({"num_intents_created": len(intents)})
 
 
 def import_json(json_file):
     json_data = json_file.read()
-    # stories = Story.objects.from_json(json_data)
-    stories = loads(json_data)
+    # intents = Intent.objects.from_json(json_data)
+    intents = loads(json_data)
 
-    creates_stories = []
-    for story in stories:
-        new_story = Story()
-        new_story = update_document(new_story, story)
-        new_story.save()
-        creates_stories.append(new_story)
-    return creates_stories
+    creates_intents = []
+    for intent in intents:
+        new_intent = Intent()
+        new_intent = update_document(new_intent, intent)
+        new_intent.save()
+        creates_intents.append(new_intent)
+    return creates_intents

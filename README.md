@@ -59,7 +59,7 @@ ng serve
 * Production
 ```sh
 cd frontend
-ng build --prod
+ng build --prod --environment=python
 ```
 serve files in dist/ folder using nginx or any webserver
 
@@ -75,7 +75,7 @@ You can import some default intents using follwing steps
 
 - goto http://localhost:8080/agent/default/settings
 - click 'choose file'
-- choose 'examples/iky_stories.json file'
+- choose 'examples/default_intents.json file'
 - click import
 
 

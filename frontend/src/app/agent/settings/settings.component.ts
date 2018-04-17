@@ -16,14 +16,14 @@ export class SettingsComponent implements OnInit {
   }
 
   export(){
-    window.open(environment.ikyBackend+"stories/export","_blank")
+    window.open(environment.ikyBackend+"intents/export","_blank")
   }
   handleFileInput(files: FileList) {
     this.fileToUpload = files.item(0);
   }
 
 uploadFileToActivity() {
-  this.intentService.importStories(this.fileToUpload).then ((result)=>{
+  this.intentService.importIntents(this.fileToUpload).then ((result)=>{
     console.log(result)
   })
 }

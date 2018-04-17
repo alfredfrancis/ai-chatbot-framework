@@ -69,9 +69,9 @@ class ApiDetails(EmbeddedDocument):
     jsonData = StringField(default="{}")
 
 
-class Story(Document):
-    storyName = StringField(max_length=100, required=True, unique=True)
-    intentName = StringField(required=True)
+class Intent(Document):
+    name = StringField(max_length=100, required=True, unique=True)
+    intentId = StringField(required=True)
     apiTrigger = BooleanField(required=True)
     apiDetails = EmbeddedDocumentField(ApiDetails)
     speechResponse = StringField(required=True)

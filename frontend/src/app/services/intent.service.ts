@@ -4,7 +4,7 @@ import { environment } from '../../environments/environment';
 
 @Injectable()
 export class IntentService {
-  public static storyTypes = {
+  public static intentTypes = {
     'mobile': 'Mobile number',
     'email': 'Email',
     'free_text': 'Free Text',
@@ -15,40 +15,40 @@ export class IntentService {
   constructor(public http: HttpClient) {
   }
 
-  getStories() {
-    return this.http.get(environment.ikyBackend + 'stories/').toPromise();
+  getIntents() {
+    return this.http.get(environment.ikyBackend + 'intents/').toPromise();
   }
 
-  getStory(id) {
-    return this.http.get(environment.ikyBackend + `stories/${id}`).toPromise();
+  getIntent(id) {
+    return this.http.get(environment.ikyBackend + `intents/${id}`).toPromise();
   }
 
-  saveStory(story) {
-    if (story._id) {
-      return this.update_story(story);
+  saveIntent(intent) {
+    if (intent._id) {
+      return this.update_intent(intent);
     } else {
-      delete story._id;
-      return this.create_story(story);
+      delete intent._id;
+      return this.create_intent(intent);
     }
   }
 
-  create_story(story) {
-    return this.http.post(environment.ikyBackend + `stories/`, story).toPromise();
+  create_intent(intent) {
+    return this.http.post(environment.ikyBackend + `intents/`, intent).toPromise();
   }
 
-  update_story(story) {
-    return this.http.put(environment.ikyBackend + `stories/${story._id}`, story).toPromise();
+  update_intent(intent) {
+    return this.http.put(environment.ikyBackend + `intents/${intent._id}`, intent).toPromise();
   }
 
-  delete_story(id) {
-    return this.http.delete(environment.ikyBackend + `stories/${id}`, {}).toPromise();
+  delete_intent(id) {
+    return this.http.delete(environment.ikyBackend + `intents/${id}`, {}).toPromise();
   }
 
-  importStories(fileToUpload: File){
+  importIntents(fileToUpload: File){
     const formData: FormData = new FormData();
     formData.append('file', fileToUpload, fileToUpload.name);
     return this.http
-      .post(environment.ikyBackend +"stories/import", formData).toPromise();
+      .post(environment.ikyBackend +"intents/import", formData).toPromise();
   }
 
 }

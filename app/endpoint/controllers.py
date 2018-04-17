@@ -10,7 +10,7 @@ from app import app
 from app.commons.logger import logger
 from app.commons import build_response
 from app.nlu.entity_extractor import EntityExtractor
-from app.stories.models import Story
+from app.intents.models import Intent
 
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
@@ -86,7 +86,7 @@ def predict(sentence):
     predicted = sentence_classifier.predict(sentence, PATH)
 
     if not predicted:
-        return Story.objects(
+        return Intent.objects(
             intentName=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id
     else:
         return predicted["class"]
@@ -110,40 +110,40 @@ def api():
 
         if app.config["DEFAULT_WELCOME_INTENT_NAME"] in request_json.get(
                 "input"):
-            story = Story.objects(
-                intentName=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
+            intent = Intent.objects(
+                intentId=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
             result_json["complete"] = True
-            result_json["intent"]["name"] = story.intentName
-            result_json["intent"]["storyId"] = str(story.id)
+            result_json["intent"]["intentId"] = intent.intentId
+            result_json["intent"]["id"] = str(intent.id)
             result_json["input"] = request_json.get("input")
             template = Template(
-                story.speechResponse,
+                intent.speechResponse,
                 undefined=SilentUndefined)
             result_json["speechResponse"] = template.render(**context)
 
             logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
-        story_id = predict(request_json.get("input"))
-        story = Story.objects.get(id=ObjectId(story_id))
+        intent_id = predict(request_json.get("input"))
+        intent = Intent.objects.get(id=ObjectId(intent_id))
 
-        if story.parameters:
-            parameters = story.parameters
+        if intent.parameters:
+            parameters = intent.parameters
         else:
             parameters = []
 
         if ((request_json.get("complete") is None) or (
                 request_json.get("complete") is True)):
             result_json["intent"] = {
-                "name": story.intentName,
-                "storyId": str(story.id)
+                "name": intent.name,
+                "id": str(intent.id)
             }
 
             if parameters:
                 # Extract NER entities
                 entity_extraction = EntityExtractor()
                 extracted_parameters = entity_extraction.predict(
-                    story_id, request_json.get("input"))
+                    intent_id, request_json.get("input"))
 
                 missing_parameters = []
                 result_json["missingParameters"] = []
@@ -176,9 +176,9 @@ def api():
                 result_json["complete"] = True
 
         elif request_json.get("complete") is False:
-            if "cancel" not in story.intentName:
-                story_id = request_json["intent"]["storyId"]
-                story = Story.objects.get(id=ObjectId(story_id))
+            if "cancel" not in intent.name:
+                intent_id = request_json["intent"]["id"]
+                intent = Intent.objects.get(id=ObjectId(intent_id))
                 result_json["extractedParameters"][request_json.get(
                     "currentNode")] = request_json.get("input")
 
@@ -194,7 +194,7 @@ def api():
                     missing_parameter = result_json["missingParameters"][0]
                     result_json["complete"] = False
                     current_node = [
-                        node for node in story.parameters if missing_parameter in node.name][0]
+                        node for node in intent.parameters if missing_parameter in node.name][0]
                     result_json["currentNode"] = current_node.name
                     result_json["speechResponse"] = current_node.prompt
             else:
@@ -205,22 +205,22 @@ def api():
                 result_json["complete"] = True
 
         if result_json["complete"]:
-            if story.apiTrigger:
+            if intent.apiTrigger:
                 isJson = False
                 parameters = result_json["extractedParameters"]
 
                 url_template = Template(
-                    story.apiDetails.url, undefined=SilentUndefined)
+                    intent.apiDetails.url, undefined=SilentUndefined)
                 rendered_url = url_template.render(**context)
-                if story.apiDetails.isJson:
+                if intent.apiDetails.isJson:
                     isJson = True
                     request_template = Template(
-                        story.apiDetails.jsonData, undefined=SilentUndefined)
+                        intent.apiDetails.jsonData, undefined=SilentUndefined)
                     parameters = request_template.render(**context)
 
                 try:
                     result = call_api(rendered_url,
-                                      story.apiDetails.requestType,
+                                      intent.apiDetails.requestType,
                                       parameters, isJson)
                 except Exception as e:
                     print(e)
@@ -229,11 +229,11 @@ def api():
                     print(result)
                     context["result"] = result
                     template = Template(
-                        story.speechResponse, undefined=SilentUndefined)
+                        intent.speechResponse, undefined=SilentUndefined)
                     result_json["speechResponse"] = template.render(**context)
             else:
                 context["result"] = {}
-                template = Template(story.speechResponse,
+                template = Template(intent.speechResponse,
                                     undefined=SilentUndefined)
                 result_json["speechResponse"] = template.render(**context)
         logger.info(request_json.get("input"), extra=result_json)

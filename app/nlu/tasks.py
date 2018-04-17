@@ -1,6 +1,6 @@
 
 from app.nlu.entity_extractor import EntityExtractor
-from app.stories.models import Story
+from app.intents.models import Intent
 
 from app import app
 from app.nlu.intent_classifer import IntentClassifier
@@ -12,32 +12,32 @@ def train_models():
     :return:
     """
     # generate intent classifier training data
-    stories = Story.objects
+    intents = Intent.objects
 
-    if not stories:
+    if not intents:
         raise Exception("NO_DATA")
 
-    # train intent classifier on all stories
-    train_intent_classifier(stories)
+    # train intent classifier on all intents
+    train_intent_classifier(intents)
 
     # train ner model for each Stories
-    for story in stories:
-        train_all_ner(str(story.id), story.trainingData)
+    for intent in intents:
+        train_all_ner(str(intent.id), intent.trainingData)
 
 
-def train_intent_classifier(stories):
+def train_intent_classifier(intents):
     """
     Train intent classifier model
-    :param stories:
+    :param intents:
     :return:
     """
     X = []
     y = []
-    for story in stories:
-        training_data = story.trainingData
+    for intent in intents:
+        training_data = intent.trainingData
         for example in training_data:
             X.append(example.get("text"))
-            y.append([str(story.id)])
+            y.append([str(intent.id)])
 
     PATH = "{}/{}".format(app.config["MODELS_DIR"],
                           app.config["INTENT_MODEL_NAME"])

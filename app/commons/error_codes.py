@@ -6,7 +6,7 @@ UnidentifiedIntent = {
     "description": "Can't identify the intent"}
 NotEnoughData = {
     "errorCode": 702,
-    "description": "Not enough Training Data. Please Add more stories"}
+    "description": "Not enough Training Data. Please Add more intents"}
 
 UnableToextractentities = {"errorCode": 801,
                            "description": "Unable extract entities"}
