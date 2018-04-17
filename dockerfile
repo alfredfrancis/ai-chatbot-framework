@@ -5,7 +5,10 @@ WORKDIR /usr/src/app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python manage.py install_nltk_dependencies
+RUN python -m nltk.downloader "averaged_perceptron_tagger"; python
+RUN python -m nltk.downloader "punkt"; python
+RUN python -m nltk.downloader "stopwords"; python
+RUN python -m nltk.downloader "wordnet"; python
 
 EXPOSE 8080
 
