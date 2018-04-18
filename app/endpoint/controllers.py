@@ -69,8 +69,24 @@ def call_api(url, type, parameters, is_json=False):
     return result
 
 
+
+
 from app.nlu.intent_classifer import IntentClassifier
 
+PATH = "{}/{}".format(app.config["MODELS_DIR"],
+                      app.config["INTENT_MODEL_NAME"])
+
+sentence_classifier = IntentClassifier()
+sentence_classifier.load(PATH)
+
+
+def update_model(app, message, **extra):
+    print(message)
+    sentence_classifier.load(PATH)
+    print("model updated")
+
+from app.nlu.tasks import model_updated_signal
+model_updated_signal.connect(update_model, app)
 
 def predict(sentence):
     """
@@ -78,12 +94,7 @@ def predict(sentence):
     :param sentence:
     :return:
     """
-
-    PATH = "{}/{}".format(app.config["MODELS_DIR"],
-                          app.config["INTENT_MODEL_NAME"])
-
-    sentence_classifier = IntentClassifier()
-    predicted = sentence_classifier.predict(sentence, PATH)
+    predicted = sentence_classifier.predict(sentence)
 
     if not predicted:
         return Story.objects(

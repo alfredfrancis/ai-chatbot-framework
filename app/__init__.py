@@ -23,6 +23,9 @@ app.config.update(
 from flask_mongoengine import MongoEngine
 db = MongoEngine(app)
 
+from blinker import Namespace
+my_signals = Namespace()
+
 @app.errorhandler(404)
 def not_found(error):
     return "Not found", 404

@@ -5,6 +5,8 @@ from app.stories.models import Story
 from app import app
 from app.nlu.intent_classifer import IntentClassifier
 
+from app import my_signals
+model_updated_signal = my_signals.signal('model-updated')
 
 def train_models():
     """
@@ -24,6 +26,7 @@ def train_models():
     for story in stories:
         train_all_ner(str(story.id), story.trainingData)
 
+    model_updated_signal.send(app,message="Training Completed.")
 
 def train_intent_classifier(stories):
     """
@@ -41,9 +44,6 @@ def train_intent_classifier(stories):
 
     PATH = "{}/{}".format(app.config["MODELS_DIR"],
                           app.config["INTENT_MODEL_NAME"])
-
-    print(X)
-    print(y)
     intent_classifier = IntentClassifier()
     intent_classifier.train(X,
                             y,

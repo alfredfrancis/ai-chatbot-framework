@@ -10,6 +10,9 @@ from app.nlu.nltk_preprocessor import NLTKPreprocessor
 
 class IntentClassifier():
 
+    def __init__(self):
+        self.model = None
+
     def identity(self, arg):
         """
         Simple identity function works as a passthrough.
@@ -57,25 +60,27 @@ class IntentClassifier():
 
         return model
 
-    def predict(self, text, PATH):
+    def load(self, PATH):
+        try:
+            with open(PATH, 'rb') as f:
+                self.model = cloudpickle.load(f)
+        except IOError:
+            return False
+
+    def predict(self, text):
         """
         Predict class label for given model
         :param text:
         :param PATH:
         :return:
         """
-        try:
-            with open(PATH, 'rb') as f:
-                model = cloudpickle.load(f)
-        except IOError:
-            return False
 
-        yhat = model.predict([
+        yhat = self.model.predict([
             text
         ])
         if yhat.any():
             return {
-                "class": model.labels_.inverse_transform(yhat)[0][0],
+                "class": self.model.labels_.inverse_transform(yhat)[0][0],
                 "accuracy": 1
             }
         else:
