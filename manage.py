@@ -17,9 +17,9 @@ def install_nltk_dependencies():
 
 @manager.command
 def import_stories():
-    from app.stories.controllers import import_json
+    from app.intents.controllers import import_json
 
-    json_file = open("examples/iky_stories.json", "r+")
+    json_file = open("examples/default_intents.json", "r+")
 
     stories = import_json(json_file)
 

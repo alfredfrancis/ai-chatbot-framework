@@ -11,16 +11,16 @@
 
 
 <mat-card>
-  <div *ngFor="let story of stories" fxLayout="row" fxLayoutAlign=" center" class="intent-container">
+  <div *ngFor="let intent of intents" fxLayout="row" fxLayoutAlign=" center" class="intent-container">
     <div fxFlex="60">
-      {{story.storyName}}
+      {{intent.name}}
     </div>
     <div fxFlex="40">
-      <button mat-button (click)="train(story)" color="primary">Train</button>
-      <button mat-icon-button (click)="edit(story)" color="accent">
+      <button mat-button (click)="train(intent)" color="primary">Train</button>
+      <button mat-icon-button (click)="edit(intent)" color="accent">
         <mat-icon aria-label="Delete this intent">edit</mat-icon>
       </button>
-      <button mat-icon-button (click)="delete(story)" color="warn">
+      <button mat-icon-button (click)="delete(intent)" color="warn">
         <mat-icon aria-label="Delete this intent">delete</mat-icon>
       </button>
     </div>

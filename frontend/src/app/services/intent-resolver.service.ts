@@ -9,7 +9,7 @@ export class IntentResolverService implements Resolve<any>  {
     
     resolve(route: ActivatedRouteSnapshot): Promise<any> | boolean {
         return new Promise((resolve,reject)=>{
-            this.intentService.getStory(route.params['intent_id']).then(
+            this.intentService.getIntent(route.params['intent_id']).then(
             (result) => {
                 console.log("intent details resolved")
               resolve(result)

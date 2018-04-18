@@ -12,42 +12,42 @@ import {IntentService  } from '../../services/intent.service';
 })
 export class IntentComponent implements OnInit {
 
-  story: any;
-  storyForm: FormGroup;
-  storyFormFields: any;
+  intent: any;
+  intentForm: FormGroup;
+  intentFormFields: any;
 
-  storyTypes;
-  storyTypesArray;
+  intentTypes;
+  intentTypesArray;
   message;
 
   constructor(
     public fb: FormBuilder,
     public coreService: CoreService,
-    public storyService: IntentService,
+    public intentService: IntentService,
     private _activatedRoute: ActivatedRoute, private _router: Router) {
 
 
-      this.storyTypes = IntentService.storyTypes;
-      this.storyTypesArray = Object.keys(this.storyTypes);
+      this.intentTypes = IntentService.intentTypes;
+      this.intentTypesArray = Object.keys(this.intentTypes);
 
       
   }
 
   loadForm(){
-    this.storyFormFields = {
+    this.intentFormFields = {
       _id: [''],
-      storyName: [''],
-      intentName: [''],
+      name: [''],
+      intentId: [''],
       speechResponse: [''],
       apiTrigger: [''],
       apiDetails: this.initApiDetails(),
       parameters: this.fb.array(
-        this.story && this.story.parameters ? this.story.parameters.map(n => {
+        this.intent && this.intent.parameters ? this.intent.parameters.map(n => {
           return this.initParameter(n);
         }) : []
       )
     };
-    this.storyForm = this.fb.group(this.storyFormFields);
+    this.intentForm = this.fb.group(this.intentFormFields);
   }
 
   ngOnInit() {
@@ -62,9 +62,9 @@ export class IntentComponent implements OnInit {
       .subscribe((data:{story:any}) => {
         console.log("selected intent =>>")
         console.log(data.story)
-        this.story = data.story;
+        this.intent = data.story;
         this.loadForm();
-        this.coreService.setDataForm(this.storyForm, this.storyFormFields, this.story);
+        this.coreService.setDataForm(this.intentForm, this.intentFormFields, this.intent);
     });   
 
 
@@ -72,7 +72,7 @@ export class IntentComponent implements OnInit {
   }
 
   addParameter() {
-    const control = <FormArray>this.storyForm.controls['parameters'];
+    const control = <FormArray>this.intentForm.controls['parameters'];
     control.push(this.initParameter());
   }
 
@@ -91,7 +91,7 @@ export class IntentComponent implements OnInit {
   }
 
   deleteParameter(i) {
-    const control = <FormArray>this.storyForm.controls['parameters'];
+    const control = <FormArray>this.intentForm.controls['parameters'];
     control.removeAt(i);
   }
 
@@ -111,7 +111,7 @@ export class IntentComponent implements OnInit {
   }
 
   save() {
-    const form = this.storyForm.value;
+    const form = this.intentForm.value;
     if (form._id && form._id.$oid) {
       form._id = form._id.$oid;
     }
@@ -119,15 +119,15 @@ export class IntentComponent implements OnInit {
       delete form.apiDetails;
     }
 
-    this.storyService.saveStory(form)
+    this.intentService.saveIntent(form)
       .then(c => {
-        this.message = 'Story created!';
+        this.message = 'Intent created!';
         this._router.navigate(["/agent/default/edit-intent", c["_id"]])
       })
   }
 
   apiTrigger() {
-    return this.storyForm.value.apiTrigger;
+    return this.intentForm.value.apiTrigger;
   }
 
 }

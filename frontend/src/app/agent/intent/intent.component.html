@@ -1,13 +1,13 @@
 <mat-card>
   <h2>{{message}}</h2>
 
-  <form [formGroup]="storyForm" *ngIf="storyForm" (submit)="save()" class="row" style=" width: 100%;">
+  <form [formGroup]="intentForm" *ngIf="intentForm" (submit)="save()" class="row" style=" width: 100%;">
     <mat-form-field class="full-width">
-      <textarea matInput formControlName="storyName" placeholder="Story name"></textarea>
+      <textarea matInput formControlName="name" placeholder="Intent name"></textarea>
     </mat-form-field>
     <br>
     <mat-form-field class="full-width">
-      <textarea matInput formControlName="intentName" placeholder="Intent key"></textarea>
+      <textarea matInput formControlName="intentId" placeholder="Intent ID"></textarea>
     </mat-form-field>
 
     <h2>Parameters
@@ -16,7 +16,7 @@
       </button>
     </h2>
     <section class="parameters" formArrayName="parameters">
-      <div *ngFor="let paremeter of storyForm.controls.parameters.controls; let i=index;" class="parameter">
+      <div *ngFor="let paremeter of intentForm.controls.parameters.controls; let i=index;" class="parameter">
 
         <div [formGroup]="paremeter" fxLayout="row" fxLayoutGap="10px">
           <mat-form-field fxFlex="30">
@@ -25,8 +25,8 @@
 
           <mat-form-field class="col-md-4" fxFlex="10">
             <mat-select formControlName="type" placeholder="Parameter type">
-              <mat-option *ngFor="let story of storyTypesArray" [value]="story">
-                {{ storyTypes[story] }}
+              <mat-option *ngFor="let intent of intentTypesArray" [value]="intent">
+                {{ intentTypes[intent] }}
               </mat-option>
             </mat-select>
           </mat-form-field>
@@ -48,7 +48,7 @@
     <h3>
       <mat-checkbox formControlName="apiTrigger">API trigger</mat-checkbox>
     </h3>
-    <section [formGroup]="storyForm.controls.apiDetails" *ngIf="apiTrigger()" fxLayout="column" fxLayoutGap="10px">
+    <section [formGroup]="intentForm.controls.apiDetails" *ngIf="apiTrigger()" fxLayout="column" fxLayoutGap="10px">
 
 
 
@@ -68,13 +68,13 @@
       </div>
 
       <mat-checkbox formControlName="isJson">JSON payload</mat-checkbox>
-      <div *ngIf="storyForm.value.apiDetails.isJson">
+      <div *ngIf="intentForm.value.apiDetails.isJson">
         Extracted parameters can be used to build your json. Example,
         <pre> {{ '\{ 
     "name": \{\{ parameters\[\"name\"\] \}\} 
  \}' }}</pre>
       </div>
-      <mat-form-field class="full-width" *ngIf="storyForm.value.apiDetails.isJson">
+      <mat-form-field class="full-width" *ngIf="intentForm.value.apiDetails.isJson">
         <textarea matInput formControlName="jsonData" placeholder="JsonData" rows="8" placeholder="JSON payload"></textarea>
       </mat-form-field>
 

@@ -19,6 +19,8 @@ services:
     ports:
         - "27017:27017"
     hostname: mongodb
+    ports:
+      - "27017:27017"
     volumes:
       - mongodbdata:/data
 
