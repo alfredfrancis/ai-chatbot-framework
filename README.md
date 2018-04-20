@@ -13,7 +13,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ### Installation
 After any of next methods, you will need to [import default intents](#restore), and navigate to http://localhost:8080.
 
-### Using cocker-compose (Recommended) 
+### Using docker-compose (Recommended) 
 ```sh
 docker-compose build
 docker-compose up -d
