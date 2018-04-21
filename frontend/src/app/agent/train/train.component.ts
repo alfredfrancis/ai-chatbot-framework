@@ -21,25 +21,13 @@ export class TrainComponent implements OnInit {
   };
 
   intentId:string = null ;
-
   trainingData: Array<any>;
   newExampleText: String;
   newEntityName: String;
 
-  message;
-
-  trainForm: FormGroup;
-  trainFormFields: any;
-
-  testForm: FormGroup;
-  testFormFields: any;
-
   story: any;
-  
-  labelled;
 
   constructor(
-    public fb: FormBuilder,
     public storyService: IntentService,
     private _activatedRoute: ActivatedRoute,
      private _router: Router,
@@ -48,23 +36,9 @@ export class TrainComponent implements OnInit {
       this.trainingData = []
 
       this.newEntityName = null;
-
-    this.trainFormFields = {
-      input: [''],
-    };
-    this.trainForm = this.fb.group(this.trainFormFields);
-
-    this.testFormFields = {
-      input: [''],
-    };
-    this.testForm = this.fb.group(this.testFormFields);
-
   }
 
   ngOnInit() {
-
-
-
     this._activatedRoute.params.subscribe((params: Params) => {
       console.log("current intent " + params['intent_id'])
       this.intentId = params['intent_id']
@@ -84,8 +58,7 @@ export class TrainComponent implements OnInit {
         this.story = data.story;
 
     });  
-    
-    console.log(this.story);
+
     if (this.story) {
       if (this.story._id && this.story._id.$oid) {
         this.story._id = this.story._id.$oid;
@@ -106,7 +79,7 @@ export class TrainComponent implements OnInit {
   }
 
   deleteEntity(example_index,entity_index){
-    this.trainingData[example_index].entities.splice(example_index,1)
+    this.trainingData[example_index].entities.splice(entity_index,1)
 
   }
   
@@ -134,11 +107,13 @@ export class TrainComponent implements OnInit {
   }
 
   addNewEntity(example_index){
-    let currentSelection = this.selectionInfo;
-    currentSelection["name"]=this.newEntityName;
+    this.trainingData[example_index]["entities"].push({
+      "value":this.selectionInfo.value,
+      "begin":this.selectionInfo.begin,
+      "end":this.selectionInfo.end,
+      "name":this.newEntityName
+    })
     this.newEntityName = null;
-    this.trainingData[example_index]["entities"].push(currentSelection)
-     console.log(this.trainingData)
   }
 
   annotate(){
