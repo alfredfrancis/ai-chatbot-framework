@@ -179,8 +179,9 @@ class EntityExtractor():
 
                 try:
                     # find no of words before the entity
-                    inverse_selection = example.get("text")[0:enitity.get("begin")-1].split(" ")
-                    inverse_word_count = len(inverse_selection)
+                    inverse_selection = example.get("text")[0:enitity.get("begin")-1]
+
+                    inverse_word_count = len(sentence_tokenize(inverse_selection).split(" "))
 
                     # get the entity value from seletion
                     selection = example.get(
@@ -200,4 +201,5 @@ class EntityExtractor():
                     continue
 
             labeled_examples.append(tagged_example)
+            print(tagged_example)
         return labeled_examples

@@ -54,5 +54,8 @@ mat-card{
 
 .json-response{
     background-color:#efefef;
-
+    pre{
+        overflow-y: scroll;
+    }
+    
 }
