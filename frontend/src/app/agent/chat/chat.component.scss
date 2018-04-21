@@ -15,11 +15,44 @@
 }
 mat-card{
     margin: 10px;
+
+    height: 600px;
 }   
-.chat-messages{
+
+.chat-container {
     overflow-y: scroll;
-}
+  }
+  
+  .chat-message {
+    margin: 10px 0;
+    min-height: 20px;
+    
+    &:after {
+      display: block;
+      content: "";
+      clear: both;
+    }
+  }
+  
+  .chat-message-content {
+    width: auto;
+    max-width: 85%;
+    display: inline-block;
+
+    padding: 7px 13px;
+    border-radius: 15px;
+    color: #595a5a;
+    background-color: #ebebeb;
+  
+    &.human {
+      float: right;
+      color: #f7f8f8;
+      background-color: #28635a;
+    }
+  }
+  
 
 .json-response{
     background-color:#efefef;
+
 }
