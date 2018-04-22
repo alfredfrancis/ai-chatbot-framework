@@ -23,6 +23,9 @@ import { IntentService } from '../services/intent.service';
 import {TrainingService} from '../services/training.service'
 import {IntentResolverService} from '../services/intent-resolver.service';
 import {ChatService} from '../services/chat.service'
+import {AgentsService} from '../services/agents.service'
+
+/* Services imports ends here */
 
 import { SettingsComponent } from './settings/settings.component';
 import { ChatComponent } from './chat/chat.component'
@@ -54,6 +57,6 @@ import { AutofocusDirective } from '../directives/autofocus.directive';
 
   ],
   declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent,AutofocusDirective],
-  providers:[IntentService,CoreService,IntentResolverService,TrainingService,ChatService]
+  providers:[AgentsService,IntentService,CoreService,IntentResolverService,TrainingService,ChatService]
 })
 export class AgentModule { }

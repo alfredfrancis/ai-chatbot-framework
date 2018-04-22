@@ -16,7 +16,7 @@ class NLTKPreprocessor(BaseEstimator, TransformerMixin):
                  lower=True, strip=True):
         self.lower = lower
         self.strip = strip
-        #self.stopwords  = stopwords or set(sw.words('english'))
+        self.stopwords  = stopwords or set(sw.words('english'))
         self.punct = punct or set(string.punctuation)
         self.lemmatizer = WordNetLemmatizer()
 
@@ -30,7 +30,6 @@ class NLTKPreprocessor(BaseEstimator, TransformerMixin):
         return [
             list(self.tokenize(doc)) for doc in X
         ]
-
     def tokenize(self, document):
         # Break the document into sentences
         for sent in sent_tokenize(document):
@@ -43,8 +42,8 @@ class NLTKPreprocessor(BaseEstimator, TransformerMixin):
                 token = token.strip('*') if self.strip else token
 
                 # If stopword, ignore token and continue
-                # if token in self.stopwords:
-                #     continue
+                if token in self.stopwords:
+                    continue
 
                 # If punctuation, ignore token and continue
                 if all(char in self.punct for char in token):

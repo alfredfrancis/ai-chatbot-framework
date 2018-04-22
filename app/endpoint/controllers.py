@@ -73,34 +73,36 @@ def call_api(url, type, parameters, is_json=False):
 
 from app.nlu.intent_classifer import IntentClassifier
 
-PATH = "{}/{}".format(app.config["MODELS_DIR"],
-                      app.config["INTENT_MODEL_NAME"])
+with app.app_context():
+    PATH = "{}/{}".format(app.config["MODELS_DIR"],
+                          app.config["INTENT_MODEL_NAME"])
 
-sentence_classifier = IntentClassifier()
-sentence_classifier.load(PATH)
+    sentence_classifier = IntentClassifier()
+    sentence_classifier.load(PATH)
+    print("Intent Model loaded.")
 
 
 def update_model(app, message, **extra):
-    print(message)
     sentence_classifier.load(PATH)
-    print("model updated")
+    print("Intent Model updated")
 
 from app.nlu.tasks import model_updated_signal
 model_updated_signal.connect(update_model, app)
 
+from app.agents.models import Bot
 def predict(sentence):
     """
     Predict Intent using Intent classifier
     :param sentence:
     :return:
     """
+    bot = Bot.objects.get(name="default")
     predicted = sentence_classifier.predict(sentence)
-
-    if not predicted:
-        return Intent.objects(
-            intentName=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id
+    print(predicted)
+    if predicted["confidence"] < bot.config.get("confidence_threshold",.90):
+        return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id,1.0
     else:
-        return predicted["class"]
+        return predicted["intent"],predicted["confidence"]
 
 
 # Request Handler
@@ -135,7 +137,7 @@ def api():
             logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
-        intent_id = predict(request_json.get("input"))
+        intent_id,confidence = predict(request_json.get("input"))
         intent = Intent.objects.get(id=ObjectId(intent_id))
 
         if intent.parameters:
@@ -147,6 +149,7 @@ def api():
                 request_json.get("complete") is True)):
             result_json["intent"] = {
                 "name": intent.name,
+                "confidence":confidence,
                 "id": str(intent.id)
             }
 

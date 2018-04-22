@@ -5,5 +5,5 @@
 
 export const environment = {
   production: false,
-  ikyBackend: "http://localhost:8080/gateway/"
+  ikyBackend: "http://localhost:8080/"
 };

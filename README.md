@@ -17,6 +17,7 @@ After any of next methods, you will need to [import default intents](#restore), 
 ```sh
 docker-compose build
 docker-compose up -d
+docker-compose exec iky_backend python manage.py init
 ```
 
 ### Using Docker
@@ -28,6 +29,9 @@ docker build -t iky_gateway:3.0.0 frontend/.
 
 # start iky backend
 docker run --name=iky_backend -e="APPLICATION_ENV=Production" iky_backend:3.0.0
+
+# setup default intents
+docker exec -it python manage.py init
 
 # start iky gateway with frontend
 docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:3.0.0
@@ -43,6 +47,8 @@ docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gate
 make setup
 
 make run_dev
+
+source venv/bin/activate && python manage.py init
 ```
 * Production
 ```sh

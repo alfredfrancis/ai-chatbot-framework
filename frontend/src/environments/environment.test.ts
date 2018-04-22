@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  ikyBackend: "http://localhost:8080/gateway/"
+  ikyBackend: "http://localhost:8080/"
 };

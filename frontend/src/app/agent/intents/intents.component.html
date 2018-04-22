@@ -20,7 +20,7 @@
       <button mat-icon-button (click)="edit(intent)" color="accent">
         <mat-icon aria-label="Delete this intent">edit</mat-icon>
       </button>
-      <button mat-icon-button (click)="delete(intent)" color="warn">
+      <button mat-icon-button (click)="delete(intent)" color="warn" *ngIf="intent.userDefined">
         <mat-icon aria-label="Delete this intent">delete</mat-icon>
       </button>
     </div>

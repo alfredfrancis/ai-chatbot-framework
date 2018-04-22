@@ -1,17 +1,27 @@
 <mat-card fxLayout="column">
-  <button mat-raised-button (click)="export()" color="primary">Export stories</button>
-  <br>
-  <div class="import-group" fxLayout="row" fxLayoutAlign=" center">
-    <div fxFlex>
-        <input type="file"
-               id="file"
-               (change)="handleFileInput($event.target.files)">
+
+    <form [formGroup]="config_form" (submit)="save_config()">
+        <mat-form-field style="width: 40%;">
+            <input type="number" matInput formControlName="confidence_threshold" placeholder="Intent Detection confidence threshold" max=1 min=0>
+        </mat-form-field>
+        <br>
+        <mat-card-actions>
+            <button mat-raised-button color="accent">Save</button>
+          </mat-card-actions>
+      </form>
+
+    <br>
+    <div fxLayout="row" fxLayoutAlign="space-between center" >
+        <div class="import-group" fxLayout="row" fxLayoutAlign=" center">
+            <div fxFlex>
+                <input type="file"
+                      id="file"
+                      (change)="handleFileInput($event.target.files)">
+            </div>
+            <div fxLayoutAlign="end" >  <button mat-raised-button (click)="uploadFileToActivity()" [disabled]="!fileToUpload">Import stories</button></div>  
+          </div>
+          <button mat-raised-button (click)="export()" color="primary">Export stories</button>
     </div>
-    <div fxLayoutAlign="end" >  <button mat-raised-button (click)="uploadFileToActivity()" [disabled]="!fileToUpload">Import stories</button></div>  
-  </div>
 
-  <h2>API Endpoint goes here</h2>
-
-  <h2>Javascript snippet goes here</h2>
 
 </mat-card>

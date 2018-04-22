@@ -39,8 +39,10 @@ def train_intent_classifier(intents):
     for intent in intents:
         training_data = intent.trainingData
         for example in training_data:
+            if example.get("text").strip() == "":
+                continue
             X.append(example.get("text"))
-            y.append([str(intent.id)])
+            y.append(str(intent.id))
 
     PATH = "{}/{}".format(app.config["MODELS_DIR"],
                           app.config["INTENT_MODEL_NAME"])

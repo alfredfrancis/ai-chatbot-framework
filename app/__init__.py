@@ -30,13 +30,15 @@ my_signals = Namespace()
 def not_found(error):
     return "Not found", 404
 
-
+from app.agents.controllers import bots
 from app.nlu.controllers import nlu
 from app.intents.controllers import intents
 from app.train.controllers import train
 from app.endpoint.controllers import endpoint
 
+
 app.register_blueprint(nlu)
 app.register_blueprint(intents)
 app.register_blueprint(train)
 app.register_blueprint(endpoint)
+app.register_blueprint(bots)
