@@ -15,6 +15,8 @@ MatOptionModule,MatSelectModule,MatCheckboxModule,MatButtonModule} from '@angula
 import {MatGridListModule} from '@angular/material/grid-list';
 import {MatDividerModule} from '@angular/material/divider';
 import {MatExpansionModule} from '@angular/material/expansion';
+import {MatSliderModule} from '@angular/material/slider';
+
 /* Material UI imports ends here */
 
 
@@ -53,7 +55,8 @@ import { AutofocusDirective } from '../directives/autofocus.directive';
     MatButtonModule,
     MatGridListModule,
     MatDividerModule,
-    MatExpansionModule
+    MatExpansionModule,
+    MatSliderModule
 
   ],
   declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent,AutofocusDirective],

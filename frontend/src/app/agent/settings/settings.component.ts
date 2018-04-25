@@ -26,6 +26,9 @@ export class SettingsComponent implements OnInit {
     )
   }
 
+  threshold_value_changed(){
+    this.save_config()
+  }
   save_config(){
     this.agent_service.update_config(this.config_form.value)
     console.log(this.config_form.value)
