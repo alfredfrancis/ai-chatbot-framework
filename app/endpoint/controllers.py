@@ -69,6 +69,8 @@ def call_api(url, type, parameters, is_json=False):
     return result
 
 
+def split_sentence(sentence):
+    return sentence.split("###")
 
 
 from app.nlu.intent_classifer import IntentClassifier
@@ -132,7 +134,7 @@ def api():
             template = Template(
                 intent.speechResponse,
                 undefined=SilentUndefined)
-            result_json["speechResponse"] = template.render(**context)
+            result_json["speechResponse"] = split_sentence(template.render(**context))
 
             logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
@@ -182,7 +184,7 @@ def api():
                     result_json["complete"] = False
                     current_node = missing_parameters[0]
                     result_json["currentNode"] = current_node["name"]
-                    result_json["speechResponse"] = current_node["prompt"]
+                    result_json["speechResponse"] = split_sentence(current_node["prompt"])
                 else:
                     result_json["complete"] = True
                     context["parameters"] = extracted_parameters
@@ -210,7 +212,7 @@ def api():
                     current_node = [
                         node for node in intent.parameters if missing_parameter in node.name][0]
                     result_json["currentNode"] = current_node.name
-                    result_json["speechResponse"] = current_node.prompt
+                    result_json["speechResponse"] = split_sentence(current_node.prompt)
             else:
                 result_json["currentNode"] = None
                 result_json["missingParameters"] = []
@@ -244,12 +246,12 @@ def api():
                     context["result"] = result
                     template = Template(
                         intent.speechResponse, undefined=SilentUndefined)
-                    result_json["speechResponse"] = template.render(**context)
+                    result_json["speechResponse"] = split_sentence(template.render(**context))
             else:
                 context["result"] = {}
                 template = Template(intent.speechResponse,
                                     undefined=SilentUndefined)
-                result_json["speechResponse"] = template.render(**context)
+                result_json["speechResponse"] = split_sentence(template.render(**context))
         logger.info(request_json.get("input"), extra=result_json)
         return build_response.build_json(result_json)
     else:

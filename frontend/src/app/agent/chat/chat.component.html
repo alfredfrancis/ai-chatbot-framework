@@ -2,18 +2,21 @@
 <div fxLayout="row" fxFill>
   <mat-card fxFlex="30" fxLayout="column" >
     <div fxFlex="90" class="chat-container">
-      <div *ngFor="let chat of chats" >
+      <div *ngFor="let message of messages"  [@listAnimation]="messages.length" >
 
-        <div  *ngIf="chat.owner=='chat'" class="chat-message">
-          <div class="chat-message-content">
-            <span class="textleft" [innerHTML]="chat.speechResponse"></span>
-          </div>
-        </div>
-        <div  *ngIf="chat.owner=='user'" class="chat-message">
+        <div  *ngIf="message.author=='user'" class="chat-message">
           <div class="chat-message-content human">
-            <span class="textright">{{chat.input}}</span>
+            <span class="textright">{{message.content}}</span>
           </div>
         </div>
+
+          <div  *ngIf="message.author=='chat'" class="chat-message">
+            <div class="chat-message-content">
+              <span class="textleft" [innerHTML]="message.content"></span>
+            </div>
+          </div>
+
+
       </div>
     </div>
     

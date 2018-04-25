@@ -44,7 +44,7 @@ class IntentClassifier():
 
             from sklearn.model_selection import GridSearchCV
 
-            Cs = [1, 2, 5, 10, 20, 100]
+            Cs = [0.01,0.25,1, 2, 5, 10, 20, 100]
             param_grid = {'clf__C': Cs, 'clf__kernel': ["linear"]}
             grid_search = GridSearchCV(model,
                                        param_grid=param_grid,

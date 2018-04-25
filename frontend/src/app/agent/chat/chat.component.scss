@@ -26,6 +26,9 @@ mat-card{
   .chat-message {
     margin: 10px 0;
     min-height: 20px;
+
+    animation: fadeIn 0.5s linear;
+    animation-fill-mode: both;
     
     &:after {
       display: block;
@@ -59,3 +62,25 @@ mat-card{
     }
     
 }
+  
+$total-items: 5;
+ 
+ // Set delay per List Item
+@for $i from 1 through $total-items {
+    .chat-message:nth-child(#{$i}) {
+      animation-delay: .25s * $i;
+    }
+  }
+  
+  // Keyframe animation
+  @-webkit-keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    75% {
+      opacity: 0.5;
+    }
+    100% {
+      opacity: 1;
+    }
+  }

@@ -1,17 +1,37 @@
 import { Component, OnInit, Input } from '@angular/core';
 import { ChatService } from '../../services/chat.service';
 import { FormBuilder, FormGroup } from '@angular/forms';
+import { trigger,style,transition,animate,keyframes,query,stagger } from '@angular/animations';
 
 @Component({
   // tslint:disable-next-line:component-selector
   selector: 'app-chat',
   templateUrl: './chat.component.html',
-  styleUrls: ['./chat.component.scss']
+  styleUrls: ['./chat.component.scss'],
+  animations: [
+
+    trigger('listAnimation', [
+      transition('* => *', [
+
+        query(':enter', style({ opacity: 0 }), {optional: true}),
+
+        query(':enter', stagger('500ms', [
+          animate('.3s ease-in-out', keyframes([
+            style({opacity: 0, offset: 0}),
+            style({opacity: .5, offset: 0.5}),
+            style({opacity: 1,  offset: 1.0}),
+          ]))]), {optional: true})
+      ])
+    ])
+
+  ]
 })
+
 export class ChatComponent implements OnInit {
   chatInitial;
   chatCurrent;
-  chats = [];
+  
+  messages: Message[] = [];
   prettyChatCurrent;
 
   chatForm: FormGroup;
@@ -44,12 +64,31 @@ export class ChatComponent implements OnInit {
       .then((c: any) => {
         c.owner = 'chat';
         this.changeCurrent(c);
+
+        this.render_bubbles(c)
       });
   }
 
+  render_bubbles(c){
+    c.speechResponse.forEach((item, index) => {
+      if (index  == 0){
+          this.add_to_messages(item,"chat")
+      }else{
+        setTimeout(()=>{
+          this.add_to_messages(item,"chat")
+        },500)
+      }
+
+  });
+  }
+  add_to_messages(message,author){
+      let new_message = new Message(message,author)
+      this.messages.push(new_message);
+
+  }
+  
   changeCurrent(c) {
     c.date = new Date();
-    this.chats.push(c);
     this.chatCurrent = c;
     this.prettyChatCurrent = JSON ? JSON.stringify(c, null, '  ') : 'your browser doesnt support JSON so cant pretty print';
   }
@@ -61,14 +100,32 @@ export class ChatComponent implements OnInit {
       input: form.input,
       owner: 'user'
     };
+    this.add_to_messages(form.input,"user")
+
     this.changeCurrent(sendMessage);
     this.chatService.converse(sendMessage)
       .then((c: any) => {
         c.owner = 'chat';
         this.changeCurrent(c);
         this.chatForm.reset();
+        setTimeout(
+          ()=>{
+            this.render_bubbles(c);
+          },1000
+        )
+        
       });
 
   }
 
+}
+
+export class Message {
+  content: string;
+  author: string;
+
+  constructor(content: string, author: string){
+    this.content = content;
+    this.author = author;
+  }
 }
