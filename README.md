@@ -31,7 +31,7 @@ docker build -t iky_gateway:3.0.0 frontend/.
 docker run --name=iky_backend -e="APPLICATION_ENV=Production" iky_backend:3.0.0
 
 # setup default intents
-docker exec -it python manage.py init
+docker exec -it iky_backend python manage.py init
 
 # start iky gateway with frontend
 docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:3.0.0
