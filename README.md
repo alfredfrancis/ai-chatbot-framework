@@ -11,7 +11,6 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ![](https://image.ibb.co/eMJ9Wx/Screen_Shot_2018_04_28_at_1_45_28_PM.png)
 
 ### Installation
-After any of next methods, you will need to [import default intents](#restore), and navigate to http://localhost:8080.
 
 ### Using docker-compose (Recommended) 
 ```sh
