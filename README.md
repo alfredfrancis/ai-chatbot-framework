@@ -8,7 +8,7 @@ Building a chatbot can sound daunting, but it’s totally doable. IKY is an AI p
 
 You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has artificial intelligence. With this basic project you can create an artificial intelligence powered chatting machine in no time.There may be scores of bugs. So feel free to contribute  via pull requests.
 
-![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
+![](https://media.giphy.com/media/8FS56GA698v6LITGSm/giphy.gif)
 
 ### Installation
 After any of next methods, you will need to [import default intents](#restore), and navigate to http://localhost:8080.
