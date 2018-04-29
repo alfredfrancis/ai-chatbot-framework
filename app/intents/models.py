@@ -36,6 +36,7 @@ class ApiDetails(EmbeddedDocument):
 
 class Intent(Document):
     name = StringField(max_length=100, required=True, unique=True)
+    userDefined = BooleanField(default=True)
     intentId = StringField(required=True)
     apiTrigger = BooleanField(required=True)
     apiDetails = EmbeddedDocumentField(ApiDetails)

@@ -1,3 +1,43 @@
-<p>
-  entity works!
-</p>
+<mat-card class="container">
+  <div fxLayout="row" fxLayoutAlign="space-between center">
+    <div fxFlex="90">
+      <input matInput [(ngModel)]="entity.name" placeholder="Entity value">
+    </div>
+    <div>
+      <button mat-raised-button (click)="saveEntity()" color="accent">
+        Save
+      </button>
+    </div>
+  </div>
+  
+  <mat-divider></mat-divider>
+
+  <div fxLayout="row" fxLayoutAlign="space-evenly center" style="margin-top:10px;">
+    <mat-form-field fxFlex="80">
+      <input matInput #newEntityValue placeholder="Entity value">
+    </mat-form-field>
+    <button mat-mini-fab (click)="newValue(newEntityValue.value)" color="primary">
+      <mat-icon aria-label="New value">add</mat-icon>
+    </button>
+  </div>
+
+  <div class="values">
+    <div *ngFor="let value of entity.entity_values;let value_index=index" fxLayout="row" fxLayoutAlign="space-between center">
+      <span fxFlex="10">
+        <h3>{{value.value}}</h3>
+      </span>
+      <mat-form-field fxFlex="90">
+        <mat-chip-list #chipList>
+          <mat-chip *ngFor="let synonym of value.synonyms;let synonym_index=index" [selectable]="true" [removable]="true" (remove)="remove_synonym(value_index,synonym_index)">
+            {{synonym}}
+            <mat-icon matChipRemove *ngIf="true">cancel</mat-icon>
+          </mat-chip>
+          <input placeholder="Synonyms" [matChipInputFor]="chipList" [matChipInputSeparatorKeyCodes]="separatorKeysCodes" [matChipInputAddOnBlur]="true"
+            (matChipInputTokenEnd)="add(value_index,$event)" />
+        </mat-chip-list>
+      </mat-form-field>
+    </div>
+  </div>
+
+
+</mat-card>

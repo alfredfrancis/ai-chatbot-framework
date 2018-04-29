@@ -4,9 +4,15 @@ from mongoengine.fields import ListField,\
 
 
 class EntityValue(EmbeddedDocument):
-    value = ObjectIdField(required=True)
-    synonyms = ListField(required=True)
+    value = StringField(required=True)
+    synonyms = ListField(required=True,default=[])
 
 class Entity(Document):
     name = StringField(max_length=100, required=True, unique=True)
-    values = EmbeddedDocumentListField(EntityValue)
+    entity_values = EmbeddedDocumentListField(EntityValue)
+    meta = {
+        'indexes': [
+        {'fields': ['$name'],
+         'default_language': 'english'
+        }
+    ]}

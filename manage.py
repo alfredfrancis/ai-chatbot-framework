@@ -16,17 +16,22 @@ def install_nltk_dependencies():
     print "Done"
 
 @manager.command
-def import_stories():
+def init():
+
+    from app.agents.models import Bot
+
+    # create default bot
+    bot = Bot()
+    bot.name = "default"
+    bot.save()
+    print("Created default bot")
+
+    # import some default intents
     from app.intents.controllers import import_json
-
     json_file = open("examples/default_intents.json", "r+")
-
     stories = import_json(json_file)
-
     print("Imported {} Stories".format(len(stories)))
 
-@manager.command
-def intial_training():
     try:
         print("Training models..")
         from app.nlu.tasks import train_models

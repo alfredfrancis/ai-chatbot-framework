@@ -6,6 +6,22 @@ class EntityExtractor():
     """
     Performs NER training, predition, model import/export
     """
+
+    def __init__(self,synonyms = []):
+        self.synonyms = synonyms
+
+    def replace_synonyms(self, entities):
+        """
+        replace extracted entity values with root word by matching with synonyms dict.
+        :param entities:
+        :return:
+        """
+        for entity in entities.keys():
+            entity_value = str(entities[entity])
+            if entity_value.lower() in self.synonyms:
+                entities[entity] = self.synonyms[entity_value.lower()]
+        return entities
+
     def extract_features(self,sent, i):
         """
         Extract features for a given sentence
@@ -157,7 +173,7 @@ class EntityExtractor():
         predicted_labels = tagger.tag(self.sent_to_features(tagged_token))
         extracted_entities = self.crf2json(
             zip(tokenized_sentence, predicted_labels))
-        return extracted_entities
+        return self.replace_synonyms(extracted_entities)
 
     @staticmethod
     def json2crf(training_data):
@@ -179,8 +195,9 @@ class EntityExtractor():
 
                 try:
                     # find no of words before the entity
-                    inverse_selection = example.get("text")[0:enitity.get("begin")-1].split(" ")
-                    inverse_word_count = len(inverse_selection)
+                    inverse_selection = example.get("text")[0:enitity.get("begin")-1]
+
+                    inverse_word_count = len(sentence_tokenize(inverse_selection).split(" "))
 
                     # get the entity value from seletion
                     selection = example.get(
@@ -200,4 +217,5 @@ class EntityExtractor():
                     continue
 
             labeled_examples.append(tagged_example)
+            print(tagged_example)
         return labeled_examples

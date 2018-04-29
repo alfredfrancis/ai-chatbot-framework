@@ -8,15 +8,15 @@ Building a chatbot can sound daunting, but it’s totally doable. IKY is an AI p
 
 You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has artificial intelligence. With this basic project you can create an artificial intelligence powered chatting machine in no time.There may be scores of bugs. So feel free to contribute  via pull requests.
 
-![](https://media.giphy.com/media/3o84TXUIPsp6GRn4re/source.gif)
+![](https://image.ibb.co/eMJ9Wx/Screen_Shot_2018_04_28_at_1_45_28_PM.png)
 
 ### Installation
-After any of next methods, you will need to [import default intents](#restore), and navigate to http://localhost:8080.
 
-### Using cocker-compose (Recommended) 
+### Using docker-compose (Recommended) 
 ```sh
 docker-compose build
 docker-compose up -d
+docker-compose exec iky_backend python manage.py init
 ```
 
 ### Using Docker
@@ -28,6 +28,9 @@ docker build -t iky_gateway:3.0.0 frontend/.
 
 # start iky backend
 docker run --name=iky_backend -e="APPLICATION_ENV=Production" iky_backend:3.0.0
+
+# setup default intents
+docker exec -it iky_backend python manage.py init
 
 # start iky gateway with frontend
 docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:3.0.0
@@ -43,6 +46,8 @@ docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gate
 make setup
 
 make run_dev
+
+source venv/bin/activate && python manage.py init
 ```
 * Production
 ```sh
@@ -78,7 +83,15 @@ You can import some default intents using follwing steps
 - choose 'examples/default_intents.json file'
 - click import
 
+### Screenshots
 
+![](https://image.ibb.co/i9ReWx/Screen_Shot_2018_04_28_at_1_38_15_PM.png)
+---
+![](https://image.ibb.co/ivXKWx/Screen_Shot_2018_04_28_at_1_38_36_PM.png)
+---
+![](https://image.ibb.co/nf9Bdc/Screen_Shot_2018_04_28_at_1_38_57_PM.png)
+---
+![](https://image.ibb.co/b4q1dc/Screen_Shot_2018_04_28_at_1_43_06_PM.png)
 ### Tutorial
 
 Checkout this basic tutorial on youtube,

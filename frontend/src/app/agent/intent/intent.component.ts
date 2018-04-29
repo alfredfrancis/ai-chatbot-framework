@@ -38,6 +38,7 @@ export class IntentComponent implements OnInit {
       _id: [''],
       name: [''],
       intentId: [''],
+      userDefined: [true],
       speechResponse: [''],
       apiTrigger: [''],
       apiDetails: this.initApiDetails(),

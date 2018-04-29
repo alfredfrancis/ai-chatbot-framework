@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  ikyBackend: "/"
+  ikyBackend: "http://localhost:8080/"
 };

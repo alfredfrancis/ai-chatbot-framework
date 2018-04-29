@@ -7,6 +7,8 @@ import {TrainComponent} from './train/train.component';
 import {SettingsComponent} from './settings/settings.component';
 import {ChatComponent} from './chat/chat.component';
 import {EntitiesComponent} from './entities/entities.component'
+import {EntityComponent} from './entity/entity.component'
+import {EntityResolverService} from '../services/entities.service'
 import {IntentResolverService} from '../services/intent-resolver.service';
 
 const routes: Routes = [
@@ -25,6 +27,12 @@ const routes: Routes = [
   },
   {
     path: 'entities', component: EntitiesComponent,
+  },
+  {
+    resolve: {
+			entity: EntityResolverService,
+		},
+    path: 'edit-entity/:entity_id', component: EntityComponent,
   },
   {
     resolve: {

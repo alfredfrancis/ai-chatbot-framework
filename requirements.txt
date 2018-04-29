@@ -24,3 +24,4 @@ gevent
 pytest
 cloudpickle
 flask_script
+blinker

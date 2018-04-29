@@ -1,18 +1,16 @@
-import os
-from bson.json_util import dumps
+from bson.json_util import dumps,loads
 from bson.objectid import ObjectId
 from flask import Blueprint, request, Response
-from flask import current_app as app
 from app.commons import build_response
 from app.entities.models import Entity
 
 from app.commons.functions import update_document
 
-intents = Blueprint('entities_blueprint', __name__,
+entities_blueprint = Blueprint('entities_blueprint', __name__,
                     url_prefix='/entities')
 
 
-@intents.route('/', methods=['POST'])
+@entities_blueprint.route('/', methods=['POST'])
 def create_entity():
     """
     Create a story from the provided json
@@ -23,7 +21,7 @@ def create_entity():
 
     entity = Entity()
     entity.name = content.get("name")
-    entity.values = []
+    entity.entity_values = []
 
     try:
         entity_id = entity.save()
@@ -35,18 +33,18 @@ def create_entity():
     })
 
 
-@intents.route('/')
+@entities_blueprint.route('/')
 def read_entities():
     """
     find list of entities
     :return:
     """
-    intents = Entity.objects
+    intents = Entity.objects.only('name','id')
     return build_response.sent_json(intents.to_json())
 
 
-@intents.route('/<name>')
-def read_entity(name):
+@entities_blueprint.route('/<id>')
+def read_entity(id):
     """
     Find details for the given entity name
     :param id:
@@ -54,13 +52,13 @@ def read_entity(name):
     """
     return Response(response=dumps(
         Entity.objects.get(
-            name=name).to_mongo().to_dict()),
+            id=ObjectId(id)).to_mongo().to_dict()),
         status=200,
         mimetype="application/json")
 
 
-@intents.route('/<name>', methods=['PUT'])
-def update_entity(name):
+@entities_blueprint.route('/<id>', methods=['PUT'])
+def update_entity(id):
     """
     Update a story from the provided json
     :param intent_id:
@@ -74,13 +72,13 @@ def update_entity(name):
     return 'success', 200
 
 
-@intents.route('/<name>', methods=['DELETE'])
-def delete_entity(name):
+@entities_blueprint.route('/<id>', methods=['DELETE'])
+def delete_entity(id):
     """
     Delete a intent
     :param id:
     :return:
     """
-    Entity.objects.get(name=name).delete()
+    Entity.objects.get(id=ObjectId(id)).delete()
 
     return build_response.sent_ok()

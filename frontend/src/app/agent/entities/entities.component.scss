@@ -1,4 +1,16 @@
 mat-card{
     margin: 10px;
+      .full-width {
+        width: 100%;
+      }
+      .entities{
+
+          margin: 10px;
+          .entity{
+              padding:5px;
+              margin-bottom: 3px;
+              cursor: pointer;
+          }
+      }
 }
 

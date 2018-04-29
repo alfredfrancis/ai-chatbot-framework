@@ -1,2 +1,17 @@
 <mat-card>
-  </mat-card>
+  <div fxLayout="row" fxLayoutAlign="space-evenly center">
+    <mat-form-field fxFlex="80">
+      <input matInput #newEntityName placeholder="Entity name">
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="newEntity(newEntityName.value)">Add</button>
+  </div>
+
+  <div class="entities">
+    <div *ngFor="let entity of entities;let i=index" class="entity" routerLink="/agent/default/edit-entity/{{entity._id.$oid}}">
+    {{entity.name}}
+    <button mat-icon-button (click)="deleteEntity(entity._id.$oid,i)" color="warn">
+        <mat-icon aria-label="Delete this intent">delete</mat-icon>
+      </button>
+    </div>
+  </div>
+</mat-card>

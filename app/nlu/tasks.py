@@ -5,6 +5,8 @@ from app.intents.models import Intent
 from app import app
 from app.nlu.intent_classifer import IntentClassifier
 
+from app import my_signals
+model_updated_signal = my_signals.signal('model-updated')
 
 def train_models():
     """
@@ -24,6 +26,7 @@ def train_models():
     for intent in intents:
         train_all_ner(str(intent.id), intent.trainingData)
 
+    model_updated_signal.send(app,message="Training Completed.")
 
 def train_intent_classifier(intents):
     """
@@ -36,14 +39,13 @@ def train_intent_classifier(intents):
     for intent in intents:
         training_data = intent.trainingData
         for example in training_data:
+            if example.get("text").strip() == "":
+                continue
             X.append(example.get("text"))
-            y.append([str(intent.id)])
+            y.append(str(intent.id))
 
     PATH = "{}/{}".format(app.config["MODELS_DIR"],
                           app.config["INTENT_MODEL_NAME"])
-
-    print(X)
-    print(y)
     intent_classifier = IntentClassifier()
     intent_classifier.train(X,
                             y,

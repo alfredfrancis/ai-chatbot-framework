@@ -1,6 +1,7 @@
 version: '2'
 services:
   iky_backend:
+    container_name: iky_backend
     build: .
     environment:
       APPLICATION_ENV: Production
@@ -8,6 +9,7 @@ services:
       - mongodb
 
   iky_gateway:
+    container_name: iky_gateway
     build: frontend/
     ports:
         - "8080:80"
@@ -15,10 +17,11 @@ services:
       - iky_backend
 
   mongodb:
+    container_name: mongodb
     image: mongo
     hostname: mongodb
     ports:
-      - "27017:27017"
+       - "27017:27017"
     volumes:
       - mongodbdata:/data
 

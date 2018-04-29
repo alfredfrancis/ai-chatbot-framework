@@ -41,8 +41,16 @@
 
         <ng-template #elseBlock>
           <mat-form-field>
-              <input matInput type="text" [(ngModel)]="newEntityName" placeholder="entity name" appAutofocus>
+              <input matInput type="text" [(ngModel)]="newEntityName" placeholder="entity name" aria-label="entity" [matAutocomplete]="auto" appAutofocus>
+              <mat-autocomplete #auto="matAutocomplete">
+                  <mat-option *ngFor="let entity of entities" [value]="entity.name">
+                    <span>{{ entity.name }}</span>
+                  </mat-option>
+                </mat-autocomplete>
           </mat-form-field>
+
+            
+
           <span class="round-button" (click)="addNewEntity(example_index)"> Add an entity for
             <b>"{{this.selectionInfo.value}}"</b>
           </span>
@@ -68,8 +76,6 @@
           </td>
         </tr>
       </table>
-
-
     </div>
   </mat-expansion-panel>
 </mat-accordion>

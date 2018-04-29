@@ -15,6 +15,10 @@ MatOptionModule,MatSelectModule,MatCheckboxModule,MatButtonModule} from '@angula
 import {MatGridListModule} from '@angular/material/grid-list';
 import {MatDividerModule} from '@angular/material/divider';
 import {MatExpansionModule} from '@angular/material/expansion';
+import {MatSliderModule} from '@angular/material/slider';
+import {MatChipsModule} from '@angular/material/chips';
+import {MatAutocompleteModule} from '@angular/material/autocomplete';
+
 /* Material UI imports ends here */
 
 
@@ -23,6 +27,9 @@ import { IntentService } from '../services/intent.service';
 import {TrainingService} from '../services/training.service'
 import {IntentResolverService} from '../services/intent-resolver.service';
 import {ChatService} from '../services/chat.service'
+import {AgentsService} from '../services/agents.service'
+import {EntitiesService,EntityResolverService} from '../services/entities.service'
+/* Services imports ends here */
 
 import { SettingsComponent } from './settings/settings.component';
 import { ChatComponent } from './chat/chat.component'
@@ -52,10 +59,15 @@ import { EntityComponent } from './entity/entity.component';
     MatButtonModule,
     MatGridListModule,
     MatDividerModule,
-    MatExpansionModule
+    MatExpansionModule,
+    MatSliderModule,
+    MatChipsModule,
+    MatAutocompleteModule
 
   ],
-  declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent, ChatComponent,AutofocusDirective, EntitiesComponent, EntityComponent],
-  providers:[IntentService,CoreService,IntentResolverService,TrainingService,ChatService]
+  declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent,
+     ChatComponent,AutofocusDirective, EntitiesComponent, EntityComponent],
+  providers:[AgentsService,IntentService,CoreService,
+    IntentResolverService,TrainingService,ChatService,EntitiesService,EntityResolverService]
 })
 export class AgentModule { }
