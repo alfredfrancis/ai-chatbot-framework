@@ -60,4 +60,7 @@ export class EntityComponent implements OnInit {
       }
     )
   }
+  deleteEntityValue(value_index){
+    this.entity["entity_values"].splice(value_index,1);
+  }
 }

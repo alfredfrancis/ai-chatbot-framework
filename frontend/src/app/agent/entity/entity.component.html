@@ -26,7 +26,7 @@
       <span fxFlex="10">
         <h3>{{value.value}}</h3>
       </span>
-      <mat-form-field fxFlex="90">
+      <mat-form-field fxFlex="85">
         <mat-chip-list #chipList>
           <mat-chip *ngFor="let synonym of value.synonyms;let synonym_index=index" [selectable]="true" [removable]="true" (remove)="remove_synonym(value_index,synonym_index)">
             {{synonym}}
@@ -36,6 +36,11 @@
             (matChipInputTokenEnd)="add(value_index,$event)" />
         </mat-chip-list>
       </mat-form-field>
+      <div fxFlex="5">
+          <button mat-icon-button (click)="deleteEntityValue(value_index)" color="warn">
+              <mat-icon aria-label="Delete this value">delete</mat-icon>
+            </button>
+      </div>
     </div>
   </div>
 
