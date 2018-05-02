@@ -4,7 +4,7 @@ from flask import Blueprint, request, Response
 from app.commons import build_response
 from app.entities.models import Entity
 
-from app.commons.functions import update_document
+from app.commons.utils import update_document
 
 entities_blueprint = Blueprint('entities_blueprint', __name__,
                     url_prefix='/entities')

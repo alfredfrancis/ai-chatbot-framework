@@ -48,3 +48,8 @@ def update_document(document, data_dict):
     ) for key, value in data_dict.items()]
 
     return document
+
+def is_list_empty(inList):
+    if isinstance(inList, list):  # Is a list
+        return all(map(is_list_empty, inList))
+    return False  # Not a list
