@@ -158,13 +158,13 @@
 
             errorRoutes = function (x, t, m) {
                 hideTyping();
-                responseObject = {};
+                responseObject = payload;
                 if (t === "timeout") {
                     responseObject["speechResponse"] = ["Due to band-width constraints, I'm not able to serve you now","please try again later"]
                 } else {
                     responseObject["speechResponse"] = ["I'm not able to serve you at the moment"," please try again later"]
                 }
-                console.log(responseObject)
+                payload = responseObject;
                 put_text(responseObject);
             };
 
@@ -173,7 +173,6 @@
             }
 
             var put_text = function (bot_say) {
-                payload = bot_say;
                 $.each(bot_say["speechResponse"],function (index, data) {
                     html_data = '<li class="message_row iky_text">'+ data +'</li>';
                     $("ul.iky_Chat_container").append(html_data);
