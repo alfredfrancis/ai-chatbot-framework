@@ -18,6 +18,14 @@ export class SettingsComponent implements OnInit {
 
   constructor(private intentService:IntentService,private agent_service:AgentsService,  public fb: FormBuilder) { }
 
+  code = `
+  
+  <script type="text/javascript">
+  !function(win,doc){"use strict";var script_loader=(iky_base_url)=>{win.iky_base_url=iky_base_url;try
+  {var r=doc.head||doc.getElementsByTagName("head")[0],a=doc.createElement("script");a.setAttribute("type","text/javascript"),a.setAttribute("src",iky_base_url+"assets/widget/iky_widget.js"),r.appendChild(a)}
+  catch(e){}};win.chat_context={"username":"Alfred"},script_loader("http://localhost:8080/")}(window,document);
+  </script>
+  `
   ngOnInit() {
     this.agent_service.get_config().then(
     (result)=>{
