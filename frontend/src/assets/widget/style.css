@@ -16,7 +16,7 @@ body{
 }
 .iky_container{
     width: cacl(100% - 20px);
-    height: calc(100% - 100px);
+    height: auto;
     background: #fff;
     position: relative;
     height: 450px;
@@ -25,14 +25,16 @@ body{
     border-radius: 10px;
 }
 .iky_input{
+    border-top: 1px solid #ded9d9;
     width: 100%;
 
 }
 .iky_input input{
     padding: 10px;
+    font-size: 20px;
+    font-weight: lighter;
     width: calc(100% - 24px);
-    border: 1px solid #ccc;
-    margin: 10px 0;
+    border: 0px;
     border-radius: 5px;
     margin-bottom: 5px;
 }
@@ -52,12 +54,11 @@ body{
 .iky_action{
     float: right;
     border-radius: 100px;
-    background:#545151;
+    background:#124E78;
     padding: 6px 20px;
     border: none;
     color: #fff;
     font-size: 18px;
-    box-shadow: 1px 3px 5px 0px #666;
     line-height: 25px;
     margin-top: 20px;
 }
@@ -73,12 +74,15 @@ body{
 .iky_chat_holder{
     position: relative;
     height: 400px;
-    overflow: auto;
+    overflow: hidden;
+    padding:0;
+    margin: 0;
 }
 .iky_Chat_container{
-    padding: 20px;
-    width: calc(100% - 40px);
-    height: calc(100% - 40px);
+    margin: 0px;
+    padding:0px 10px 0px 10px;
+    width: calc(100% - 20px);
+    height: 100%;
     overflow: scroll;
     list-style-type: none;
 }
@@ -137,7 +141,7 @@ body{
 
 
 }
-.iky_close{
+.iky_menu{
     position: absolute;
     right: 5px;
     top: 5px;
@@ -145,16 +149,15 @@ body{
     padding: 5px;
    
 }
-.iky_close .btn_close{
+.btn_close{
     text-align: center;
     border-radius: 100px;
     background: #ccc;
-    color: #000000;
+    color: #494747;
     border: none;
     float: right; 
     outline: none;
     border: 1px solid #ccc;
-    transition: all ease-in-out .2s;
 
     font-size: 25px;
     font-weight: lighter;
@@ -168,18 +171,13 @@ body{
 
 }
 
-.chat-indications{
-    padding-left: 10px;
-}
 .typing-indicator {
     background-color: #ebebeb;
     will-change: transform;
     width: auto;
     border-radius:25px;
-    padding: 8px;
+    padding-top: 10px;
     display: table;
-    margin-left: 10px;
-    position: relative;
     -webkit-animation: 2s bulge infinite ease-out;
             animation: 2s bulge infinite ease-out;
   }
@@ -192,6 +190,7 @@ body{
     display: block;
     border-radius: 50%;
     opacity: 0.4;
+    margin-bottom: 0px;
   }
   .typing-indicator span:nth-of-type(1) {
     -webkit-animation: 1s blink infinite 0.3333s;

@@ -21,9 +21,9 @@ export class SettingsComponent implements OnInit {
   code = `
   
   <script type="text/javascript">
-  !function(win,doc){"use strict";var script_loader=(iky_base_url)=>{win.iky_base_url=iky_base_url;try
-  {var r=doc.head||doc.getElementsByTagName("head")[0],a=doc.createElement("script");a.setAttribute("type","text/javascript"),a.setAttribute("src",iky_base_url+"assets/widget/iky_widget.js"),r.appendChild(a)}
-  catch(e){}};win.chat_context={"username":"Alfred"},script_loader("http://localhost:8080/")}(window,document);
+  !function(win,doc){"use strict";var script_loader=()=>{try
+  {var head=doc.head||doc.getElementsByTagName("head")[0],script=doc.createElement("script");script.setAttribute("type","text/javascript"),script.setAttribute("src",win.iky_base_url+"assets/widget/iky_widget.js"),head.appendChild(script)}
+  catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="http://localhost:8080/",script_loader()}(window,document);
   </script>
   `
   ngOnInit() {
