@@ -101,6 +101,7 @@ export class IntentComponent implements OnInit {
     const fields = {
       isJson: [''],
       url: [''],
+      headers: [{}],
       requestType: [''],
       jsonData: ['']
     };
