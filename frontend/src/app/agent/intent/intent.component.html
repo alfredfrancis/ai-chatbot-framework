@@ -48,21 +48,26 @@
     <h3>
       <mat-checkbox formControlName="apiTrigger">API trigger</mat-checkbox>
     </h3>
+
     <section [formGroup]="intentForm.controls.apiDetails" *ngIf="apiTrigger()" fxLayout="column" fxLayoutGap="10px">
-      <h3>HTTP Headers</h3>
-      <div class="api-headers" fxLayout="row" fxLayoutGap="10px">
-        
-        <mat-form-field fxFlex="40">
-          <input matInput formControlName="name" placeholder="new key">
-        </mat-form-field>
-        <mat-form-field fxFlex="40">
-          <input matInput formControlName="name" placeholder="value">
-        </mat-form-field>
-        <div fxFlex="10">
-            <button mat-mini-fab (click)="addHeader()" color="primary">
-                <mat-icon aria-label="Add header">add</mat-icon>
-              </button>
+      <h3>HTTP Headers             
+          <button type="button"  mat-mini-fab (click)="addHeader()" color="primary">
+            <mat-icon aria-label="Add header">add</mat-icon>
+          </button>
+        </h3>
+      <div class="api-headers" *ngFor="let header of intentForm.controls.apiDetails.controls.headers.controls; let j=index;"  fxLayoutGap="10px">
+        <div  fxLayout="row" [formGroup]="header" fxLayoutGap="10px">
+            <mat-form-field fxFlex="40">
+                <input matInput formControlName="headerKey" placeholder="new key">
+              </mat-form-field>
+              <mat-form-field fxFlex="40">
+                <input matInput formControlName="headerValue" placeholder="value">
+              </mat-form-field>
+              <button mat-icon-button (click)="deleteHeader(j)">
+                  <mat-icon aria-label="Delete this Header">delete</mat-icon>
+                </button>
         </div>
+
       </div>
 
       <div fxLayout="row" fxLayoutGap="20px">
