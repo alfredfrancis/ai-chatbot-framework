@@ -169,7 +169,8 @@ def api():
             if intent.apiTrigger:
                 isJson = False
                 parameters = result_json["extractedParameters"]
-
+                headers = intent.apiDetails.get_headers()
+                app.logger.info("headers %s"%headers)
                 url_template = Template(
                     intent.apiDetails.url, undefined=SilentUndefined)
                 rendered_url = url_template.render(**context)
@@ -181,7 +182,7 @@ def api():
 
                 try:
                     result = call_api(rendered_url,
-                                      intent.apiDetails.requestType,
+                                      intent.apiDetails.requestType,headers,
                                       parameters, isJson)
                 except Exception as e:
                     app.logger.warn("API call failed", e)
