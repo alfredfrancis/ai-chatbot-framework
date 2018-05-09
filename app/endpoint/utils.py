@@ -22,7 +22,7 @@ def get_synonyms():
     app.logger.info("loaded synonyms %s",synonyms)
     return synonyms
 
-def call_api(url, type, parameters = {}, is_json=False):
+def call_api(url, type,headers={}, parameters = {}, is_json=False):
     """
     Call external API
     :param url:
@@ -33,19 +33,19 @@ def call_api(url, type, parameters = {}, is_json=False):
     """
     app.logger.info("Initiating API Call with following info: url => {} payload => {}".format(url,parameters))
     if "GET" in type:
-            response = requests.get(url, params=parameters)
+            response = requests.get(url,headers=headers, params=parameters)
     elif "POST" in type:
         if is_json:
-            response = requests.post(url, json=parameters)
+            response = requests.post(url,headers=headers, json=parameters)
         else:
-            response = requests.post(url, params=parameters)
+            response = requests.post(url,headers=headers, params=parameters)
     elif "PUT" in type:
         if is_json:
-            response = requests.put(url, json=parameters)
+            response = requests.put(url,headers=headers, json=parameters)
         else:
-            response = requests.put(url, params=parameters)
+            response = requests.put(url,headers=headers, params=parameters)
     elif "DELETE" in type:
-        response = requests.delete(url, params=parameters)
+        response = requests.delete(url,headers=headers, params=parameters)
     else:
         raise Exception("unsupported request method.")
     result = json.loads(response.text)

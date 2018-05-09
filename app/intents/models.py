@@ -30,9 +30,15 @@ class ApiDetails(EmbeddedDocument):
             "DELETE",
             "PUT"],
         required=True)
+    headers = ListField(default=[])
     isJson = BooleanField(default=False)
     jsonData = StringField(default="{}")
 
+    def get_headers(self):
+        headers = {}
+        for header in self.headers:
+            headers[header["headerKey"]]=header["headerValue"]
+        return headers
 
 class Intent(Document):
     name = StringField(max_length=100, required=True, unique=True)

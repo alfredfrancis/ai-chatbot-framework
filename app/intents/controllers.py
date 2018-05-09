@@ -36,6 +36,7 @@ def create_intent():
             api_details.jsonData = content.get("apiDetails").get("jsonData")
 
         api_details.url = content.get("apiDetails").get("url")
+        api_details.headers = content.get("apiDetails").get("headers")
         api_details.requestType = content.get("apiDetails").get("requestType")
         intent.apiDetails = api_details
     else:

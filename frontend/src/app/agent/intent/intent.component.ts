@@ -40,7 +40,7 @@ export class IntentComponent implements OnInit {
       intentId: [''],
       userDefined: [true],
       speechResponse: [''],
-      apiTrigger: [''],
+      apiTrigger: [false],
       apiDetails: this.initApiDetails(),
       parameters: this.fb.array(
         this.intent && this.intent.parameters ? this.intent.parameters.map(n => {
@@ -99,8 +99,12 @@ export class IntentComponent implements OnInit {
 
   initApiDetails(parameter = null) {
     const fields = {
-      isJson: [''],
+      isJson: [false],
       url: [''],
+      headers: this.fb.array(
+        this.intent && this.intent.apiTrigger ? this.intent.apiDetails.headers.map(n => {
+        return this.initApiHeaders();
+      }) : []),
       requestType: [''],
       jsonData: ['']
     };
@@ -110,7 +114,24 @@ export class IntentComponent implements OnInit {
     }
     return g;
   }
+  initApiHeaders() {
+    const fields = {
+      headerKey: [''],
+      headerValue: [''],
+    };
+    const g = this.fb.group(fields);
+    return g;
+  }
 
+  addHeader(){
+    const header = <FormArray>this.intentForm.controls["apiDetails"]["controls"]["headers"];
+    header.push(this.initApiHeaders());
+
+  }
+  deleteHeader(j) {
+    const control = <FormArray>this.intentForm.controls["apiDetails"]["controls"]["headers"];
+    control.removeAt(j);
+  }
   save() {
     const form = this.intentForm.value;
     if (form._id && form._id.$oid) {
