@@ -11,7 +11,7 @@
     </mat-form-field>
 
     <h2>Parameters
-      <button mat-mini-fab (click)="addParameter()" color="primary">
+      <button type="button"  mat-mini-fab (click)="addParameter()" color="primary">
         <mat-icon aria-label="New Parameter">add</mat-icon>
       </button>
     </h2>
@@ -110,7 +110,7 @@
 
 
     <mat-card-actions>
-      <button mat-raised-button color="primary">Save</button>
+      <button mat-raised-button color="primary" [disabled]="!intentForm.valid">Save</button>
     </mat-card-actions>
   </form>
 </mat-card>

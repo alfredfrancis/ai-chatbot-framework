@@ -23,13 +23,12 @@
 <mat-accordion>
   <mat-expansion-panel *ngFor="let example of trainingData;let example_index = index" [expanded]="example_index == 0" (opened)="selectionInfo.value = ''">
     <mat-expansion-panel-header>
-      <mat-panel-title>
-        {{example.text}}
+      <mat-panel-title [innerHTML]="getAnnotatedText(example)">
       </mat-panel-title>
     </mat-expansion-panel-header>
 
     <div fxLayout="row">
-      <div fxFlex="90" id="textarea_highlight" contenteditable="true" role="textarea" (mouseup)="annotate()" appAutofocus>{{example.text}}</div>
+      <div fxFlex="90" id="textarea_highlight" contenteditable="true" role="textarea" (mouseup)="annotate()" appAutofocus  (blur)="example.text = $event.target.outerText;">{{example.text}}</div>
       <button mat-icon-button fxFlex="10">
         <mat-icon aria-label="Delete this example" (click)="deleteExample(example_index)">delete</mat-icon>
       </button>
@@ -51,7 +50,7 @@
 
             
 
-          <span class="round-button" (click)="addNewEntity(example_index)"> Add an entity for
+          <span class="round-button" (click)="newEntityName && addNewEntity(example_index)"> Add an entity for
             <b>"{{this.selectionInfo.value}}"</b>
           </span>
         </ng-template>

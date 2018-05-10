@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input,AfterViewChecked, ElementRef, ViewChild } from '@angular/core';
 import { ChatService } from '../../services/chat.service';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { trigger,style,transition,animate,keyframes,query,stagger } from '@angular/animations';
@@ -36,6 +36,7 @@ export class ChatComponent implements OnInit {
 
   chatForm: FormGroup;
   chatFormFields: any;
+  @ViewChild('scrollMe') private myScrollContainer: ElementRef;
 
   constructor(
     public fb: FormBuilder,
@@ -69,6 +70,13 @@ export class ChatComponent implements OnInit {
       });
   }
 
+
+scrollToBottom(): void {
+    try {
+        this.myScrollContainer.nativeElement.scrollTop = this.myScrollContainer.nativeElement.scrollHeight;
+    } catch(err) { }                 
+}
+
   render_bubbles(c){
     c.speechResponse.forEach((item, index) => {
       if (index  == 0){
@@ -84,7 +92,10 @@ export class ChatComponent implements OnInit {
   add_to_messages(message,author){
       let new_message = new Message(message,author)
       this.messages.push(new_message);
-
+      setTimeout(()=>{
+        this.scrollToBottom();
+      },300)
+      
   }
   
   changeCurrent(c) {

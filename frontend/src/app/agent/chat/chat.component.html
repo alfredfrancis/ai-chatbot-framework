@@ -1,7 +1,7 @@
 <!-- https://tburleson-layouts-demos.firebaseapp.com/#/docs -->
 <div fxLayout="row" fxFill>
   <mat-card fxFlex="30" fxLayout="column" >
-    <div fxFlex="90" class="chat-container">
+    <div fxFlex="90" class="chat-container" #scrollMe>
       <div *ngFor="let message of messages"  [@listAnimation]="messages.length" >
 
         <div  *ngIf="message.author=='user'" class="chat-message">

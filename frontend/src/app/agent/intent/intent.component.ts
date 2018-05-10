@@ -1,5 +1,5 @@
 import { Component, OnInit, Input } from '@angular/core';
-import { FormGroup, FormBuilder, FormArray } from '@angular/forms';
+import { FormGroup, FormBuilder, FormArray,Validators } from '@angular/forms';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 
 import { CoreService } from '../../services/core.service';
@@ -79,8 +79,8 @@ export class IntentComponent implements OnInit {
 
   initParameter(parameter = null) {
     const fields = {
-      name: [''],
-      type: [''],
+      name: ['', Validators.required],
+      type: ['', Validators.required],
       required: [false],
       prompt: ['']
     };
@@ -116,8 +116,8 @@ export class IntentComponent implements OnInit {
   }
   initApiHeaders() {
     const fields = {
-      headerKey: [''],
-      headerValue: [''],
+      headerKey: ['', Validators.required],
+      headerValue: ['', Validators.required],
     };
     const g = this.fb.group(fields);
     return g;

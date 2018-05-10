@@ -19,8 +19,13 @@ mat-card{
     height: 600px;
 }   
 
+::-webkit-scrollbar {
+  width: 0px;  /* remove scrollbar space */
+  background: transparent;  /* optional: just make scrollbar invisible */
+}
+
 .chat-container {
-    overflow-y: scroll;
+    overflow-y: auto;
   }
   
   .chat-message {
@@ -45,12 +50,12 @@ mat-card{
     padding: 7px 13px;
     border-radius: 15px;
     color: #595a5a;
-    background-color: #ebebeb;
+    background-color: #eeeeee;
   
     &.human {
       float: right;
       color: #f7f8f8;
-      background-color: #28635a;
+      background-color: #3392fb;
     }
   }
   

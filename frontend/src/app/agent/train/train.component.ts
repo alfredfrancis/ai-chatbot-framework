@@ -76,6 +76,21 @@ export class TrainComponent implements OnInit {
     
   }
 
+  // 123456
+  getAnnotatedText(example){
+    let text = example.text
+    example.entities.forEach(entity => {
+      var key =entity.value;
+      var regex = new RegExp(key,'g');
+      text =  text.replace(regex,'&nbsp;<mark style="background: red;">'+key+'</mark>&nbsp;' );
+    });
+    return text
+  }
+  // updateValue($event,example_index){
+  //   this.trainingData[example_index]["text"]=$event.srcElement.outerText;
+    
+  // }
+
   addNewExample(){
     this.trainingData.unshift({
       "text":this.newExampleText,
