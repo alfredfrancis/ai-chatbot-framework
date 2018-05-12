@@ -186,7 +186,7 @@ def api():
                                       parameters, isJson)
                 except Exception as e:
                     app.logger.warn("API call failed", e)
-                    result_json["speechResponse"] = ["Service is not available. "]
+                    result_json["speechResponse"] = ["Service is not available. Please try again later."]
                 else:
                     context["result"] = result
                     template = Template(
