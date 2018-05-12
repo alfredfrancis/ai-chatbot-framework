@@ -108,7 +108,7 @@
                 // send request to bot
                 payload["input"] = userQuery;
 
-                $.post('http://localhost:8080/gateway/api/v1', JSON.stringify(payload))
+                $.post(config["base_url"]+'gateway/api/v1', JSON.stringify(payload))
                     .done(((response)=>{
                         successRoutes(response);}))
                     .fail((x,t,m)=>{

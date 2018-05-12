@@ -83,9 +83,14 @@ body{
     padding:0px 10px 0px 10px;
     width: calc(100% - 20px);
     height: 100%;
-    overflow: scroll;
+    overflow-y: scroll;
     list-style-type: none;
 }
+.iky_Chat_container::-webkit-scrollbar {
+    width: 0px;  /* remove scrollbar space */
+    background: transparent;  /* optional: just make scrollbar invisible */
+  }
+
 .message_row{
     float: left;
     min-height: 20px;
