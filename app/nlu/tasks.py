@@ -3,7 +3,7 @@ from app.nlu.entity_extractor import EntityExtractor
 from app.intents.models import Intent
 
 from app import app
-from app.nlu.intent_classifer import IntentClassifier
+from app.nlu.classifiers.tf_intent_classifer import TfIntentClassifier
 
 from app import my_signals
 model_updated_signal = my_signals.signal('model-updated')
@@ -44,12 +44,10 @@ def train_intent_classifier(intents):
             X.append(example.get("text"))
             y.append(str(intent.id))
 
-    PATH = "{}/{}".format(app.config["MODELS_DIR"],
-                          app.config["INTENT_MODEL_NAME"])
-    intent_classifier = IntentClassifier()
+    intent_classifier = TfIntentClassifier()
     intent_classifier.train(X,
                             y,
-                            outpath=PATH, verbose=False)
+                            models_dir=app.config["MODELS_DIR"], verbose=True)
 
 
 def train_all_ner(story_id, training_data):

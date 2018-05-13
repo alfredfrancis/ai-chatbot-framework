@@ -16,19 +16,11 @@ from app.endpoint.utils import get_synonyms, SilentUndefined, split_sentence, ca
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
 # Loading ML Models at app startup
-from app.nlu.intent_classifer import IntentClassifier
+from app.nlu.classifiers.tf_intent_classifer import TfIntentClassifier
 
-with app.app_context():
-    PATH = "{}/{}".format(app.config["MODELS_DIR"],
-                          app.config["INTENT_MODEL_NAME"])
-
-    sentence_classifier = IntentClassifier()
-    sentence_classifier.load(PATH)
-
-    synonyms = get_synonyms()
-    entity_extraction = EntityExtractor(synonyms)
-    app.logger.info("Intent Model loaded.")
-
+sentence_classifier = None
+synonyms = None
+entity_extraction = None
 
 # Request Handler
 @endpoint.route('/v1', methods=['POST'])
@@ -202,7 +194,6 @@ def api():
     else:
         return abort(400)
 
-
 def update_model(app, message, **extra):
     """
     Signal hook to be called after training is completed.
@@ -212,20 +203,21 @@ def update_model(app, message, **extra):
     :param extra:
     :return:
     """
-    sentence_classifier.load(PATH)
+    global sentence_classifier
+
+    sentence_classifier = TfIntentClassifier()
+    sentence_classifier.load(app.config["MODELS_DIR"])
     synonyms = get_synonyms()
     global entity_extraction
     entity_extraction = EntityExtractor(synonyms)
     app.logger.info("Intent Model updated")
 
+update_model(app,"Modles updated")
 
 from app.nlu.tasks import model_updated_signal
-
 model_updated_signal.connect(update_model, app)
 
 from app.agents.models import Bot
-
-
 def predict(sentence):
     """
     Predict Intent using Intent classifier

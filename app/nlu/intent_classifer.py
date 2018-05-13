@@ -94,6 +94,7 @@ class IntentClassifier():
         import numpy as np
 
         pred_result = self.model.predict_proba(X)
+        print(pred_result)
         # sort the probabilities retrieving the indices of the elements in sorted order
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
         return sorted_indices, pred_result[:, sorted_indices]

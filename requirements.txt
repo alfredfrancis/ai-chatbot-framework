@@ -25,3 +25,6 @@ pytest
 cloudpickle
 flask_script
 blinker
+h5py
+spacy
+tensorflow
