@@ -28,7 +28,7 @@
     </mat-expansion-panel-header>
 
     <div fxLayout="row">
-      <div fxFlex="90" id="textarea_highlight" contenteditable="true" role="textarea" (mouseup)="annotate()" appAutofocus  (blur)="example.text = $event.target.outerText;">{{example.text}}</div>
+      <div fxFlex="90" id="textarea_highlight" contenteditable="true" role="textarea" (mouseup)="annotate()" appAutofocus  (keyup)="example.text = $event.target.outerText;placeCaretAtEnd($event.target)">{{example.text}}</div>
       <button mat-icon-button fxFlex="10">
         <mat-icon aria-label="Delete this example" (click)="deleteExample(example_index)">delete</mat-icon>
       </button>
