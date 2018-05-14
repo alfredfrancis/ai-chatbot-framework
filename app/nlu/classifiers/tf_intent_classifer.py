@@ -34,6 +34,13 @@ class TfIntentClassifier():
             model.add(tf.keras.layers.Dense(num_labels, activation=tf.nn.relu))
             model.add(tf.keras.layers.Dense(num_labels, activation=tf.nn.softmax))
 
+            # input_shape = (vocab_size,)
+            # model = tf.keras.Sequential()
+            # model.add(tf.keras.layers.Reshape(input_shape+(1,),input_shape=input_shape))
+            # model.add(tf.keras.layers.Dense(30, activation=tf.nn.relu, input_shape=input_shape))
+            # model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(20, activation=tf.nn.relu,return_sequences=False)))
+            # model.add(tf.keras.layers.Dense(num_labels, activation=tf.nn.sigmoid))
+
             model.compile(loss='categorical_crossentropy',
                           optimizer='rmsprop',
                           metrics=['accuracy'])
