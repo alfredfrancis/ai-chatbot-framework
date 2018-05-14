@@ -215,8 +215,8 @@ export class TrainComponent implements OnInit {
         var sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
-    } else if (typeof document.body.createTextRange != "undefined") {
-        var textRange = document.body.createTextRange();
+    } else if (typeof (<any>document.body).createTextRange != "undefined") {
+        var textRange = (<any>document.body).createTextRange();
         textRange.moveToElementText(el);
         textRange.collapse(false);
         textRange.select();
