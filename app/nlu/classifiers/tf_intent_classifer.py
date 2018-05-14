@@ -39,6 +39,7 @@ class TfIntentClassifier():
             loss functions tried =>  categorical_crossentropy,binary_crossentropy
             optimizers tried => adam,rmsprop
             """
+            
             model.compile(loss='categorical_crossentropy',
                           optimizer='adam',
                           metrics=['accuracy'])
