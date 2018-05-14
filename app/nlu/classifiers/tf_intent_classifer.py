@@ -1,10 +1,12 @@
-import numpy as np
 import tensorflow as tf
 import spacy
 from sklearn.preprocessing import LabelBinarizer
 import os
 import cloudpickle
 import time
+
+import numpy as np
+np.random.seed(1)
 
 class TfIntentClassifier():
 
@@ -13,7 +15,6 @@ class TfIntentClassifier():
         self.nlp = spacy.load('en')
         self.label_encoder = LabelBinarizer()
         self.graph=None
-        print("im executed")
 
     def train(self, X, y, models_dir=None, verbose=True):
         """
@@ -31,11 +32,15 @@ class TfIntentClassifier():
             """
             model = tf.keras.Sequential()
             model.add(tf.keras.layers.Dense(512, activation=tf.nn.relu, input_shape=(vocab_size,)))
-            model.add(tf.keras.layers.Dense(num_labels, activation=tf.nn.relu))
+            model.add(tf.keras.layers.Dense(256, activation=tf.nn.relu))
             model.add(tf.keras.layers.Dense(num_labels, activation=tf.nn.softmax))
 
+            """
+            loss functions tried =>  categorical_crossentropy,binary_crossentropy
+            optimizers tried => adam,rmsprop
+            """
             model.compile(loss='categorical_crossentropy',
-                          optimizer='rmsprop',
+                          optimizer='adam',
                           metrics=['accuracy'])
 
             model.summary()
