@@ -31,8 +31,10 @@ class TfIntentClassifier():
             Define and return tensorflow model.
             """
             model = tf.keras.Sequential()
-            model.add(tf.keras.layers.Dense(512, activation=tf.nn.relu, input_shape=(vocab_size,)))
-            model.add(tf.keras.layers.Dense(256, activation=tf.nn.relu))
+            model.add(tf.keras.layers.Dense(256, activation=tf.nn.relu, input_shape=(vocab_size,)))
+            model.add(tf.keras.layers.Dropout(0.2))
+            model.add(tf.keras.layers.Dense(128, activation=tf.nn.relu))
+            model.add(tf.keras.layers.Dropout(0.2))
             model.add(tf.keras.layers.Dense(num_labels, activation=tf.nn.softmax))
 
             """
@@ -64,7 +66,7 @@ class TfIntentClassifier():
 
         self.model = create_model()
         # start training
-        self.model.fit(x_train, y_train, shuffle=True, epochs=50, verbose=1)
+        self.model.fit(x_train, y_train, shuffle=True, epochs=300, verbose=1)
 
         if models_dir:
             tf.keras.models.save_model(
