@@ -1,10 +1,9 @@
 import cloudpickle
-from sklearn import preprocessing
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
 from app.nlu.nltk_preprocessor import NLTKPreprocessor
-
+import numpy as np
 
 class IntentClassifier():
 
@@ -44,12 +43,18 @@ class IntentClassifier():
 
             from sklearn.model_selection import GridSearchCV
 
+            items,counts= np.unique(y, return_counts=True)
+
+            cv_splits = max(2, min(5, np.min(counts) // 5))
+
             Cs = [0.01,0.25,1, 2, 5, 10, 20, 100]
             param_grid = {'clf__C': Cs, 'clf__kernel': ["linear"]}
             grid_search = GridSearchCV(model,
                                        param_grid=param_grid,
                                        scoring='f1_weighted',
-                                       verbose=1)
+                                       cv=cv_splits,
+                                       verbose=2
+                                       )
             grid_search.fit(X, y)
 
             model = grid_search
@@ -76,14 +81,14 @@ class IntentClassifier():
         except IOError:
             return False
 
-    def predict(self, text):
+    def predict(self, text, return_all=False, INTENT_RANKING_LENGTH=5):
         """
         Predict class label for given model
         :param text:
         :param PATH:
         :return:
         """
-        return self.process(text)
+        return self.process(text, return_all, INTENT_RANKING_LENGTH)
 
     def predict_proba(self, X):
         """Given a bow vector of an input text, predict most probable label. Returns only the most likely label.
@@ -98,7 +103,7 @@ class IntentClassifier():
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
         return sorted_indices, pred_result[:, sorted_indices]
 
-    def process(self, x, return_type="intent", INTENT_RANKING_LENGTH=5):
+    def process(self, x, return_all=False, INTENT_RANKING_LENGTH=5):
         """Returns the most likely intent and its probability for the input text."""
 
         if not self.model:
@@ -118,7 +123,7 @@ class IntentClassifier():
             else:
                 intent = {"name": None, "confidence": 0.0}
                 intent_ranking = []
-        if return_type == "intent":
-            return intent
-        else:
+        if return_all:
             return intent_ranking
+        else:
+            return intent
