@@ -2,19 +2,38 @@ import cloudpickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
-from app.nlu.nltk_preprocessor import NLTKPreprocessor
 import numpy as np
+import spacy
+from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
+from nltk.corpus import stopwords
+import string
 
 class IntentClassifier():
 
     def __init__(self):
         self.model = None
+        self.spacynlp = spacy.load('en')
+        self.stopwords = set(stopwords.words('english') + ["n't", "'s", "'m", "ca"] + list(ENGLISH_STOP_WORDS))
+        self.punctuations = " ".join(string.punctuation).split(" ") + ["-----", "---", "...", "'ve"]
 
-    def identity(self, arg):
+    def spacy_tokenizer(self,sentence):
         """
-        Simple identity function works as a passthrough.
+        perform basic cleaning,tokenization and lemmatization
+        :param sentence:
+        :return list of clean tokens:
         """
-        return arg
+        tokens = self.spacynlp(sentence)
+        tokens = [tok.lemma_.lower().strip() if tok.lemma_ != "-PRON-" else tok.lower_ for tok in tokens]
+        tokens = [tok for tok in tokens if (tok not in self.stopwords and tok not in self.punctuations)]
+        while "" in tokens:
+            tokens.remove("")
+        while " " in tokens:
+            tokens.remove(" ")
+        while "\n" in tokens:
+            tokens.remove("\n")
+        while "\n\n" in tokens:
+            tokens.remove("\n\n")
+        return tokens
 
     def train(self, X, y, outpath=None, verbose=True):
         """
@@ -34,10 +53,9 @@ class IntentClassifier():
             :return:
             """
             model = Pipeline([
-                ('preprocessor', NLTKPreprocessor()),
                 ('vectorizer', TfidfVectorizer(
-                    tokenizer=self.identity, preprocessor=None, lowercase=False)),
-                ('clf', SVC(C=1,
+                    tokenizer=self.spacy_tokenizer, preprocessor=None, lowercase=False)),
+                ('clf', SVC(C=1,kernel="linear",
                             probability=True,
                             class_weight='balanced'))])
 
@@ -53,17 +71,15 @@ class IntentClassifier():
                                        param_grid=param_grid,
                                        scoring='f1_weighted',
                                        cv=cv_splits,
-                                       verbose=2
+                                       verbose=2,
+                                       n_jobs=-1
                                        )
             grid_search.fit(X, y)
 
-            model = grid_search
-            return model
-
-        print(X)
-        print(len(y))
+            return grid_search
 
         model = build(X, y)
+
 
         if outpath:
             with open(outpath, 'wb') as f:
@@ -75,6 +91,11 @@ class IntentClassifier():
         return model
 
     def load(self, PATH):
+        """
+        load trained model froom given path
+        :param PATH:
+        :return:
+        """
         try:
             with open(PATH, 'rb') as f:
                 self.model = cloudpickle.load(f)
