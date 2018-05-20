@@ -1,0 +1,116 @@
+<mat-card>
+  <h2>{{message}}</h2>
+
+  <form [formGroup]="intentForm" *ngIf="intentForm" (submit)="save()" class="row" style=" width: 100%;">
+    <mat-form-field class="full-width">
+      <textarea matInput formControlName="name" placeholder="Intent name"></textarea>
+    </mat-form-field>
+    <br>
+    <mat-form-field class="full-width">
+      <textarea matInput formControlName="intentId" placeholder="Intent ID"></textarea>
+    </mat-form-field>
+
+    <h2>Parameters
+      <button type="button"  mat-mini-fab (click)="addParameter()" color="primary">
+        <mat-icon aria-label="New Parameter">add</mat-icon>
+      </button>
+    </h2>
+    <section class="parameters" formArrayName="parameters">
+      <div *ngFor="let paremeter of intentForm.controls.parameters.controls; let i=index;" class="parameter">
+
+        <div [formGroup]="paremeter" fxLayout="row" fxLayoutGap="10px">
+          <mat-form-field fxFlex="30">
+            <input matInput formControlName="name" placeholder="Parameter name">
+          </mat-form-field>
+
+          <mat-form-field class="col-md-4" fxFlex="10">
+            <mat-select formControlName="type" placeholder="Parameter type">
+              <mat-option *ngFor="let intent of intentTypesArray" [value]="intent">
+                {{ intentTypes[intent] }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-checkbox formControlName="required" fxFlex="10">Required</mat-checkbox>
+          <mat-form-field *ngIf="paremeter.controls.required.value" fxFlex="45">
+            <textarea matInput formControlName="prompt" placeholder="Message to prompt when require"></textarea>
+          </mat-form-field>
+
+          <button mat-icon-button (click)="deleteParameter(i)">
+            <mat-icon aria-label="Delete this intent">delete</mat-icon>
+          </button>
+        </div>
+      </div>
+
+
+    </section>
+
+
+    <h3>
+      <mat-checkbox formControlName="apiTrigger">API trigger</mat-checkbox>
+    </h3>
+
+    <section [formGroup]="intentForm.controls.apiDetails" *ngIf="apiTrigger()" fxLayout="column" fxLayoutGap="10px">
+      <h3>HTTP Headers             
+          <button type="button"  mat-mini-fab (click)="addHeader()" color="primary">
+            <mat-icon aria-label="Add header">add</mat-icon>
+          </button>
+        </h3>
+      <div class="api-headers" *ngFor="let header of intentForm.controls.apiDetails.controls.headers.controls; let j=index;"  fxLayoutGap="10px">
+        <div  fxLayout="row" [formGroup]="header" fxLayoutGap="10px">
+            <mat-form-field fxFlex="40">
+                <input matInput formControlName="headerKey" placeholder="new key">
+              </mat-form-field>
+              <mat-form-field fxFlex="40">
+                <input matInput formControlName="headerValue" placeholder="value">
+              </mat-form-field>
+              <button mat-icon-button (click)="deleteHeader(j)">
+                  <mat-icon aria-label="Delete this Header">delete</mat-icon>
+                </button>
+        </div>
+
+      </div>
+
+      <div fxLayout="row" fxLayoutGap="20px">
+        <mat-form-field fxFlex="90">
+          <input matInput formControlName="url" placeholder="API url">
+        </mat-form-field>
+
+        <mat-form-field fxFlex="10">
+          <mat-select formControlName="requestType" placeholder="API method">
+            <mat-option value="GET">GET</mat-option>
+            <mat-option value="POST">POST</mat-option>
+            <mat-option value="PUT">PUT</mat-option>
+            <mat-option value="DELETE">DELETE</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <mat-checkbox formControlName="isJson">JSON payload</mat-checkbox>
+      <div *ngIf="intentForm.value.apiDetails.isJson">
+        Extracted parameters can be used to build your json. Example,
+        <pre> {{ '\{ 
+    "name": \{\{ parameters\[\"name\"\] \}\} 
+ \}' }}</pre>
+      </div>
+      <mat-form-field class="full-width" *ngIf="intentForm.value.apiDetails.isJson">
+        <textarea matInput formControlName="jsonData" placeholder="JsonData" rows="8" placeholder="JSON payload"></textarea>
+      </mat-form-field>
+
+    </section>
+    <br>
+    <mat-form-field class="full-width">
+      <textarea matInput formControlName="speechResponse" placeholder="Speech Response" rows="5"></textarea>
+    </mat-form-field>
+
+    <p>
+      Extracted parameters and api call response can be accessed from speech respone using "parameters" and "result" objects respectively.
+      <a href="http://jinja.pocoo.org/docs/2.10/templates/" target="_blank">Jinja</a> Templating enabled.
+    </p>
+
+
+
+    <mat-card-actions>
+      <button mat-raised-button color="primary" [disabled]="!intentForm.valid">Save</button>
+    </mat-card-actions>
+  </form>
+</mat-card>

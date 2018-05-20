@@ -1,0 +1,35 @@
+<mat-card fxLayout="column">
+    
+    <form [formGroup]="config_form" (submit)="save_config()">
+        <h3>Tune ML</h3>
+        <mat-slider min="0.1" max="1.0" step="0.05" formControlName="confidence_threshold" (change)="threshold_value_changed()"></mat-slider>
+        Intent Detection threshold = <b>{{config_form.value.confidence_threshold | percent}}</b>
+        <br>
+      </form>  
+    <div class="code-snippet">
+            <h3>Chat Widget</h3>
+            <p>Copy and paste the below snippet into your HTML code.</p>
+            <pre id="codeStyler">
+                    <code  >{{ code }} </code> 
+            </pre>
+            <p>
+                In the above code snippet, 
+                replace <code>win.iky_base_url</code> value with your iky installation in following format <code>"ip:port/"</code> and <code>win.chat_context</code> with any global context
+            </p>
+
+    </div>
+
+    <h3>Import/Export Intents</h3>
+    <div fxLayout="row" fxLayoutAlign="space-between center" >
+
+        <div class="import-group" fxLayout="row" fxLayoutAlign=" center">
+            <div fxFlex>
+                <input type="file"
+                      id="file"
+                      (change)="handleFileInput($event.target.files)">
+            </div>
+            <div fxLayoutAlign="end" >  <button mat-raised-button (click)="uploadFileToActivity()" [disabled]="!fileToUpload">Import Intents</button></div>  
+          </div>
+          <button mat-raised-button (click)="export()" color="primary">Export Intents</button>
+    </div>
+</mat-card>

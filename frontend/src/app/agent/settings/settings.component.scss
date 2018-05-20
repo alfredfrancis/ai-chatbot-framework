@@ -1,0 +1,40 @@
+mat-card{
+    margin:10px;
+    .import-group{
+        width:500px;
+        border: 1px solid lightgray;
+        padding: 5px;
+    }
+
+    /* Code Styles */
+    pre {
+    white-space: pre-wrap;
+    white-space: -moz-pre-wrap;
+    white-space: -o-pre-wrap;
+    word-wrap: break-word;
+
+    margin: 20px 0;
+    width: 800px;
+    max-width: 100%;
+    outline: none;
+    white-space: normal;
+    background-color: #f6f8fa;
+    border-color: #ccc;
+    color: #666;
+    font-size: 15px!important;
+    padding: 7px;
+    box-shadow: 1px 2px 3px lightgrey;
+}
+    
+    code {
+    font-family: Courier, 'New Courier', monospace;
+    font-size: 12px;
+    }
+    
+    #codeStyler {
+    border-radius: 5px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    margin: 1em 0;
+    }
+}

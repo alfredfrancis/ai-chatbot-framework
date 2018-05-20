@@ -1,0 +1,30 @@
+<div class="header" fxLayout="row" fxLayoutAlign=" center">
+  <h1 fxFlex>List of Intents
+    <button mat-mini-fab (click)="add()">
+      <mat-icon aria-label="Example icon-button with a heart icon">add</mat-icon>
+    </button>
+  </h1>
+
+  <button mat-raised-button color="primary" (click)="trainModels()">Build Agent</button>
+</div>
+
+
+
+<mat-card>
+  <div *ngFor="let intent of intents" fxLayout="row" fxLayoutAlign=" center" class="intent-container">
+    <div fxFlex="60">
+      {{intent.name}}
+    </div>
+    <div fxFlex="40">
+      <button mat-button (click)="train(intent)" color="primary">Train</button>
+      <button mat-icon-button (click)="edit(intent)" color="accent">
+        <mat-icon aria-label="Delete this intent">edit</mat-icon>
+      </button>
+      <button mat-icon-button (click)="delete(intent)" color="warn" *ngIf="intent.userDefined">
+        <mat-icon aria-label="Delete this intent">delete</mat-icon>
+      </button>
+    </div>
+  </div>
+  <br>
+
+</mat-card>

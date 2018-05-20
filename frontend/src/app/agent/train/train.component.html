@@ -1,0 +1,81 @@
+<div class="header" >
+  <div fxLayout="row" fxLayoutAlign="space-between center"  >
+      <h2 fxFlex="90">Train your intent</h2>
+      <div>
+          <button mat-raised-button (click)="updateTrainingData()" color="primary">Save Training Data </button>
+      </div>
+      
+  </div>
+  <p fxFlex="85">
+      Train your story for possible user inputs. Tag required parameters using mouse and give em labels  
+    </p>
+
+</div>
+
+<mat-card >
+  <mat-form-field class="full-width">
+    <textarea matInput [(ngModel)]="newExampleText" placeholder="enter example text here"></textarea>
+  </mat-form-field>
+  <button mat-raised-button color="accent" (click)="addNewExample()">Add to training set</button>
+</mat-card >
+
+<div class="mat-accordion">
+<mat-accordion>
+  <mat-expansion-panel *ngFor="let example of trainingData;let example_index = index" [expanded]="example_index == 0" (opened)="selectionInfo.value = ''">
+    <mat-expansion-panel-header>
+      <mat-panel-title [innerHTML]="getAnnotatedText(example)">
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+
+    <div fxLayout="row">
+      <div fxFlex="90" id="textarea_highlight" contenteditable="true" role="textarea" (mouseup)="annotate()" appAutofocus  (keyup)="example.text = $event.target.outerText;placeCaretAtEnd($event.target)">{{example.text}}</div>
+      <button mat-icon-button fxFlex="10">
+        <mat-icon aria-label="Delete this example" (click)="deleteExample(example_index)">delete</mat-icon>
+      </button>
+
+    </div>
+
+    <div class="add-entity">
+        <span *ngIf="this.selectionInfo.value == ''; else elseBlock" class="round-button"> Select text to add an entity </span>
+
+        <ng-template #elseBlock>
+          <mat-form-field>
+              <input matInput type="text" [(ngModel)]="newEntityName" placeholder="entity name" aria-label="entity" [matAutocomplete]="auto" appAutofocus>
+              <mat-autocomplete #auto="matAutocomplete">
+                  <mat-option *ngFor="let entity of entities" [value]="entity.name">
+                    <span>{{ entity.name }}</span>
+                  </mat-option>
+                </mat-autocomplete>
+          </mat-form-field>
+
+            
+
+          <span class="round-button" (click)="newEntityName && addNewEntity(example_index)"> Add an entity for
+            <b>"{{this.selectionInfo.value}}"</b>
+          </span>
+        </ng-template>
+      </div>
+      
+    <div class="entity-table">
+
+      <table width="100%">
+        <h3>Entities</h3>
+        <tr class="table-header">
+          <td>Entity</td>
+          <td>Value</td>
+          <td></td>
+        </tr>
+        <tr *ngFor="let entity of example.entities;let entity_index = index">
+          <td>{{entity.name}}</td>
+          <td>{{entity.value}}</td>
+          <td>
+            <button mat-icon-button (click)="deleteEntity(example_index,entity_index)" >
+              <mat-icon aria-label="Delete this entity" >close</mat-icon>
+            </button>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </mat-expansion-panel>
+</mat-accordion>
+</div>
