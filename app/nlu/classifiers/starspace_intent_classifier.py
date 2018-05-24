@@ -7,20 +7,30 @@ import io
 import os
 
 import cloudpickle as pickle
-
-
-
 import numpy as np
 import tensorflow as tf
 import spacy
 
-import logging
-
-logger = logging.getLogger(__name__)
+from flask import current_app as app
 
 # tf.logging.set_verbosity(1)
 
 class EmbeddingIntentClassifier():
+    """
+    Intent classifier using supervised embeddings.
+
+    The embedding intent classifier embeds user inputs
+    and intent labels into the same space.
+    Supervised embeddings are trained by maximizing similarity between them.
+    It also provides rankings of the labels that did not "win".
+
+    Based on the starspace idea from: https://arxiv.org/abs/1709.03856.
+    However, in this implementation the `mu` parameter is treated differently
+    and additional hidden layers are added together with dropout.
+
+    Huge thanks for Rasa NLU guys for this amazing code. I merely created a wrapper.
+    Source: https://github.com/RasaHQ/rasa_nlu
+    """
     name = "intent_classifier_starspace"
     def __init__(self,
                  inv_intent_dict=None,
@@ -127,7 +137,7 @@ class EmbeddingIntentClassifier():
         self.intent_split_symbol = self.component_config[
                                         'intent_split_symbol']
         if self.intent_tokenization_flag and not self.intent_split_symbol:
-            logger.warning("intent_split_symbol was not specified, "
+            app.logger.warning("intent_split_symbol was not specified, "
                            "so intent tokenization will be ignored")
             self.intent_tokenization_flag = False
 
@@ -136,7 +146,7 @@ class EmbeddingIntentClassifier():
         num_layers = int(num_layers)
 
         if num_layers < 0:
-            logger.error("num_hidden_layers_{} = {} < 0."
+            app.logger.error("num_hidden_layers_{} = {} < 0."
                          "Set it to 0".format(name, num_layers))
             num_layers = 0
 
@@ -148,7 +158,7 @@ class EmbeddingIntentClassifier():
                                  "".format(name, layer_size,
                                            name, num_layers))
 
-            logger.error("The length of hidden_layer_size_{} = {} "
+            app.logger.error("The length of hidden_layer_size_{} = {} "
                          "does not correspond to num_hidden_layers_{} "
                          "= {}. Set hidden_layer_size_{} to "
                          "the first element = {} for all layers"
@@ -385,7 +395,7 @@ class EmbeddingIntentClassifier():
                                              is_training: False})
 
         train_acc = np.mean(np.argmax(train_sim, -1) == intents_for_X)
-        logger.info("epoch {} / {}: loss {}, train accuracy : {:.3f}"
+        app.logger.info("epoch {} / {}: loss {}, train accuracy : {:.3f}"
                     "".format((ep + 1), self.epochs,
                               sess_out.get('loss'), train_acc))
 
@@ -442,7 +452,7 @@ class EmbeddingIntentClassifier():
 
         intent_dict = self._create_intent_dict(training_data)
         if len(intent_dict) < 2:
-            logger.error("Can not train an intent classifier. "
+            app.logger.error("Can not train an intent classifier. "
                          "Need at least 2 different classes. "
                          "Skipping training of intent classifier.")
             return
@@ -455,7 +465,7 @@ class EmbeddingIntentClassifier():
                                 training_data, intent_dict)
 
         # check if number of negatives is less than number of intents
-        logger.debug("Check if num_neg {} is smaller than "
+        app.logger.debug("Check if num_neg {} is smaller than "
                      "number of intents {}, "
                      "else set num_neg to the number of intents - 1"
                      "".format(self.num_neg,
@@ -527,7 +537,7 @@ class EmbeddingIntentClassifier():
         intent_ranking = []
 
         if self.session is None:
-            logger.error("There is no trained tf.session: "
+            app.logger.error("There is no trained tf.session: "
                          "component is either not trained or "
                          "didn't receive enough training data")
 
@@ -561,7 +571,7 @@ class EmbeddingIntentClassifier():
             checkpoint = os.path.join(model_dir, file_name)
 
             if not os.path.exists(os.path.join(model_dir, "checkpoint")):
-                logger.warning("Failed to load nlu model. Maybe path {} "
+                app.logger.warning("Failed to load nlu model. Maybe path {} "
                                "doesn't exist"
                                "".format(os.path.abspath(model_dir)))
                 return EmbeddingIntentClassifier()
@@ -607,7 +617,7 @@ class EmbeddingIntentClassifier():
             )
 
         else:
-            logger.warning("Failed to load nlu model. Maybe path {} "
+            app.logger.warning("Failed to load nlu model. Maybe path {} "
                            "doesn't exist"
                            "".format(os.path.abspath(model_dir)))
             return EmbeddingIntentClassifier()
