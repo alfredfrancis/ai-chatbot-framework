@@ -16,7 +16,7 @@ from app.endpoint.utils import get_synonyms, SilentUndefined, split_sentence, ca
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
 # Loading ML Models at app startup
-from app.nlu.classifiers.tf_intent_classifer import TfIntentClassifier
+from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
 
 sentence_classifier = None
 synonyms = None
@@ -205,14 +205,14 @@ def update_model(app, message, **extra):
     """
     global sentence_classifier
 
-    sentence_classifier = TfIntentClassifier()
-    sentence_classifier.load(app.config["MODELS_DIR"])
+    sentence_classifier = EmbeddingIntentClassifier.load(app.config["MODELS_DIR"])
     synonyms = get_synonyms()
     global entity_extraction
     entity_extraction = EntityExtractor(synonyms)
     app.logger.info("Intent Model updated")
 
-update_model(app,"Modles updated")
+with app.app_context():
+    update_model(app,"Modles updated")
 
 from app.nlu.tasks import model_updated_signal
 model_updated_signal.connect(update_model, app)
@@ -225,7 +225,7 @@ def predict(sentence):
     :return:
     """
     bot = Bot.objects.get(name="default")
-    predicted = sentence_classifier.predict(sentence)
+    predicted,intents = sentence_classifier.process(sentence)
     app.logger.info("predicted intent %s", predicted)
     if predicted["confidence"] < bot.config.get("confidence_threshold", .90):
         return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id, 1.0

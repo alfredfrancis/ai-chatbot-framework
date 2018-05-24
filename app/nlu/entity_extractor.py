@@ -217,5 +217,4 @@ class EntityExtractor():
                     continue
 
             labeled_examples.append(tagged_example)
-            print(tagged_example)
         return labeled_examples

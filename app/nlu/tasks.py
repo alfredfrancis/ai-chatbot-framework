@@ -3,7 +3,7 @@ from app.nlu.entity_extractor import EntityExtractor
 from app.intents.models import Intent
 
 from app import app
-from app.nlu.classifiers.tf_intent_classifer import TfIntentClassifier
+from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
 
 from app import my_signals
 model_updated_signal = my_signals.signal('model-updated')
@@ -44,10 +44,9 @@ def train_intent_classifier(intents):
             X.append(example.get("text"))
             y.append(str(intent.id))
 
-    intent_classifier = TfIntentClassifier()
-    intent_classifier.train(X,
-                            y,
-                            models_dir=app.config["MODELS_DIR"], verbose=True)
+    intent_classifier = EmbeddingIntentClassifier()
+    intent_classifier.train(X,y)
+    intent_classifier.persist(model_dir=app.config["MODELS_DIR"])
 
 
 def train_all_ner(story_id, training_data):
