@@ -6,7 +6,7 @@ from sklearn.pipeline import Pipeline
 from app.nlu.nltk_preprocessor import NLTKPreprocessor
 
 
-class IntentClassifier():
+class SklearnIntentClassifier():
 
     def __init__(self):
         self.model = None
