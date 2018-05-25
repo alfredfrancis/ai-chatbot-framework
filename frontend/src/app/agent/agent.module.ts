@@ -7,7 +7,6 @@ import { FlexLayoutModule } from '@angular/flex-layout';
 
 import { AgentRoutingModule } from './agent-routing.module';
 import { IntentsComponent } from './intents/intents.component';
-import {CoreService} from '../services/core.service'
 
 /* Material UI imports begins here */
 import {MatIconModule,MatCardModule,MatInputModule,
@@ -67,7 +66,7 @@ import { EntityComponent } from './entity/entity.component';
   ],
   declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent,
      ChatComponent,AutofocusDirective, EntitiesComponent, EntityComponent],
-  providers:[AgentsService,IntentService,CoreService,
+  providers:[AgentsService,IntentService,
     IntentResolverService,TrainingService,ChatService,EntitiesService,EntityResolverService]
 })
 export class AgentModule { }

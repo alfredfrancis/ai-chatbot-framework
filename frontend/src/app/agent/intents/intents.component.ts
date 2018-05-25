@@ -4,6 +4,7 @@ import { ActivatedRoute, Params, Router } from '@angular/router';
 
 import { IntentService } from '../../services/intent.service';
 import {TrainingService} from '../../services/training.service'
+import { UtilsService } from '../../services/utils.service';
 
 @Component({
   selector: 'app-intents',
@@ -17,7 +18,7 @@ export class IntentsComponent implements OnInit {
   intents: any;
 
   constructor(public intentService: IntentService, private _activatedRoute: ActivatedRoute,
-     private _router: Router,private trainingService:TrainingService) { }
+     private _router: Router,private trainingService:TrainingService, private coreService: UtilsService) { }
 
   ngOnInit() {
 
@@ -41,15 +42,18 @@ export class IntentsComponent implements OnInit {
 
   delete(intent) {
     if (confirm('Are u sure want to delete this story?')) {
+      this.coreService.displayLoader(true);
       this.intentService.delete_intent(intent._id.$oid).then((s: any) => {
         this.ngOnInit();
+        this.coreService.displayLoader(false);
       });
     }
   }
 
   trainModels() {
+    this.coreService.displayLoader(true);
     this.trainingService.trainModels().then((s: any) => {
-      this.ngOnInit();
+      this.coreService.displayLoader(false);
     });
   }
 }
