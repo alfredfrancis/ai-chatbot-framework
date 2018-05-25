@@ -153,6 +153,7 @@
                     var parsedResponse = JSON.parse(response);
                     responseObject = parsedResponse.responseData;
                 }
+                payload = responseObject;
                 put_text(responseObject);
             };
 
