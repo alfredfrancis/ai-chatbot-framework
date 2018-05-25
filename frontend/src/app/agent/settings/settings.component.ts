@@ -3,6 +3,7 @@ import { environment } from '../../../environments/environment';
 import { FormGroup, FormBuilder, FormArray } from '@angular/forms';
 import {IntentService} from '../../services/intent.service'
 import {AgentsService} from '../../services/agents.service'
+import { UtilsService } from '../../services/utils.service';
 
 @Component({
   selector: 'app-settings',
@@ -11,12 +12,14 @@ import {AgentsService} from '../../services/agents.service'
 })
 export class SettingsComponent implements OnInit {
 
+  
   fileToUpload: File = null;
   config_form =  this.fb.group({
     "confidence_threshold":[]
   });
 
-  constructor(private intentService:IntentService,private agent_service:AgentsService,  public fb: FormBuilder) { }
+  constructor(private intentService:IntentService,private agent_service:AgentsService,  
+    public fb: FormBuilder,private utilsService:UtilsService) { }
 
   code = `
   
@@ -50,7 +53,9 @@ export class SettingsComponent implements OnInit {
   }
 
 uploadFileToActivity() {
+  this.utilsService.displayLoader(true)
   this.intentService.importIntents(this.fileToUpload).then ((result)=>{
+    this.utilsService.displayLoader(false)
     console.log(result)
   })
 }
