@@ -28,7 +28,7 @@ class EmbeddingIntentClassifier():
     However, in this implementation the `mu` parameter is treated differently
     and additional hidden layers are added together with dropout.
 
-    Huge thanks for Rasa NLU guys for this amazing code. I merely created a wrapper.
+    Huge thanks to Rasa NLU guys for this amazing code. I merely created a wrapper.
     Source: https://github.com/RasaHQ/rasa_nlu
     """
     name = "intent_classifier_starspace"
