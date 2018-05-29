@@ -24,7 +24,7 @@ def train_models():
 
     # train ner model for each Stories
     for intent in intents:
-        train_all_ner(str(intent.id), intent.trainingData)
+        train_all_ner(str(intent.intentId), intent.trainingData)
 
     model_updated_signal.send(app,message="Training Completed.")
 
@@ -42,7 +42,7 @@ def train_intent_classifier(intents):
             if example.get("text").strip() == "":
                 continue
             X.append(example.get("text"))
-            y.append(str(intent.id))
+            y.append(str(intent.intentId))
 
     intent_classifier = EmbeddingIntentClassifier()
     intent_classifier.train(X,y)

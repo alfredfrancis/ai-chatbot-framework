@@ -61,8 +61,8 @@ def api():
             intent = Intent.objects(
                 intentId=app.config["DEFAULT_WELCOME_INTENT_NAME"]).first()
             result_json["complete"] = True
-            result_json["intent"]["intentId"] = intent.intentId
-            result_json["intent"]["id"] = str(intent.id)
+            result_json["intent"]["object_id"] = str(intent.id)
+            result_json["intent"]["id"] = str(intent.intentId)
             result_json["input"] = request_json.get("input")
             template = Template(
                 intent.speechResponse,
@@ -74,7 +74,7 @@ def api():
 
         intent_id, confidence,suggetions = predict(request_json.get("input"))
         app.logger.info("Suggetions => %s"%suggetions)
-        intent = Intent.objects.get(id=ObjectId(intent_id))
+        intent = Intent.objects.get(intentId=intent_id)
 
         if intent.parameters:
             parameters = intent.parameters
@@ -84,9 +84,9 @@ def api():
         if ((request_json.get("complete") is None) or (
                 request_json.get("complete") is True)):
             result_json["intent"] = {
-                "name": intent.name,
+                "object_id": str(intent.id),
                 "confidence": confidence,
-                "id": str(intent.id)
+                "id": str(intent.intentId)
             }
 
             if parameters:
@@ -127,7 +127,7 @@ def api():
         elif request_json.get("complete") is False:
             if "cancel" not in intent.name:
                 intent_id = request_json["intent"]["id"]
-                intent = Intent.objects.get(id=ObjectId(intent_id))
+                intent = Intent.objects.get(intentId=intent_id)
 
                 extracted_parameter = entity_extraction.replace_synonyms({
                     request_json.get("currentNode"): request_json.get("input")
