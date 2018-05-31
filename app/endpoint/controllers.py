@@ -73,7 +73,7 @@ def api():
             return build_response.build_json(result_json)
 
         intent_id, confidence,suggetions = predict(request_json.get("input"))
-        app.logger.info("Suggetions => %s"%suggetions)
+        app.logger.info("intent_id => %s"%intent_id)
         intent = Intent.objects.get(intentId=intent_id)
 
         if intent.parameters:
@@ -229,6 +229,6 @@ def predict(sentence):
     predicted,intents = sentence_classifier.process(sentence)
     app.logger.info("predicted intent %s", predicted)
     if predicted["confidence"] < bot.config.get("confidence_threshold", .90):
-        return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().id, 1.0,[]
+        return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().intentId, 1.0,[]
     else:
         return predicted["intent"], predicted["confidence"],intents[1:]
