@@ -6,6 +6,7 @@ from flask import Blueprint, request, abort
 from jinja2 import Template
 
 from app import app
+from app.agents.models import Bot
 from app.commons import build_response
 from app.commons.logger import logger
 from app.endpoint.utils import SilentUndefined
@@ -13,8 +14,10 @@ from app.endpoint.utils import call_api
 from app.endpoint.utils import get_synonyms
 from app.endpoint.utils import split_sentence
 from app.intents.models import Intent
-from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
+from app.nlu.classifiers.starspace_intent_classifier import \
+    EmbeddingIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
+from app.nlu.tasks import model_updated_signal
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
@@ -218,11 +221,7 @@ def update_model(app, message, **extra):
 with app.app_context():
     update_model(app, "Modles updated")
 
-from app.nlu.tasks import model_updated_signal
-
 model_updated_signal.connect(update_model, app)
-
-from app.agents.models import Bot
 
 
 def predict(sentence):
