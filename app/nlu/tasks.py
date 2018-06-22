@@ -1,12 +1,12 @@
-
-from app.nlu.entity_extractor import EntityExtractor
-from app.intents.models import Intent
-
+# -*- coding: utf-8 -*-
 from app import app
-from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
-
 from app import my_signals
+from app.intents.models import Intent
+from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
+from app.nlu.entity_extractor import EntityExtractor
+
 model_updated_signal = my_signals.signal('model-updated')
+
 
 def train_models():
     """
@@ -24,9 +24,10 @@ def train_models():
 
     # train ner model for each Stories
     for intent in intents:
-        train_all_ner(str(intent.intentId), intent.trainingData)
+        train_all_ner(str(intent.intentId.encode('utf8')), intent.trainingData)
 
-    model_updated_signal.send(app,message="Training Completed.")
+    model_updated_signal.send(app, message="Training Completed.")
+
 
 def train_intent_classifier(intents):
     """
@@ -42,10 +43,10 @@ def train_intent_classifier(intents):
             if example.get("text").strip() == "":
                 continue
             X.append(example.get("text"))
-            y.append(str(intent.intentId))
+            y.append(str(intent.intentId.encode('utf8')))
 
     intent_classifier = EmbeddingIntentClassifier()
-    intent_classifier.train(X,y)
+    intent_classifier.train(X, y)
     intent_classifier.persist(model_dir=app.config["MODELS_DIR"])
 
 

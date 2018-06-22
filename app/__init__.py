@@ -1,4 +1,5 @@
 import os
+
 from flask import Flask
 from flask_cors import CORS
 
@@ -19,16 +20,19 @@ app.config.update(
     TEMPLATES_AUTO_RELOAD=True
 )
 
-
 from flask_mongoengine import MongoEngine
+
 db = MongoEngine(app)
 
 from blinker import Namespace
+
 my_signals = Namespace()
+
 
 @app.errorhandler(404)
 def not_found(error):
     return "Not found", 404
+
 
 from app.agents.controllers import bots
 from app.nlu.controllers import nlu
