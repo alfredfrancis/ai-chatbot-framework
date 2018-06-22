@@ -1,12 +1,20 @@
 import os
+from StringIO import StringIO
+
 from bson.json_util import dumps
+from bson.json_util import loads
 from bson.objectid import ObjectId
 from flask import Blueprint, request, Response
+from flask import abort
 from flask import current_app as app
-from app.commons import build_response
-from app.intents.models import Intent, Parameter, ApiDetails
-from app.commons.utils import update_document
+from flask import send_file
 
+from app.commons import build_response
+from app.commons.utils import update_document
+from app.intents.models import ApiDetails
+from app.intents.models import Intent
+from app.intents.models import Parameter
+from app.nlu.tasks import train_models
 
 intents = Blueprint('intents_blueprint', __name__,
                     url_prefix='/intents')
@@ -16,7 +24,6 @@ intents = Blueprint('intents_blueprint', __name__,
 def create_intent():
     """
     Create a story from the provided json
-    :param json:
     :return:
     """
     content = request.get_json(silent=True)
@@ -97,9 +104,6 @@ def update_intent(id):
     return 'success', 200
 
 
-from app.nlu.tasks import train_models
-
-
 @intents.route('/<id>', methods=['DELETE'])
 def delete_intent(id):
     """
@@ -122,26 +126,22 @@ def delete_intent(id):
     return build_response.sent_ok()
 
 
-from flask import send_file
-import StringIO
-
-
 @intents.route('/export', methods=['GET'])
 def export_intents():
     """
     Deserialize and export Mongoengines as jsonfile
     :return:
     """
-    strIO = StringIO.StringIO()
+    try:
+        strIO = StringIO.StringIO()
+    except AttributeError:
+        strIO = StringIO()
+
     strIO.write(Intent.objects.to_json())
     strIO.seek(0)
     return send_file(strIO,
                      attachment_filename="iky_intents.json",
                      as_attachment=True)
-
-
-from flask import abort
-from bson.json_util import loads
 
 
 @intents.route('/import', methods=['POST'])

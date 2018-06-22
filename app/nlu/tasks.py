@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
+
 from app import app
 from app import my_signals
+from nltk import word_tokenize
+from nltk.tag.perceptron import PerceptronTagger
 from app.intents.models import Intent
-from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
+from app.nlu.classifiers.starspace_intent_classifier import \
+    EmbeddingIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
 
 model_updated_signal = my_signals.signal('model-updated')
@@ -63,9 +67,6 @@ def train_all_ner(story_id, training_data):
     # train and store ner model
     entityExtraction.train(ner_training_data, story_id)
 
-
-from nltk.tag.perceptron import PerceptronTagger
-from nltk import word_tokenize
 
 # Load and initialize Perceptron tagger
 tagger = PerceptronTagger()

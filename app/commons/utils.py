@@ -1,5 +1,13 @@
 from datetime import datetime
+
 import parsedatetime as pdt
+from mongoengine.fields import EmbeddedDocumentField
+from mongoengine.fields import EmbeddedDocumentListField
+from mongoengine.fields import GenericEmbeddedDocumentField
+from mongoengine.fields import GenericReferenceField
+from mongoengine.fields import ListField
+from mongoengine.fields import ReferenceField
+from mongoengine.fields import SortedListField
 
 
 def date_from_string(timeString):
@@ -7,11 +15,6 @@ def date_from_string(timeString):
     now = datetime.now()
     result = str(cal.parseDT(timeString.strip(), now)[0])
     return result
-
-from mongoengine.fields import ListField, SortedListField,\
-    EmbeddedDocumentListField, EmbeddedDocumentField,\
-    GenericEmbeddedDocumentField, ReferenceField,\
-    GenericReferenceField
 
 
 def update_document(document, data_dict):
@@ -33,10 +36,10 @@ def update_document(document, data_dict):
                 for item in value
             ]
         if field.__class__ in (
-            EmbeddedDocumentField,
-            GenericEmbeddedDocumentField,
-            ReferenceField,
-            GenericReferenceField
+                EmbeddedDocumentField,
+                GenericEmbeddedDocumentField,
+                ReferenceField,
+                GenericReferenceField
         ):
             return field.document_type(**value)
         else:
@@ -48,6 +51,7 @@ def update_document(document, data_dict):
     ) for key, value in data_dict.items()]
 
     return document
+
 
 def is_list_empty(inList):
     if isinstance(inList, list):  # Is a list

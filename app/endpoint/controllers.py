@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa
 import json
 
 from flask import Blueprint, request, abort
@@ -7,14 +8,15 @@ from jinja2 import Template
 from app import app
 from app.commons import build_response
 from app.commons.logger import logger
-from app.endpoint.utils import get_synonyms, SilentUndefined, split_sentence, call_api
+from app.endpoint.utils import SilentUndefined
+from app.endpoint.utils import call_api
+from app.endpoint.utils import get_synonyms
+from app.endpoint.utils import split_sentence
 from app.intents.models import Intent
+from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
-
-# Loading ML Models at app startup
-from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
 
 sentence_classifier = None
 synonyms = None
@@ -233,6 +235,8 @@ def predict(sentence):
     predicted, intents = sentence_classifier.process(sentence)
     app.logger.info("predicted intent %s", predicted)
     if predicted["confidence"] < bot.config.get("confidence_threshold", .90):
-        return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().intentId, 1.0, []
+        intents = Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"])
+        intents = intents.first().intentId
+        return intents, 1.0, []
     else:
         return predicted["intent"], predicted["confidence"], intents[1:]

@@ -1,13 +1,13 @@
-from bson.json_util import dumps,loads
+from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
 from flask import Blueprint, request, Response
+
 from app.commons import build_response
+from app.commons.utils import update_document
 from app.entities.models import Entity
 
-from app.commons.utils import update_document
-
 entities_blueprint = Blueprint('entities_blueprint', __name__,
-                    url_prefix='/entities')
+                               url_prefix='/entities')
 
 
 @entities_blueprint.route('/', methods=['POST'])
@@ -39,7 +39,7 @@ def read_entities():
     find list of entities
     :return:
     """
-    intents = Entity.objects.only('name','id')
+    intents = Entity.objects.only('name', 'id')
     return build_response.sent_json(intents.to_json())
 
 
@@ -50,11 +50,10 @@ def read_entity(id):
     :param id:
     :return:
     """
-    return Response(response=dumps(
-        Entity.objects.get(
+    return Response(
+        response=dumps(Entity.objects.get(
             id=ObjectId(id)).to_mongo().to_dict()),
-        status=200,
-        mimetype="application/json")
+        status=200, mimetype="application/json")
 
 
 @entities_blueprint.route('/<id>', methods=['PUT'])
