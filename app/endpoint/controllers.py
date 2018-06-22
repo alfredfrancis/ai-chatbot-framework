@@ -1,17 +1,15 @@
-from bson import ObjectId
+# -*- coding: utf-8 -*-
 import json
 
+from flask import Blueprint, request, abort
 from jinja2 import Template
 
-from flask import Blueprint, request, abort
 from app import app
-
-from app.commons.logger import logger
 from app.commons import build_response
-from app.nlu.entity_extractor import EntityExtractor
-from app.intents.models import Intent
-
+from app.commons.logger import logger
 from app.endpoint.utils import get_synonyms, SilentUndefined, split_sentence, call_api
+from app.intents.models import Intent
+from app.nlu.entity_extractor import EntityExtractor
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
@@ -21,6 +19,7 @@ from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClass
 sentence_classifier = None
 synonyms = None
 entity_extraction = None
+
 
 # Request Handler
 @endpoint.route('/v1', methods=['POST'])
@@ -72,8 +71,8 @@ def api():
             logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
-        intent_id, confidence,suggetions = predict(request_json.get("input"))
-        app.logger.info("intent_id => %s"%intent_id)
+        intent_id, confidence, suggetions = predict(request_json.get("input"))
+        app.logger.info("intent_id => %s" % intent_id)
         intent = Intent.objects.get(intentId=intent_id)
 
         if intent.parameters:
@@ -86,7 +85,7 @@ def api():
             result_json["intent"] = {
                 "object_id": str(intent.id),
                 "confidence": confidence,
-                "id": str(intent.intentId)
+                "id": str(intent.intentId.encode('utf8'))
             }
 
             if parameters:
@@ -163,7 +162,7 @@ def api():
                 isJson = False
                 parameters = result_json["extractedParameters"]
                 headers = intent.apiDetails.get_headers()
-                app.logger.info("headers %s"%headers)
+                app.logger.info("headers %s" % headers)
                 url_template = Template(
                     intent.apiDetails.url, undefined=SilentUndefined)
                 rendered_url = url_template.render(**context)
@@ -175,7 +174,7 @@ def api():
 
                 try:
                     result = call_api(rendered_url,
-                                      intent.apiDetails.requestType,headers,
+                                      intent.apiDetails.requestType, headers,
                                       parameters, isJson)
                 except Exception as e:
                     app.logger.warn("API call failed", e)
@@ -195,6 +194,7 @@ def api():
     else:
         return abort(400)
 
+
 def update_model(app, message, **extra):
     """
     Signal hook to be called after training is completed.
@@ -212,13 +212,17 @@ def update_model(app, message, **extra):
     entity_extraction = EntityExtractor(synonyms)
     app.logger.info("Intent Model updated")
 
+
 with app.app_context():
-    update_model(app,"Modles updated")
+    update_model(app, "Modles updated")
 
 from app.nlu.tasks import model_updated_signal
+
 model_updated_signal.connect(update_model, app)
 
 from app.agents.models import Bot
+
+
 def predict(sentence):
     """
     Predict Intent using Intent classifier
@@ -226,9 +230,9 @@ def predict(sentence):
     :return:
     """
     bot = Bot.objects.get(name="default")
-    predicted,intents = sentence_classifier.process(sentence)
+    predicted, intents = sentence_classifier.process(sentence)
     app.logger.info("predicted intent %s", predicted)
     if predicted["confidence"] < bot.config.get("confidence_threshold", .90):
-        return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().intentId, 1.0,[]
+        return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().intentId, 1.0, []
     else:
-        return predicted["intent"], predicted["confidence"],intents[1:]
+        return predicted["intent"], predicted["confidence"], intents[1:]
