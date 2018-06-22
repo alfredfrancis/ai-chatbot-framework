@@ -1,13 +1,16 @@
+# -*- coding: utf-8 -*-
+
 import pycrfsuite
-from nltk import word_tokenize
 from flask import current_app as app
+from nltk import word_tokenize
+
 
 class EntityExtractor():
     """
     Performs NER training, predition, model import/export
     """
 
-    def __init__(self,synonyms = []):
+    def __init__(self, synonyms=[]):
         self.synonyms = synonyms
 
     def replace_synonyms(self, entities):
@@ -22,7 +25,7 @@ class EntityExtractor():
                 entities[entity] = self.synonyms[entity_value.lower()]
         return entities
 
-    def extract_features(self,sent, i):
+    def extract_features(self, sent, i):
         """
         Extract features for a given sentence
         :param sent:
@@ -70,8 +73,7 @@ class EntityExtractor():
 
         return features
 
-
-    def sent_to_features(self,sent):
+    def sent_to_features(self, sent):
         """
         Extract features from training Data
         :param sent:
@@ -79,8 +81,7 @@ class EntityExtractor():
         """
         return [self.extract_features(sent, i) for i in range(len(sent))]
 
-
-    def sent_to_labels(self,sent):
+    def sent_to_labels(self, sent):
         """
         Extract labels from training data
         :param sent:
@@ -88,8 +89,7 @@ class EntityExtractor():
         """
         return [label for token, postag, label in sent]
 
-
-    def sent_to_tokens(self,sent):
+    def sent_to_tokens(self, sent):
         """
         Extract tokens from training data
         :param sent:
@@ -97,8 +97,7 @@ class EntityExtractor():
         """
         return [token for token, postag, label in sent]
 
-
-    def train(self,train_sentences, model_name):
+    def train(self, train_sentences, model_name):
         """
         Train NER model for given model
         :param train_sentences:
@@ -123,7 +122,6 @@ class EntityExtractor():
         trainer.train('model_files/%s.model' % model_name)
         return True
 
-
     # Extract Labeles from BIO tagged sentence
     def crf2json(self, tagged_sentence):
         """
@@ -143,7 +141,6 @@ class EntityExtractor():
                     labeled[label] += " %s" % s
         return labeled
 
-
     def extract_ner_labels(self, predicted_labels):
         """
         Extract name of labels from NER
@@ -156,8 +153,7 @@ class EntityExtractor():
                 labels.append(tp[2:])
         return labels
 
-
-    def predict(self,model_name, sentence):
+    def predict(self, model_name, sentence):
         """
         Predict NER labels for given model and query
         :param model_name:
@@ -195,7 +191,7 @@ class EntityExtractor():
 
                 try:
                     # find no of words before the entity
-                    inverse_selection = example.get("text")[0:enitity.get("begin")-1]
+                    inverse_selection = example.get("text")[0:enitity.get("begin") - 1]
 
                     inverse_word_count = len(sentence_tokenize(inverse_selection).split(" "))
 
@@ -206,7 +202,7 @@ class EntityExtractor():
                     selection_word_count = len(tokens)
 
                     # build BIO tagging
-                    for i in range(1, selection_word_count+1):
+                    for i in range(1, selection_word_count + 1):
                         if i == 1:
                             bio = "B-" + enitity.get("name")
                         else:
