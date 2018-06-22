@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# flake8: noqa
+
 import json
 
 from flask import Blueprint, request, abort
