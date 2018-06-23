@@ -1,20 +1,24 @@
 # -*- coding: utf-8 -*-
+
 import json
 
 from flask import Blueprint, request, abort
 from jinja2 import Template
 
 from app import app
+from app.agents.models import Bot
 from app.commons import build_response
-from app.commons.logger import logger
-from app.endpoint.utils import get_synonyms, SilentUndefined, split_sentence, call_api
+from app.endpoint.utils import SilentUndefined
+from app.endpoint.utils import call_api
+from app.endpoint.utils import get_synonyms
+from app.endpoint.utils import split_sentence
 from app.intents.models import Intent
+from app.nlu.classifiers.starspace_intent_classifier import \
+    EmbeddingIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
+from app.nlu.tasks import model_updated_signal
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
-
-# Loading ML Models at app startup
-from app.nlu.classifiers.starspace_intent_classifier import EmbeddingIntentClassifier
 
 sentence_classifier = None
 synonyms = None
@@ -52,8 +56,7 @@ def api():
 
     if request_json:
 
-        context = {}
-        context["context"] = request_json["context"]
+        context = {"context": request_json["context"]}
 
         if app.config["DEFAULT_WELCOME_INTENT_NAME"] in request_json.get(
                 "input"):
@@ -68,7 +71,7 @@ def api():
                 undefined=SilentUndefined)
             result_json["speechResponse"] = split_sentence(template.render(**context))
 
-            logger.info(request_json.get("input"), extra=result_json)
+            app.logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
         intent_id, confidence, suggetions = predict(request_json.get("input"))
@@ -140,9 +143,8 @@ def api():
 
                 if len(result_json["missingParameters"]) == 0:
                     result_json["complete"] = True
-                    context = {}
-                    context["parameters"] = result_json["extractedParameters"]
-                    context["context"] = request_json["context"]
+                    context = {"parameters": result_json["extractedParameters"],
+                               "context": request_json["context"]}
                 else:
                     missing_parameter = result_json["missingParameters"][0]
                     result_json["complete"] = False
@@ -189,7 +191,7 @@ def api():
                 template = Template(intent.speechResponse,
                                     undefined=SilentUndefined)
                 result_json["speechResponse"] = split_sentence(template.render(**context))
-        logger.info(request_json.get("input"), extra=result_json)
+        app.logger.info(request_json.get("input"), extra=result_json)
         return build_response.build_json(result_json)
     else:
         return abort(400)
@@ -214,13 +216,9 @@ def update_model(app, message, **extra):
 
 
 with app.app_context():
-    update_model(app, "Modles updated")
-
-from app.nlu.tasks import model_updated_signal
+    update_model(app, "Models updated")
 
 model_updated_signal.connect(update_model, app)
-
-from app.agents.models import Bot
 
 
 def predict(sentence):
@@ -233,6 +231,8 @@ def predict(sentence):
     predicted, intents = sentence_classifier.process(sentence)
     app.logger.info("predicted intent %s", predicted)
     if predicted["confidence"] < bot.config.get("confidence_threshold", .90):
-        return Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"]).first().intentId, 1.0, []
+        intents = Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"])
+        intents = intents.first().intentId
+        return intents, 1.0, []
     else:
         return predicted["intent"], predicted["confidence"], intents[1:]

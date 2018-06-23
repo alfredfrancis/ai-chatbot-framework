@@ -5,9 +5,9 @@ from flask import current_app as app
 from nltk import word_tokenize
 
 
-class EntityExtractor():
+class EntityExtractor:
     """
-    Performs NER training, predition, model import/export
+    Performs NER training, prediction, model import/export
     """
 
     def __init__(self, synonyms=[]):
@@ -15,14 +15,18 @@ class EntityExtractor():
 
     def replace_synonyms(self, entities):
         """
-        replace extracted entity values with root word by matching with synonyms dict.
+        replace extracted entity values with
+        root word by matching with synonyms dict.
         :param entities:
         :return:
         """
         for entity in entities.keys():
+
             entity_value = str(entities[entity])
+
             if entity_value.lower() in self.synonyms:
                 entities[entity] = self.synonyms[entity_value.lower()]
+
         return entities
 
     def extract_features(self, sent, i):
@@ -174,7 +178,8 @@ class EntityExtractor():
     @staticmethod
     def json2crf(training_data):
         """
-        Takes json annotated data and converts to CRFSuite training data representation
+        Takes json annotated data and converts to
+        CRFSuite training data representation
         :param training_data:
         :return labeled_examples:
         """
@@ -190,15 +195,19 @@ class EntityExtractor():
             for enitity in example.get("entities"):
 
                 try:
+                    begin_index = enitity.get("begin")
+                    end_index = enitity.get("end")
                     # find no of words before the entity
-                    inverse_selection = example.get("text")[0:enitity.get("begin") - 1]
+                    inverse_selection = example.get("text")[0:begin_index - 1]
+                    inverse_selection = sentence_tokenize(inverse_selection)
+                    inverse_selection = inverse_selection.split(" ")
+                    inverse_word_count = len(inverse_selection)
 
-                    inverse_word_count = len(sentence_tokenize(inverse_selection).split(" "))
+                    # get the entity value from selection
+                    selection = example.get("text")[begin_index:end_index]
 
-                    # get the entity value from seletion
-                    selection = example.get(
-                        "text")[enitity.get("begin"):enitity.get("end")]
                     tokens = sentence_tokenize(selection).split(" ")
+
                     selection_word_count = len(tokens)
 
                     # build BIO tagging

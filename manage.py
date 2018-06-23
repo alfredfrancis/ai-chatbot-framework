@@ -1,9 +1,9 @@
-
 from flask_script import Manager
 
 from app import app
 
 manager = Manager(app)
+
 
 @manager.command
 def install_nltk_dependencies():
@@ -15,9 +15,9 @@ def install_nltk_dependencies():
     download('punkt')
     print "Done"
 
+
 @manager.command
 def init():
-
     from app.agents.models import Bot
 
     # create default bot
@@ -43,8 +43,6 @@ def init():
             e = "load Data first into mongodb. Reffer Readme."
         print("Could not train models..skipping.. (reason: {})".format(e))
 
+
 if __name__ == "__main__":
     manager.run()
-
-
-

@@ -1,6 +1,3 @@
-import os
-
-
 class Config(object):
     DEBUG = False
     MONGODB_DB = "iky-ai"
