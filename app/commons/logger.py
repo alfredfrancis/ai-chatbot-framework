@@ -1,5 +1,7 @@
 import logging.handlers
+
 import json_log_formatter
+
 formatter = json_log_formatter.JSONFormatter()
 
 logger = logging.getLogger("query")

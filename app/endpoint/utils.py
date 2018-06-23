@@ -1,13 +1,16 @@
-from app import app
+import json
+
 import requests
 from jinja2 import Undefined
-import json
+
+from app import app
+from app.entities.models import Entity
+
 
 def split_sentence(sentence):
     return sentence.split("###")
 
 
-from app.entities.models import Entity
 def get_synonyms():
     """
     Build synonyms dict from DB
@@ -19,10 +22,11 @@ def get_synonyms():
         for value in entity.entity_values:
             for synonym in value.synonyms:
                 synonyms[synonym] = value.value
-    app.logger.info("loaded synonyms %s",synonyms)
+    app.logger.info("loaded synonyms %s", synonyms)
     return synonyms
 
-def call_api(url, type,headers={}, parameters = {}, is_json=False):
+
+def call_api(url, type, headers={}, parameters={}, is_json=False):
     """
     Call external API
     :param url:
@@ -31,26 +35,38 @@ def call_api(url, type,headers={}, parameters = {}, is_json=False):
     :param is_json:
     :return:
     """
-    app.logger.info("Initiating API Call with following info: url => {} payload => {}".format(url,parameters))
+    app.logger.info("Initiating API Call with following info:"
+                    " url => {} payload => {}".format(url, parameters))
+
     if "GET" in type:
-            response = requests.get(url,headers=headers, params=parameters, timeout=5)
+        response = requests.get(url, headers=headers,
+                                params=parameters, timeout=5)
     elif "POST" in type:
         if is_json:
-            response = requests.post(url,headers=headers, json=parameters, timeout=5)
+            response = requests.post(url, headers=headers,
+                                     json=parameters, timeout=5)
         else:
-            response = requests.post(url,headers=headers, params=parameters, timeout=5)
+            response = requests.post(url, headers=headers,
+                                     params=parameters, timeout=5)
     elif "PUT" in type:
         if is_json:
-            response = requests.put(url,headers=headers, json=parameters, timeout=5)
+            response = requests.put(url, headers=headers,
+                                    json=parameters, timeout=5)
         else:
-            response = requests.put(url,headers=headers, params=parameters, timeout=5)
+            response = requests.put(url, headers=headers,
+                                    params=parameters, timeout=5)
     elif "DELETE" in type:
-        response = requests.delete(url,headers=headers, params=parameters, timeout=5)
+        response = requests.delete(url, headers=headers,
+                                   params=parameters, timeout=5)
     else:
         raise Exception("unsupported request method.")
+
     result = json.loads(response.text)
+
     app.logger.info("API response => %s", result)
+
     return result
+
 
 class SilentUndefined(Undefined):
     """
