@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -8,14 +10,12 @@ import os
 
 import cloudpickle as pickle
 import numpy as np
-import tensorflow as tf
 import spacy
-
+import tensorflow as tf
 from flask import current_app as app
 
-# tf.logging.set_verbosity(1)
 
-class EmbeddingIntentClassifier():
+class EmbeddingIntentClassifier:
     """
     Intent classifier using supervised embeddings.
 
@@ -28,10 +28,12 @@ class EmbeddingIntentClassifier():
     However, in this implementation the `mu` parameter is treated differently
     and additional hidden layers are added together with dropout.
 
-    Huge thanks to Rasa NLU guys for this amazing code. I merely created a wrapper.
+    Huge thanks to Rasa NLU guys for this amazing code.
+    I merely created a wrapper.
     Source: https://github.com/RasaHQ/rasa_nlu
     """
     name = "intent_classifier_starspace"
+
     def __init__(self,
                  inv_intent_dict=None,
                  encoded_all_intents=None,
@@ -40,8 +42,8 @@ class EmbeddingIntentClassifier():
                  intent_placeholder=None,
                  embedding_placeholder=None,
                  similarity_op=None,
-                 vectorizer = None,
-                 use_word_vectors = False
+                 vectorizer=None,
+                 use_word_vectors=False
                  ):
 
         """Declare instant variables with default values"""
@@ -133,12 +135,12 @@ class EmbeddingIntentClassifier():
 
     def _load_flag_if_tokenize_intents(self):
         self.intent_tokenization_flag = self.component_config[
-                                            'intent_tokenization_flag']
+            'intent_tokenization_flag']
         self.intent_split_symbol = self.component_config[
-                                        'intent_split_symbol']
+            'intent_split_symbol']
         if self.intent_tokenization_flag and not self.intent_split_symbol:
             app.logger.warning("intent_split_symbol was not specified, "
-                           "so intent tokenization will be ignored")
+                               "so intent tokenization will be ignored")
             self.intent_tokenization_flag = False
 
     @staticmethod
@@ -147,7 +149,7 @@ class EmbeddingIntentClassifier():
 
         if num_layers < 0:
             app.logger.error("num_hidden_layers_{} = {} < 0."
-                         "Set it to 0".format(name, num_layers))
+                             "Set it to 0".format(name, num_layers))
             num_layers = 0
 
         if isinstance(layer_size, list) and len(layer_size) != num_layers:
@@ -159,12 +161,12 @@ class EmbeddingIntentClassifier():
                                            name, num_layers))
 
             app.logger.error("The length of hidden_layer_size_{} = {} "
-                         "does not correspond to num_hidden_layers_{} "
-                         "= {}. Set hidden_layer_size_{} to "
-                         "the first element = {} for all layers"
-                         "".format(name, len(layer_size),
-                                   name, num_layers,
-                                   name, layer_size[0]))
+                             "does not correspond to num_hidden_layers_{} "
+                             "= {}. Set hidden_layer_size_{} to "
+                             "the first element = {} for all layers"
+                             "".format(name, len(layer_size),
+                                       name, num_layers,
+                                       name, layer_size[0]))
 
             layer_size = layer_size[0]
 
@@ -185,9 +187,9 @@ class EmbeddingIntentClassifier():
     @staticmethod
     def _create_intent_dict(training_data):
         """Create intent dictionary"""
-
+        intent_examples = training_data.get("intent_examples")
         distinct_intents = set([example.get("intent")
-                               for example in training_data.get("intent_examples")])
+                                for example in intent_examples])
         return {intent: idx
                 for idx, intent in enumerate(sorted(distinct_intents))}
 
@@ -197,10 +199,10 @@ class EmbeddingIntentClassifier():
 
         distinct_tokens = set([token
                                for intent in intents
-                               for token in intent.split(
-                                        intent_split_symbol)])
-        return {token: idx
-                for idx, token in enumerate(sorted(distinct_tokens))}
+                               for token in intent.split(intent_split_symbol)
+                               ])
+        return {token: idx for idx, token in
+                enumerate(sorted(distinct_tokens))}
 
     def _create_encoded_intents(self, intent_dict):
         """Create matrix with intents encoded in rows as bag of words,
@@ -232,11 +234,13 @@ class EmbeddingIntentClassifier():
     def _prepare_data_for_training(self, training_data, intent_dict):
         """Prepare data for training"""
 
+        intent_examples = training_data.get("intent_examples")
+
         X = np.stack([e.get("text_features")
-                      for e in training_data.get("intent_examples")])
+                      for e in intent_examples])
 
         intents_for_X = np.array([intent_dict[e.get("intent")]
-                                  for e in training_data.get("intent_examples")])
+                                  for e in intent_examples])
 
         Y = np.stack([self.encoded_all_intents[intent_idx]
                       for intent_idx in intents_for_X])
@@ -343,7 +347,7 @@ class EmbeddingIntentClassifier():
             # create negative indexes out of possible ones
             # except for correct index of b
             negative_indexes = [i for i in range(
-                                    self.encoded_all_intents.shape[0])
+                self.encoded_all_intents.shape[0])
                                 if i != intent_ids[b]]
             negs = np.random.choice(negative_indexes, size=self.num_neg)
 
@@ -396,80 +400,81 @@ class EmbeddingIntentClassifier():
 
         train_acc = np.mean(np.argmax(train_sim, -1) == intents_for_X)
         app.logger.info("epoch {} / {}: loss {}, train accuracy : {:.3f}"
-                    "".format((ep + 1), self.epochs,
-                              sess_out.get('loss'), train_acc))
+                        "".format((ep + 1), self.epochs,
+                                  sess_out.get('loss'), train_acc))
 
-
-
-    def _lemmatize(self,message):
+    def _lemmatize(self, message):
         return ' '.join([t.lemma_ for t in message])
 
-    def prepare_training_data(self,X,y):
+    def prepare_training_data(self, X, y):
 
         from sklearn.feature_extraction.text import CountVectorizer
         import re
 
         training_data = {
-            "intent_examples":[]
+            "intent_examples": []
         }
 
         # use even single character word as a token
-        self.vect = CountVectorizer(token_pattern=r'(?u)\b\w\w+\b',
-                               strip_accents=None,
-                               stop_words=None,
-                               ngram_range=(1,
-                                            1),
-                               max_df=1.0,
-                               min_df=1,
-                               max_features=None,
-                               preprocessor=lambda s: re.sub(r'\b[0-9]+\b', 'NUMBER', s.lower()))
-
+        self.vect = CountVectorizer(
+            token_pattern=r'(?u)\b\w\w+\b',
+            strip_accents=None,
+            stop_words=None,
+            ngram_range=(1,
+                         1),
+            max_df=1.0,
+            min_df=1,
+            max_features=None,
+            preprocessor=lambda s: re.sub(r'\b[0-9]+\b', 'NUMBER', s.lower())
+        )
 
         spacy_docs = [self.nlp(x) for x in X]
 
         lem_exs = [self._lemmatize(x)
                    for x in spacy_docs]
 
-
         self.vect = self.vect.fit(lem_exs)
 
         X = self.vect.transform(lem_exs).toarray()
 
-        for i,intent in enumerate(y):
+        for i, intent in enumerate(y):
             # create bag for each example
-            training_data["intent_examples"].append({
-                "text_features": np.hstack((X[i],spacy_docs[i].vector)) if self.use_word_vectors else X[i],
-                "intent":intent
-            })
+            training_data["intent_examples"].append(
+                {
+                    "text_features":
+                        np.hstack((X[i], spacy_docs[i].vector))
+                        if self.use_word_vectors else X[i],
+
+                    "intent": intent
+                })
 
         return training_data
 
-    def train(self, X,y):
+    def train(self, X, y):
         """Train the embedding intent classifier on a data set."""
 
-        training_data = self.prepare_training_data(X,y)
-
+        training_data = self.prepare_training_data(X, y)
 
         intent_dict = self._create_intent_dict(training_data)
         if len(intent_dict) < 2:
             app.logger.error("Can not train an intent classifier. "
-                         "Need at least 2 different classes. "
-                         "Skipping training of intent classifier.")
+                             "Need at least 2 different classes. "
+                             "Skipping training of intent classifier.")
             return
 
         self.inv_intent_dict = {v: k for k, v in intent_dict.items()}
         self.encoded_all_intents = self._create_encoded_intents(
-                                        intent_dict)
+            intent_dict)
 
         X, Y, helper_data = self._prepare_data_for_training(
-                                training_data, intent_dict)
+            training_data, intent_dict)
 
         # check if number of negatives is less than number of intents
         app.logger.debug("Check if num_neg {} is smaller than "
-                     "number of intents {}, "
-                     "else set num_neg to the number of intents - 1"
-                     "".format(self.num_neg,
-                               self.encoded_all_intents.shape[0]))
+                         "number of intents {}, "
+                         "else set num_neg to the number of intents - 1"
+                         "".format(self.num_neg,
+                                   self.encoded_all_intents.shape[0]))
         self.num_neg = min(self.num_neg,
                            self.encoded_all_intents.shape[0] - 1)
 
@@ -519,13 +524,15 @@ class EmbeddingIntentClassifier():
 
         return intent_ids, message_sim
 
-    def transform(self,query):
+    def transform(self, query):
         spacy_doc = self.nlp(query)
 
-        vectorized = self.vect.transform([self._lemmatize(spacy_doc)]).toarray()
+        vectorized = self.vect.transform([self._lemmatize(spacy_doc)])
+        vectorized = vectorized.toarray()
+
         return {
-            "text_features": np.hstack(
-                (vectorized[0],spacy_doc.vector)) if self.use_word_vectors else vectorized
+            "text_features": np.hstack((vectorized[0], spacy_doc.vector))
+            if self.use_word_vectors else vectorized
         }
 
     def process(self, query, INTENT_RANKING_LENGTH=5):
@@ -538,8 +545,8 @@ class EmbeddingIntentClassifier():
 
         if self.session is None:
             app.logger.error("There is no trained tf.session: "
-                         "component is either not trained or "
-                         "didn't receive enough training data")
+                             "component is either not trained or "
+                             "didn't receive enough training data")
 
         else:
             # get features (bag of words) for a message
@@ -562,18 +569,18 @@ class EmbeddingIntentClassifier():
                                    "confidence": score}
                                   for intent_idx, score in ranking]
 
-        return intent,intent_ranking
+        return intent, intent_ranking
 
     @classmethod
-    def load(cls,model_dir=None,use_word_vectors=False):
+    def load(cls, model_dir=None, use_word_vectors=False):
         if model_dir:
             file_name = cls.name + ".ckpt"
             checkpoint = os.path.join(model_dir, file_name)
 
             if not os.path.exists(os.path.join(model_dir, "checkpoint")):
                 app.logger.warning("Failed to load nlu model. Maybe path {} "
-                               "doesn't exist"
-                               "".format(os.path.abspath(model_dir)))
+                                   "doesn't exist"
+                                   "".format(os.path.abspath(model_dir)))
                 return EmbeddingIntentClassifier()
 
             graph = tf.Graph()
@@ -605,21 +612,21 @@ class EmbeddingIntentClassifier():
                 vect = pickle.load(f)
 
             return EmbeddingIntentClassifier(
-                    inv_intent_dict=inv_intent_dict,
-                    encoded_all_intents=encoded_all_intents,
-                    session=sess,
-                    graph=graph,
-                    intent_placeholder=intent_placeholder,
-                    embedding_placeholder=embedding_placeholder,
-                    similarity_op=similarity_op,
-                    vectorizer = vect,
-                    use_word_vectors = use_word_vectors
+                inv_intent_dict=inv_intent_dict,
+                encoded_all_intents=encoded_all_intents,
+                session=sess,
+                graph=graph,
+                intent_placeholder=intent_placeholder,
+                embedding_placeholder=embedding_placeholder,
+                similarity_op=similarity_op,
+                vectorizer=vect,
+                use_word_vectors=use_word_vectors
             )
 
         else:
             app.logger.warning("Failed to load nlu model. Maybe path {} "
-                           "doesn't exist"
-                           "".format(os.path.abspath(model_dir)))
+                               "doesn't exist"
+                               "".format(os.path.abspath(model_dir)))
             return EmbeddingIntentClassifier()
 
     def persist(self, model_dir):

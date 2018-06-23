@@ -1,11 +1,12 @@
 from bson.objectid import ObjectId
-from mongoengine.fields import ListField,\
-    EmbeddedDocumentListField, EmbeddedDocumentField, EmbeddedDocument,\
-    ObjectIdField, StringField,\
-    BooleanField, Document
-
-
-
+from mongoengine.fields import BooleanField
+from mongoengine.fields import Document
+from mongoengine.fields import EmbeddedDocument
+from mongoengine.fields import EmbeddedDocumentField
+from mongoengine.fields import EmbeddedDocumentListField
+from mongoengine.fields import ListField
+from mongoengine.fields import ObjectIdField
+from mongoengine.fields import StringField
 
 
 class LabeledSentences(EmbeddedDocument):
@@ -37,13 +38,14 @@ class ApiDetails(EmbeddedDocument):
     def get_headers(self):
         headers = {}
         for header in self.headers:
-            headers[header["headerKey"]]=header["headerValue"]
+            headers[header["headerKey"]] = header["headerValue"]
         return headers
+
 
 class Intent(Document):
     name = StringField(max_length=100, required=True, unique=True)
     userDefined = BooleanField(default=True)
-    intentId = StringField(required=True,unique=True)
+    intentId = StringField(required=True, unique=True)
     apiTrigger = BooleanField(required=True)
     apiDetails = EmbeddedDocumentField(ApiDetails)
     speechResponse = StringField(required=True)
