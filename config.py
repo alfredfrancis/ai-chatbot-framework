@@ -6,11 +6,12 @@ class Config(object):
     MONGODB_USERNAME = ""
     MONGODB_USERNAME = ""
 
-    # Intent Classifier model detials
+    # Intent Classifier model details
     MODELS_DIR = "model_files/"
     INTENT_MODEL_NAME = "intent.model"
     DEFAULT_FALLBACK_INTENT_NAME = "fallback"
     DEFAULT_WELCOME_INTENT_NAME = "init_conversation"
+    USE_WORD_VECTORS = True
 
 
 class Development(Config):

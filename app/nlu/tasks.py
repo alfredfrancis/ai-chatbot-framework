@@ -49,7 +49,7 @@ def train_intent_classifier(intents):
             X.append(example.get("text"))
             y.append(str(intent.intentId.encode('utf8')))
 
-    intent_classifier = EmbeddingIntentClassifier()
+    intent_classifier = EmbeddingIntentClassifier(use_word_vectors=app.config['USE_WORD_VECTORS'])
     intent_classifier.train(X, y)
     intent_classifier.persist(model_dir=app.config["MODELS_DIR"])
 

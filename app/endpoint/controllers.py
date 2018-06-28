@@ -74,7 +74,7 @@ def api():
             app.logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
-        intent_id, confidence, suggetions = predict(request_json.get("input"))
+        intent_id, confidence, suggestions = predict(request_json.get("input"))
         app.logger.info("intent_id => %s" % intent_id)
         intent = Intent.objects.get(intentId=intent_id)
 
@@ -208,10 +208,15 @@ def update_model(app, message, **extra):
     """
     global sentence_classifier
 
-    sentence_classifier = EmbeddingIntentClassifier.load(app.config["MODELS_DIR"])
+    sentence_classifier = EmbeddingIntentClassifier.load(
+        app.config["MODELS_DIR"], app.config["USE_WORD_VECTORS"])
+
     synonyms = get_synonyms()
+
     global entity_extraction
+
     entity_extraction = EntityExtractor(synonyms)
+
     app.logger.info("Intent Model updated")
 
 

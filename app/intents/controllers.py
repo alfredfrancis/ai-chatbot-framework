@@ -118,7 +118,7 @@ def delete_intent(id):
     except BaseException:
         pass
 
-    # remove NER model for the deleted stoy
+    # remove NER model for the deleted story
     try:
         os.remove("{}/{}.model".format(app.config["MODELS_DIR"], id))
     except OSError:

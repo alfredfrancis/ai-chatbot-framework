@@ -24,7 +24,7 @@ def save_training_data(story_id):
 @train.route('/<story_id>/data', methods=['GET'])
 def get_training_data(story_id):
     """
-    retrive training data for a given story
+    retrieve training data for a given story
     :param story_id:
     :return:
     """

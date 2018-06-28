@@ -6,6 +6,7 @@ import spacy
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC
 
@@ -76,8 +77,6 @@ class SklearnIntentClassifier:
                             probability=True, class_weight='balanced')
                  )])
 
-            from sklearn.model_selection import GridSearchCV
-
             items, counts = np.unique(y, return_counts=True)
 
             cv_splits = max(2, min(5, np.min(counts) // 5))
@@ -108,7 +107,7 @@ class SklearnIntentClassifier:
 
     def load(self, PATH):
         """
-        load trained model froom given path
+        load trained model from given path
         :param PATH:
         :return:
         """
@@ -121,9 +120,6 @@ class SklearnIntentClassifier:
     def predict(self, text, return_all=False, INTENT_RANKING_LENGTH=5):
         """
         Predict class label for given model
-        :param text:
-        :param PATH:
-        :return:
         """
         return self.process(text, return_all, INTENT_RANKING_LENGTH)
 
@@ -134,8 +130,6 @@ class SklearnIntentClassifier:
         :param X: bow of input text
         :return: tuple of first, the most probable label
         and second, its probability"""
-
-        import numpy as np
 
         pred_result = self.model.predict_proba(X)
         print(pred_result)

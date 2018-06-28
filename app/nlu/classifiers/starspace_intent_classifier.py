@@ -7,12 +7,14 @@ from __future__ import unicode_literals
 
 import io
 import os
+import re
 
 import cloudpickle as pickle
 import numpy as np
 import spacy
 import tensorflow as tf
 from flask import current_app as app
+from sklearn.feature_extraction.text import CountVectorizer
 
 
 class EmbeddingIntentClassifier:
@@ -197,12 +199,16 @@ class EmbeddingIntentClassifier:
     def _create_intent_token_dict(intents, intent_split_symbol):
         """Create intent token dictionary"""
 
-        distinct_tokens = set([token
-                               for intent in intents
-                               for token in intent.split(intent_split_symbol)
-                               ])
+        distinct_tokens = set()
+
+        for intent in intents:
+            for token in intent.split(intent_split_symbol):
+                distinct_tokens.add(token)
+
+        distinct_tokens = sorted(distinct_tokens)
+
         return {token: idx for idx, token in
-                enumerate(sorted(distinct_tokens))}
+                enumerate(distinct_tokens)}
 
     def _create_encoded_intents(self, intent_dict):
         """Create matrix with intents encoded in rows as bag of words,
@@ -408,9 +414,6 @@ class EmbeddingIntentClassifier:
 
     def prepare_training_data(self, X, y):
 
-        from sklearn.feature_extraction.text import CountVectorizer
-        import re
-
         training_data = {
             "intent_examples": []
         }
@@ -420,8 +423,7 @@ class EmbeddingIntentClassifier:
             token_pattern=r'(?u)\b\w\w+\b',
             strip_accents=None,
             stop_words=None,
-            ngram_range=(1,
-                         1),
+            ngram_range=(1, 1),
             max_df=1.0,
             min_df=1,
             max_features=None,
@@ -564,7 +566,9 @@ class EmbeddingIntentClassifier:
                           "confidence": message_sim[0]}
 
                 ranking = list(zip(list(intent_ids), message_sim))
+
                 ranking = ranking[:INTENT_RANKING_LENGTH]
+
                 intent_ranking = [{"intent": self.inv_intent_dict[intent_idx],
                                    "confidence": score}
                                   for intent_idx, score in ranking]
@@ -627,6 +631,7 @@ class EmbeddingIntentClassifier:
             app.logger.warning("Failed to load nlu model. Maybe path {} "
                                "doesn't exist"
                                "".format(os.path.abspath(model_dir)))
+
             return EmbeddingIntentClassifier()
 
     def persist(self, model_dir):
