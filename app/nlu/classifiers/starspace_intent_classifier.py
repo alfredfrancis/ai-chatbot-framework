@@ -419,10 +419,8 @@ class EmbeddingIntentClassifier:
         # use even single character word as a token
         self.vect = CountVectorizer(
             token_pattern=r'(?u)\b\w\w+\b',
-            strip_accents=None,
             stop_words=None,
             ngram_range=(1, 1),
-            max_features=None,
             preprocessor=lambda s: re.sub(r'\b[0-9]+\b', 'NUMBER', s.lower())
         )
 
@@ -639,7 +637,6 @@ class EmbeddingIntentClassifier:
             os.makedirs(os.path.dirname(model_dir))
         except OSError as e:
             # be happy if someone already created the path
-
             if e.errno != errno.EEXIST:
                 raise
 
