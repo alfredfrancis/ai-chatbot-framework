@@ -126,7 +126,7 @@ class EntityExtractor:
         trainer.train('model_files/%s.model' % model_name)
         return True
 
-    # Extract Labeles from BIO tagged sentence
+    # Extract Labels from BIO tagged sentence
     def crf2json(self, tagged_sentence):
         """
         Extract label-value pair from NER prediction output

@@ -76,7 +76,7 @@ def api():
             logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
-        intent_id, confidence, suggetions = predict(request_json.get("input"))
+        intent_id, confidence, suggestions = predict(request_json.get("input"))
         app.logger.info("intent_id => %s" % intent_id)
         intent = Intent.objects.get(intentId=intent_id)
 
@@ -219,7 +219,7 @@ def update_model(app, message, **extra):
 
 
 with app.app_context():
-    update_model(app, "Modles updated")
+    update_model(app, "Models updated")
 
 model_updated_signal.connect(update_model, app)
 

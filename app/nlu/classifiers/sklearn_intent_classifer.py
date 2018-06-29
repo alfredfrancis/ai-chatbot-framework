@@ -108,7 +108,7 @@ class SklearnIntentClassifier:
 
     def load(self, PATH):
         """
-        load trained model froom given path
+        load trained model from given path
         :param PATH:
         :return:
         """

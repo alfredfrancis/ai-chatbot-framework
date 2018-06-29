@@ -420,10 +420,7 @@ class EmbeddingIntentClassifier:
             token_pattern=r'(?u)\b\w\w+\b',
             strip_accents=None,
             stop_words=None,
-            ngram_range=(1,
-                         1),
-            max_df=1.0,
-            min_df=1,
+            ngram_range=(1, 1),
             max_features=None,
             preprocessor=lambda s: re.sub(r'\b[0-9]+\b', 'NUMBER', s.lower())
         )
