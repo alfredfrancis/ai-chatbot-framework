@@ -26,6 +26,7 @@ class TfIntentClassifier:
         Train intent classifier for given training data
         :param X:
         :param y:
+        :param models_dir:
         :param verbose:
         :return:
         """
@@ -115,7 +116,6 @@ class TfIntentClassifier:
         """
         Predict class label for given model
         :param text:
-        :param PATH:
         :return:
         """
         return self.process(text)
