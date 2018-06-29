@@ -60,11 +60,11 @@ class SklearnIntentClassifier:
         :return:
         """
 
-        def build(X, y=None):
+        def build(X_data, y_data=None):
             """
             Inner build function that builds a single model.
-            :param X:
-            :param y:
+            :param X_data:
+            :param y_data:
             :return:
             """
             pipeline = Pipeline([
@@ -77,7 +77,7 @@ class SklearnIntentClassifier:
                             probability=True, class_weight='balanced')
                  )])
 
-            items, counts = np.unique(y, return_counts=True)
+            items, counts = np.unique(y_data, return_counts=True)
 
             cv_splits = max(2, min(5, np.min(counts) // 5))
 
@@ -90,7 +90,7 @@ class SklearnIntentClassifier:
                                        verbose=2,
                                        n_jobs=-1)
 
-            grid_search.fit(X, y)
+            grid_search.fit(X_data, y_data)
 
             return grid_search
 

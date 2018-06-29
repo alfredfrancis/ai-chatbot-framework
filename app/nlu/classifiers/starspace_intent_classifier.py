@@ -5,14 +5,17 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import errno
 import io
 import os
+import re
 
 import cloudpickle as pickle
 import numpy as np
 import spacy
 import tensorflow as tf
 from flask import current_app as app
+from sklearn.feature_extraction.text import CountVectorizer
 
 
 class EmbeddingIntentClassifier:
@@ -403,13 +406,11 @@ class EmbeddingIntentClassifier:
                         "".format((ep + 1), self.epochs,
                                   sess_out.get('loss'), train_acc))
 
-    def _lemmatize(self, message):
+    @staticmethod
+    def _lemmatize(message):
         return ' '.join([t.lemma_ for t in message])
 
     def prepare_training_data(self, X, y):
-
-        from sklearn.feature_extraction.text import CountVectorizer
-        import re
 
         training_data = {
             "intent_examples": []
@@ -638,7 +639,7 @@ class EmbeddingIntentClassifier:
             os.makedirs(os.path.dirname(model_dir))
         except OSError as e:
             # be happy if someone already created the path
-            import errno
+
             if e.errno != errno.EEXIST:
                 raise
 

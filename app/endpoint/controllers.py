@@ -48,7 +48,6 @@ def api():
       ]
     }
 
-    :param json:
     :return json:
     """
     request_json = request.get_json(silent=True)

@@ -10,7 +10,9 @@ class EntityExtractor:
     Performs NER training, prediction, model import/export
     """
 
-    def __init__(self, synonyms=[]):
+    def __init__(self, synonyms=None):
+        if synonyms is None:
+            synonyms = []
         self.synonyms = synonyms
 
     def replace_synonyms(self, entities):
@@ -29,7 +31,8 @@ class EntityExtractor:
 
         return entities
 
-    def extract_features(self, sent, i):
+    @staticmethod
+    def extract_features(sent, i):
         """
         Extract features for a given sentence
         :param sent:
@@ -85,7 +88,8 @@ class EntityExtractor:
         """
         return [self.extract_features(sent, i) for i in range(len(sent))]
 
-    def sent_to_labels(self, sent):
+    @staticmethod
+    def sent_to_labels(sent):
         """
         Extract labels from training data
         :param sent:
@@ -93,7 +97,8 @@ class EntityExtractor:
         """
         return [label for token, postag, label in sent]
 
-    def sent_to_tokens(self, sent):
+    @staticmethod
+    def sent_to_tokens(sent):
         """
         Extract tokens from training data
         :param sent:
@@ -127,7 +132,8 @@ class EntityExtractor:
         return True
 
     # Extract Labels from BIO tagged sentence
-    def crf2json(self, tagged_sentence):
+    @staticmethod
+    def crf2json(tagged_sentence):
         """
         Extract label-value pair from NER prediction output
         :param tagged_sentence:
@@ -145,7 +151,8 @@ class EntityExtractor:
                     labeled[label] += " %s" % s
         return labeled
 
-    def extract_ner_labels(self, predicted_labels):
+    @staticmethod
+    def extract_ner_labels(predicted_labels):
         """
         Extract name of labels from NER
         :param predicted_labels:
@@ -192,11 +199,11 @@ class EntityExtractor:
             tagged_example = pos_tag_and_label(example.get("text"))
 
             # find no of words before selection
-            for enitity in example.get("entities"):
+            for entity in example.get("entities"):
 
                 try:
-                    begin_index = enitity.get("begin")
-                    end_index = enitity.get("end")
+                    begin_index = entity.get("begin")
+                    end_index = entity.get("end")
                     # find no of words before the entity
                     inverse_selection = example.get("text")[0:begin_index - 1]
                     inverse_selection = sentence_tokenize(inverse_selection)
@@ -213,9 +220,9 @@ class EntityExtractor:
                     # build BIO tagging
                     for i in range(1, selection_word_count + 1):
                         if i == 1:
-                            bio = "B-" + enitity.get("name")
+                            bio = "B-" + entity.get("name")
                         else:
-                            bio = "I-" + enitity.get("name")
+                            bio = "I-" + entity.get("name")
                         tagged_example[(inverse_word_count + i) - 1][2] = bio
                 except:
                     # catches and skips invalid offsets and annotation

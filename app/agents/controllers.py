@@ -26,7 +26,6 @@ def set_config(bot_name):
 def get_config(bot_name):
     """
     Update bot config
-    :param json:
     :return:
     """
     bot = Bot.objects.get(name=bot_name)
