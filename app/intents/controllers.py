@@ -70,8 +70,8 @@ def read_intents():
     find list of intents for the agent
     :return:
     """
-    intents = Intent.objects
-    return build_response.sent_json(intents.to_json())
+    all_intents = Intent.objects
+    return build_response.sent_json(all_intents.to_json())
 
 
 @intents.route('/<id>')
@@ -83,8 +83,7 @@ def read_intent(id):
     """
     return Response(response=dumps(
         Intent.objects.get(
-            id=ObjectId(
-                id)).to_mongo().to_dict()),
+            id=ObjectId(id)).to_mongo().to_dict()),
         status=200,
         mimetype="application/json")
 
@@ -93,8 +92,6 @@ def read_intent(id):
 def update_intent(id):
     """
     Update a story from the provided json
-    :param intent_id:
-    :param json:
     :return:
     """
     json_data = loads(request.get_data())
@@ -118,7 +115,7 @@ def delete_intent(id):
     except BaseException:
         pass
 
-    # remove NER model for the deleted stoy
+    # remove NER model for the deleted story
     try:
         os.remove("{}/{}.model".format(app.config["MODELS_DIR"], id))
     except OSError:
@@ -154,18 +151,18 @@ def import_intents():
     if 'file' not in request.files:
         abort(400, 'No file part')
     json_file = request.files['file']
-    intents = import_json(json_file)
+    all_intents = import_json(json_file)
 
-    return build_response.build_json({"num_intents_created": len(intents)})
+    return build_response.build_json({"num_intents_created": len(all_intents)})
 
 
 def import_json(json_file):
     json_data = json_file.read()
     # intents = Intent.objects.from_json(json_data)
-    intents = loads(json_data)
+    all_intents = loads(json_data)
 
     creates_intents = []
-    for intent in intents:
+    for intent in all_intents:
         new_intent = Intent()
         new_intent = update_document(new_intent, intent)
         new_intent.save()

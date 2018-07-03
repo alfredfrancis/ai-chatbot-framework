@@ -14,7 +14,6 @@ entities_blueprint = Blueprint('entities_blueprint', __name__,
 def create_entity():
     """
     Create a story from the provided json
-    :param json:
     :return:
     """
     content = request.get_json(silent=True)
@@ -60,8 +59,7 @@ def read_entity(id):
 def update_entity(id):
     """
     Update a story from the provided json
-    :param intent_id:
-    :param json:
+    :param id:
     :return:
     """
     json_data = loads(request.get_data())

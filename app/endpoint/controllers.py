@@ -8,7 +8,6 @@ from jinja2 import Template
 from app import app
 from app.agents.models import Bot
 from app.commons import build_response
-from app.commons.logger import logger
 from app.endpoint.utils import SilentUndefined
 from app.endpoint.utils import call_api
 from app.endpoint.utils import get_synonyms
@@ -57,8 +56,7 @@ def api():
 
     if request_json:
 
-        context = {}
-        context["context"] = request_json["context"]
+        context = {"context": request_json["context"]}
 
         if app.config["DEFAULT_WELCOME_INTENT_NAME"] in request_json.get(
                 "input"):
@@ -73,10 +71,10 @@ def api():
                 undefined=SilentUndefined)
             result_json["speechResponse"] = split_sentence(template.render(**context))
 
-            logger.info(request_json.get("input"), extra=result_json)
+            app.logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
-        intent_id, confidence, suggetions = predict(request_json.get("input"))
+        intent_id, confidence, suggestions = predict(request_json.get("input"))
         app.logger.info("intent_id => %s" % intent_id)
         intent = Intent.objects.get(intentId=intent_id)
 
@@ -145,9 +143,8 @@ def api():
 
                 if len(result_json["missingParameters"]) == 0:
                     result_json["complete"] = True
-                    context = {}
-                    context["parameters"] = result_json["extractedParameters"]
-                    context["context"] = request_json["context"]
+                    context = {"parameters": result_json["extractedParameters"],
+                               "context": request_json["context"]}
                 else:
                     missing_parameter = result_json["missingParameters"][0]
                     result_json["complete"] = False
@@ -194,7 +191,7 @@ def api():
                 template = Template(intent.speechResponse,
                                     undefined=SilentUndefined)
                 result_json["speechResponse"] = split_sentence(template.render(**context))
-        logger.info(request_json.get("input"), extra=result_json)
+        app.logger.info(request_json.get("input"), extra=result_json)
         return build_response.build_json(result_json)
     else:
         return abort(400)
@@ -211,15 +208,20 @@ def update_model(app, message, **extra):
     """
     global sentence_classifier
 
-    sentence_classifier = EmbeddingIntentClassifier.load(app.config["MODELS_DIR"])
+    sentence_classifier = EmbeddingIntentClassifier.load(
+        app.config["MODELS_DIR"], app.config["USE_WORD_VECTORS"])
+
     synonyms = get_synonyms()
+
     global entity_extraction
+
     entity_extraction = EntityExtractor(synonyms)
+
     app.logger.info("Intent Model updated")
 
 
 with app.app_context():
-    update_model(app, "Modles updated")
+    update_model(app, "Models updated")
 
 model_updated_signal.connect(update_model, app)
 
