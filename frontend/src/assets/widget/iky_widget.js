@@ -72,7 +72,7 @@
             </div>
             `
 
-            document.body.innerHTML += content;
+            $("body").append(content);
 
             $(".iky_container").hide();
             
