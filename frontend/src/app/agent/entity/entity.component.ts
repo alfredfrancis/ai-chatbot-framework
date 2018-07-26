@@ -55,8 +55,8 @@ export class EntityComponent implements OnInit {
   }
   saveEntity(){
     this.entitiesService.saveEntity(this.entity).then(
-      (result)=>{
-        console.log(result);
+      (result:any)=>{
+        console.log("Success: " + JSON.stringify(result));
       }
     )
   }
