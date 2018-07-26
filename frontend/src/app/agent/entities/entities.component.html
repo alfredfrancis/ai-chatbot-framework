@@ -7,10 +7,10 @@
   </div>
 
   <div class="entities">
-    <div *ngFor="let entity of entities;let i=index" class="entity" routerLink="/agent/default/edit-entity/{{entity._id.$oid}}">
-    {{entity.name}}
-    <button mat-icon-button (click)="deleteEntity(entity._id.$oid,i)" color="warn">
-        <mat-icon aria-label="Delete this intent">delete</mat-icon>
+    <div  *ngFor="let entity of entities;let i=index" class="entity">
+      <div routerLink="/agent/default/edit-entity/{{entity._id.$oid}}">{{entity.name}}</div>
+      <button mat-icon-button (click)="deleteEntity(entity._id.$oid,i)" color="warn">
+          <mat-icon aria-label="Delete this intent">delete</mat-icon>
       </button>
     </div>
   </div>
