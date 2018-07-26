@@ -66,7 +66,7 @@ def update_entity(id):
     entity = Entity.objects.get(id=ObjectId(id))
     entity = update_document(entity, json_data)
     entity.save()
-    return 'success', 200
+    return build_response.sent_ok()
 
 
 @entities_blueprint.route('/<id>', methods=['DELETE'])
