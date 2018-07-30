@@ -4,9 +4,12 @@ mat-card{
         width: 100%;
       }
       .entities{
-
+          
           margin: 10px;
           .entity{
+             display: flex;
+             align-items: center;
+
               padding:5px;
               margin-bottom: 3px;
               cursor: pointer;
