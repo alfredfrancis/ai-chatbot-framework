@@ -7,11 +7,18 @@
   </div>
 
   <div class="entities">
-    <div *ngFor="let entity of entities;let i=index" class="entity" routerLink="/agent/default/edit-entity/{{entity._id.$oid}}">
-    {{entity.name}}
-    <button mat-icon-button (click)="deleteEntity(entity._id.$oid,i)" color="warn">
-        <mat-icon aria-label="Delete this intent">delete</mat-icon>
-      </button>
+    <div *ngFor="let entity of entities;let i=index" fxLayout="row" fxLayoutAlign=" center" class="entity-container">
+      <div fxFlex="60">
+        {{entity.name}}
+      </div>
+      <div fxFlex="40">
+        <button mat-icon-button (click)="edit(entity)" color="accent">
+          <mat-icon aria-label="Edit this entity">edit</mat-icon>
+        </button>
+        <button mat-icon-button (click)="deleteEntity(entity._id.$oid,i)" color="warn">
+            <mat-icon aria-label="Delete this entity">delete</mat-icon>
+          </button>
+      </div>
     </div>
   </div>
 </mat-card>

@@ -42,13 +42,13 @@ import {Resolve, Router, CanActivate, ActivatedRouteSnapshot, RouterStateSnapsho
 export class EntityResolverService implements Resolve<any>  {
 
     constructor(private _router: Router,private entityService: EntitiesService) { }
-    
+
     resolve(route: ActivatedRouteSnapshot): Promise<any> | boolean {
         return new Promise((resolve,reject)=>{
             this.entityService.getEntity(route.params['entity_id']).then(
             (result) => {
-                console.log("intent details resolved")
-              resolve(result)
+              console.log("intent details resolved");
+              resolve(result);
             },
             (err)=>{
               new Error("Could'nt get intent details")

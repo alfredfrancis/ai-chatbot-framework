@@ -12,7 +12,7 @@ import {EntityResolverService} from '../services/entities.service'
 import {IntentResolverService} from '../services/intent-resolver.service';
 
 const routes: Routes = [
-  { path: '', redirectTo: 'intents'},  
+  { path: '', redirectTo: 'intents'},
   {
     path: 'intents', component: IntentsComponent,
   },
