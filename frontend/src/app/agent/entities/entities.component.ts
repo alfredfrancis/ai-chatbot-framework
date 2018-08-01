@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { EntitiesService } from '../../services/entities.service'
+import {Router} from "@angular/router";
+import {UtilsService} from "../../services/utils.service";
 @Component({
   selector: 'app-entities',
   templateUrl: './entities.component.html',
@@ -7,7 +9,7 @@ import { EntitiesService } from '../../services/entities.service'
 })
 export class EntitiesComponent implements OnInit {
 
-  constructor(private entitiesService: EntitiesService) { }
+  constructor(private _router: Router, private coreService:UtilsService, private entitiesService: EntitiesService) { }
 
   entities = []
 
@@ -20,6 +22,10 @@ export class EntitiesComponent implements OnInit {
   }
 
   newEntity(name) {
+    if (this.entities.find(x => x.name === name)) {
+      alert("Entity already exist");
+      return;
+    }
     this.entitiesService.create_entity({ "name": name }).then(
       (result) => {
         this.entities.push({
@@ -32,12 +38,20 @@ export class EntitiesComponent implements OnInit {
     )
   }
 
+  edit(entity) {
+    this._router.navigate(["/agent/default/edit-entity", entity._id.$oid])
+  }
+
   deleteEntity(id,i){
-    this.entitiesService.delete_entity(id).then(
-      ()=>{
-        this.entities.splice(i,1)
-      }
-    )
+    if (confirm('Are u sure want to delete this entity?')) {
+      this.coreService.displayLoader(true);
+      this.entitiesService.delete_entity(id).then(
+        () => {
+          this.entities.splice(i, 1);
+          this.ngOnInit();
+          this.coreService.displayLoader(false);
+      });
+    }
   }
 
 }
