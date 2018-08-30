@@ -127,7 +127,9 @@ def api():
                 result_json["complete"] = True
 
         elif request_json.get("complete") is False:
-            if "cancel" not in intent.name:
+            query_intent_id = predict(request_json.get("input"))
+            intentcheck = Intent.objects.get(intentId=query_intent_id[0])
+            if "cancel" not in intentcheck.intentId:
                 intent_id = request_json["intent"]["id"]
                 intent = Intent.objects.get(intentId=intent_id)
 
@@ -153,10 +155,15 @@ def api():
                     result_json["currentNode"] = current_node.name
                     result_json["speechResponse"] = split_sentence(current_node.prompt)
             else:
+                intent = Intent.objects.get(intentId=query_intent_id[0])
                 result_json["currentNode"] = None
                 result_json["missingParameters"] = []
                 result_json["parameters"] = {}
-                result_json["intent"] = {}
+                result_json["intent"] = {
+                    "object_id": str(intent.id),
+                    "confidence": query_intent_id[1],
+                    "id": str(intent.intentId)
+                }
                 result_json["complete"] = True
 
         if result_json["complete"]:
