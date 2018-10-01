@@ -1,5 +1,5 @@
 bs4==0.0.1
-Flask==0.12.2
+Flask==0.12.3
 Flask-Cors==3.0.3
 html2text==2017.10.4
 httplib2==0.10.3
