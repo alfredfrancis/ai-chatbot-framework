@@ -20,11 +20,15 @@ def install_nltk_dependencies():
 def init():
     from app.agents.models import Bot
 
-    # create default bot
-    bot = Bot()
-    bot.name = "default"
-    bot.save()
-    print("Created default bot")
+    try:
+        # create default bot
+        bot = Bot()
+        bot.name = "default"
+        bot.save()
+        print("Created default bot")
+    except:
+        print("Default agent exists.. skipping..")
+
 
     # import some default intents
     from app.intents.controllers import import_json
