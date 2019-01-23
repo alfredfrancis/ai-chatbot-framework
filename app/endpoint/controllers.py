@@ -86,11 +86,11 @@ def api():
 
         if intent.parameters:
             parameters = intent.parameters
+            result_json["extractedParameters"] = request_json.get("extractedParameters") or {}
         else:
             parameters = []
 
-        if ((request_json.get("complete") is None) or (
-                request_json.get("complete") is True)):
+        if ((request_json.get("complete") is None) or (request_json.get("complete") is True)):
             result_json["intent"] = {
                 "object_id": str(intent.id),
                 "confidence": confidence,
@@ -99,12 +99,11 @@ def api():
 
             if parameters:
                 # Extract NER entities
-                extracted_parameters = entity_extraction.predict(
-                    intent_id, request_json.get("input"))
+                result_json["extractedParameters"].update(entity_extraction.predict(
+                    intent_id, request_json.get("input")))
 
                 missing_parameters = []
                 result_json["missingParameters"] = []
-                result_json["extractedParameters"] = {}
                 result_json["parameters"] = []
                 for parameter in parameters:
                     result_json["parameters"].append({
@@ -114,12 +113,10 @@ def api():
                     })
 
                     if parameter.required:
-                        if parameter.name not in extracted_parameters.keys():
+                        if parameter.name not in result_json["extractedParameters"].keys():
                             result_json["missingParameters"].append(
                                 parameter.name)
                             missing_parameters.append(parameter)
-
-                result_json["extractedParameters"] = extracted_parameters
 
                 if missing_parameters:
                     result_json["complete"] = False
@@ -128,7 +125,7 @@ def api():
                     result_json["speechResponse"] = split_sentence(current_node["prompt"])
                 else:
                     result_json["complete"] = True
-                    context["parameters"] = extracted_parameters
+                    context["parameters"] = result_json["extractedParameters"]
             else:
                 result_json["complete"] = True
 
