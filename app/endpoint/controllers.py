@@ -74,9 +74,15 @@ def api():
             app.logger.info(request_json.get("input"), extra=result_json)
             return build_response.build_json(result_json)
 
-        intent_id, confidence, suggestions = predict(request_json.get("input"))
-        app.logger.info("intent_id => %s" % intent_id)
-        intent = Intent.objects.get(intentId=intent_id)
+        # check if input method is event or raw text
+        elif request_json.get("event"):
+            intent_id = request_json.get("event")
+            confidence = 1
+            result_json["event"]=None
+        else:
+            intent_id, confidence, suggestions = predict(request_json.get("input"))
+            app.logger.info("intent_id => %s" % intent_id)
+            intent = Intent.objects.get(intentId=intent_id)
 
         if intent.parameters:
             parameters = intent.parameters
