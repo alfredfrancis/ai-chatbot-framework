@@ -81,8 +81,8 @@ def api():
             result_json["event"]=None
         else:
             intent_id, confidence, suggestions = predict(request_json.get("input"))
-            app.logger.info("intent_id => %s" % intent_id)
-            intent = Intent.objects.get(intentId=intent_id)
+        app.logger.info("intent_id => %s" % intent_id)
+        intent = Intent.objects.get(intentId=intent_id)
 
         if intent.parameters:
             parameters = intent.parameters
