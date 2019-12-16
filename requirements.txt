@@ -18,7 +18,7 @@ pandas==0.21.1
 scikit-learn==0.19.1
 cloudpickle==0.5.2
 h5py==2.7.1
-tensorflow==1.8.0
+tensorflow==1.15.0
 
 parsedatetime==2.4
 python-crfsuite==0.9.5
