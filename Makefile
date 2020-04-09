@@ -1,7 +1,7 @@
 setup: venv/bin/activate
 
 venv/bin/activate: requirements.txt
-	test -d venv || virtualenv venv
+	test -d venv || virtualenv -p python3 venv
 	. venv/bin/activate; pip install -Ur requirements.txt
 	. venv/bin/activate; python manage.py install_nltk_dependencies
 	. venv/bin/activate; python -m spacy download en_core_web_md && python -m spacy link en_core_web_md en
