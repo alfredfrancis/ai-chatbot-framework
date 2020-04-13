@@ -1,15 +1,19 @@
 setup: venv/bin/activate
 
 venv/bin/activate: requirements.txt
-	test -d venv || virtualenv venv
+	test -d venv || virtualenv -p python3 venv
 	. venv/bin/activate; pip install -Ur requirements.txt
 	. venv/bin/activate; python manage.py install_nltk_dependencies
+	. venv/bin/activate; python -m spacy download en_core_web_md && python -m spacy link en_core_web_md en
 
 restore_db: 
 	mongorestore --drop --db=iky-ai --dir=dump/iky-ai/
 
 init: restore_db setup
 	. venv/bin/activate && python setup.py
+
+setup_spacy:
+        . venv/bin/activate && python -m spacy download en_core_web_md && python -m spacy link en_core_web_md en
 
 run_dev: 
 	. venv/bin/activate && python run.py
