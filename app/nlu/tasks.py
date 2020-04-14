@@ -47,7 +47,7 @@ def train_intent_classifier(intents):
             if example.get("text").strip() == "":
                 continue
             X.append(example.get("text"))
-            y.append(str(intent.intentId.encode('utf8')))
+            y.append(intent.intentId)
 
     intent_classifier = EmbeddingIntentClassifier(use_word_vectors=app.config['USE_WORD_VECTORS'])
     intent_classifier.train(X, y)
