@@ -17,7 +17,8 @@ import {MatExpansionModule} from '@angular/material/expansion';
 import {MatSliderModule} from '@angular/material/slider';
 import {MatChipsModule} from '@angular/material/chips';
 import {MatAutocompleteModule} from '@angular/material/autocomplete';
-
+import {MatToolbarModule} from '@angular/material/toolbar';
+import {MatTooltipModule} from '@angular/material/tooltip';
 /* Material UI imports ends here */
 
 
@@ -28,6 +29,7 @@ import {IntentResolverService} from '../services/intent-resolver.service';
 import {ChatService} from '../services/chat.service'
 import {AgentsService} from '../services/agents.service'
 import {EntitiesService,EntityResolverService} from '../services/entities.service'
+
 /* Services imports ends here */
 
 import { SettingsComponent } from './settings/settings.component';
@@ -61,7 +63,9 @@ import { EntityComponent } from './entity/entity.component';
     MatExpansionModule,
     MatSliderModule,
     MatChipsModule,
-    MatAutocompleteModule
+    MatAutocompleteModule,
+    MatToolbarModule,
+    MatTooltipModule
 
   ],
   declarations: [IntentsComponent, IntentComponent, TrainComponent, SettingsComponent,

@@ -1,27 +1,30 @@
 <div class="header" fxLayout="row" fxLayoutAlign=" center">
-  <h1 fxFlex>List of Intents
-    <button mat-mini-fab (click)="add()">
+  <mat-toolbar>
+    <span>List of Intents</span>
+    <span class="example-spacer"></span>
+    <button mat-fab color="primary" (click)="trainModels()">TRAIN</button>
+    <button class="margin-left" mat-fab (click)="add()">
       <mat-icon aria-label="Example icon-button with a heart icon">add</mat-icon>
     </button>
-  </h1>
-
-  <button mat-raised-button color="primary" (click)="trainModels()">Build Agent</button>
+  </mat-toolbar>
 </div>
 
 
 
 <mat-card>
   <div *ngFor="let intent of intents" fxLayout="row" fxLayoutAlign=" center" class="intent-container">
-    <div fxFlex="60">
-      {{intent.name}}
+    <div>
+      <strong>{{intent.name}}</strong>
     </div>
-    <div fxFlex="40">
-      <button mat-button (click)="train(intent)" color="primary">Train</button>
-      <button mat-icon-button (click)="edit(intent)" color="accent">
-        <mat-icon aria-label="Edit this intent">edit</mat-icon>
+    <span class="example-spacer"></span>
+    <div>
+      <button mat-icon-button (click)="train(intent)" color="primary" matTooltip="Add examples">
+      <mat-icon>add</mat-icon></button>
+      <button mat-icon-button (click)="edit(intent)" color="secondary" matTooltip="Edit this intent">
+        <mat-icon >edit</mat-icon>
       </button>
-      <button mat-icon-button (click)="delete(intent)" color="warn" *ngIf="intent.userDefined">
-        <mat-icon aria-label="Delete this intent">delete</mat-icon>
+      <button mat-icon-button (click)="delete(intent)" color="warn" *ngIf="intent.userDefined" matTooltip="Delete this intent">
+        <mat-icon >delete</mat-icon>
       </button>
     </div>
   </div>

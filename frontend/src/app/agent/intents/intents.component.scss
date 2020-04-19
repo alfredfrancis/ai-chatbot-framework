@@ -1,10 +1,18 @@
 mat-card{
     margin:10px;
     .intent-container{
-        border-bottom: 1px solid lightgray;
+        border: 1px solid rgb(221, 221, 221);
+        border-radius: 5px;
         padding:10px;
+        margin-bottom: 8px;
     }
 }
 .header{
     margin: 10px;
+}
+.example-spacer {
+  flex: 1 1 auto;
+}
+.margin-left{
+    margin-left:5px;
 }
