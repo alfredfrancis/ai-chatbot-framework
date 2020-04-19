@@ -42,8 +42,6 @@ docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gate
 
 ### without docker
 
-#### backend
-
 * Setup Virtualenv and install python requirements
 ```sh
 make setup
@@ -56,20 +54,20 @@ source venv/bin/activate && python manage.py init
 ```sh
 make run_prod
 ```
+* Open http://localhost:8080/
 
-#### frontend
-* Development
+#### Update Frontend Dist
+* Run Development mode
 ```sh
 cd frontend
 npm install
 ng serve
 ```
-* Production
+* Take Production build
 ```sh
 cd frontend
-ng build --prod --environment=python
+ng build --prod --optimize
 ```
-serve files in dist/ folder using nginx or any webserver
 
 ### Heroku
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)

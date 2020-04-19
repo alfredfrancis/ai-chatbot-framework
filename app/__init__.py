@@ -1,9 +1,10 @@
 import os
-
 from blinker import Namespace
-from flask import Flask
+from flask import Flask,send_from_directory
 from flask_cors import CORS
 from flask_mongoengine import MongoEngine
+
+APP_ROOT = os.path.dirname(os.path.abspath(__file__ + "../../"))
 
 app = Flask(__name__)
 
@@ -40,6 +41,17 @@ app.register_blueprint(endpoint)
 app.register_blueprint(bots)
 app.register_blueprint(entities_blueprint)
 
+
+admin_panel_dist = os.path.join(APP_ROOT, 'frontend/dist/')
+
+@app.route('/<path:path>', methods=['GET'])
+def static_proxy(path):
+    return send_from_directory(admin_panel_dist, path)
+
+@app.route('/')
+def root():
+    print(admin_panel_dist)
+    return send_from_directory(admin_panel_dist, 'index.html')
 
 @app.errorhandler(404)
 def not_found(error):
