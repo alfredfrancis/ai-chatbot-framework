@@ -1,1 +1,2 @@
-web: python setup.py && APPLICATION_ENV="Production" gunicorn -k gevent run:app
+release: APPLICATION_ENV="Heroku" python manage.py migrate
+web: APPLICATION_ENV="Heroku" gunicorn -k gevent run:app

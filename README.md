@@ -16,7 +16,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ```sh
 docker-compose build
 docker-compose up -d
-docker-compose exec iky_backend python manage.py init
+docker-compose exec iky_backend python manage.py migrate
 ```
 
 ### Using Docker
@@ -33,7 +33,7 @@ docker run --name mongodb -d mongo:3.6
 docker run --name=iky_backend --link mongodb:mongodb -e="APPLICATION_ENV=Production" iky_backend:2.0.0
 
 # setup default intents
-docker exec -it iky_backend python manage.py init
+docker exec -it iky_backend python manage.py migrate
 
 # start iky gateway with frontend
 docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:2.0.0
@@ -48,7 +48,7 @@ make setup
 
 make run_dev
 
-source venv/bin/activate && python manage.py init
+source venv/bin/activate && python manage.py migrate
 ```
 * Production
 ```sh

@@ -5,7 +5,7 @@ from app import app
 manager = Manager(app)
 
 @manager.command
-def init():
+def migrate():
     from app.agents.models import Bot
 
     try:
