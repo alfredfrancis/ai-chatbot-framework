@@ -3,12 +3,12 @@ import string
 import cloudpickle
 import numpy as np
 import spacy
-from nltk.corpus import stopwords
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC
+from spacy.lang.en.stop_words import STOP_WORDS
 
 
 class SklearnIntentClassifier:
@@ -19,7 +19,7 @@ class SklearnIntentClassifier:
 
         self.spacynlp = spacy.load('en')
 
-        self.stopwords = set(stopwords.words('english') +
+        self.stopwords = set(STOP_WORDS +
                              ["n't", "'s", "'m", "ca"] +
                              list(ENGLISH_STOP_WORDS))
 

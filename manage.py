@@ -4,18 +4,6 @@ from app import app
 
 manager = Manager(app)
 
-
-@manager.command
-def install_nltk_dependencies():
-    # Downloading necessary NLTK datasets
-    from nltk import download
-    download("stopwords")
-    download("wordnet")
-    download('averaged_perceptron_tagger')
-    download('punkt')
-    print ("Done")
-
-
 @manager.command
 def init():
     from app.agents.models import Bot

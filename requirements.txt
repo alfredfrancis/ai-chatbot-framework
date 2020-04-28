@@ -14,9 +14,7 @@ scipy==1.4.1
 numpy==1.16.0
 pandas==0.25.2
 
-nltk==3.2.5
 spacy==2.2.2
-
 
 scikit-learn==0.19.1
 cloudpickle==0.5.2
