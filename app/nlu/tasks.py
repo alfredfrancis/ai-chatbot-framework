@@ -2,9 +2,8 @@
 
 from app import app
 from app import my_signals
-from nltk import word_tokenize
-from nltk.tag.perceptron import PerceptronTagger
 from app.intents.models import Intent
+from app.nlu import spacy_tokenizer
 from app.nlu.classifiers.starspace_intent_classifier import \
     EmbeddingIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
@@ -28,7 +27,7 @@ def train_models():
 
     # train ner model for each Stories
     for intent in intents:
-        train_all_ner(str(intent.intentId.encode('utf8')), intent.trainingData)
+        train_all_ner(intent.intentId, intent.trainingData)
 
     model_updated_signal.send(app, message="Training Completed.")
 
@@ -69,8 +68,6 @@ def train_all_ner(story_id, training_data):
 
 
 # Load and initialize Perceptron tagger
-tagger = PerceptronTagger()
-
 
 def pos_tagger(sentence):
     """
@@ -78,9 +75,11 @@ def pos_tagger(sentence):
     :param sentence:
     :return:
     """
-    tokenized_sentence = word_tokenize(sentence)
-    pos_tagged_sentence = tagger.tag(tokenized_sentence)
-    return pos_tagged_sentence
+    doc = spacy_tokenizer(sentence)
+    taged_sentance = []
+    for token in doc:
+        taged_sentance.append((token.text, token.tag_))
+    return taged_sentance
 
 
 def pos_tag_and_label(sentence):
@@ -102,5 +101,6 @@ def sentence_tokenize(sentences):
     :param sentences:
     :return:
     """
-    tokenized_sentences = word_tokenize(sentences)
-    return " ".join(tokenized_sentences)
+    doc = spacy_tokenizer(sentences)
+    words = [token.text for token in doc]
+    return " ".join(words)
