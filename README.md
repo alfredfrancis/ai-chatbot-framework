@@ -106,14 +106,11 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 
 ### Todos
  *  Write Unit Tests
- *  PEP-8 compliance
- *  Word2Vec Integration
- *  NLTK to Spacy migration
+ *  Multilingual Intent Classifier
  *  PyCRFSuite to sklearn-crfsuite migration
  *  Support follow up conversations
  
  ### Dependencies documentations
-* [NLTK documentation](www.nltk.org/)
 * [SKLearn documentation](http://scikit-learn.org/)
 * [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
 * [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
