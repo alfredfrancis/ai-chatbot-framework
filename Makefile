@@ -13,7 +13,7 @@ init: restore_db setup
 	. venv/bin/activate && python setup.py
 
 setup_spacy:
-        . venv/bin/activate && python -m spacy download en_core_web_md && python -m spacy link en_core_web_md en
+	. venv/bin/activate && python -m spacy download en_core_web_md && python -m spacy link en_core_web_md en
 
 run_dev: 
 	. venv/bin/activate && python run.py
