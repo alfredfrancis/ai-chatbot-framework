@@ -1,8 +1,9 @@
 # IKY
 [![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/alfredfrancis/ai-chatbot-framework.svg?branch=master)](https://travis-ci.org/alfredfrancis/ai-chatbot-framework)
+
+<img src="https://i.ibb.co/vLR1wpG/logo.png" width="280"/>
+
 ### An AI Chatbot framework built in Python
-
-
 
 Building a chatbot can sound daunting, but it’s totally doable. IKY is an AI powered conversational dialog interface built in Python. With IKY it’s easy to create Natural Language conversational scenarios with no coding efforts whatsoever. The smooth UI makes it effortless to create and train conversations to the bot and it continuously gets smarter as it learns from conversations it has with people. IKY can live on any channel of your choice (such as Messenger, Slack etc.) by integrating it’s API with that platform.
 
