@@ -117,6 +117,10 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 * [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
 * [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
+## Contributors
+
+[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/0)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/0)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/1)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/1)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/2)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/2)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/3)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/3)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/4)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/4)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/5)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/5)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/6)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/6)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/7)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/7)
+
 **Free Software, Hell Yeah!**
 <hr></hr>
 
