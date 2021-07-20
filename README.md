@@ -79,7 +79,7 @@ ng build --prod --optimize
 ### DB
 
 #### Restore
-You can import some default intents using follwing steps
+You can import some default intents using following steps
 
 - goto http://localhost:8080/agent/default/settings
 - click 'choose file'
