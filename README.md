@@ -32,13 +32,13 @@ docker build -t iky_gateway:2.0.0 frontend/.
 docker run --name mongodb -d mongo:3.6
 
 # start iky backend
-docker run --name=iky_backend --link mongodb:mongodb -e="APPLICATION_ENV=Production" iky_backend:2.0.0
+docker run -d --name=iky_backend --link mongodb:mongodb -e="APPLICATION_ENV=Production" iky_backend:2.0.0
 
 # setup default intents
 docker exec -it iky_backend python manage.py migrate
 
 # start iky gateway with frontend
-docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:2.0.0
+docker run -d --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gateway:2.0.0
 
 ```
 
@@ -47,10 +47,8 @@ docker run --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_gate
 * Setup Virtualenv and install python requirements
 ```sh
 make setup
-
+make migrate
 make run_dev
-
-source venv/bin/activate && python manage.py migrate
 ```
 * Production
 ```sh
