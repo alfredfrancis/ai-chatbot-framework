@@ -1,4 +1,5 @@
 import string
+import os
 
 import cloudpickle
 import numpy as np
@@ -19,7 +20,7 @@ class SklearnIntentClassifier:
 
         self.spacynlp = spacy.load('en')
 
-        self.stopwords = set(STOP_WORDS +
+        self.stopwords = set(list(STOP_WORDS) +
                              ["n't", "'s", "'m", "ca"] +
                              list(ENGLISH_STOP_WORDS))
 
@@ -81,7 +82,7 @@ class SklearnIntentClassifier:
 
             cv_splits = max(2, min(5, np.min(counts) // 5))
 
-            Cs = [0.01, 0.25, 1, 2, 5, 10, 20, 100]
+            Cs = [0.01]
             param_grid = {'clf__C': Cs, 'clf__kernel': ["linear"]}
             grid_search = GridSearchCV(model,
                                        param_grid=param_grid,
@@ -97,7 +98,8 @@ class SklearnIntentClassifier:
         model = build(X, y)
 
         if outpath:
-            with open(outpath, 'wb') as f:
+            path = os.path.join(outpath, "sklearn_intent_model.hd5")
+            with open(path, 'wb') as f:
                 cloudpickle.dump(model, f)
 
                 if verbose:
@@ -112,6 +114,7 @@ class SklearnIntentClassifier:
         :return:
         """
         try:
+            PATH = os.path.join(PATH, "sklearn_intent_model.hd5")
             with open(PATH, 'rb') as f:
                 self.model = cloudpickle.load(f)
         except IOError:

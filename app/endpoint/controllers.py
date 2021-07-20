@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import copy
 import json
 
 from flask import Blueprint, request, abort
@@ -13,14 +13,14 @@ from app.endpoint.utils import call_api
 from app.endpoint.utils import get_synonyms
 from app.endpoint.utils import split_sentence
 from app.intents.models import Intent
-from app.nlu.classifiers.starspace_intent_classifier import \
-    EmbeddingIntentClassifier
+from app.nlu.classifiers.sklearn_intent_classifer import \
+    SklearnIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
 from app.nlu.tasks import model_updated_signal
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
-sentence_classifier = None
+sentence_classifier = SklearnIntentClassifier()
 synonyms = None
 entity_extraction = None
 
@@ -52,10 +52,10 @@ def api():
     :return json:
     """
     request_json = request.get_json(silent=True)
-    result_json = request_json
+    print(request_json)
+    result_json = copy.deepcopy(request_json)
 
     if request_json:
-
         context = {"context": request_json["context"]}
 
         if app.config["DEFAULT_WELCOME_INTENT_NAME"] in request_json.get(
@@ -212,8 +212,7 @@ def update_model(app, message, **extra):
     """
     global sentence_classifier
 
-    sentence_classifier = EmbeddingIntentClassifier.load(
-        app.config["MODELS_DIR"], app.config["USE_WORD_VECTORS"])
+    sentence_classifier.load(app.config["MODELS_DIR"])
 
     synonyms = get_synonyms()
 

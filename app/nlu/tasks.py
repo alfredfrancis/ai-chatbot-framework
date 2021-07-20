@@ -4,12 +4,11 @@ from app import app
 from app import my_signals
 from app.intents.models import Intent
 from app.nlu import spacy_tokenizer
-from app.nlu.classifiers.starspace_intent_classifier import \
-    EmbeddingIntentClassifier
+from app.nlu.classifiers.sklearn_intent_classifer import \
+    SklearnIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
 
 model_updated_signal = my_signals.signal('model-updated')
-
 
 def train_models():
     """
@@ -48,10 +47,8 @@ def train_intent_classifier(intents):
             X.append(example.get("text"))
             y.append(intent.intentId)
 
-    intent_classifier = EmbeddingIntentClassifier(use_word_vectors=app.config['USE_WORD_VECTORS'])
-    intent_classifier.train(X, y)
-    intent_classifier.persist(model_dir=app.config["MODELS_DIR"])
-
+    intent_classifier = SklearnIntentClassifier()
+    intent_classifier.train(X, y,outpath=app.config["MODELS_DIR"])
 
 def train_all_ner(story_id, training_data):
     """

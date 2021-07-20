@@ -41,7 +41,6 @@ app.register_blueprint(endpoint)
 app.register_blueprint(bots)
 app.register_blueprint(entities_blueprint)
 
-
 admin_panel_dist = os.path.join(APP_ROOT, 'frontend/dist/')
 
 @app.route('/<path:path>', methods=['GET'])
