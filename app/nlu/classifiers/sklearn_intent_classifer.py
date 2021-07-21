@@ -1,55 +1,24 @@
 import string
 import os
-
 import cloudpickle
-import numpy as np
 import spacy
-from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import GridSearchCV
-from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC
-from spacy.lang.en.stop_words import STOP_WORDS
+import numpy as np
 
+spacynlp = spacy.load('en')
 
 class SklearnIntentClassifier:
 
     def __init__(self):
-
         self.model = None
 
-        self.spacynlp = spacy.load('en')
-
-        self.stopwords = set(list(STOP_WORDS) +
-                             ["n't", "'s", "'m", "ca"] +
-                             list(ENGLISH_STOP_WORDS))
-
-        self.punctuations = " ".join(string.punctuation).split(" ") + \
-                            ["-----", "---", "...", "'ve"]
-
-    def spacy_tokenizer(self, sentence):
+    def get_spacy_embedding(self, sentence):
         """
         perform basic cleaning,tokenization and lemmatization
         :param sentence:
         :return list of clean tokens:
         """
-        tokens = self.spacynlp(sentence)
-
-        tokens = [tok.lemma_.lower().strip() if
-                  tok.lemma_ != "-PRON-" else tok.lower_ for tok in tokens]
-
-        tokens = [tok for tok in tokens if
-                  (tok not in self.stopwords and tok not in self.punctuations)]
-
-        while "" in tokens:
-            tokens.remove("")
-        while " " in tokens:
-            tokens.remove(" ")
-        while "\n" in tokens:
-            tokens.remove("\n")
-        while "\n\n" in tokens:
-            tokens.remove("\n\n")
-        return tokens
+        spacy_obj = spacynlp(sentence)
+        return np.array(spacy_obj.vector)
 
     def train(self, X, y, outpath=None, verbose=True):
         """
@@ -60,52 +29,43 @@ class SklearnIntentClassifier:
         :param verbose:
         :return:
         """
+        from sklearn.model_selection import GridSearchCV
+        from sklearn.svm import SVC
 
-        def build(X, y=None):
-            """
-            Inner build function that builds a single model.
-            :param X:
-            :param y:
-            :return:
-            """
-            model = Pipeline([
-                ('vectorizer', TfidfVectorizer(
-                    tokenizer=self.spacy_tokenizer,
-                    preprocessor=None, lowercase=False)
-                 ),
+        X = np.stack(
+            [
+                self.get_spacy_embedding(example)
+                for example in X
+            ]
+        )
 
-                ('clf', SVC(C=1, kernel="linear",
-                            probability=True, class_weight='balanced')
-                 )])
+        items, counts = np.unique(y, return_counts=True)
+        cv_splits = max(2, min(5, np.min(counts) // 5))
 
-            items, counts = np.unique(y, return_counts=True)
+        tuned_parameters = [
+            {"C": [1, 2, 5, 10, 20, 100], "gamma": [0.1], "kernel": ["linear"]}
+        ]
 
-            cv_splits = max(2, min(5, np.min(counts) // 5))
+        classifier = GridSearchCV(
+                SVC(C=1, probability=True, class_weight="balanced"),
+                param_grid=tuned_parameters,
+                n_jobs=-1,
+                cv=cv_splits,
+                scoring="f1_weighted",
+                verbose=1,
+            )
 
-            Cs = [0.01]
-            param_grid = {'clf__C': Cs, 'clf__kernel': ["linear"]}
-            grid_search = GridSearchCV(model,
-                                       param_grid=param_grid,
-                                       scoring='f1_weighted',
-                                       cv=cv_splits,
-                                       verbose=2,
-                                       n_jobs=-1
-                                       )
-            grid_search.fit(X, y)
-
-            return grid_search
-
-        model = build(X, y)
+        classifier.fit(X, y)
 
         if outpath:
             path = os.path.join(outpath, "sklearn_intent_model.hd5")
             with open(path, 'wb') as f:
-                cloudpickle.dump(model, f)
+                cloudpickle.dump(classifier.best_estimator_, f)
 
                 if verbose:
                     print("Model written out to {}".format(outpath))
 
-        return model
+        return classifier.best_estimator_
 
     def load(self, PATH):
         """
@@ -120,12 +80,6 @@ class SklearnIntentClassifier:
         except IOError:
             return False
 
-    def predict(self, text, return_all=False, INTENT_RANKING_LENGTH=5):
-        """
-        Predict class label for given model
-        """
-        return self.process(text, return_all, INTENT_RANKING_LENGTH)
-
     def predict_proba(self, X):
         """Given a bow vector of an input text, predict most probable label.
          Returns only the most likely label.
@@ -134,22 +88,20 @@ class SklearnIntentClassifier:
         :return: tuple of first, the most probable label
         and second, its probability"""
 
-        pred_result = self.model.predict_proba(X)
-        print(pred_result)
+        pred_result = self.model.predict_proba([self.get_spacy_embedding(X)])
         # sort the probabilities retrieving the indices of the elements
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
         return sorted_indices, pred_result[:, sorted_indices]
 
-    def process(self, x, return_all=False, INTENT_RANKING_LENGTH=5):
+    def process(self, x, INTENT_RANKING_LENGTH=5):
         """Returns the most likely intent and
         its probability for the input text."""
 
-        if not self.model:
-            print("no class")
-            intent = None
-            intent_ranking = []
-        else:
-            intents, probabilities = self.predict_proba([x])
+        intent = None
+        intent_ranking = []
+
+        if self.model:
+            intents, probabilities = self.predict_proba(x)
             intents = [self.model.classes_[intent]
                        for intent in intents.flatten()]
             probabilities = probabilities.flatten()
@@ -166,7 +118,5 @@ class SklearnIntentClassifier:
                 intent = {"name": None, "confidence": 0.0}
                 intent_ranking = []
 
-        if return_all:
-            return intent_ranking
-        else:
-            return intent
+        return intent, intent_ranking
+

@@ -238,6 +238,7 @@ def predict(sentence):
     bot = Bot.objects.get(name="default")
     predicted, intents = sentence_classifier.process(sentence)
     app.logger.info("predicted intent %s", predicted)
+    app.logger.info("other intents %s", intents)
     if predicted["confidence"] < bot.config.get("confidence_threshold", .90):
         intents = Intent.objects(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"])
         intents = intents.first().intentId
