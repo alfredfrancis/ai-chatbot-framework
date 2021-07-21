@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from app import app
-from app import my_signals
+from flask import current_app as app
+from app.endpoint.controllers import update_model
 from app.intents.models import Intent
 from app.nlu import spacy_tokenizer
 from app.nlu.classifiers.sklearn_intent_classifer import \
     SklearnIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
 
-model_updated_signal = my_signals.signal('model-updated')
 
 def train_models():
     """
@@ -28,8 +27,7 @@ def train_models():
     for intent in intents:
         train_all_ner(intent.intentId, intent.trainingData)
 
-    model_updated_signal.send(app, message="Training Completed.")
-
+    update_model()
 
 def train_intent_classifier(intents):
     """

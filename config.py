@@ -14,6 +14,11 @@ class Config(object):
 
 class Development(Config):
     DEBUG = True
+    TEMPLATES_AUTO_RELOAD=True
+
+class Testing(Config):
+    DEBUG = True
+    TESTING = True
 
 class Production(Config):
     # MongoDB Database Details

@@ -5,7 +5,7 @@ import json
 from flask import Blueprint, request, abort
 from jinja2 import Template
 
-from app import app
+from flask import current_app as app
 from app.agents.models import Bot
 from app.commons import build_response
 from app.endpoint.utils import SilentUndefined
@@ -16,7 +16,6 @@ from app.intents.models import Intent
 from app.nlu.classifiers.sklearn_intent_classifer import \
     SklearnIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
-from app.nlu.tasks import model_updated_signal
 
 endpoint = Blueprint('api', __name__, url_prefix='/api')
 
@@ -201,7 +200,7 @@ def api():
         return abort(400)
 
 
-def update_model(app, message, **extra):
+def update_model():
     """
     Signal hook to be called after training is completed.
     Reloads ml models and synonyms.
@@ -221,12 +220,6 @@ def update_model(app, message, **extra):
     entity_extraction = EntityExtractor(synonyms)
 
     app.logger.info("Intent Model updated")
-
-
-with app.app_context():
-    update_model(app, "Models updated")
-
-model_updated_signal.connect(update_model, app)
 
 
 def predict(sentence):

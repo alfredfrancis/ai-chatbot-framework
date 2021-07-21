@@ -3,7 +3,6 @@ Flask==1.1.2
 flask-mongoengine==0.9.5
 Flask-Script==2.0.6
 Flask-Cors==3.0.3
-blinker==1.4
 
 bs4==0.0.1
 html2text==2017.10.4

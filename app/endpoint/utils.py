@@ -3,7 +3,7 @@ import json
 import requests
 from jinja2 import Undefined
 
-from app import app
+from flask import current_app as app
 from app.entities.models import Entity
 
 
