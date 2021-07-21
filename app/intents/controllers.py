@@ -1,14 +1,10 @@
 import os
-from io import StringIO
-
 from bson.json_util import dumps
 from bson.json_util import loads
 from bson.objectid import ObjectId
 from flask import Blueprint, request, Response
 from flask import abort
 from flask import current_app as app
-from flask import send_file
-
 from app.commons import build_response
 from app.commons.utils import update_document
 from app.intents.models import ApiDetails
@@ -129,16 +125,11 @@ def export_intents():
     Deserialize and export Mongoengines as jsonfile
     :return:
     """
-    try:
-        strIO = StringIO.StringIO()
-    except AttributeError:
-        strIO = StringIO()
-
-    strIO.write(Intent.objects.to_json())
-    strIO.seek(0)
-    return send_file(strIO,
-                     attachment_filename="iky_intents.json",
-                     as_attachment=True)
+    intents_json = Intent.objects.to_json()
+    app.logger.info(intents_json)
+    return Response(intents_json,
+                    mimetype='application/json',
+                    headers={'Content-Disposition':'attachment;filename=intents.json'})
 
 
 @intents.route('/import', methods=['POST'])
