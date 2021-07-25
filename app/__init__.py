@@ -47,6 +47,9 @@ def create_app(env = 'Development'):
     def not_found(error):
         return "Not found", 404
 
+    from app.endpoint.controllers import update_model
+    with app.app_context():
+        update_model()
     return app
 
 
