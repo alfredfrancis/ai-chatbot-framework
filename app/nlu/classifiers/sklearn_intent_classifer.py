@@ -97,7 +97,7 @@ class SklearnIntentClassifier:
         """Returns the most likely intent and
         its probability for the input text."""
 
-        intent = None
+        intent = {"name": None, "confidence": 0.0}
         intent_ranking = []
 
         if self.model:

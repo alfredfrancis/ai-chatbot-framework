@@ -57,7 +57,7 @@ export class ChatComponent implements OnInit {
       'extractedParameters': {},
       'speechResponse': '',
       'intent': {},
-      'input': 'init_conversation',
+      'input': '/init_conversation',
       'missingParameters': []
     };
 
