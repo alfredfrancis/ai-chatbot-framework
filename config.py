@@ -10,7 +10,7 @@ class Config(object):
     DEFAULT_FALLBACK_INTENT_NAME = "fallback"
     DEFAULT_WELCOME_INTENT_NAME = "init_conversation"
     USE_WORD_VECTORS = True
-
+    SPACY_LANG_MODEL = "en_core_web_sm"
 
 class Development(Config):
     DEBUG = True
@@ -26,6 +26,8 @@ class Production(Config):
 
     # Web Server details
     WEB_SERVER_PORT = 8001
+    SPACY_LANG_MODEL = "en_core_web_md"
 
 class Heroku(Production):
     MONGODB_HOST = os.environ.get('MONGO_URL')
+    SPACY_LANG_MODEL = "en_core_web_md"
