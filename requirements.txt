@@ -9,7 +9,6 @@ click==7.1.2
 cloudpickle==1.6.0
 cymem==2.0.5
 en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-2.2.5/en_core_web_md-2.2.5.tar.gz
-# use light model for development
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.1.0/en_core_web_sm-3.1.0-py3-none-any.whl
 Flask==1.1.2
 Flask-Cors==3.0.3
