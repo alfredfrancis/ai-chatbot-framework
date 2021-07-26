@@ -48,6 +48,7 @@ docker run -d --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_g
 ```sh
 virtualenv -p python3 venv
 source venv/bin/activate
+pip install -r requirements.txt
 python manage.py migrate
 python run.py
 ```
