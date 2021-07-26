@@ -46,13 +46,14 @@ docker run -d --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 iky_g
 
 * Setup Virtualenv and install python requirements
 ```sh
-make setup
-make migrate
-make run_dev
+virtualenv -p python3 venv
+source venv/bin/activate
+python manage.py migrate
+python run.py
 ```
 * Production
 ```sh
-make run_prod
+APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8080 run:app
 ```
 * Open http://localhost:8080/
 

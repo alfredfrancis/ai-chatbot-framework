@@ -2,6 +2,9 @@
 logs/*
 !logs/.keep
 *.pyc
+*.pyo
 venv/
 env/
 .DS_Store
+.pytest_cache/
+.vscode
