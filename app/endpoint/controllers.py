@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
-
 from flask import Blueprint, request, abort
 from jinja2 import Template
-
 from flask import current_app as app
 from app.agents.models import Bot
 from app.commons import build_response
@@ -16,36 +14,64 @@ from app.intents.models import Intent
 from app.nlu.classifiers.sklearn_intent_classifer import \
     SklearnIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
-
 endpoint = Blueprint('api', __name__, url_prefix='/api')
-
 sentence_classifier = SklearnIntentClassifier()
 synonyms = None
 entity_extraction = None
 
-
-# Request Handler
 @endpoint.route('/v1', methods=['POST'])
 def api():
     """
-    Endpoint to converse with chatbot.
+    Endpoint to Converse with the Chatbot.
     Chat context is maintained by exchanging the payload between client and bot.
 
-    sample input/output payload =>
-
-    {
-      "currentNode": "",
-      "complete": false,
-      "parameters": [],
-      "extractedParameters": {},
-      "missingParameters": [],
-      "intent": {
-      },
-      "context": {},
-      "input": "hello",
-      "speechResponse": [
-      ]
-    }
+    ---
+    definitions:
+      currentNode:
+        type: string
+      complete:
+        type: boolean
+      context:
+        type: object
+        properties:
+      parameters:
+        type: array
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+            type:
+              type: string
+            required:
+              type: boolean
+      extractedParameters:
+        type: object
+        properties:
+          country:
+            type: string
+      speechResponse:
+        type: array
+        items:
+          type: string
+      intent:
+        type: object
+        properties:
+          object_id:
+            type: string
+          confidence:
+            type: number
+          id:
+            type: string
+      input:
+        type: string
+      missingParameters:
+        type: array
+        items:
+      owner:
+        type: string
+      date:
+        type: string
 
     :param json:
     :return json:

@@ -1,10 +1,7 @@
-import string
 import os
 import cloudpickle
-import spacy
 import numpy as np
-
-spacynlp = spacy.load('en')
+from app import spacy_tokenizer
 
 class SklearnIntentClassifier:
 
@@ -17,7 +14,7 @@ class SklearnIntentClassifier:
         :param sentence:
         :return list of clean tokens:
         """
-        spacy_obj = spacynlp(sentence)
+        spacy_obj = spacy_tokenizer(sentence)
         return np.array(spacy_obj.vector)
 
     def train(self, X, y, outpath=None, verbose=True):

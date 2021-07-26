@@ -7,6 +7,8 @@ APP_ROOT = os.path.dirname(os.path.abspath(__file__ + "../../"))
 
 db = MongoEngine()
 
+spacy_tokenizer = None
+
 def create_app(env = 'Development'):
     app = Flask(__name__)
     CORS(app)
@@ -15,8 +17,13 @@ def create_app(env = 'Development'):
         env = os.environ['APPLICATION_ENV']
     except KeyError as e:
         app.logger.info('Unknown environment key, defaulting to Development')
+        
     app.config.from_object('config.%s' % env)
     db.init_app(app)
+
+    import spacy
+    global spacy_tokenizer
+    spacy_tokenizer = spacy.load(app.config["SPACY_LANG_MODEL"])
 
     from app.agents.controllers import bots
     from app.nlu.controllers import nlu
@@ -50,6 +57,7 @@ def create_app(env = 'Development'):
     from app.endpoint.controllers import update_model
     with app.app_context():
         update_model()
+
     return app
 
 

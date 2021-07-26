@@ -3,7 +3,7 @@
 from flask import current_app as app
 from app.endpoint.controllers import update_model
 from app.intents.models import Intent
-from app.nlu import spacy_tokenizer
+from app import spacy_tokenizer
 from app.nlu.classifiers.sklearn_intent_classifer import \
     SklearnIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor

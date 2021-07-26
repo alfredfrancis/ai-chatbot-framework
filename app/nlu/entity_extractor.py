@@ -2,8 +2,7 @@
 
 import pycrfsuite
 from flask import current_app as app
-
-from app.nlu import spacy_tokenizer
+from app import spacy_tokenizer
 
 
 class EntityExtractor:
