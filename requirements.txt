@@ -2,14 +2,14 @@ attrs==21.2.0
 beautifulsoup4==4.9.3
 blis==0.4.1
 bs4==0.0.1
-catalogue==2.0.4
+catalogue==2.0.6
 certifi==2021.5.30
 chardet==3.0.4
 click==7.1.2
 cloudpickle==1.6.0
 cymem==2.0.5
-en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-2.2.5/en_core_web_md-2.2.5.tar.gz
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.1.0/en_core_web_sm-3.1.0-py3-none-any.whl
+spacy==3.2.0
+en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.2.0/en_core_web_md-3.2.0-py3-none-any.whl
 Flask==1.1.2
 Flask-Cors==3.0.3
 flask-mongoengine==0.9.5
@@ -49,10 +49,8 @@ simplejson==3.13.2
 six==1.16.0
 smart-open==5.1.0
 soupsieve==2.2.1
-spacy==3.1.1
-spacy-legacy==3.0.8
 srsly==2.4.1
-thinc==8.0.8
+thinc==8.0.12
 threadpoolctl==2.2.0
 tqdm==4.61.2
 typer==0.3.2
