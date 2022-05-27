@@ -1,0 +1,27 @@
+replicaCount: 2
+
+image:
+  backend:
+    repository: "alfredfrancis/ai-chatbot-framework_backend"
+  frontend:
+    repository: "alfredfrancis/ai-chatbot-framework_frontend"
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: LoadBalancer
+  port: 80
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "250m"
+  limits:
+    memory: "128Mi"
+    cpu: "500m"
+
+
+  // https://github.com/mongodb/helm-charts/tree/main/charts/sample-app

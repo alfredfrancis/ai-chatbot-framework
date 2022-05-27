@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-chatbot-framework.fullname" . }}
+  labels:
+    app: "ai-chatbot-framework"
+    name: "ai-chatbot-framework-web"
+    {{- include "ai-chatbot-framework.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: "ai-chatbot-framework"

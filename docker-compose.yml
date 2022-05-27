@@ -2,7 +2,7 @@ version: '2'
 services:
   iky_backend:
     container_name: iky_backend
-    build: .
+    image: alfredfrancis/ai-chatbot-framework_backend:latest
     environment:
       APPLICATION_ENV: Production
     depends_on:
@@ -10,7 +10,7 @@ services:
 
   iky_gateway:
     container_name: iky_gateway
-    build: frontend/
+    image: alfredfrancis/ai-chatbot-framework_frontend:latest
     ports:
         - "8080:80"
     depends_on:

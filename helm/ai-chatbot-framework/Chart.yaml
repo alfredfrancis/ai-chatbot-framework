@@ -1,0 +1,13 @@
+apiVersion: v2
+name: ai-chatbot-framework
+description: A python chatbot framework with Natural Language Understanding and Artificial Intelligence.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: "mongodb"
+    version: "4.x.x"
+    repository: "https://mongodb.github.io/helm-charts@stable"
+    import-values:
+      - child: default.data
+        parent: myimports
