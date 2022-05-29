@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ai-chatbot-framework.fullname" . }}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+  labels:
+    app: "ai-chatbot-framework"
+    name: "ai-chatbot-framework-ingress"
+    {{- include "ai-chatbot-framework.labels" . | nindent 4 }}
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: /(.*)
+        backend:
+          service:
+            name: {{ include "ai-chatbot-framework.fullname" . }}-frontend
+            port: 
+              number: 80
+      - pathType: Prefix
+        path: /gateway/(.*)
+        backend:
+          service:
+            name: {{ include "ai-chatbot-framework.fullname" . }}-backend
+            port: 
+              number: 80
