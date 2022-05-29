@@ -41,6 +41,10 @@ def create_app(env = 'Development'):
 
     admin_panel_dist = os.path.join(APP_ROOT, 'frontend/dist/')
 
+    @app.route('/ready')
+    def ready():
+        return "ok",200
+
     @app.route('/<path:path>', methods=['GET'])
     def static_proxy(path):
         return send_from_directory(admin_panel_dist, path)
