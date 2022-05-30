@@ -20,6 +20,17 @@ docker-compose up -d
 docker-compose exec iky_backend python manage.py migrate
 ```
 
+### Using Helm
+
+```sh
+helm dep update helm/ai-chatbot-framework
+
+helm upgrade --install --create-namespace -n ai-chatbot-framework ai-chatbot-framework helm/ai-chatbot-framework
+
+# port forward for local installation
+kubectl port-forward --namespace=ai-chatbot-framework service/ingress-nginx-controller 8080:80
+```
+
 ### Using Docker
 ```sh
 
