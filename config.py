@@ -29,3 +29,6 @@ class Production(Config):
 
 class Heroku(Production):
     MONGODB_HOST = os.environ.get('MONGO_URL')
+
+class Helm(Production):
+    MONGODB_HOST = os.environ.get('MONGO_URL')

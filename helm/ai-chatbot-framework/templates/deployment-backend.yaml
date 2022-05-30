@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-chatbot-framework.fullname" . }}-backend
+  labels:
+    app: "ai-chatbot-framework"
+    name: "ai-chatbot-framework-backend"
+    {{- include "ai-chatbot-framework.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: "ai-chatbot-framework"
+      name: "ai-chatbot-framework-backend"
+  template:
+    metadata:
+      labels:
+        app: "ai-chatbot-framework"
+        name: "ai-chatbot-framework-backend"
+    spec:
+      initContainers:
+        - name: {{ .Chart.Name }}-init
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python","manage.py","migrate"]
+          env:
+            - name: MONGO_URL
+              value: {{.Values.mongodb.uri}}
+            - name: APPLICATION_ENV
+              value: 'Helm'
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["gunicorn", "run:app" ,"--log-level=debug", "--timeout", "90","--bind", "0.0.0.0:80" ]
+          env:
+            - name: MONGO_URL
+              value: {{.Values.mongodb.uri}}
+            - name: APPLICATION_ENV
+              value: 'Helm'
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 120
+            httpGet:
+              path: /ready
+              port: http
+          readinessProbe:
+            initialDelaySeconds: 120
+            httpGet:
+              path: /ready
+              port: http
+          resources:
+            {{- toYaml .Values.resources.backend | nindent 12 }}

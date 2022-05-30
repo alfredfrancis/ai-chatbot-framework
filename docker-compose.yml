@@ -1,16 +1,27 @@
 version: '2'
 services:
-  iky_backend:
-    container_name: iky_backend
-    build: .
+  migrate:
+    container_name: iky_migrate
+    image: alfredfrancis/ai-chatbot-framework_backend:latest
+    command: python manage.py migrate
     environment:
       APPLICATION_ENV: Production
     depends_on:
       - mongodb
 
+  iky_backend:
+    container_name: iky_backend
+    image: alfredfrancis/ai-chatbot-framework_backend:latest
+    hostname: iky_backend
+    environment:
+      APPLICATION_ENV: Production
+    depends_on:
+      - migrate
+      - mongodb
+
   iky_gateway:
     container_name: iky_gateway
-    build: frontend/
+    image: alfredfrancis/ai-chatbot-framework_frontend:latest
     ports:
         - "8080:80"
     depends_on:
@@ -18,7 +29,7 @@ services:
 
   mongodb:
     container_name: mongodb
-    image: mongo
+    image: mongo:4.2.20
     hostname: mongodb
     ports:
        - "27017:27017"

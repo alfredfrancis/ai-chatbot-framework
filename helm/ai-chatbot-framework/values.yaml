@@ -1,0 +1,45 @@
+replicaCount: 2
+
+image:
+  backend:
+    repository: "alfredfrancis/ai-chatbot-framework_backend"
+  frontend:
+    repository: "alfredfrancis/ai-chatbot-framework_frontend"
+  pullPolicy: Always
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+mongodb:
+  enabled: true
+  uri: "mongodb://root:root@ai-chatbot-framework-mongodb:27017/ai_chatbot_framework"
+  auth:
+    username: root
+    password: root
+    database: ai_chatbot_framework
+    rootPassword: root
+  service:
+    name: ai-chatbot-framework-mongodb
+    port: 27017
+
+service:
+  url: ai-chatbot-framework.local
+  type: ClusterIP
+  port: 80
+
+resources:
+  frontend:
+    requests:
+      memory: "64Mi"
+      cpu: "100m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m"
+  backend:
+    requests:
+      memory: "1024Mi"
+      cpu: "100m"
+    limits:
+      memory: "2048Mi"
+      cpu: "500m"

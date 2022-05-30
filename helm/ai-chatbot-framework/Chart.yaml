@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ai-chatbot-framework
+description: A python chatbot framework with Natural Language Understanding and Artificial Intelligence.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+- name: mongodb
+  version: 10.3.3
+  repository: "https://charts.bitnami.com/bitnami"
+  alias: mongodb
+  condition: mongodb.enabled
+
+    

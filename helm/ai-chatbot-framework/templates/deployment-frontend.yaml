@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-chatbot-framework.fullname" . }}-frontend
+  labels:
+    app: "ai-chatbot-framework"
+    name: "ai-chatbot-framework-frontend"
+    {{- include "ai-chatbot-framework.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: "ai-chatbot-framework"
+      name: "ai-chatbot-framework-frontend"
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      {{- end }}
+      labels:
+        app: "ai-chatbot-framework"
+        name: "ai-chatbot-framework-frontend"
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.frontend.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["nginx", "-g", "daemon off;"]
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources.frontend | nindent 12 }}
