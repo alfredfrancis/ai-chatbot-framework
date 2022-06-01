@@ -14,10 +14,9 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 
 ### Installation
 
-### Using docker-compose (Recommended) 
+### Using docker-compose 
 ```sh
 docker-compose up -d
-docker-compose exec iky_backend python manage.py migrate
 ```
 
 ### Using Helm
@@ -114,8 +113,6 @@ Checkout this basic tutorial on youtube,
 
 Watch tutorial on [Fullfilling your Chatbot Intent with an API Call - Recipe Search Bot](https://www.youtube.com/watch?v=gqO69ojLobQ)
 
-Please visit my [website](http://alfredfrancis.github.io) to see my personal chatbot in action
-
 ### Todos
  *  Write Unit Tests
  *  Multilingual Intent Classifier
@@ -127,11 +124,5 @@ Please visit my [website](http://alfredfrancis.github.io) to see my personal cha
 * [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
 * [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
-## Contributors
-
-[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/0)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/0)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/1)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/1)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/2)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/2)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/3)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/3)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/4)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/4)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/5)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/5)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/6)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/6)[![](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/images/7)](https://sourcerer.io/fame/alfredfrancis/alfredfrancis/ai-chatbot-framework/links/7)
-
 **Free Software, Hell Yeah!**
 <hr></hr>
-
-_Made with :heart: at God's Own Country_.
