@@ -24,55 +24,6 @@ def api():
     """
     Endpoint to Converse with the Chatbot.
     Chat context is maintained by exchanging the payload between client and bot.
-
-    ---
-    definitions:
-      currentNode:
-        type: string
-      complete:
-        type: boolean
-      context:
-        type: object
-        properties:
-      parameters:
-        type: array
-        items:
-          type: object
-          properties:
-            name:
-              type: string
-            type:
-              type: string
-            required:
-              type: boolean
-      extractedParameters:
-        type: object
-        properties:
-          country:
-            type: string
-      speechResponse:
-        type: array
-        items:
-          type: string
-      intent:
-        type: object
-        properties:
-          object_id:
-            type: string
-          confidence:
-            type: number
-          id:
-            type: string
-      input:
-        type: string
-      missingParameters:
-        type: array
-        items:
-      owner:
-        type: string
-      date:
-        type: string
-
     :param json:
     :return json:
     """

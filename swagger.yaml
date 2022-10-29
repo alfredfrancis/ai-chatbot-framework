@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: AI Chatbot Framework
+  description: |-
+    This is the conversational API for AI Chatbot Framework
+  version: 1.0.11
+externalDocs:
+  description: Find out more about AI Chatbot Framework
+  url: https://github.com/alfredfrancis/ai-chatbot-framework/
+servers:
+  - url: http://localhost:8080/api
+paths:
+  /v1:
+    post:
+      summary: Call the converse API to chat with the bot
+      operationId: converse
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Converse'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Converse'
+        '400':
+          description: Invalid input
+components:
+  schemas:
+    Converse:
+      type: object
+      properties:
+        currentNode:
+          type: string
+          example: ask_name
+        complete:
+          type: boolean
+          example: false
+        context:
+          type: object
+        parameters:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: full_name
+              type:
+                type: string
+                example: name
+              required:
+                type: boolean
+                example: true
+        extractedParameters:
+          type: object
+          example: {"country":"india"}
+        speechResponse:
+          type: array
+          items:
+            example: "Please enter your name"
+            type: string
+        intent:
+          type: object
+          properties:
+            object_id:
+              example: "88ea1ef0-5782-11ed-9b6a-0242ac120002"
+              type: string
+            confidence:
+              type: number
+              example: 1
+            id:
+              type: string
+              example: "ask_name"
+        input:
+          type: string
+          example: "My name is Alfred"
+        missingParameters:
+          type: array
+          items:
+            type: string
+            example: phone
