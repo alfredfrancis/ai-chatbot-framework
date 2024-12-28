@@ -1,41 +1,46 @@
-from flask_script import Manager
+import os
+from flask.cli import AppGroup
+
 from app import create_app
 
 app = create_app()
 
-manager = Manager(app)
+cli = AppGroup('manage', help='migrate commands')
 
-@manager.command
+@cli.command('migrate')
 def migrate():
     from app.agents.models import Bot
+    from app.intents.controllers import import_json
+    from app.nlu.tasks import train_models
 
+    # Create default bot
     try:
-        # create default bot
         bot = Bot()
         bot.name = "default"
         bot.save()
         print("Created default bot")
-    except:
-        print("Default agent exists.. skipping..")
+    except Exception as e:
+        print(f"Default bot creation failed or already exists: {e}")
 
+    # Import default intents
+    try:
+        with open("examples/default_intents.json", "r") as json_file:
+            stories = import_json(json_file)
+            print(f"Imported {len(stories)} Stories")
+    except FileNotFoundError:
+        print("Error: 'examples/default_intents.json' file not found.")
+    except Exception as e:
+        print(f"Failed to import intents: {e}")
 
-    # import some default intents
-    from app.intents.controllers import import_json
-    json_file = open("examples/default_intents.json", "r+")
-    stories = import_json(json_file)
-    print("Imported {} Stories".format(len(stories)))
-
+    # Train models
     try:
         print("Training models..")
-        from app.nlu.tasks import train_models
         train_models()
-        print("Training models finished..")
+        print("Training models finished.")
     except Exception as e:
-        e = str(e)
-        if e == "NO_DATA":
-            e = "load Data first into mongodb. Reffer Readme."
-        print("Could not train models..skipping.. (reason: {})".format(e))
+        error_message = str(e)
+        if error_message == "NO_DATA":
+            error_message = "Load data first into MongoDB. Refer to the README."
+        print(f"Could not train models: {error_message}")
 
-
-if __name__ == "__main__":
-    manager.run()
+app.cli.add_command(cli)
