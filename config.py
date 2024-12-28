@@ -1,7 +1,9 @@
 import os
+from typing import Type
 
-class Config(object):
+class BaseConfig(object):
     DEBUG = False
+    Development = False
     MONGODB_HOST = "mongodb://127.0.0.1:27017/iky-ai"
 
     # Intent Classifier model details
@@ -12,23 +14,29 @@ class Config(object):
     USE_WORD_VECTORS = True
     SPACY_LANG_MODEL = "en_core_web_md"
 
-class Development(Config):
+class DevelopmentConfig(BaseConfig):
     DEBUG = True
+    Development = True
     TEMPLATES_AUTO_RELOAD=True
 
-class Testing(Config):
+class TestingConfig(BaseConfig):
     DEBUG = True
     TESTING = True
 
-class Production(Config):
+class ProductionConfig(BaseConfig):
     # MongoDB Database Details
     MONGODB_HOST = "mongodb://mongodb:27017/iky-ai"
 
-    # Web Server details
-    WEB_SERVER_PORT = 8001
-
-class Heroku(Production):
+class HerokuConfig(ProductionConfig):
     MONGODB_HOST = os.environ.get('MONGO_URL')
 
-class Helm(Production):
+class HelmConfig(ProductionConfig):
     MONGODB_HOST = os.environ.get('MONGO_URL')
+
+config = {
+    'Development': DevelopmentConfig,
+    'Testing': TestingConfig,
+    'Production': ProductionConfig,
+    'Heroku': HerokuConfig,
+    'Helm': HelmConfig
+}

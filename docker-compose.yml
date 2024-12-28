@@ -3,7 +3,7 @@ services:
   migrate:
     container_name: iky_migrate
     image: alfredfrancis/ai-chatbot-framework_backend:latest
-    command: python manage.py migrate
+    command: flask --app=manage  manage  migrate
     environment:
       APPLICATION_ENV: Production
     depends_on:

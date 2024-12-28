@@ -44,7 +44,7 @@ docker run --name mongodb -d mongo:3.6
 docker run -d --name=iky_backend --link mongodb:mongodb -e="APPLICATION_ENV=Production" alfredfrancis/ai-chatbot-framework_backend:latest
 
 # setup default intents
-docker exec -it iky_backend python manage.py migrate
+docker exec -it iky_backend flask --app=manage  manage  migrate 
 
 # start iky gateway with frontend
 docker run -d --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 alfredfrancis/ai-chatbot-framework_frontend:latest
@@ -58,12 +58,12 @@ docker run -d --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 alfre
 virtualenv -p python3 venv
 source venv/bin/activate
 pip install -r requirements.txt
-python manage.py migrate
-python run.py
+flask --app=manage  manage  migrate 
+flask run --host=127.0.0.1 --debug --port=8080
 ```
 * Production
 ```sh
-APPLICATION_ENV="Production" gunicorn -k gevent --bind 0.0.0.0:8080 run:app
+APPLICATION_ENV="Production" gunicorn --bind 0.0.0.0:8080 run:app
 ```
 * Open http://localhost:8080/
 

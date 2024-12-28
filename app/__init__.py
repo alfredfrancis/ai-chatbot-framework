@@ -2,6 +2,7 @@ import os
 from flask import Flask,send_from_directory
 from flask_cors import CORS
 from flask_mongoengine import MongoEngine
+from config import config
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__ + "../../"))
 
@@ -9,16 +10,18 @@ db = MongoEngine()
 
 spacy_tokenizer = None
 
-def create_app(env = 'Development'):
+def create_app(env="Development"):
     app = Flask(__name__)
-    CORS(app)
+
     # Configurations
     try:
         env = os.environ['APPLICATION_ENV']
     except KeyError as e:
         app.logger.info('Unknown environment key, defaulting to Development')
-        
-    app.config.from_object('config.%s' % env)
+
+    app.config.from_object(config[env])
+
+    CORS(app)
     db.init_app(app)
 
     import spacy
@@ -51,7 +54,6 @@ def create_app(env = 'Development'):
 
     @app.route('/')
     def root():
-        print(admin_panel_dist)
         return send_from_directory(admin_panel_dist, 'index.html')
 
     @app.errorhandler(404)
