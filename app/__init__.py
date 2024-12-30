@@ -32,13 +32,13 @@ def create_app(env="Development"):
     from app.nlu.controllers import nlu
     from app.intents.controllers import intents
     from app.train.controllers import train
-    from app.endpoint.controllers import endpoint
+    from app.chat.controllers import chat
     from app.entities.controllers import entities_blueprint
 
     app.register_blueprint(nlu)
     app.register_blueprint(intents)
     app.register_blueprint(train)
-    app.register_blueprint(endpoint)
+    app.register_blueprint(chat)
     app.register_blueprint(bots)
     app.register_blueprint(entities_blueprint)
 
@@ -59,10 +59,6 @@ def create_app(env="Development"):
     @app.errorhandler(404)
     def not_found(error):
         return "Not found", 404
-
-    from app.endpoint.controllers import update_model
-    with app.app_context():
-        update_model()
 
     return app
 

@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 
 from flask import current_app as app
-from app.endpoint.controllers import update_model
+from app.chat.controllers import dialogue_manager
 from app.intents.models import Intent
 from app import spacy_tokenizer
 from app.nlu.classifiers.sklearn_intent_classifer import \
     SklearnIntentClassifier
 from app.nlu.entity_extractor import EntityExtractor
 
-
-def train_models():
+def train_models(app):
     """
     Initiate NER and Intent Classification training
     :return:
@@ -27,7 +26,7 @@ def train_models():
     for intent in intents:
         train_all_ner(intent.intentId, intent.trainingData)
 
-    update_model()
+    dialogue_manager.update_model(app)
 
 def train_intent_classifier(intents):
     """
