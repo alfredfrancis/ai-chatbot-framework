@@ -1,0 +1,235 @@
+body{
+    background: #f6f6f6;
+    margin: 0;
+    padding: 0;
+    font-family: 'Open Sans', sans-serif;
+    overflow: -moz-scrollbars-none;
+    position: relative;
+}
+
+.iky_chatbox{
+    width: 400px;
+    position: fixed;
+    right: 20px;
+    bottom: 20px;   
+    font-size: 14px;
+}
+.iky_container{
+    width: cacl(100% - 20px);
+    height: auto;
+    background: #fff;
+    position: relative;
+    height: 450px;
+    padding: 50px 10px 0;
+    box-shadow: 0 0 80px -30px #a0a0a0;
+    border-radius: 10px;
+}
+.iky_input{
+    border-top: 1px solid #ded9d9;
+    width: 100%;
+
+}
+.iky_input input{
+    padding: 10px;
+    font-size: 20px;
+    font-weight: lighter;
+    width: calc(100% - 24px);
+    border: 0px;
+    border-radius: 5px;
+    margin-bottom: 5px;
+}
+.iky_input input:focus{
+    outline: none;
+    color: #666;
+}
+.iky_btn_action{
+    width: 100%;
+    position: relative;
+    /*bottom: -60px;*/
+    left: 0;
+    padding: 0 0;
+    height: 50px;
+    
+}
+.iky_action{
+    float: right;
+    border-radius: 100px;
+    background:#124E78;
+    padding: 6px 20px;
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    line-height: 25px;
+    margin-top: 20px;
+}
+.iky_action:focus{
+    outline: none;
+}
+.iky_smile{
+    width: 25px;
+    float: right;
+    margin-left: 5px
+}
+
+.iky_chat_holder{
+    position: relative;
+    height: 400px;
+    overflow: hidden;
+    padding:0;
+    margin: 0;
+}
+.iky_Chat_container{
+    margin: 0px;
+    padding:0px 10px 0px 10px;
+    width: calc(100% - 20px);
+    height: 100%;
+    overflow-y: scroll;
+    list-style-type: none;
+}
+.iky_Chat_container::-webkit-scrollbar {
+    width: 0px;  /* remove scrollbar space */
+    background: transparent;  /* optional: just make scrollbar invisible */
+  }
+
+.message_row{
+    float: left;
+    min-height: 20px;
+    border-radius: 100px;
+    padding: .5rem 1rem;
+    margin-bottom: .2rem;
+    clear: both;
+
+}
+.iky_text{
+    width: auto;
+    max-width: 85%;
+    display: inline-block;
+
+    padding: 7px 13px;
+    border-radius: 15px;
+    color: #595a5a;
+    background-color: #ebebeb;
+
+}
+.iky_user_text{
+    width: auto;
+    max-width: 85%;
+    display: inline-block;
+
+    padding: 7px 13px;
+    border-radius: 15px;
+    color: #595a5a;
+    background-color: #ebebeb;
+
+    float: right;
+    color: #f7f8f8;
+    background-color: #28635a;
+}
+
+.iky_sugestions{
+    width: 370px;
+    padding: .5rem 0;
+    height: 60px;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    white-space: nowrap;
+    overflow: -moz-scrollbars-vertical;
+}
+.iky_sugestions span{
+    background: #f6f6f6;
+    color: #000;
+    border-radius: 10rem;
+    border: 1px dashed #999;
+    padding: .3rem .5rem;
+    display: inline-block;
+    margin-right: .5rem;
+
+
+}
+.iky_menu{
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 100px;
+    padding: 5px;
+   
+}
+.btn_close{
+    text-align: center;
+    border-radius: 100px;
+    background: #ccc;
+    color: #494747;
+    border: none;
+    float: right; 
+    outline: none;
+    border: 1px solid #ccc;
+
+    font-size: 25px;
+    font-weight: lighter;
+    display: inline-block;
+    line-height: 0px;
+    padding: 11px 5px;
+
+}
+.btn_close:before {
+    content: "x";
+
+}
+
+.typing-indicator {
+    background-color: #ebebeb;
+    will-change: transform;
+    width: auto;
+    border-radius:25px;
+    padding-top: 10px;
+    display: table;
+    -webkit-animation: 2s bulge infinite ease-out;
+            animation: 2s bulge infinite ease-out;
+  }
+  .typing-indicator span {
+    height: 15px;
+    width: 15px;
+    float: left;
+    margin: 0 1px;
+    background-color: #9E9EA1;
+    display: block;
+    border-radius: 50%;
+    opacity: 0.4;
+    margin-bottom: 0px;
+  }
+  .typing-indicator span:nth-of-type(1) {
+    -webkit-animation: 1s blink infinite 0.3333s;
+            animation: 1s blink infinite 0.3333s;
+  }
+  .typing-indicator span:nth-of-type(2) {
+    -webkit-animation: 1s blink infinite 0.6666s;
+            animation: 1s blink infinite 0.6666s;
+  }
+  .typing-indicator span:nth-of-type(3) {
+    -webkit-animation: 1s blink infinite 0.9999s;
+            animation: 1s blink infinite 0.9999s;
+  }
+  
+  @-webkit-keyframes blink {
+    50% {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes blink {
+    50% {
+      opacity: 1;
+    }
+  }
+  @-webkit-keyframes bulge {
+    50% {
+      -webkit-transform: scale(1.05);
+              transform: scale(1.05);
+    }
+  }
+  @keyframes bulge {
+    50% {
+      -webkit-transform: scale(1.05);
+              transform: scale(1.05);
+    }
+  }
