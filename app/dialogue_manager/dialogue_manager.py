@@ -4,7 +4,7 @@ from jinja2 import Template
 from app.agents.models import Bot
 from app.intents.models import Intent
 from app.nlu.classifiers.sklearn_intent_classifer import SklearnIntentClassifier
-from app.nlu.entity_extractor import EntityExtractor
+from app.nlu.entity_extractors.crf_entity_extractor import EntityExtractor
 from app.chat.utils import SilentUndefined, call_api, get_synonyms, split_sentence
 from app.dialogue_manager.models import ChatModel
 

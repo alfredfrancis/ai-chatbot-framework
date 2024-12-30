@@ -1,7 +1,7 @@
 from flask import Blueprint, request, abort, current_app as app
-from app.commons import build_response
 from app.dialogue_manager.dialogue_manager import DialogueManager
 from app.dialogue_manager.models import ChatModel
+from flask import jsonify
 
 chat = Blueprint('chat', __name__, url_prefix='/api')
 
@@ -23,14 +23,13 @@ def api():
     """
     request_json = request.get_json(silent=True)
     if not request_json:
-        app.logger.error("Invalid request: No JSON payload")
-        return abort(400)
+        return abort(400, description="JSON payload is missing")
 
     try:
         # Delegate processing to DialogueManager
         chat_request = ChatModel.from_json(request_json)
         chat_response = dialogue_manager.process(app, chat_request)
-        return build_response.build_json(chat_response.to_json())
+        return jsonify(chat_response.to_json())
     except Exception as e:
         app.logger.error(f"Error processing request: {e}", exc_info=True)
-        return abort(500)
+        return abort(500, description=f"error : {e}")

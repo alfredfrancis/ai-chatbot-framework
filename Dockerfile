@@ -1,4 +1,4 @@
-FROM python:3.9.6-slim
+FROM python:3.12.7-slim
 
 # Install common libraries
 RUN apt-get update -qq \

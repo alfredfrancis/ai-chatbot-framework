@@ -3,6 +3,7 @@
 import pycrfsuite
 from flask import current_app as app
 from app import spacy_tokenizer
+from app.nlu.entity_extractors.utils import pos_tagger, pos_tag_and_label, sentence_tokenize
 
 
 class EntityExtractor:
@@ -164,7 +165,6 @@ class EntityExtractor:
         :param sentence:
         :return:
         """
-        from app.nlu.tasks import pos_tagger
 
         doc = spacy_tokenizer(sentence)
         words = [token.text for token in doc]
@@ -184,7 +184,6 @@ class EntityExtractor:
         :param training_data:
         :return labeled_examples:
         """
-        from app.nlu.tasks import sentence_tokenize, pos_tag_and_label
 
         labeled_examples = []
 
