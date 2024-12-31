@@ -1,7 +1,6 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify
 
 from app.agents.models import Bot
-from app.commons import build_response
 
 bots = Blueprint('bots_blueprint', __name__,
                  url_prefix='/agents/<bot_name>')
@@ -19,7 +18,7 @@ def set_config(bot_name):
     bot = Bot.objects.get(name=bot_name)
     bot.config = content
     bot.save()
-    return build_response.sent_ok()
+    return jsonify({"result": True})
 
 
 @bots.route('/config', methods=['GET'])
@@ -30,4 +29,4 @@ def get_config(bot_name):
     """
     bot = Bot.objects.get(name=bot_name)
 
-    return build_response.build_json(bot.config)
+    return jsonify(bot.config)

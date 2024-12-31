@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "ai-chatbot-framework.fullname" . }}-backend
+  name: {{ include "ai-chatbot-framework.fullname" . }}
   labels:
     app: "ai-chatbot-framework"
-    name: "ai-chatbot-framework-backend"
+    name: "ai-chatbot-framework"
     {{- include "ai-chatbot-framework.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
@@ -13,25 +13,6 @@ spec:
     - port: {{ .Values.service.port }}
       targetPort: 80
       protocol: TCP
-      name: http-backend
+      name: http
   selector:
-    name: "ai-chatbot-framework-backend"
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "ai-chatbot-framework.fullname" . }}-frontend
-  labels:
-    app: "ai-chatbot-framework"
-    name: "ai-chatbot-framework-frontend"
-    {{- include "ai-chatbot-framework.labels" . | nindent 4 }}
-spec:
-  type: {{ .Values.service.type }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: 80
-      protocol: TCP
-      name: http-frontend
-  selector:
-    name: "ai-chatbot-framework-frontend"
+    name: "ai-chatbot-framework"

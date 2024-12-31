@@ -1,8 +1,6 @@
-from flask import Blueprint
+from flask import Blueprint, current_app as app,jsonify
 
-from app.commons import build_response
-from app.nlu.tasks import train_models
-from flask import Blueprint, current_app as app
+from app.nlu.training import train_models
 
 nlu = Blueprint('nlu_blueprint', __name__, url_prefix='/nlu')
 
@@ -14,4 +12,4 @@ def build_models():
     :return:
     """
     train_models(app)
-    return build_response.sent_ok()
+    return jsonify({"result": True})

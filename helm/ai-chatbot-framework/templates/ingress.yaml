@@ -17,13 +17,6 @@ spec:
         path: /(.*)
         backend:
           service:
-            name: {{ include "ai-chatbot-framework.fullname" . }}-frontend
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: /gateway/(.*)
-        backend:
-          service:
-            name: {{ include "ai-chatbot-framework.fullname" . }}-backend
+            name: {{ include "ai-chatbot-framework.fullname" . }}
             port: 
               number: 80

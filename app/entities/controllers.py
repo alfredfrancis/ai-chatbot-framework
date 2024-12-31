@@ -1,8 +1,6 @@
 from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
-from flask import Blueprint, request, Response
-
-from app.commons import build_response
+from flask import Blueprint, request, Response, jsonify
 from app.commons.utils import update_document
 from app.entities.models import Entity
 
@@ -25,9 +23,9 @@ def create_entity():
     try:
         entity_id = entity.save()
     except Exception as e:
-        return build_response.build_json({"error": str(e)})
+        return jsonify({"error": str(e)})
 
-    return build_response.build_json({
+    return jsonify({
         "_id": str(entity_id.id)
     })
 
@@ -39,7 +37,9 @@ def read_entities():
     :return:
     """
     intents = Entity.objects.only('name', 'id')
-    return build_response.sent_json(intents.to_json())
+    return  Response(response=intents.to_json(),
+                     status=200,
+                     mimetype="application/json")
 
 
 @entities_blueprint.route('/<id>')
@@ -66,7 +66,7 @@ def update_entity(id):
     entity = Entity.objects.get(id=ObjectId(id))
     entity = update_document(entity, json_data)
     entity.save()
-    return build_response.sent_ok()
+    return jsonify({"result": True})
 
 
 @entities_blueprint.route('/<id>', methods=['DELETE'])
@@ -78,4 +78,4 @@ def delete_entity(id):
     """
     Entity.objects.get(id=ObjectId(id)).delete()
 
-    return build_response.sent_ok()
+    return jsonify({"result": True})

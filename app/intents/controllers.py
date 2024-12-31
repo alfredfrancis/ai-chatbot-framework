@@ -2,15 +2,14 @@ import os
 from bson.json_util import dumps
 from bson.json_util import loads
 from bson.objectid import ObjectId
-from flask import Blueprint, request, Response
+from flask import Blueprint, request, Response, jsonify
 from flask import abort
 from flask import current_app as app
-from app.commons import build_response
 from app.commons.utils import update_document
 from app.intents.models import ApiDetails
 from app.intents.models import Intent
 from app.intents.models import Parameter
-from app.nlu.tasks import train_models
+from app.nlu.training import train_models
 
 intents = Blueprint('intents_blueprint', __name__,
                     url_prefix='/intents')
@@ -53,9 +52,9 @@ def create_intent():
     try:
         story_id = intent.save()
     except Exception as e:
-        return build_response.build_json({"error": str(e)})
+        return jsonify({"error": str(e)})
 
-    return build_response.build_json({
+    return jsonify({
         "_id": str(story_id.id)
     })
 
@@ -67,7 +66,7 @@ def read_intents():
     :return:
     """
     all_intents = Intent.objects
-    return build_response.sent_json(all_intents.to_json())
+    return Response(all_intents.to_json(), mimetype='application/json', status=200)
 
 
 @intents.route('/<id>')
@@ -116,7 +115,7 @@ def delete_intent(id):
         os.remove("{}/{}.model".format(app.config["MODELS_DIR"], id))
     except OSError:
         pass
-    return build_response.sent_ok()
+    return jsonify({"result": True})
 
 
 @intents.route('/export', methods=['GET'])
@@ -144,7 +143,7 @@ def import_intents():
     json_file = request.files['file']
     all_intents = import_json(json_file)
 
-    return build_response.build_json({"num_intents_created": len(all_intents)})
+    return jsonify({"num_intents_created": len(all_intents)})
 
 
 def import_json(json_file):

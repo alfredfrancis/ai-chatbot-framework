@@ -1,7 +1,0 @@
-*.model
-*.pkl
-*.hd5
-*.index
-*.meta
-checkpoint
-intent_*

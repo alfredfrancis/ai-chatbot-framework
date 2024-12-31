@@ -5,5 +5,5 @@ logs/*
 venv/
 env/
 .DS_Store
-model_files/*.model
+model_files/
 frontend/

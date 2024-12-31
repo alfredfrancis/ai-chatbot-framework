@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 
 from flask import current_app as app
 from app.chat.controllers import dialogue_manager
@@ -12,6 +13,10 @@ def train_models(app):
     Initiate NER and Intent Classification training
     :return:
     """
+    # create models dir if doesnt exist
+    if not os.path.exists(app.config["MODELS_DIR"]):
+        os.makedirs(app.config["MODELS_DIR"])
+
     # generate intent classifier training data
     intents = Intent.objects
 

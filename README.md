@@ -31,10 +31,12 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 
 ### Installation
 
-### Using docker-compose 
+### Using docker-compose (recommended)
 ```sh
 docker-compose up -d
 ```
+
+Open http://localhost:8080/
 
 ### Using Helm
 
@@ -43,30 +45,31 @@ helm dep update helm/ai-chatbot-framework
 
 helm upgrade --install --create-namespace -n ai-chatbot-framework ai-chatbot-framework helm/ai-chatbot-framework
 
-# port forward for local installation
+# port forward to local (optional)
 kubectl port-forward --namespace=ai-chatbot-framework service/ingress-nginx-controller 8080:80
 ```
 
-### Using Docker
-```sh
+Open http://localhost:8080/
 
-# pull docker images
-docker pull alfredfrancis/ai-chatbot-framework_backend:latest
-docker pull alfredfrancis/ai-chatbot-framework_frontend:latest
+### Using Docker
+
+
+#### pull docker images
+
+```sh
+docker pull alfredfrancis/ai-chatbot-framework:latest
 
 # start a mongodb server
 docker run --name mongodb -d mongo:3.6
 
-# start iky backend
-docker run -d --name=iky_backend --link mongodb:mongodb -e="APPLICATION_ENV=Production" alfredfrancis/ai-chatbot-framework_backend:latest
+# start the container
+docker run -d --name=ai-chatbot-framework --link mongodb:mongodb -e="APPLICATION_ENV=Production" alfredfrancis/ai-chatbot-framework:latest
 
 # setup default intents
-docker exec -it iky_backend flask --app=manage  manage  migrate 
-
-# start iky gateway with frontend
-docker run -d --name=iky_gateway --link iky_backend:iky_backend -p 8080:80 alfredfrancis/ai-chatbot-framework_frontend:latest
-
+docker exec -it ai-chatbot-framework flask --app=manage  manage  migrate 
 ```
+
+Open http://localhost/
 
 ### without docker
 
@@ -91,10 +94,11 @@ cd frontend
 npm install
 ng serve
 ```
-* Take Production build
+* Update Production build
 ```sh
 cd frontend
 ng build --prod --optimize
+cp dist/ ../app/static/
 ```
 
 ### Heroku

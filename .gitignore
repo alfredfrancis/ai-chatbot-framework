@@ -8,3 +8,4 @@ env/
 .DS_Store
 .pytest_cache/
 .vscode
+model_files/

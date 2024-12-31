@@ -23,8 +23,8 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_backend .
+        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework .
 
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_backend:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:latest
