@@ -24,11 +24,11 @@ def migrate():
 
     # Import default intents
     try:
-        with open("examples/default_intents.json", "r") as json_file:
+        with open("migrations/default_intents.json", "r") as json_file:
             stories = import_json(json_file)
             print(f"Imported {len(stories)} Stories")
     except FileNotFoundError:
-        print("Error: 'examples/default_intents.json' file not found.")
+        print("Error: 'migrations/default_intents.json' file not found.")
     except Exception as e:
         print(f"Failed to import intents: {e}")
 
