@@ -1,0 +1,30 @@
+name: Docker Build and Push
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.0.0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_backend .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_backend:latest
