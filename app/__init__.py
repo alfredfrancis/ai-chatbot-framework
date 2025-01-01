@@ -20,6 +20,7 @@ def create_app(env="Development"):
         app.logger.info('Unknown environment key, defaulting to Development')
 
     app.config.from_object(config[env])
+    app.config.from_prefixed_env(prefix='APP')
 
     CORS(app)
     db.init_app(app)

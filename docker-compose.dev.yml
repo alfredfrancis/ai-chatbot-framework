@@ -1,0 +1,42 @@
+version: '2'
+services:
+  mongodb:
+    container_name: mongodb
+    image: mongo:4.2.20
+    hostname: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodbdata:/data
+
+  migrate:
+    container_name: migrate
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: flask --app=manage manage migrate
+    environment:
+      APPLICATION_ENV: Development
+      APP_MONGODB_HOST: "mongodb://mongodb:27017/iky-ai"
+    depends_on:
+      - mongodb
+
+  app:
+    container_name: backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: flask run --host=0.0.0.0 --debug --port=8080
+    environment:
+      APPLICATION_ENV: Development
+      APP_MONGODB_HOST: "mongodb://mongodb:27017/iky-ai"
+    ports:
+      - 8080:8080
+    volumes:
+      - ./app:/usr/src/app/app
+    depends_on:
+      - migrate
+      - mongodb
+
+volumes:
+  mongodbdata:

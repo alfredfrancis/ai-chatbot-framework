@@ -1,2 +1,2 @@
-release: APPLICATION_ENV="Heroku" python manage.py migrate
+release: APPLICATION_ENV="Heroku" flask --app=manage  manage  migrate
 web: APPLICATION_ENV="Heroku" gunicorn -k gevent run:app

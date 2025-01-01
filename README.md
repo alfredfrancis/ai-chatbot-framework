@@ -1,6 +1,6 @@
 <img src="https://i.ibb.co/vLR1wpG/logo.png" width="280"/>
 
-[![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.com/alfredfrancis/ai-chatbot-framework.svg?branch=master)](https://travis-ci.com/alfredfrancis/ai-chatbot-framework.svg?branch=master)
+[![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/docker-build-push.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/docker-build-push.yml)
 
 
 
@@ -23,8 +23,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
   * [Without Docker](#without-docker)
   * [Updating Frontend](#update-frontend-dist)
   * [Heroku](#heroku)
-* [Database](#db)
-  * [Restoring Intents](#restore)
+* [Development](#development)
 * [Screenshots](#screenshots)
 * [Tutorial](#tutorial)
 * [Dependencies](#dependencies-documentations)
@@ -53,10 +52,8 @@ Open http://localhost:8080/
 
 ### Using Docker
 
-
-#### pull docker images
-
 ```sh
+# pull docker images
 docker pull alfredfrancis/ai-chatbot-framework:latest
 
 # start a mongodb server
@@ -87,7 +84,21 @@ APPLICATION_ENV="Production" gunicorn --bind 0.0.0.0:8080 run:app
 ```
 * Open http://localhost:8080/
 
-#### Update Frontend Dist
+### Heroku
+[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
+
+* add your dev/production configurations in config.py
+
+## Development
+
+### Start development server
+
+```sh
+docker-compose -f docker-compose.dev.yml up -d
+```
+Open http://localhost:8080/
+
+### Update Frontend Dist
 * Run Development mode
 ```sh
 cd frontend
@@ -100,21 +111,6 @@ cd frontend
 ng build --prod --optimize
 cp dist/ ../app/static/
 ```
-
-### Heroku
-[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
-
-* add your dev/production configurations in config.py
-
-### DB
-
-#### Restore
-You can import some default intents using following steps
-
-- goto http://localhost:8080/agent/default/settings
-- click 'choose file'
-- choose 'examples/default_intents.json file'
-- click import
 
 ### Screenshots
 
@@ -131,10 +127,5 @@ You can import some default intents using following steps
 Checkout this basic tutorial on youtube,
 
 [![Coming Soon](https://www.wpcc.edu/wp-content/uploads/2021/04/YouTube-Stream-Coming-Soon.jpg)](https://www.youtube.com/watch?v=S1Fj7WinaBA)
- 
- ### Dependencies documentations
-* [SKLearn documentation](http://scikit-learn.org/)
-* [CRFsuite documentation](http://www.chokkan.org/software/crfsuite/)
-* [python CRfSuite](https://python-crfsuite.readthedocs.io/en/latest/)
 
 <hr></hr>

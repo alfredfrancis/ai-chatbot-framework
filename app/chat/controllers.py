@@ -26,7 +26,6 @@ def api():
         return abort(400, description="JSON payload is missing")
 
     try:
-        # Delegate processing to DialogueManager
         chat_request = ChatModel.from_json(request_json)
         chat_response = dialogue_manager.process(app, chat_request)
         return jsonify(chat_response.to_json())
