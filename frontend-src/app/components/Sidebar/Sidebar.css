@@ -1,0 +1,38 @@
+.sidebar-header {
+    margin-bottom: 20px;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+.sidebar-section {
+    margin-top: 20px;
+}
+
+
+.menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+
+.menu-icon img {
+    width: 16px;
+    height: 16px;
+}
+
+.logo {
+    width: 40px;
+    height: 40px;
+}
+
+.divider {
+    border: none;
+    border-top: 1px solid rgba(72, 197, 205, 0.2);
+    margin: 0 -20px;
+}
