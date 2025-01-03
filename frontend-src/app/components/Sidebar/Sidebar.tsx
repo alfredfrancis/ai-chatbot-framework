@@ -5,7 +5,6 @@ import Image, { StaticImageData } from "next/image";
 import book1 from "@/public/sidebar/book-1.svg";
 import coffee1 from "@/public/sidebar/coffee-1.svg";
 import logo from "@/public/sidebar/logo.png";
-import home1 from "@/public/sidebar/home-1.svg";
 import messageSquare1 from "@/public/sidebar/message-square-1.svg";
 import settings1 from "@/public/sidebar/home-1.svg";
 import database1 from "@/public/sidebar/home-1.svg";

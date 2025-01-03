@@ -9,16 +9,30 @@ interface Message {
   author: 'user' | 'chat';
 }
 
+interface Parameter {
+  name: string;
+  value?: string;
+  required?: boolean;
+  type?: string;
+}
+
+interface Intent {
+  name: string;
+  parameters?: Parameter[];
+  responses?: string[];
+  [key: string]: unknown;
+}
+
 interface ChatState {
   currentNode: string;
   complete: boolean | null;
-  context: Record<string, any>;
-  parameters: any[];
-  extractedParameters: Record<string, any>;
+  context: Record<string, unknown>;
+  parameters: Parameter[];
+  extractedParameters: Record<string, unknown>;
   speechResponse: string[];
-  intent: Record<string, any>;
+  intent: Intent;
   input: string;
-  missingParameters: any[];
+  missingParameters: Parameter[];
   owner?: string;
   date?: Date;
 }
@@ -34,17 +48,6 @@ const ChatPage: React.FC = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      initChat();
-    }
-  }, []);
 
   const processResponse = (response: ChatState) => {
     response.owner = 'chat';
@@ -68,7 +71,7 @@ const ChatPage: React.FC = () => {
       parameters: [],
       extractedParameters: {},
       speechResponse: [],
-      intent: {},
+      intent: { name: 'init' },
       input: '/init_conversation',
       missingParameters: []
     };
@@ -80,6 +83,17 @@ const ChatPage: React.FC = () => {
       console.error('Error initializing chat:', error);
     }
   };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      initChat();
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +127,7 @@ const ChatPage: React.FC = () => {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-800">Chat Interface</h1>
-        <p className="text-gray-600 mt-1">Test your chatbot's responses in real-time</p>
+        <p className="text-gray-600 mt-1">Test your chatbot&apos;s responses in real-time</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

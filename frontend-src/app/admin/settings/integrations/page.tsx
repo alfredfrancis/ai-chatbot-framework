@@ -8,7 +8,7 @@ const IntegrationsPage: React.FC = () => {
 
   const widgetCode = `<script type="text/javascript">
 !function(win,doc){"use strict";var script_loader=()=>{try
-{var head=doc.head||doc.getElementsByTagName("head")[0],script=doc.createElement("script");script.setAttribute("type","text/javascript"),script.setAttribute("src",win.iky_base_url+"assets/widget/iky_widget.js"),head.appendChild(script)}
+{var head=doc.head||doc.getElementsByTagName("head")[0],script=doc.createElement("script");script.setAttribute("type","text/javascript"),script.setAttribute("src",win.iky_base_url+"/widget/script.js"),head.appendChild(script)}
 catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${baseUrl}",script_loader()}(window,document);
 </script>`;
 
@@ -32,7 +32,7 @@ catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${baseUrl}",s
           <div>
             <h2 className="text-lg font-medium text-gray-800 mb-4">Chat Widget</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Copy and paste the below snippet into your HTML code to add the chat widget to your website.
+              Copy and paste the below snippet into your HTML code (below body tag) to add the chat widget to your website.
             </p>
 
             <div className="relative">
@@ -65,39 +65,19 @@ catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${baseUrl}",s
               <h3 className="text-sm font-medium text-gray-700">Configuration</h3>
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-gray-800">win.iky_base_url</code>
+                  <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-gray-800">iky_base_url</code>
                   <span className="text-sm text-gray-600">
-                    Replace with your installation URL in the format "ip:port/"
+                    Replace with ai chatbot frame work hostname
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-gray-800">win.chat_context</code>
+                  <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-gray-800">chat_context</code>
                   <span className="text-sm text-gray-600">
-                    Replace with any global context you want to pass to the chat
+                    Add any context you want to pass to the chat such as username, email, etc. This can be accessed from intents and can be used to personalize the chat experience.
                   </span>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Preview Section */}
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-lg font-medium text-gray-800 mb-4">Preview</h2>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">
-                After adding the widget to your website, it will appear as a chat button in the bottom-right corner.
-                Users can click it to open the chat interface and start interacting with your chatbot.
-              </p>
-            </div>
-          </div>
-
-          {/* Help Section */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Need Help?</h3>
-            <p className="text-sm text-gray-500">
-              The chat widget is designed to work with any modern website. If you need help with integration or
-              encounter any issues, please check the documentation or contact support.
-            </p>
           </div>
         </div>
       </div>

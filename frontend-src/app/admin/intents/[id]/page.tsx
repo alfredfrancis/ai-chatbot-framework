@@ -3,6 +3,9 @@
 import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { getIntent, saveIntent } from '../../../services/intents';
+import { getEntities } from '../../../services/entities';
+import { Popover } from 'flowbite-react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 interface IntentFormData {
   _id?: string;
@@ -32,6 +35,8 @@ interface IntentFormData {
 const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const router = useRouter();
   const { id } = use(params);
+  const defaultPrameterTypes = ['free_text'];
+  
   const [formData, setFormData] = useState<IntentFormData>({
     name: '',
     intentId: '',
@@ -40,16 +45,23 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
     apiTrigger: false,
     parameters: []
   });
+  const [entities, setEntities] = useState<any[]>([]);
 
   useEffect(() => {
     if (id !== 'new') {
       fetchIntent();
     }
+    fetchEntities();
   }, [id]);
 
   const fetchIntent = async () => {
     const data = await getIntent(id);
     setFormData(data);
+  };
+
+  const fetchEntities = async () => {
+    const data = await getEntities();
+    setEntities(data);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -223,12 +235,26 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                    <input
-                      type="text"
+                    <select
                       value={param.type}
                       onChange={e => updateParameter(index, 'type', e.target.value)}
                       className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
-                    />
+                    >
+                      <optgroup label="Default">
+                        {defaultPrameterTypes.map(type => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Entities">
+                        {entities.map(entity => (
+                          <option key={entity._id.$oid} value={entity.name}>
+                            {entity.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
                   </div>
                   <div className="md:col-span-2">
                     <label className="flex items-center">
@@ -243,7 +269,24 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   </div>
                   {param.required && (
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Prompt</label>
+                      <div className="flex items-center gap-2 mb-2">
+                        <label className="block text-sm font-medium text-gray-700">Prompt</label>
+                        <Popover 
+                          content={
+                            <div className="max-w-sm space-y-2 p-3 bg-gray-50 rounded-lg">
+                              <p>
+                                Use ### to split your prompt into multiple lines. Each line will be asked separately in sequence.
+                              </p>
+                              <p>Example:</p>
+                              <pre className="bg-white p-2 rounded-lg text-sm whitespace-pre-wrap break-words">
+                                {"What is your name?###Where do you live?###How old are you?"}
+                              </pre>
+                            </div>
+                          }
+                        >
+                          <QuestionMarkCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500 cursor-help" />
+                        </Popover>
+                      </div>
                       <input
                         type="text"
                         value={param.prompt}
@@ -275,7 +318,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
               onChange={e => handleApiTriggerChange(e.target.checked)}
               className="rounded border-gray-300 text-green-500 focus:ring-green-200 mr-2"
             />
-            <span className="text-sm font-medium text-gray-700">API Trigger</span>
+            <span className="text-sm font-medium text-gray-700">Trigger API</span>
           </label>
 
           {formData.apiTrigger && (
@@ -417,7 +460,29 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
         </div>
 
         <div className="border-t border-gray-200 pt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Speech Response</label>
+          <div className="flex items-center gap-2 mb-2">
+            <label className="block text-sm font-medium text-gray-700">Speech Response</label>
+            <Popover 
+              content={
+                <div className="max-w-sm space-y-2 p-3 bg-gray-50 rounded-lg">
+                  <p>
+                    You can use Jinja templating to create dynamic responses:
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Use ### to split your response into multiple lines.</li>
+                    <li>Access parameters with <code className="bg-gray-100 px-1 rounded">{"{{ parameters['param_name'] }}"}</code></li>
+                    <li>Access API response with <code className="bg-gray-100 px-1 rounded">{"{{ result['field_name'] }}"}</code></li>
+                  </ul>
+                  <p>Example:</p>
+                  <pre className="bg-white p-2 rounded-lg text-sm whitespace-pre-wrap break-words">
+                    {"Hello {{ parameters['name'] }}! ### The weather in {{ parameters['city'] }} is {{ result['temperature'] }}°C"}
+                  </pre>
+                </div>
+              }
+            >
+              <QuestionMarkCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500 cursor-help" />
+            </Popover>
+          </div>
           <textarea
             value={formData.speechResponse}
             onChange={e => setFormData(prev => ({ ...prev, speechResponse: e.target.value }))}
