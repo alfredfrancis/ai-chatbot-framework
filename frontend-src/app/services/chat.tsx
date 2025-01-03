@@ -1,6 +1,8 @@
+import type { ChatState } from './training';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
 
-export const converse = async (intent: any, botId: string = 'default') => {
+export const converse = async (intent: ChatState): Promise<ChatState> => {
   const response = await fetch(`${API_BASE_URL}api/v1`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
