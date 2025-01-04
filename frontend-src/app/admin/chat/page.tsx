@@ -1,40 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { converse } from '../../services/chat';
+import type { ChatState } from '../../services/training';
 import './style.css';
 
 interface Message {
   content: string;
   author: 'user' | 'chat';
-}
-
-interface Parameter {
-  name: string;
-  value?: string;
-  required?: boolean;
-  type?: string;
-}
-
-interface Intent {
-  name: string;
-  parameters?: Parameter[];
-  responses?: string[];
-  [key: string]: unknown;
-}
-
-interface ChatState {
-  currentNode: string;
-  complete: boolean | null;
-  context: Record<string, unknown>;
-  parameters: Parameter[];
-  extractedParameters: Record<string, unknown>;
-  speechResponse: string[];
-  intent: Intent;
-  input: string;
-  missingParameters: Parameter[];
-  owner?: string;
-  date?: Date;
 }
 
 const ChatPage: React.FC = () => {
@@ -49,7 +22,7 @@ const ChatPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const processResponse = (response: ChatState) => {
+  const processResponse = useCallback((response: ChatState) => {
     response.owner = 'chat';
     response.date = new Date();
     setChatCurrent(response);
@@ -61,9 +34,9 @@ const ChatPage: React.FC = () => {
         }, 500 * index);
       });
     }
-  };
+  }, []);
 
-  const initChat = async () => {
+  const initChat = useCallback(async () => {
     const initialChat: ChatState = {
       currentNode: '',
       complete: null,
@@ -71,7 +44,7 @@ const ChatPage: React.FC = () => {
       parameters: [],
       extractedParameters: {},
       speechResponse: [],
-      intent: { name: 'init' },
+      intent: {},
       input: '/init_conversation',
       missingParameters: []
     };
@@ -82,7 +55,7 @@ const ChatPage: React.FC = () => {
     } catch (error) {
       console.error('Error initializing chat:', error);
     }
-  };
+  }, [processResponse]);
 
   useEffect(() => {
     scrollToBottom();
@@ -93,7 +66,7 @@ const ChatPage: React.FC = () => {
       isInitialMount.current = false;
       initChat();
     }
-  }, []);
+  }, [initChat]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

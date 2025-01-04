@@ -1,3 +1,31 @@
+interface Parameter {
+  name: string;
+  value?: string;
+  required?: boolean;
+  type?: string;
+}
+
+interface Intent {
+  nam?: string;
+  parameters?: Parameter[];
+  responses?: string[];
+  [key: string]: unknown;
+}
+
+interface ChatState {
+  currentNode: string;
+  complete: boolean | null;
+  context: Record<string, unknown>;
+  parameters: Parameter[];
+  extractedParameters: Record<string, unknown>;
+  speechResponse: string[];
+  intent: Intent;
+  input: string;
+  missingParameters: Parameter[];
+  owner?: string;
+  date?: Date;
+}
+
 interface MongoId {
   $oid: string;
 }
@@ -14,6 +42,11 @@ interface Example {
   entities: Entity[];
 }
 
+interface EntityValue{
+  value: string;
+  synonyms: string[];
+}
+
 interface EntityModel {
   _id?: MongoId;
   name: string;
@@ -21,50 +54,33 @@ interface EntityModel {
   examples?: string[];
   regex_features?: string[];
   lookup_tables?: string[];
+  entity_values: EntityValue[];
 }
 
 interface IntentModel {
   _id?: MongoId;
   name: string;
   description?: string;
-  parameters?: Array<{
-    name: string;
-    type: string;
-    required?: boolean;
-  }>;
-  responses?: string[];
-}
-
-interface AgentConfig {
-  name: string;
-  description?: string;
-  language?: string;
-  timezone?: string;
-  fallback_responses?: string[];
-  [key: string]: unknown;
-}
-
-interface ChatState {
-  currentNode: string;
-  complete: boolean | null;
-  context: Record<string, unknown>;
+  intentId?: string;
+  userDefined?: boolean;
   parameters: Array<{
     name: string;
-    value?: string;
-    required?: boolean;
-    type?: string;
-  }>;
-  extractedParameters: Record<string, unknown>;
-  speechResponse: string[];
-  intent: Record<string, unknown>;
-  input: string;
-  missingParameters: Array<{
-    name: string;
     type: string;
-    required?: boolean;
+    required: boolean;
+    prompt?: string;
   }>;
-  owner?: string;
-  date?: Date;
+  speechResponse: string;
+  apiTrigger: boolean;
+  apiDetails?: {
+    isJson: boolean;
+    url: string;
+    headers: Array<{
+      headerKey: string;
+      headerValue: string;
+    }>;
+    requestType: string;
+    jsonData: string;
+  };
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
@@ -92,4 +108,4 @@ export const trainModels = async () => {
   return response.json();
 };
 
-export type { Entity, Example, EntityModel, IntentModel, AgentConfig, ChatState, MongoId }; 
+export type { Entity, Example, EntityModel,EntityValue, IntentModel, ChatState, MongoId, Parameter, Intent }; 

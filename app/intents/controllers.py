@@ -93,7 +93,7 @@ def update_intent(id):
     intent = Intent.objects.get(id=ObjectId(id))
     intent = update_document(intent, json_data)
     intent.save()
-    return 'success', 200
+    return jsonify({"status": "success"})
 
 
 @intents.route('/<id>', methods=['DELETE'])

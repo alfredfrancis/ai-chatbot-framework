@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getIntents, deleteIntent } from '../../services/intents';
-import { trainModels } from '../../services/training';
+import { trainModels, IntentModel } from '../../services/training';
 
 const IntentsPage: React.FC = () => {
-  const [intents, setIntents] = useState<any[]>([]);
+  const [intents, setIntents] = useState<IntentModel[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -22,16 +22,20 @@ const IntentsPage: React.FC = () => {
     router.push('/admin/intents/create');
   };
 
-  const handleEdit = (intent: any) => {
-    router.push(`/admin/intents/${intent._id.$oid}`);
+  const handleEdit = (intent: IntentModel) => {
+    if(intent._id){
+      router.push(`/admin/intents/${intent._id.$oid}`);
+    } 
   };
 
-  const handleTrain = (intent: any) => {
+  const handleTrain = (intent: IntentModel) => {
+    if(intent._id){
     router.push(`/admin/intents/${intent._id.$oid}/train`);
+    }
   };
 
-  const handleDelete = async (intent: any) => {
-    if (window.confirm('Are you sure you want to delete this intent?')) {
+  const handleDelete = async (intent: IntentModel) => {
+    if (intent._id &&  window.confirm('Are you sure you want to delete this intent?')) {
       await deleteIntent(intent._id.$oid);
       fetchIntents();
     }
@@ -73,7 +77,7 @@ const IntentsPage: React.FC = () => {
       <div className="grid gap-4">
         {intents.map((intent) => (
           <div 
-            key={intent._id.$oid} 
+            key={intent?._id?.$oid} 
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:border-green-200 transition-colors duration-200"
           >
             <div className="flex items-center justify-between">

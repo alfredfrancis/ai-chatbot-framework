@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getIntent } from '../../../../services/intents';
-import { getTrainingData, saveTrainingData } from '../../../../services/training';
+import { getTrainingData, saveTrainingData,EntityModel, IntentModel } from '../../../../services/training';
 import { getEntities } from '../../../../services/entities';
 import './style.css';
 
@@ -24,22 +24,18 @@ interface SelectionInfo {
   end: number;
 }
 
-interface PageParams {
-  id: string;
-}
-
-interface PageProps {
-  params: Promise<PageParams>;
-  searchParams: { [key: string]: string | string[] | undefined };
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 export default function TrainPage({ params }: PageProps) {
-  const unwrappedParams = React.use(params) as PageParams;
+  const { id } = React.use(params);
   const [trainingData, setTrainingData] = useState<Example[]>([]);
   const [newExampleText, setNewExampleText] = useState('');
   const [newEntityName, setNewEntityName] = useState('');
-  const [entities, setEntities] = useState<any[]>([]);
-  const [intent, setIntent] = useState<any>(null);
+  const [entities, setEntities] = useState<EntityModel[]>([]);
+  const [intent, setIntent] = useState<IntentModel>({ name: '', parameters: [], speechResponse: '', apiTrigger: false });
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo>({
     value: '',
     begin: 0,
@@ -51,8 +47,8 @@ export default function TrainPage({ params }: PageProps) {
     const fetchData = async () => {
       try {
         const [intentData, trainingDataResult, entitiesData] = await Promise.all([
-          getIntent(unwrappedParams.id),
-          getTrainingData(unwrappedParams.id),
+          getIntent(id),
+          getTrainingData(id),
           getEntities()
         ]);
         setIntent(intentData);
@@ -64,7 +60,7 @@ export default function TrainPage({ params }: PageProps) {
       }
     };
     fetchData();
-  }, [unwrappedParams.id]);
+  }, [id]);
 
   const getAnnotatedText = (example: Example) => {
     let text = example.text;
@@ -167,7 +163,7 @@ export default function TrainPage({ params }: PageProps) {
 
   const updateTrainingData = async () => {
     try {
-      await saveTrainingData(unwrappedParams.id, trainingData);
+      await saveTrainingData(id, trainingData);
       setMessage({ type: 'success', text: 'Training data saved successfully' });
     } catch (error) {
       console.error('Error saving training data:', error);

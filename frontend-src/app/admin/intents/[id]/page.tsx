@@ -1,73 +1,51 @@
 "use client";
 
-import React, { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, use, useCallback } from 'react';
 import { getIntent, saveIntent } from '../../../services/intents';
 import { getEntities } from '../../../services/entities';
 import { Popover } from 'flowbite-react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import type { EntityModel, IntentModel } from '../../../services/training';
 
-interface IntentFormData {
-  _id?: string;
-  name: string;
-  intentId: string;
-  userDefined: boolean;
-  speechResponse: string;
-  apiTrigger: boolean;
-  apiDetails?: {
-    isJson: boolean;
-    url: string;
-    headers: Array<{
-      headerKey: string;
-      headerValue: string;
-    }>;
-    requestType: string;
-    jsonData: string;
-  };
-  parameters: Array<{
-    name: string;
-    type: string;
-    required: boolean;
-    prompt: string;
-  }>;
-}
 
 const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
-  const router = useRouter();
   const { id } = use(params);
   const defaultPrameterTypes = ['free_text'];
   
-  const [formData, setFormData] = useState<IntentFormData>({
+  const [formData, setFormData] = useState<IntentModel>({
     name: '',
     intentId: '',
     userDefined: true,
     speechResponse: '',
     apiTrigger: false,
-    parameters: []
+    parameters: [],
   });
-  const [entities, setEntities] = useState<any[]>([]);
+  const [entities, setEntities] = useState<EntityModel[]>([]);
+
+  const fetchIntent = useCallback(async () => {
+    const data = await getIntent(id);
+    setFormData(data);
+  }, [id]);
+
+  const fetchEntities = useCallback(async () => {
+    const data = await getEntities();
+    setEntities(data);
+  }, []);
 
   useEffect(() => {
     if (id !== 'new') {
       fetchIntent();
     }
     fetchEntities();
-  }, [id]);
-
-  const fetchIntent = async () => {
-    const data = await getIntent(id);
-    setFormData(data);
-  };
-
-  const fetchEntities = async () => {
-    const data = await getEntities();
-    setEntities(data);
-  };
+  }, [id, fetchIntent, fetchEntities]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await saveIntent(formData);
-    router.push('/admin/intents');
+    try {
+      await saveIntent(formData);
+    } catch (error) {
+      console.error('Error saving intent:', error);
+    }
   };
 
   const addParameter = () => {
@@ -82,7 +60,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
     }));
   };
 
-  const updateParameter = (index: number, field: string, value: any) => {
+  const updateParameter = (index: number, field: string, value: string|boolean) => {
     const newParameters = [...formData.parameters];
     newParameters[index] = {
       ...newParameters[index],
@@ -249,7 +227,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                       </optgroup>
                       <optgroup label="Entities">
                         {entities.map(entity => (
-                          <option key={entity._id.$oid} value={entity.name}>
+                          <option key={entity?._id?.$oid} value={entity.name}>
                             {entity.name}
                           </option>
                         ))}

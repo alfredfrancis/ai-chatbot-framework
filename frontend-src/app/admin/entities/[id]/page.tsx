@@ -1,24 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, use, KeyboardEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { getEntity, saveEntity } from '../../../services/entities';
+import type { EntityModel, EntityValue } from '../../../services/training';
 
-interface EntityValue {
-  value: string;
-  synonyms: string[];
-}
-
-interface EntityFormData {
-  _id?: string;
-  name: string;
-  entity_values: EntityValue[];
-}
 
 const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
-  const router = useRouter();
   const { id } = use(params);
-  const [formData, setFormData] = useState<EntityFormData>({
+  const [formData, setFormData] = useState<EntityModel>({
     name: '',
     entity_values: []
   });
@@ -69,7 +58,7 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
     }));
   };
 
-  const updateValue = (index: number, field: keyof EntityValue, value: any) => {
+  const updateValue = (index: number, field: keyof EntityValue, value: string[]) => {
     const newValues = [...formData.entity_values];
     newValues[index] = {
       ...newValues[index],
@@ -181,7 +170,7 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
                     <input
                       type="text"
                       value={value.value}
-                      onChange={e => updateValue(index, 'value', e.target.value)}
+                      onChange={e => updateValue(index, 'value', [e.target.value])}
                       className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
                       required
                     />

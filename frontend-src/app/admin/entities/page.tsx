@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getEntities, createEntity, deleteEntity } from '../../services/entities';
+import { EntityModel } from '@/app/services/training';
 
 const EntitiesPage: React.FC = () => {
-  const [entities, setEntities] = useState<any[]>([]);
+  const [entities, setEntities] = useState<EntityModel[]>([]);
   const [newEntityName, setNewEntityName] = useState('');
   const router = useRouter();
 
@@ -26,18 +27,13 @@ const EntitiesPage: React.FC = () => {
       return;
     }
 
-    const result = await createEntity({ name: newEntityName });
-    setEntities([...entities, {
-      _id: {
-        $oid: result._id
-      },
-      name: newEntityName
-    }]);
+    const result = await createEntity({ name: newEntityName, entity_values: [] });
+    setEntities([...entities, result]);
     setNewEntityName('');
   };
 
-  const handleEdit = (entity: any) => {
-    router.push(`/admin/entities/${entity._id.$oid}`);
+  const handleEdit = (entity: EntityModel) => {
+    router.push(`/admin/entities/${entity?._id?.$oid}`);
   };
 
   const handleDelete = async (id: string, index: number) => {
@@ -88,7 +84,7 @@ const EntitiesPage: React.FC = () => {
         <div className="divide-y divide-gray-200">
           {entities.map((entity, index) => (
             <div 
-              key={entity._id.$oid}
+              key={entity?._id?.$oid}
               className="py-4 flex items-center justify-between group"
             >
               <div className="flex-1">
@@ -102,7 +98,7 @@ const EntitiesPage: React.FC = () => {
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(entity._id.$oid, index)}
+                  onClick={() => handleDelete(entity?._id?.$oid || "", index)}
                   className="px-3 py-1.5 text-sm font-medium rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200"
                 >
                   Delete

@@ -1,14 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { getConfig, updateConfig } from '../../../services/agents';
-
-interface MLConfig {
-  confidence_threshold: number;
-}
+import { getConfig, updateConfig, AgentConfig } from '../../../services/agents';
 
 const MLSettingsPage: React.FC = () => {
-  const [config, setConfig] = useState<MLConfig>({
+  const [config, setConfig] = useState<AgentConfig>({
     confidence_threshold: 0.5
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +27,7 @@ const MLSettingsPage: React.FC = () => {
   const handleThresholdChange = async (value: number) => {
     try {
       setConfig(prev => ({ ...prev, confidence_threshold: value }));
-      await updateConfig({ confidence_threshold: value });
+      await updateConfig(config);
     } catch (error) {
       console.error('Error updating config:', error);
     }

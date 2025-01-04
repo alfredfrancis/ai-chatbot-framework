@@ -1,6 +1,10 @@
-import type { AgentConfig } from './training';
+
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
+
+interface AgentConfig {
+  confidence_threshold: number
+ }
 
 export const getConfig = async (): Promise<AgentConfig> => {
   const response = await fetch(`${API_BASE_URL}agents/default/config`);
@@ -15,3 +19,5 @@ export const updateConfig = async (data: AgentConfig): Promise<AgentConfig> => {
   });
   return response.json();
 }; 
+
+export type { AgentConfig }; 
