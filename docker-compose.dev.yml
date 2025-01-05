@@ -38,5 +38,19 @@ services:
       - migrate
       - mongodb
 
+  frontend:
+    container_name: frontend
+    hostname: frontend
+    build:
+      context: ./frontend
+      dockerfile: dev.Dockerfile
+
+    volumes:
+      - ./frontend/app:/app/app
+      - ./frontend/public:/app/public
+    restart: always
+    ports:
+      - 3000:3000
+
 volumes:
   mongodbdata:

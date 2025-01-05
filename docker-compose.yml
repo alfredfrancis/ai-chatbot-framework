@@ -9,10 +9,21 @@ services:
     depends_on:
       - mongodb
 
-  app:
+  frontend:
+    container_name: frontend
+    image: alfredfrancis/ai-chatbot-framework_frontend:latest
+    hostname: frontend
+    restart: always
+    ports:
+      - 3000:3000
+    depends_on:
+      - backend
+
+  backend:
     container_name: backend
-    image: alfredfrancis/ai-chatbot-framework:latest
+    image: alfredfrancis/ai-chatbot-framework_backend:latest
     hostname: backend
+    restart: always
     environment:
       APPLICATION_ENV: Production
     ports:
@@ -29,5 +40,6 @@ services:
       - "27017:27017"
     volumes:
       - mongodbdata:/data
+
 volumes:
   mongodbdata:
