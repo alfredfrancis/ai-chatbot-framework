@@ -39,9 +39,13 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework .
-
-      - name: Push Docker image
+      - name: Build Docker images
         run: |
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:latest
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_backend .
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_frontend -f Dockerfile frontend/
+
+
+      - name: Push Docker images
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_backend:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_frontend:latest
