@@ -42,7 +42,7 @@ jobs:
       - name: Build Docker images
         run: |
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_backend .
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_frontend -f Dockerfile frontend/
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework_frontend -f frontend/Dockerfile frontend/
 
 
       - name: Push Docker images
