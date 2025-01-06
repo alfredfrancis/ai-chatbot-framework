@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import { importIntents, exportIntents } from '../../../services/agents';
 import { useSnackbar } from '../../../components/Snackbar/SnackbarContext';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
-
 const DataSettingsPage = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
