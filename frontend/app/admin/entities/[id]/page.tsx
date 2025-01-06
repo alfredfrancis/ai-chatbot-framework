@@ -3,10 +3,13 @@
 import React, { useState, useEffect, use, KeyboardEvent } from 'react';
 import { getEntity, saveEntity } from '../../../services/entities';
 import type { EntityModel, EntityValue } from '../../../services/training';
-
+import { useSnackbar } from '../../../components/Snackbar/SnackbarContext';
+import { useRouter } from 'next/navigation';
 
 const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
+  const router = useRouter();
+  const { addSnackbar } = useSnackbar();
   const [formData, setFormData] = useState<EntityModel>({
     name: '',
     entity_values: []
@@ -31,6 +34,7 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
       });
     } catch (error) {
       console.error('Error fetching entity:', error);
+      addSnackbar('Failed to load entity', 'error');
       // Initialize with empty values if there's an error
       setFormData({
         name: '',
@@ -45,9 +49,11 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
     e.preventDefault();
     try {
       await saveEntity(formData);
+      addSnackbar('Entity saved successfully', 'success');
+      router.push('/admin/entities');
     } catch (error) {
       console.error('Error saving entity:', error);
-      alert('Failed to save entity. Please try again.');
+      addSnackbar('Failed to save entity', 'error');
     }
   };
 

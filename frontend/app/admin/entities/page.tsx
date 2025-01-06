@@ -3,32 +3,46 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getEntities, createEntity, deleteEntity } from '../../services/entities';
-import { EntityModel,MongoId } from '@/app/services/training';
+import { EntityModel } from '@/app/services/training';
+import { useSnackbar } from '../../components/Snackbar/SnackbarContext';
 
 const EntitiesPage: React.FC = () => {
   const [entities, setEntities] = useState<EntityModel[]>([]);
   const [newEntityName, setNewEntityName] = useState('');
   const router = useRouter();
+  const { addSnackbar } = useSnackbar();
 
   useEffect(() => {
     fetchEntities();
   }, []);
 
   const fetchEntities = async () => {
-    const data = await getEntities();
-    setEntities(data);
+    try {
+      const data = await getEntities();
+      setEntities(data);
+    } catch (error) {
+      console.error('Error fetching entities:', error);
+      addSnackbar('Failed to load entities', 'error');
+    }
   };
 
   const handleNewEntity = async () => {
     if (!newEntityName.trim()) return;
 
     if (entities.find(x => x.name === newEntityName)) {
-      alert("Entity already exists");
+      addSnackbar('Entity already exists', 'error');
       return;
     }
-    const result = await createEntity({ name: newEntityName, entity_values: [] });
-    setEntities([...entities, result]);
-    setNewEntityName('');
+
+    try {
+      const result = await createEntity({ name: newEntityName, entity_values: [] });
+      setEntities([...entities, result]);
+      setNewEntityName('');
+      addSnackbar('Entity created successfully', 'success');
+    } catch (error) {
+      console.error('Error creating entity:', error);
+      addSnackbar('Failed to create entity', 'error');
+    }
   };
 
   const handleEdit = (entity: EntityModel) => {
@@ -37,10 +51,16 @@ const EntitiesPage: React.FC = () => {
 
   const handleDelete = async (id: string, index: number) => {
     if (window.confirm('Are you sure you want to delete this entity?')) {
-      await deleteEntity(id);
-      const newEntities = [...entities];
-      newEntities.splice(index, 1);
-      setEntities(newEntities);
+      try {
+        await deleteEntity(id);
+        const newEntities = [...entities];
+        newEntities.splice(index, 1);
+        setEntities(newEntities);
+        addSnackbar('Entity deleted successfully', 'success');
+      } catch (error) {
+        console.error('Error deleting entity:', error);
+        addSnackbar('Failed to delete entity', 'error');
+      }
     }
   };
 

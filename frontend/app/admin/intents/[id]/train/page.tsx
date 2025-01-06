@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { getIntent } from '../../../../services/intents';
 import { getTrainingData, saveTrainingData,EntityModel, IntentModel } from '../../../../services/training';
 import { getEntities } from '../../../../services/entities';
+import { useSnackbar } from '../../../../components/Snackbar/SnackbarContext';
 import './style.css';
 
 interface Entity {
@@ -31,6 +32,7 @@ type PageProps = {
 
 export default function TrainPage({ params }: PageProps) {
   const { id } = React.use(params);
+  const { addSnackbar } = useSnackbar();
   const [trainingData, setTrainingData] = useState<Example[]>([]);
   const [newExampleText, setNewExampleText] = useState('');
   const [newEntityName, setNewEntityName] = useState('');
@@ -56,11 +58,11 @@ export default function TrainPage({ params }: PageProps) {
         setEntities(entitiesData);
       } catch (error) {
         console.error('Error fetching data:', error);
-        setMessage({ type: 'error', text: 'Failed to load data' });
+        addSnackbar('Failed to load training data', 'error');
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, addSnackbar]);
 
   const getAnnotatedText = (example: Example) => {
     let text = example.text;
@@ -164,10 +166,10 @@ export default function TrainPage({ params }: PageProps) {
   const updateTrainingData = async () => {
     try {
       await saveTrainingData(id, trainingData);
-      setMessage({ type: 'success', text: 'Training data saved successfully' });
+      addSnackbar('Training data saved successfully', 'success');
     } catch (error) {
       console.error('Error saving training data:', error);
-      setMessage({ type: 'error', text: 'Failed to save training data' });
+      addSnackbar('Failed to save training data', 'error');
     }
   };
 

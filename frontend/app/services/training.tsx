@@ -50,10 +50,6 @@ interface EntityValue{
 interface EntityModel {
   _id?: MongoId;
   name: string;
-  description?: string;
-  examples?: string[];
-  regex_features?: string[];
-  lookup_tables?: string[];
   entity_values: EntityValue[];
 }
 

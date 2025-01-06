@@ -4,10 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getIntents, deleteIntent } from '../../services/intents';
 import { trainModels, IntentModel } from '../../services/training';
+import { BoltIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useSnackbar } from '../../components/Snackbar/SnackbarContext';
 
 const IntentsPage: React.FC = () => {
   const [intents, setIntents] = useState<IntentModel[]>([]);
   const router = useRouter();
+  const { addSnackbar } = useSnackbar();
 
   useEffect(() => {
     fetchIntents();
@@ -35,14 +38,26 @@ const IntentsPage: React.FC = () => {
   };
 
   const handleDelete = async (intent: IntentModel) => {
-    if (intent._id &&  window.confirm('Are you sure you want to delete this intent?')) {
-      await deleteIntent(intent._id.$oid);
-      fetchIntents();
+    if (intent._id && window.confirm('Are you sure you want to delete this intent?')) {
+      try {
+        await deleteIntent(intent._id.$oid);
+        addSnackbar('Intent deleted successfully', 'success');
+        fetchIntents();
+      } catch (error) {
+        console.error('Error deleting intent:', error);
+        addSnackbar('Failed to delete intent', 'error');
+      }
     }
   };
 
   const handleTrainModels = async () => {
-    await trainModels();
+    try {
+      await trainModels();
+      addSnackbar('Training completed successfully', 'success');
+    } catch (error) {
+      console.error('Training failed:', error);
+      addSnackbar('Training failed', 'error');
+    }
   };
 
   return (
@@ -78,32 +93,41 @@ const IntentsPage: React.FC = () => {
         {intents.map((intent) => (
           <div 
             key={intent?._id?.$oid} 
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:border-green-200 transition-colors duration-200"
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:border-green-200 transition-colors duration-200 group"
           >
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-medium text-gray-800">{intent.name}</h3>
                 <p className="text-gray-500 text-sm mt-1">ID: {intent.intentId}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors duration-200"
+                  className="p-2 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors duration-200 group/btn relative"
                   onClick={() => handleTrain(intent)}
                 >
-                  Train
+                  <BoltIcon className="w-5 h-5" />
+                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200">
+                    Train Intent
+                  </span>
                 </button>
                 <button
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 transition-colors duration-200"
+                  className="p-2 rounded-lg text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 transition-colors duration-200 group/btn relative"
                   onClick={() => handleEdit(intent)}
                 >
-                  Edit
+                  <PencilSquareIcon className="w-5 h-5" />
+                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200">
+                    Edit Intent
+                  </span>
                 </button>
                 {intent.userDefined && (
                   <button
-                    className="px-3 py-1.5 text-sm font-medium rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200"
+                    className="p-2 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200 group/btn relative"
                     onClick={() => handleDelete(intent)}
                   >
-                    Delete
+                    <TrashIcon className="w-5 h-5" />
+                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200">
+                      Delete Intent
+                    </span>
                   </button>
                 )}
               </div>

@@ -2,18 +2,18 @@
 
 import React, { useState } from 'react';
 import { importIntents } from '../../../services/intents';
+import { useSnackbar } from '../../../components/Snackbar/SnackbarContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
 
 const DataSettingsPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const { addSnackbar } = useSnackbar();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
-      setMessage(null);
     }
   };
 
@@ -21,18 +21,17 @@ const DataSettingsPage: React.FC = () => {
     if (!file) return;
 
     setIsLoading(true);
-    setMessage(null);
 
     try {
       await importIntents(file);
-      setMessage({ type: 'success', text: 'Intents imported successfully' });
+      addSnackbar('Intents imported successfully', 'success');
       setFile(null);
       // Reset file input
       const fileInput = document.getElementById('file-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     } catch (error) {
       console.error('Error importing intents:', error);
-      setMessage({ type: 'error', text: 'Failed to import intents. Please try again.' });
+      addSnackbar('Failed to import intents', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -40,6 +39,7 @@ const DataSettingsPage: React.FC = () => {
 
   const handleExport = () => {
     window.open(`${API_BASE_URL}intents/export`, '_blank');
+    addSnackbar('Export started', 'info');
   };
 
   return (
@@ -87,16 +87,6 @@ const DataSettingsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              {message && (
-                <div
-                  className={`p-4 rounded-lg ${
-                    message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-                  }`}
-                >
-                  {message.text}
-                </div>
-              )}
             </div>
           </div>
 
@@ -113,19 +103,6 @@ const DataSettingsPage: React.FC = () => {
               >
                 Export Intents
               </button>
-            </div>
-          </div>
-
-          {/* Help Section */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">About Data Management</h3>
-            <div className="text-sm text-gray-500 space-y-2">
-              <p>
-                The import feature accepts JSON files containing intent definitions. Make sure your file follows the correct format.
-              </p>
-              <p>
-                Exported data includes all your intents, their training phrases, and responses. This is useful for backup purposes or when migrating to a different instance.
-              </p>
             </div>
           </div>
         </div>
