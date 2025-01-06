@@ -1,59 +1,48 @@
 from datetime import datetime
-
 import parsedatetime as pdt
-from mongoengine.fields import EmbeddedDocumentField
-from mongoengine.fields import EmbeddedDocumentListField
-from mongoengine.fields import GenericEmbeddedDocumentField
-from mongoengine.fields import GenericReferenceField
-from mongoengine.fields import ListField
-from mongoengine.fields import ReferenceField
-from mongoengine.fields import SortedListField
+from typing import Dict, Any, List
 
-
-def date_from_string(timeString):
+def date_from_string(time_string: str) -> str:
+    """Convert a string time to datetime string"""
     cal = pdt.Calendar()
     now = datetime.now()
-    result = str(cal.parseDT(timeString.strip(), now)[0])
+    result = str(cal.parseDT(time_string.strip(), now)[0])
     return result
 
-
-def update_document(document, data_dict):
+def prepare_document(data_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Recreate Document object from python dictionary
-    :param document:
-    :param data_dict:
-    :return:
+    Prepare a dictionary for MongoDB document insertion/update
     """
-
-    def field_value(field, value):
-
-        if field.__class__ in (
-                ListField,
-                SortedListField,
-                EmbeddedDocumentListField):
-            return [
-                field_value(field.field, item)
+    # Convert _id to id if present
+    if "_id" in data_dict:
+        data_dict["id"] = data_dict.pop("_id")
+    
+    # Handle nested dictionaries and lists
+    for key, value in data_dict.items():
+        if isinstance(value, dict):
+            data_dict[key] = prepare_document(value)
+        elif isinstance(value, list):
+            data_dict[key] = [
+                prepare_document(item) if isinstance(item, dict) else item
                 for item in value
             ]
-        if field.__class__ in (
-                EmbeddedDocumentField,
-                GenericEmbeddedDocumentField,
-                ReferenceField,
-                GenericReferenceField
-        ):
-            return field.document_type(**value)
-        else:
-            return value
+    
+    return data_dict
 
-    [setattr(
-        document, key.replace("_id", "id"),
-        field_value(document._fields[key.replace("_id", "id")], value)
-    ) for key, value in data_dict.items()]
+def is_list_empty(in_list: List[Any]) -> bool:
+    """Check if a list or nested list is empty"""
+    if isinstance(in_list, list):
+        return all(map(is_list_empty, in_list))
+    return False
 
-    return document
-
-
-def is_list_empty(inList):
-    if isinstance(inList, list):  # Is a list
-        return all(map(is_list_empty, inList))
-    return False  # Not a list
+def serialize_object_id(obj: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert MongoDB ObjectId to string in document"""
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key == "_id":
+                obj[key] = str(value)
+            elif isinstance(value, (dict, list)):
+                obj[key] = serialize_object_id(value)
+    elif isinstance(obj, list):
+        return [serialize_object_id(item) for item in obj]
+    return obj

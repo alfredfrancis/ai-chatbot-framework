@@ -1,16 +1,22 @@
-FROM python:3.12.7-slim
+FROM python:3.9-slim
 
-# Install common libraries
-RUN apt-get update -qq \
- && apt-get install -y --no-install-recommends build-essential && apt-get autoremove -y
+WORKDIR /app
 
-WORKDIR /usr/src/app
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 80
-
+# Copy the rest of the application
 COPY . .
 
-CMD ["gunicorn", "run:app" ,"--log-level=debug", "--timeout", "90","--bind", "0.0.0.0:80" ]
+# Expose the port the app runs on
+EXPOSE 8000
+
+# Command to run the application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

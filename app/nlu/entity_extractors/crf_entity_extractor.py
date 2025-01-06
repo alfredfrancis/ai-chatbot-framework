@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import pycrfsuite
-from flask import current_app as app
-from app import spacy_tokenizer
+from app.main import app
 from app.nlu.entity_extractors.utils import pos_tagger, pos_tag_and_label, sentence_tokenize
 
 
@@ -22,12 +21,9 @@ class EntityExtractor:
         :return:
         """
         for entity in entities.keys():
-
             entity_value = str(entities[entity])
-
             if entity_value.lower() in self.synonyms:
                 entities[entity] = self.synonyms[entity_value.lower()]
-
         return entities
 
     def extract_features(self, sent, i):
@@ -124,10 +120,9 @@ class EntityExtractor:
             # include transitions that are possible, but not observed
             'feature.possible_transitions': True
         })
-        trainer.train('model_files/%s.model' % model_name)
+        trainer.train(f"{app.state.config['MODELS_DIR']}/{model_name}.model")
         return True
 
-    # Extract Labels from BIO tagged sentence
     def crf2json(self, tagged_sentence):
         """
         Extract label-value pair from NER prediction output
@@ -165,15 +160,13 @@ class EntityExtractor:
         :param sentence:
         :return:
         """
-
-        doc = spacy_tokenizer(sentence)
+        doc = app.state.spacy_tokenizer(sentence)
         words = [token.text for token in doc]
         tagged_token = pos_tagger(sentence)
         tagger = pycrfsuite.Tagger()
-        tagger.open("{}/{}.model".format(app.config["MODELS_DIR"], model_name))
+        tagger.open(f"{app.state.config['MODELS_DIR']}/{model_name}.model")
         predicted_labels = tagger.tag(self.sent_to_features(tagged_token))
-        extracted_entities = self.crf2json(
-            zip(words, predicted_labels))
+        extracted_entities = self.crf2json(zip(words, predicted_labels))
         return self.replace_synonyms(extracted_entities)
 
     @staticmethod
@@ -184,7 +177,6 @@ class EntityExtractor:
         :param training_data:
         :return labeled_examples:
         """
-
         labeled_examples = []
 
         for example in training_data:
@@ -193,7 +185,6 @@ class EntityExtractor:
 
             # find no of words before selection
             for enitity in example.get("entities"):
-
                 try:
                     begin_index = enitity.get("begin")
                     end_index = enitity.get("end")

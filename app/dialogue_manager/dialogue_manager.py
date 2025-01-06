@@ -1,8 +1,9 @@
 import json
 import logging
 from jinja2 import Template
-from app.agents.models import Bot
-from app.intents.models import Intent
+from bson.objectid import ObjectId
+from app.database import find_one
+from app.main import app
 from app.nlu.classifiers.sklearn_intent_classifer import SklearnIntentClassifier
 from app.nlu.entity_extractors.crf_entity_extractor import EntityExtractor
 from app.chat.utils import SilentUndefined, call_api, get_synonyms, split_sentence
@@ -16,17 +17,17 @@ class DialogueManager:
         self.synonyms = None
         self.entity_extraction = None
 
-    def update_model(self, app):
+    async def update_model(self):
         """
         Signal hook to be called after training is completed.
         Reloads ML models and synonyms.
         """
-        self.sentence_classifier.load(app.config["MODELS_DIR"])
-        self.synonyms = get_synonyms()
+        self.sentence_classifier.load(app.state.config["MODELS_DIR"])
+        self.synonyms = await get_synonyms()
         self.entity_extraction = EntityExtractor(self.synonyms)
         logger.info("Intent Model updated")
 
-    def process(self, app, chat_model: ChatModel) -> ChatModel:
+    async def process(self, chat_model: ChatModel) -> ChatModel:
         """
         Single entry point to process the dialogue request.
 
@@ -39,19 +40,19 @@ class DialogueManager:
 
         try:
             # Step 1: Get intent ID and confidence
-            intent_id, confidence = self._get_intent_id_and_confidence(app, chat_model)
+            intent_id, confidence = await self._get_intent_id_and_confidence(chat_model)
 
             # Step 2: Retrieve the intent object
-            intent = self._get_intent(intent_id)
+            intent = await self._get_intent(intent_id)
             if intent is None:
-                intent = self._get_fallback_intent(app)
+                intent = await self._get_fallback_intent()
 
             # Step 3: Process the intent
-            chat_model_response = self._process_intent(intent, confidence, chat_model, chat_model_response, context)
+            chat_model_response = await self._process_intent(intent, confidence, chat_model, chat_model_response, context)
 
             # Step 4: Handle API trigger if the intent is complete
             if chat_model_response.complete:
-                chat_model_response = self._handle_api_trigger(intent, chat_model_response, context)
+                chat_model_response = await self._handle_api_trigger(intent, chat_model_response, context)
 
             logger.info(f"Processed input: {chat_model.input_text}", extra=chat_model_response.to_json())
             return chat_model_response
@@ -60,7 +61,7 @@ class DialogueManager:
             logger.error(f"Error processing request: {e}", exc_info=True)
             raise
 
-    def _get_intent_id_and_confidence(self, app, chat_model):
+    async def _get_intent_id_and_confidence(self, chat_model):
         """
         Determine the intent ID and confidence based on the request input.
 
@@ -72,29 +73,29 @@ class DialogueManager:
             intent_id = input_text.split("/")[1]
             confidence = 1.0
         else:
-            intent_id, confidence, _ = self._predict(app, input_text)
+            intent_id, confidence, _ = await self._predict(input_text)
         logger.info(f"Predicted intent_id: {intent_id}")
         return intent_id, confidence
 
-    def _predict(self, app, sentence):
+    async def _predict(self, sentence):
         """
         Predict the intent using the intent classifier.
 
         :param sentence: The input sentence to classify.
         :return: Tuple of (predicted intent ID, confidence, other intents).
         """
-        bot = Bot.objects.get(name="default")
+        bot = await find_one("bots", {"name": "default"})
         predicted, intents = self.sentence_classifier.process(sentence)
         logger.info(f"Predicted intent: {predicted}")
         logger.info(f"Other intents: {intents}")
 
-        if predicted["confidence"] < bot.config.get("confidence_threshold", 0.90):
-            intent = Intent.objects.get(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"])
-            return intent.intentId, 1.0, []
+        if predicted["confidence"] < bot.get("config", {}).get("confidence_threshold", 0.90):
+            fallback_intent = await self._get_fallback_intent()
+            return fallback_intent["intentId"], 1.0, []
         else:
             return predicted["intent"], predicted["confidence"], intents[1:]
 
-    def _get_intent(self, intent_id):
+    async def _get_intent(self, intent_id):
         """
         Retrieve the intent object by its ID.
 
@@ -102,21 +103,21 @@ class DialogueManager:
         :return: The Intent object.
         """
         try:
-            return Intent.objects.get(intentId=intent_id)
-        except Intent.DoesNotExist:
+            return await find_one("intents", {"intentId": intent_id})
+        except Exception as e:
             logger.warning(f"Intent not found: {intent_id}")
             return None
 
-    def _get_fallback_intent(self, app):
+    async def _get_fallback_intent(self):
         """
         Retrieve the fallback intent from the app configuration.
 
         :return: The fallback Intent object.
         """
-        fallback_intent_id = app.config.get("DEFAULT_FALLBACK_INTENT_NAME")
-        return Intent.objects.get(intentId=fallback_intent_id)
+        fallback_intent_id = app.state.config.get("DEFAULT_FALLBACK_INTENT_NAME")
+        return await find_one("intents", {"intentId": fallback_intent_id})
 
-    def _process_intent(self, intent, confidence, chat_model, chat_model_response, context):
+    async def _process_intent(self, intent, confidence, chat_model, chat_model_response, context):
         """
         Process the intent and update the result model with extracted parameters and other details.
 
@@ -128,17 +129,17 @@ class DialogueManager:
         :return: Updated ChatModel instance.
         """
         chat_model_response.intent = {
-            "object_id": str(intent.id),
+            "object_id": str(intent["_id"]),
             "confidence": confidence,
-            "id": intent.intentId
+            "id": intent["intentId"]
         }
 
-        parameters = intent.parameters or []
+        parameters = intent.get("parameters", [])
         chat_model_response.extracted_parameters = chat_model.extracted_parameters
 
         if parameters:
             # Extract entities and update extracted_parameters
-            extracted_entities = self.entity_extraction.predict(intent.intentId, chat_model.input_text)
+            extracted_entities = self.entity_extraction.predict(intent["intentId"], chat_model.input_text)
 
             # Replace synonyms in the extracted parameters
             extracted_entities = self.entity_extraction.replace_synonyms(extracted_entities)
@@ -152,11 +153,11 @@ class DialogueManager:
 
             # Match extracted entities with parameters based on type
             for param in parameters:
-                if param.type != "free_text":  # Skip free_text parameters
+                if param["type"] != "free_text":  # Skip free_text parameters
                     # Get all entities of matching type
-                    if param.type in entities_by_type and entities_by_type[param.type]:
+                    if param["type"] in entities_by_type and entities_by_type[param["type"]]:
                         # Take the next available entity of this type
-                        chat_model_response.extracted_parameters[param.name] = entities_by_type[param.type].pop(0)
+                        chat_model_response.extracted_parameters[param["name"]] = entities_by_type[param["type"]].pop(0)
 
             # Update context with extracted_parameters
             context["parameters"] = chat_model_response.extracted_parameters
@@ -183,28 +184,28 @@ class DialogueManager:
 
         for parameter in parameters:
             chat_model_response.parameters.append({
-                "name": parameter.name,
-                "type": parameter.type,
-                "required": parameter.required
+                "name": parameter["name"],
+                "type": parameter["type"],
+                "required": parameter["required"]
             })
 
             # For free_text parameters being prompted
-            if parameter.type == "free_text" and chat_model_response.current_node == parameter.name:
-                chat_model_response.extracted_parameters[parameter.name] = chat_model_response.input_text
+            if parameter["type"] == "free_text" and chat_model_response.current_node == parameter["name"]:
+                chat_model_response.extracted_parameters[parameter["name"]] = chat_model_response.input_text
                 continue
 
-            if parameter.required and parameter.name not in chat_model_response.extracted_parameters:
-                chat_model_response.missing_parameters.append(parameter.name)
+            if parameter["required"] and parameter["name"] not in chat_model_response.extracted_parameters:
+                chat_model_response.missing_parameters.append(parameter["name"])
                 missing_parameters.append(parameter)
 
         if missing_parameters:
             current_node = missing_parameters[0]
-            chat_model_response.current_node = current_node.name
-            chat_model_response.speech_response = split_sentence(current_node.prompt)
+            chat_model_response.current_node = current_node["name"]
+            chat_model_response.speech_response = split_sentence(current_node["prompt"])
 
         return chat_model_response
 
-    def _handle_api_trigger(self, intent, chat_model_response, context):
+    async def _handle_api_trigger(self, intent, chat_model_response, context):
         """
         Handle API trigger if the intent requires it.
 
@@ -213,23 +214,23 @@ class DialogueManager:
         :param context: The context dictionary.
         :return: Updated ChatModel instance.
         """
-        if intent.apiTrigger:
+        if intent.get("apiTrigger"):
             try:
-                result = self._call_intent_api(intent, context)
+                result = await self._call_intent_api(intent, context)
                 context["result"] = result
-                template = Template(intent.speechResponse, undefined=SilentUndefined)
+                template = Template(intent["speechResponse"], undefined=SilentUndefined)
                 chat_model_response.speech_response = split_sentence(template.render(**context))
             except Exception as e:
                 logger.warning(f"API call failed: {e}")
                 chat_model_response.speech_response = ["Service is not available. Please try again later."]
         else:
             context["result"] = {}
-            template = Template(intent.speechResponse, undefined=SilentUndefined)
+            template = Template(intent["speechResponse"], undefined=SilentUndefined)
             chat_model_response.speech_response = split_sentence(template.render(**context))
 
         return chat_model_response
 
-    def _call_intent_api(self, intent, context):
+    async def _call_intent_api(self, intent, context):
         """
         Call the API associated with the intent.
 
@@ -237,14 +238,18 @@ class DialogueManager:
         :param context: The context dictionary.
         :return: The result of the API call.
         """
-        headers = intent.apiDetails.get_headers()
-        url_template = Template(intent.apiDetails.url, undefined=SilentUndefined)
+        api_details = intent.get("apiDetails", {})
+        headers = {}
+        for header in api_details.get("headers", []):
+            headers[header["headerKey"]] = header["headerValue"]
+
+        url_template = Template(api_details["url"], undefined=SilentUndefined)
         rendered_url = url_template.render(**context)
 
-        if intent.apiDetails.isJson:
-            request_template = Template(intent.apiDetails.jsonData, undefined=SilentUndefined)
+        if api_details.get("isJson"):
+            request_template = Template(api_details["jsonData"], undefined=SilentUndefined)
             parameters = json.loads(request_template.render(**context))
         else:
             parameters = context.get("parameters", {})
 
-        return call_api(rendered_url, intent.apiDetails.requestType, headers, parameters, intent.apiDetails.isJson)
+        return await call_api(rendered_url, api_details["requestType"], headers, parameters, api_details.get("isJson", False))

@@ -1,67 +1,72 @@
 import json
-
+import logging
 import requests
 from jinja2 import Undefined
+from app.main import app
+from app.database import find_many
 
-from flask import current_app as app
-from app.entities.models import Entity
-
+logger = logging.getLogger(__name__)
 
 def split_sentence(sentence):
     return sentence.split("###")
 
-
-def get_synonyms():
+async def get_synonyms():
     """
     Build synonyms dict from DB
-    :return:
+    :return: Dictionary of synonyms
     """
     synonyms = {}
-
-    for entity in Entity.objects:
-        for value in entity.entity_values:
-            for synonym in value.synonyms:
-                synonyms[synonym] = value.value
-    app.logger.info("loaded synonyms %s", synonyms)
+    entities = await find_many("entities", {})
+    
+    for entity in entities:
+        for value in entity.get("entityValues", []):
+            for synonym in value.get("synonyms", []):
+                synonyms[synonym] = value.get("value")
+    
+    logger.info("loaded synonyms %s", synonyms)
     return synonyms
 
-
-def call_api(url, type, headers={}, parameters={}, is_json=False):
+async def call_api(url, type, headers={}, parameters={}, is_json=False):
     """
     Call external API
-    :param url:
-    :param type:
-    :param parameters:
-    :param is_json:
-    :return:
+    :param url: API endpoint URL
+    :param type: HTTP method (GET, POST, PUT, DELETE)
+    :param headers: Request headers
+    :param parameters: Request parameters or body
+    :param is_json: Whether to send parameters as JSON
+    :return: JSON response
     """
-    app.logger.info("Initiating API Call with following info: url => {} payload => {}".format(url, parameters))
-    if "GET" in type:
-        response = requests.get(url, headers=headers, params=parameters, timeout=5)
-    elif "POST" in type:
-        if is_json:
-            response = requests.post(url, headers=headers, json=parameters, timeout=5)
+    logger.info("Initiating API Call with following info: url => %s payload => %s", url, parameters)
+    
+    try:
+        if "GET" in type:
+            response = requests.get(url, headers=headers, params=parameters, timeout=5)
+        elif "POST" in type:
+            if is_json:
+                response = requests.post(url, headers=headers, json=parameters, timeout=5)
+            else:
+                response = requests.post(url, headers=headers, params=parameters, timeout=5)
+        elif "PUT" in type:
+            if is_json:
+                response = requests.put(url, headers=headers, json=parameters, timeout=5)
+            else:
+                response = requests.put(url, headers=headers, params=parameters, timeout=5)
+        elif "DELETE" in type:
+            response = requests.delete(url, headers=headers, params=parameters, timeout=5)
         else:
-            response = requests.post(url, headers=headers, params=parameters, timeout=5)
-    elif "PUT" in type:
-        if is_json:
-            response = requests.put(url, headers=headers, json=parameters, timeout=5)
-        else:
-            response = requests.put(url, headers=headers, params=parameters, timeout=5)
-    elif "DELETE" in type:
-        response = requests.delete(url, headers=headers, params=parameters, timeout=5)
-    else:
-        raise Exception("unsupported request method.")
-    result = json.loads(response.text)
-    app.logger.info("API response => %s", result)
-    return result
-
+            raise ValueError("Unsupported request method.")
+        
+        result = response.json()
+        logger.info("API response => %s", result)
+        return result
+    except requests.exceptions.RequestException as e:
+        logger.error("API call failed: %s", str(e))
+        raise
 
 class SilentUndefined(Undefined):
     """
     Class to suppress jinja2 errors and warnings
     """
-
     def _fail_with_undefined_error(self, *args, **kwargs):
         return 'undefined'
 

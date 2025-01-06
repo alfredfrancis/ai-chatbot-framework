@@ -1,7 +1,7 @@
 import os
 import cloudpickle
 import numpy as np
-from app import spacy_tokenizer
+from app.main import spacy_tokenizer
 
 class SklearnIntentClassifier:
 

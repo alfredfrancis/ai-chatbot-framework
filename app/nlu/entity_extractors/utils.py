@@ -1,4 +1,4 @@
-from app import spacy_tokenizer
+from app.main import spacy_tokenizer
 
 def pos_tagger(sentence):
     """
