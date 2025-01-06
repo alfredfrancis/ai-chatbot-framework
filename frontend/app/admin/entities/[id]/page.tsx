@@ -50,7 +50,6 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
     try {
       await saveEntity(formData);
       addSnackbar('Entity saved successfully', 'success');
-      router.push('/admin/entities');
     } catch (error) {
       console.error('Error saving entity:', error);
       addSnackbar('Failed to save entity', 'error');
@@ -64,7 +63,7 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
     }));
   };
 
-  const updateValue = (index: number, field: keyof EntityValue, value: string[]) => {
+  const updateValue = (index: number, field: keyof EntityValue, value: string | string[]) => {
     const newValues = [...formData.entity_values];
     newValues[index] = {
       ...newValues[index],
@@ -130,7 +129,7 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-800">
           {id === 'new' ? 'Create Entity' : 'Edit Entity'}
@@ -176,7 +175,12 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
                     <input
                       type="text"
                       value={value.value}
-                      onChange={e => updateValue(index, 'value', [e.target.value])}
+                      onChange={e => updateValue(index, 'value', e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                        }
+                      }}
                       className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
                       required
                     />
