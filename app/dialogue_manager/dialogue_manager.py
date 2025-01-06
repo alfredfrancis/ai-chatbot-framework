@@ -175,6 +175,11 @@ class DialogueManager:
                 "required": parameter.required
             })
 
+            # For free_text parameters being prompted (current_node matches parameter name)
+            if parameter.type == "free_text" and chat_model_response.current_node == parameter.name:
+                chat_model_response.extracted_parameters[parameter.name] = chat_model_response.input_text
+                continue
+
             if parameter.required and parameter.name not in chat_model_response.extracted_parameters:
                 chat_model_response.missing_parameters.append(parameter.name)
                 missing_parameters.append(parameter)
