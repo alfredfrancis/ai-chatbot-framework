@@ -1,6 +1,6 @@
 from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
-from flask import Blueprint, request, Response, jsonify
+from flask import Blueprint, request, Response, jsonify, abort
 from app.commons.utils import update_document
 from app.entities.models import Entity
 
@@ -21,13 +21,11 @@ def create_entity():
     entity.entity_values = []
 
     try:
-        entity_id = entity.save()
+        result = entity.save()
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    return jsonify({
-        "_id": str(entity_id.id)
-    })
+    return jsonify(result)
 
 
 @entities_blueprint.route('/')
@@ -36,10 +34,9 @@ def read_entities():
     find list of entities
     :return:
     """
-    intents = Entity.objects.only('name', 'id')
-    return  Response(response=intents.to_json(),
-                     status=200,
-                     mimetype="application/json")
+    entities = Entity.objects.only('name', 'id')
+    return  jsonify(entities)
+
 
 
 @entities_blueprint.route('/<id>')

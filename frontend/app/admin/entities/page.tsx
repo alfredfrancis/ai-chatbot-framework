@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getEntities, createEntity, deleteEntity } from '../../services/entities';
-import { EntityModel } from '@/app/services/training';
+import { EntityModel,MongoId } from '@/app/services/training';
 
 const EntitiesPage: React.FC = () => {
   const [entities, setEntities] = useState<EntityModel[]>([]);
@@ -26,7 +26,6 @@ const EntitiesPage: React.FC = () => {
       alert("Entity already exists");
       return;
     }
-
     const result = await createEntity({ name: newEntityName, entity_values: [] });
     setEntities([...entities, result]);
     setNewEntityName('');
