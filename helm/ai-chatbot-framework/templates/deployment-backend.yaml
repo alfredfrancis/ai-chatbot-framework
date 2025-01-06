@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "ai-chatbot-framework.fullname" . }}
+  name: {{ include "ai-chatbot-framework.fullname" . }}-backend
   labels:
     app: "ai-chatbot-framework"
-    name: "ai-chatbot-framework"
+    name: "ai-chatbot-framework-backend"
     {{- include "ai-chatbot-framework.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: "ai-chatbot-framework"
-      name: "ai-chatbot-framework"
+      name: "ai-chatbot-framework-backend"
   template:
     metadata:
       labels:
         app: "ai-chatbot-framework"
-        name: "ai-chatbot-framework"
+        name: "ai-chatbot-framework-backend"
     spec:
       initContainers:
         - name: {{ .Chart.Name }}-init
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["python","manage.py","migrate"]
+          command: ["flask", "--app=manage", "manage", "migrate"]
           env:
             - name: MONGO_URL
               value: {{.Values.mongodb.uri}}
@@ -30,7 +30,7 @@ spec:
               value: 'Helm'
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["gunicorn", "run:app" ,"--log-level=debug", "--timeout", "90","--bind", "0.0.0.0:80" ]
           env:
@@ -53,4 +53,4 @@ spec:
               path: /ready
               port: http
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.resources.backend | nindent 12 }}
