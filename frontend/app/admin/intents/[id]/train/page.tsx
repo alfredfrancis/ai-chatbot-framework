@@ -43,7 +43,6 @@ export default function TrainPage({ params }: PageProps) {
     begin: 0,
     end: 0
   });
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -189,12 +188,6 @@ export default function TrainPage({ params }: PageProps) {
           Train your intent for possible user inputs. Tag required parameters using mouse and give them labels.
         </p>
       </div>
-
-      {message && (
-        <div className={`p-4 mb-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex gap-4">

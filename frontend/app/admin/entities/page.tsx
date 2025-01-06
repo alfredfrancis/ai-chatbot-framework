@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getEntities, createEntity, deleteEntity } from '../../services/entities';
 import { EntityModel } from '@/app/services/training';
@@ -12,11 +12,7 @@ const EntitiesPage: React.FC = () => {
   const router = useRouter();
   const { addSnackbar } = useSnackbar();
 
-  useEffect(() => {
-    fetchEntities();
-  }, []);
-
-  const fetchEntities = async () => {
+  const fetchEntities = useCallback(async () => {
     try {
       const data = await getEntities();
       setEntities(data);
@@ -24,7 +20,11 @@ const EntitiesPage: React.FC = () => {
       console.error('Error fetching entities:', error);
       addSnackbar('Failed to load entities', 'error');
     }
-  };
+  }, [addSnackbar]);
+
+  useEffect(() => {
+    fetchEntities();
+  }, [fetchEntities]);
 
   const handleNewEntity = async () => {
     if (!newEntityName.trim()) return;

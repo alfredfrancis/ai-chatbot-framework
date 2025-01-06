@@ -7,11 +7,9 @@ import { Popover } from 'flowbite-react';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import type { EntityModel, IntentModel } from '../../../services/training';
 import { useSnackbar } from '../../../components/Snackbar/SnackbarContext';
-import { useRouter } from 'next/navigation';
 
 const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
-  const router = useRouter();
   const { addSnackbar } = useSnackbar();
   const defaultPrameterTypes = ['free_text'];
   

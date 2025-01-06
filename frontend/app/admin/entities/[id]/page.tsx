@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, use, KeyboardEvent } from 'react';
+import React, { useState, useEffect, use, KeyboardEvent, useCallback } from 'react';
 import { getEntity, saveEntity } from '../../../services/entities';
 import type { EntityModel, EntityValue } from '../../../services/training';
 import { useSnackbar } from '../../../components/Snackbar/SnackbarContext';
-import { useRouter } from 'next/navigation';
 
 const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
-  const router = useRouter();
   const { addSnackbar } = useSnackbar();
   const [formData, setFormData] = useState<EntityModel>({
     name: '',
@@ -17,13 +15,7 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const [isLoading, setIsLoading] = useState(id !== 'new');
   const [synonymInputs, setSynonymInputs] = useState<{ [key: number]: string }>({});
 
-  useEffect(() => {
-    if (id !== 'new') {
-      fetchEntity();
-    }
-  }, [id]);
-
-  const fetchEntity = async () => {
+  const fetchEntity = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await getEntity(id);
@@ -43,7 +35,13 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, addSnackbar]);
+
+  useEffect(() => {
+    if (id !== 'new') {
+      fetchEntity();
+    }
+  }, [id, fetchEntity]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
