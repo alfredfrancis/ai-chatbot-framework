@@ -44,13 +44,3 @@ export const deleteIntent = async (id: string): Promise<void> => {
     method: 'DELETE',
   });
 };
-
-export const importIntents = async (fileToUpload: File) => {
-  const formData = new FormData();
-  formData.append('file', fileToUpload, fileToUpload.name);
-  const response = await fetch(`${API_BASE_URL}intents/import`, {
-    method: 'POST',
-    body: formData,
-  });
-  return response.json();
-};

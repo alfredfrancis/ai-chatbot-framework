@@ -138,12 +138,25 @@ class DialogueManager:
 
         if parameters:
             # Extract entities and update extracted_parameters
-            extracted_parameters = self.entity_extraction.predict(intent.intentId, chat_model.input_text)
+            extracted_entities = self.entity_extraction.predict(intent.intentId, chat_model.input_text)
 
             # Replace synonyms in the extracted parameters
-            extracted_parameters = self.entity_extraction.replace_synonyms(extracted_parameters)
+            extracted_entities = self.entity_extraction.replace_synonyms(extracted_entities)
 
-            chat_model_response.extracted_parameters.update(extracted_parameters)
+            # Group entities by type
+            entities_by_type = {}
+            for entity_name, entity_value in extracted_entities.items():
+                if entity_name not in entities_by_type:
+                    entities_by_type[entity_name] = []
+                entities_by_type[entity_name].append(entity_value)
+
+            # Match extracted entities with parameters based on type
+            for param in parameters:
+                if param.type != "free_text":  # Skip free_text parameters
+                    # Get all entities of matching type
+                    if param.type in entities_by_type and entities_by_type[param.type]:
+                        # Take the next available entity of this type
+                        chat_model_response.extracted_parameters[param.name] = entities_by_type[param.type].pop(0)
 
             # Update context with extracted_parameters
             context["parameters"] = chat_model_response.extracted_parameters
@@ -174,6 +187,11 @@ class DialogueManager:
                 "type": parameter.type,
                 "required": parameter.required
             })
+
+            # For free_text parameters being prompted
+            if parameter.type == "free_text" and chat_model_response.current_node == parameter.name:
+                chat_model_response.extracted_parameters[parameter.name] = chat_model_response.input_text
+                continue
 
             if parameter.required and parameter.name not in chat_model_response.extracted_parameters:
                 chat_model_response.missing_parameters.append(parameter.name)
