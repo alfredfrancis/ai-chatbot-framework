@@ -1,8 +1,8 @@
 from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
 from flask import Blueprint, request, Response, jsonify, abort
-from app.commons.utils import update_document
-from app.entities.models import Entity
+from app.repository.utils import update_document
+from app.repository.entities import Entity
 
 entities_blueprint = Blueprint('entities_blueprint', __name__,
                                url_prefix='/entities')

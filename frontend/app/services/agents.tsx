@@ -1,16 +1,16 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/admin/';
 
 interface AgentConfig {
   confidence_threshold: number
 }
 
 export const getConfig = async (): Promise<AgentConfig> => {
-  const response = await fetch(`${API_BASE_URL}agents/default/config`);
+  const response = await fetch(`${API_BASE_URL}bots/default/config`);
   return response.json();
 };
 
 export const updateConfig = async (data: AgentConfig): Promise<AgentConfig> => {
-  const response = await fetch(`${API_BASE_URL}agents/default/config`, {
+  const response = await fetch(`${API_BASE_URL}bots/default/config`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -21,7 +21,7 @@ export const updateConfig = async (data: AgentConfig): Promise<AgentConfig> => {
 export const importIntents = async (fileToUpload: File) => {
   const formData = new FormData();
   formData.append('file', fileToUpload, fileToUpload.name);
-  const response = await fetch(`${API_BASE_URL}agents/default/import`, {
+  const response = await fetch(`${API_BASE_URL}bots/default/import`, {
     method: 'POST',
     body: formData,
   });
@@ -29,7 +29,7 @@ export const importIntents = async (fileToUpload: File) => {
 };
 
 export const exportIntents = async () => {
-  window.location.href = `${API_BASE_URL}agents/default/export`;
+  window.location.href = `${API_BASE_URL}bots/default/export`;
 };
 
 export type { AgentConfig }; 

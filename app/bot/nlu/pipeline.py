@@ -87,7 +87,7 @@ class IntentClassifier(NLUComponent):
     """Intent classification wrapper component."""
     
     def __init__(self):
-        from app.nlu.classifiers.sklearn_intent_classifer import SklearnIntentClassifier
+        from app.bot.nlu.classifiers.sklearn_intent_classifer import SklearnIntentClassifier
         self.classifier = SklearnIntentClassifier()
     
     def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
@@ -109,7 +109,7 @@ class EntityExtractor(NLUComponent):
     """Entity extraction wrapper component."""
     
     def __init__(self, synonyms: Optional[Dict[str, str]] = None):
-        from app.nlu.entity_extractors.crf_entity_extractor import CRFEntityExtractor
+        from app.bot.nlu.entity_extractors.crf_entity_extractor import CRFEntityExtractor
         self.extractor = CRFEntityExtractor(synonyms or {})
     
     def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:

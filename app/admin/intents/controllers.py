@@ -1,19 +1,12 @@
-import os
 from bson.json_util import dumps
 from bson.json_util import loads
 from bson.objectid import ObjectId
 from flask import Blueprint, request, Response, jsonify
-from flask import abort
-from flask import current_app as app
-from app.commons.utils import update_document
-from app.intents.models import ApiDetails
-from app.intents.models import Intent
-from app.intents.models import Parameter
-from app.nlu.training import train_pipeline
+from app.repository.utils import update_document
+from app.repository.intents import ApiDetails, Intent, Parameter
 
 intents = Blueprint('intents_blueprint', __name__,
                     url_prefix='/intents')
-
 
 @intents.route('/', methods=['POST'])
 def create_intent():
@@ -104,15 +97,4 @@ def delete_intent(id):
     :return:
     """
     Intent.objects.get(id=ObjectId(id)).delete()
-
-    try:
-        train_pipeline(app)
-    except BaseException:
-        pass
-
-    # remove NER model for the deleted story
-    try:
-        os.remove("{}/{}.model".format(app.config["MODELS_DIR"], id))
-    except OSError:
-        pass
-    return jsonify({"result": True})
+    return jsonify({"status": "success"})

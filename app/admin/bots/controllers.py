@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify, Response, abort
 from bson.json_util import dumps, loads
-from app.bots.models import Bot
-from app.intents.models import Intent
-from app.entities.models import Entity
-from app.commons.utils import update_document
+from app.repository.bot import Bot
+from app.repository.intents import Intent
+from app.repository.entities import Entity
+from app.repository.utils import update_document
 
 bots = Blueprint('bots_blueprint', __name__,
-                 url_prefix='/agents/<bot_name>')
+                 url_prefix='/bots/<bot_name>')
 
 
 @bots.route('/config', methods=['PUT'])

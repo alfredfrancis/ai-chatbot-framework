@@ -2,9 +2,9 @@
 import os
 
 from app import DialogueManager
-from app.intents.models import Intent
-from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
-from app.dialogue_manager.utils import get_synonyms
+from app.repository.intents import Intent
+from app.bot.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
+from app.bot.dialogue_manager.utils import get_synonyms
 
 def train_pipeline(app):
     """

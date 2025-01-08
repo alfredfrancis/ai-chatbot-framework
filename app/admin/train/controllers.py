@@ -1,6 +1,8 @@
 from bson.objectid import ObjectId
-from flask import Blueprint, request, jsonify
-from app.intents.models import Intent
+from app.repository.intents import Intent
+from flask import Blueprint,request, current_app as app, jsonify
+from app.bot.nlu.training import train_pipeline
+
 
 train = Blueprint('train_blueprint', __name__,
                   url_prefix='/train')
@@ -28,3 +30,13 @@ def get_training_data(story_id):
     """
     story = Intent.objects.get(id=ObjectId(story_id))
     return jsonify(story.trainingData)
+
+
+@train.route('/build_models', methods=['POST'])
+def build_models():
+    """
+    Build Intent classification and NER Models
+    :return:
+    """
+    train_pipeline(app)
+    return jsonify({"result": True})

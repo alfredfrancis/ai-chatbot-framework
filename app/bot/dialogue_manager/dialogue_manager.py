@@ -2,11 +2,11 @@ import json
 import logging
 from typing import Dict, List, Optional, Tuple
 from jinja2 import Template
-from app.bots.models import Bot
-from app.intents.models import Intent
-from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
-from app.dialogue_manager.utils import SilentUndefined, call_api, get_synonyms, split_sentence
-from app.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
+from app.repository.bot import Bot
+from app.repository.intents import Intent
+from app.bot.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
+from app.bot.dialogue_manager.utils import SilentUndefined, call_api, get_synonyms, split_sentence
+from app.bot.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
 
 logger = logging.getLogger('dialogue_manager')
 

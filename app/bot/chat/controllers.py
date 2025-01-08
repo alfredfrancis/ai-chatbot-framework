@@ -1,10 +1,10 @@
 from flask import Blueprint, request, abort, current_app as app
-from app.dialogue_manager.models import ChatModel
+from app.bot.dialogue_manager.models import ChatModel
 from flask import jsonify
 
-chat = Blueprint('chat', __name__, url_prefix='/api')
+chat = Blueprint('bots', __name__, url_prefix='/bots/v1/')
 
-@chat.route('/v1', methods=['POST'])
+@chat.route('/chat', methods=['POST'])
 def api():
     """
     Endpoint to converse with the chatbot.

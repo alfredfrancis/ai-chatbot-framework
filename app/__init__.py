@@ -1,9 +1,9 @@
 import os
-from flask import Flask,send_from_directory
+from flask import Flask, send_from_directory, Blueprint
 from flask_cors import CORS
 from flask_mongoengine import MongoEngine
 from config import config
-from app.dialogue_manager.dialogue_manager import DialogueManager
+from app.bot.dialogue_manager.dialogue_manager import DialogueManager
 
 admin_panel_dist = 'static/'
 
@@ -29,19 +29,24 @@ def create_app(env="Development"):
     dialogue_manager.update_model(app.config["MODELS_DIR"])
     app.dialogue_manager : DialogueManager = dialogue_manager
 
-    from app.bots.controllers import bots
-    from app.nlu.controllers import nlu
-    from app.intents.controllers import intents
-    from app.train.controllers import train
-    from app.chat.controllers import chat
-    from app.entities.controllers import entities_blueprint
+    from app.admin.bots.controllers import bots
+    from app.admin.intents.controllers import intents
+    from app.admin.train.controllers import train
+    from app.bot.chat.controllers import chat
+    from app.admin.entities.controllers import entities_blueprint
 
-    app.register_blueprint(nlu)
-    app.register_blueprint(intents)
-    app.register_blueprint(train)
+    # bot endpoints
+    # TODO: move to a isolated web server
     app.register_blueprint(chat)
-    app.register_blueprint(bots)
-    app.register_blueprint(entities_blueprint)
+
+    # admin endpoints
+    admin_routes = Blueprint('admin', __name__, url_prefix='/admin/')
+    admin_routes.register_blueprint(intents)
+    admin_routes.register_blueprint(train)
+    admin_routes.register_blueprint(bots)
+    admin_routes.register_blueprint(entities_blueprint)
+    app.register_blueprint(admin_routes)
+
 
     @app.route('/ready')
     def ready():
@@ -50,10 +55,6 @@ def create_app(env="Development"):
     @app.route('/<path:path>', methods=['GET'])
     def static_proxy(path):
         return send_from_directory(admin_panel_dist, path)
-
-    @app.route('/')
-    def root():
-        return send_from_directory(admin_panel_dist, 'index.html')
 
     @app.errorhandler(404)
     def not_found(error):

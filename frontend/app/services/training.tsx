@@ -79,7 +79,7 @@ interface IntentModel {
   };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/admin/';
 
 export const saveTrainingData = async (intentId: string, data: Example[]) => {
   const response = await fetch(`${API_BASE_URL}train/${intentId}/data`, {
@@ -96,7 +96,7 @@ export const getTrainingData = async (intentId: string): Promise<Example[]> => {
 };
 
 export const trainModels = async () => {
-  const response = await fetch(`${API_BASE_URL}nlu/build_models`, {
+  const response = await fetch(`${API_BASE_URL}train/build_models`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),

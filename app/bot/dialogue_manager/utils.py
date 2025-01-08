@@ -4,7 +4,7 @@ import requests
 from jinja2 import Undefined
 
 from flask import current_app as app
-from app.entities.models import Entity
+from app.repository.entities import Entity
 
 
 def split_sentence(sentence):
