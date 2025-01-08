@@ -11,7 +11,7 @@ cli = AppGroup('manage', help='migrate commands')
 def migrate():
     from app.agents.models import Bot
     from app.intents.controllers import import_json
-    from app.nlu.training import train_models
+    from app.nlu.training import train_pipeline
 
     # Create default bot
     try:
@@ -35,7 +35,7 @@ def migrate():
     # Train models
     try:
         print("Training models..")
-        train_models(app)
+        train_pipeline(app.config["MODELS_DIR"])
         print("Training models finished.")
     except Exception as e:
         error_message = str(e)

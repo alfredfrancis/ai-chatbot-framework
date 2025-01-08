@@ -9,7 +9,7 @@ from app.commons.utils import update_document
 from app.intents.models import ApiDetails
 from app.intents.models import Intent
 from app.intents.models import Parameter
-from app.nlu.training import train_models
+from app.nlu.training import train_pipeline
 
 intents = Blueprint('intents_blueprint', __name__,
                     url_prefix='/intents')
@@ -106,7 +106,7 @@ def delete_intent(id):
     Intent.objects.get(id=ObjectId(id)).delete()
 
     try:
-        train_models()
+        train_pipeline(app.config["MODELS_DIR"])
     except BaseException:
         pass
 

@@ -2,17 +2,50 @@
 
 import pycrfsuite
 from flask import current_app as app
-from app import spacy_tokenizer
-from app.nlu.entity_extractors.utils import pos_tagger, pos_tag_and_label, sentence_tokenize
 
 
-class EntityExtractor:
+class CRFEntityExtractor:
     """
     Performs NER training, prediction, model import/export
     """
 
-    def __init__(self, synonyms=[]):
+    def __init__(self, tokenizer, synonyms=[]):
+        self.tokenizer = tokenizer
         self.synonyms = synonyms
+
+    def pos_tagger(self, sentence):
+        """
+        perform POS tagging on a given sentence
+        :param sentence:
+        :return:
+        """
+        doc = self.tokenizer(sentence)
+        tagged_sentence = []
+        for token in doc:
+            tagged_sentence.append((token.text, token.tag_))
+        return tagged_sentence, doc
+
+    def pos_tag_and_label(self, sentence):
+        """
+        Perform POS tagging and BIO labeling on given sentence
+        :param sentence:
+        :return:
+        """
+        tagged_sentence, _ = self.pos_tagger(sentence)
+        tagged_sentence_json = []
+        for token, postag in tagged_sentence:
+            tagged_sentence_json.append([token, postag, "O"])
+        return tagged_sentence_json
+
+    def sentence_tokenize(self, sentences):
+        """
+        Sentence tokenizer
+        :param sentences:
+        :return:
+        """
+        doc = self.tokenizer(sentences)
+        words = [token.text for token in doc]
+        return " ".join(words)
 
     def replace_synonyms(self, entities):
         """
@@ -22,12 +55,9 @@ class EntityExtractor:
         :return:
         """
         for entity in entities.keys():
-
             entity_value = str(entities[entity])
-
             if entity_value.lower() in self.synonyms:
                 entities[entity] = self.synonyms[entity_value.lower()]
-
         return entities
 
     def extract_features(self, sent, i):
@@ -127,7 +157,6 @@ class EntityExtractor:
         trainer.train('model_files/%s.model' % model_name)
         return True
 
-    # Extract Labels from BIO tagged sentence
     def crf2json(self, tagged_sentence):
         """
         Extract label-value pair from NER prediction output
@@ -165,10 +194,8 @@ class EntityExtractor:
         :param sentence:
         :return:
         """
-
-        doc = spacy_tokenizer(sentence)
+        tagged_token, doc = self.pos_tagger(sentence)
         words = [token.text for token in doc]
-        tagged_token = pos_tagger(sentence)
         tagger = pycrfsuite.Tagger()
         tagger.open("{}/{}.model".format(app.config["MODELS_DIR"], model_name))
         predicted_labels = tagger.tag(self.sent_to_features(tagged_token))
@@ -176,46 +203,43 @@ class EntityExtractor:
             zip(words, predicted_labels))
         return self.replace_synonyms(extracted_entities)
 
-    @staticmethod
-    def json2crf(training_data):
+    def json2crf(self, training_data):
         """
         Takes json annotated data and converts to
         CRFSuite training data representation
         :param training_data:
         :return labeled_examples:
         """
-
         labeled_examples = []
 
         for example in training_data:
             # POS tag and initialize bio label as 'O' for all the tokens
-            tagged_example = pos_tag_and_label(example.get("text"))
+            tagged_example = self.pos_tag_and_label(example.get("text"))
 
             # find no of words before selection
-            for enitity in example.get("entities"):
-
+            for entity in example.get("entities"):
                 try:
-                    begin_index = enitity.get("begin")
-                    end_index = enitity.get("end")
+                    begin_index = entity.get("begin")
+                    end_index = entity.get("end")
                     # find no of words before the entity
                     inverse_selection = example.get("text")[0:begin_index - 1]
-                    inverse_selection = sentence_tokenize(inverse_selection)
+                    inverse_selection = self.sentence_tokenize(inverse_selection)
                     inverse_selection = inverse_selection.split(" ")
                     inverse_word_count = len(inverse_selection)
 
                     # get the entity value from selection
                     selection = example.get("text")[begin_index:end_index]
 
-                    tokens = sentence_tokenize(selection).split(" ")
+                    tokens = self.sentence_tokenize(selection).split(" ")
 
                     selection_word_count = len(tokens)
 
                     # build BIO tagging
                     for i in range(1, selection_word_count + 1):
                         if i == 1:
-                            bio = "B-" + enitity.get("name")
+                            bio = "B-" + entity.get("name")
                         else:
-                            bio = "I-" + enitity.get("name")
+                            bio = "I-" + entity.get("name")
                         tagged_example[(inverse_word_count + i) - 1][2] = bio
                 except:
                     # catches and skips invalid offsets and annotation

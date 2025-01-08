@@ -18,6 +18,7 @@ class ChatModel:
         self.input_text = input_text
         self.context = context or {}
         self.intent = intent or {}
+        self.nlu = {}
         self.extracted_parameters = extracted_parameters or {}
         self.missing_parameters = missing_parameters or []
         self.complete = complete
@@ -48,6 +49,7 @@ class ChatModel:
             "input": self.input_text,
             "context": self.context,
             "intent": self.intent,
+            "nlu": self.nlu,
             "extractedParameters": self.extracted_parameters,
             "missingParameters": self.missing_parameters,
             "complete": self.complete,
@@ -60,3 +62,12 @@ class ChatModel:
 
     def clone(self):
         return deepcopy(self)
+
+    def reset(self):
+        self.complete = False
+        self.intent = {}
+        self.missing_parameters = []
+        self.extracted_parameters = {}
+        self.parameters = []
+        self.current_node = {}
+        self.speech_response = {}

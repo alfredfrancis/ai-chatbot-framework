@@ -11,7 +11,7 @@ dialogue_manager : DialogueManager  = DialogueManager()
 @chat.before_app_first_request
 def initialize_dialogue_manager():
     global dialogue_manager
-    dialogue_manager.update_model(app)
+    dialogue_manager.update_model(app.config["MODELS_DIR"])
 
 @chat.route('/v1', methods=['POST'])
 def api():

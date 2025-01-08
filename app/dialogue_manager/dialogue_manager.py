@@ -3,8 +3,7 @@ import logging
 from jinja2 import Template
 from app.agents.models import Bot
 from app.intents.models import Intent
-from app.nlu.classifiers.sklearn_intent_classifer import SklearnIntentClassifier
-from app.nlu.entity_extractors.crf_entity_extractor import EntityExtractor
+from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor
 from app.chat.utils import SilentUndefined, call_api, get_synonyms, split_sentence
 from app.dialogue_manager.models import ChatModel
 
@@ -12,19 +11,24 @@ logger = logging.getLogger('dialogue_manager')
 
 class DialogueManager:
     def __init__(self):
-        self.sentence_classifier = SklearnIntentClassifier()
-        self.synonyms = None
-        self.entity_extraction = None
-
-    def update_model(self, app):
+        self.nlu_pipeline = NLUPipeline()
+        
+    def update_model(self, models_dir):
         """
         Signal hook to be called after training is completed.
         Reloads ML models and synonyms.
         """
-        self.sentence_classifier.load(app.config["MODELS_DIR"])
-        self.synonyms = get_synonyms()
-        self.entity_extraction = EntityExtractor(self.synonyms)
-        logger.info("Intent Model updated")
+        synonyms = get_synonyms()
+        
+        # Initialize pipeline with components
+        self.nlu_pipeline = NLUPipeline([
+            IntentClassifier(),
+            EntityExtractor(synonyms)
+        ])
+        
+        # Load models
+        self.nlu_pipeline.load(models_dir)
+        logger.info("NLU Pipeline models updated")
 
     def process(self, app, chat_model: ChatModel) -> ChatModel:
         """
@@ -37,34 +41,56 @@ class DialogueManager:
         chat_model_response = chat_model.clone()
         context = {"context": chat_model.context}
 
+        # reset intent and parameters of already completed conversation
+        if chat_model_response.complete:
+            chat_model_response.reset()
+
+
+
         try:
-            # Step 1: Get intent ID and confidence
-            intent_id, confidence = self._get_intent_id_and_confidence(app, chat_model)
+            # Step 1: Process through NLU pipeline
+            nlu_result = self.nlu_pipeline.process({"text": chat_model_response.input_text})
+            
+            # Step 2: Get intent ID and confidence
+            query_intent_id, intent_confidence = self._get_intent_id_and_confidence(app, chat_model_response, nlu_result)
 
-            # Step 2: Retrieve the intent object
-            intent = self._get_intent(intent_id)
-            if intent is None:
-                intent = self._get_fallback_intent(app)
+            # Step 3: Retrieve the intent object
+            query_intent = self._get_intent(query_intent_id)
+            if query_intent is None:
+                query_intent = self._get_fallback_intent(app)
+            
+            chat_model_response.nlu = nlu_result
 
-            # Step 3: Process the intent
-            chat_model_response = self._process_intent(intent, confidence, chat_model, chat_model_response, context)
+            # if query_intent is not the same as acitve intent, fetch active intent as well
+            active_intent_id = chat_model_response.intent.get("id")
+            if active_intent_id and  query_intent_id != active_intent_id:
+                active_intent = self._get_intent(chat_model_response.intent["id"])
+            else:
+                active_intent = query_intent
 
-            # Step 4: Handle API trigger if the intent is complete
+            # Step 4: Process the intent
+            chat_model_response, active_intent = self._process_intent(query_intent, active_intent, chat_model_response, context, nlu_result)
+            chat_model_response.intent = {
+                "id": active_intent.intentId
+            }
+
+            # Step 5: Handle API trigger if the intent is complete
             if chat_model_response.complete:
-                chat_model_response = self._handle_api_trigger(intent, chat_model_response, context)
+                chat_model_response = self._handle_api_trigger(active_intent, chat_model_response, context)
 
-            logger.info(f"Processed input: {chat_model.input_text}", extra=chat_model_response.to_json())
+            logger.info(f"Processed input: {chat_model_response.input_text}", extra=chat_model_response.to_json())
             return chat_model_response
 
         except Exception as e:
             logger.error(f"Error processing request: {e}", exc_info=True)
             raise
 
-    def _get_intent_id_and_confidence(self, app, chat_model):
+    def _get_intent_id_and_confidence(self, app, chat_model, nlu_result):
         """
         Determine the intent ID and confidence based on the request input.
 
         :param chat_model: The ChatModel instance containing the request data.
+        :param nlu_result: The result from NLU pipeline processing.
         :return: Tuple of (intent_id, confidence).
         """
         input_text = chat_model.input_text
@@ -72,27 +98,15 @@ class DialogueManager:
             intent_id = input_text.split("/")[1]
             confidence = 1.0
         else:
-            intent_id, confidence, _ = self._predict(app, input_text)
-        logger.info(f"Predicted intent_id: {intent_id}")
+            predicted = nlu_result["intent"]
+            bot = Bot.objects.get(name="default")
+            
+            if predicted["confidence"] < bot.config.get("confidence_threshold", 0.90):
+                intent = Intent.objects.get(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"])
+                return intent.intentId, 1.0
+            else:
+                return predicted["intent"], predicted["confidence"]
         return intent_id, confidence
-
-    def _predict(self, app, sentence):
-        """
-        Predict the intent using the intent classifier.
-
-        :param sentence: The input sentence to classify.
-        :return: Tuple of (predicted intent ID, confidence, other intents).
-        """
-        bot = Bot.objects.get(name="default")
-        predicted, intents = self.sentence_classifier.process(sentence)
-        logger.info(f"Predicted intent: {predicted}")
-        logger.info(f"Other intents: {intents}")
-
-        if predicted["confidence"] < bot.config.get("confidence_threshold", 0.90):
-            intent = Intent.objects.get(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"])
-            return intent.intentId, 1.0, []
-        else:
-            return predicted["intent"], predicted["confidence"], intents[1:]
 
     def _get_intent(self, intent_id):
         """
@@ -116,32 +130,35 @@ class DialogueManager:
         fallback_intent_id = app.config.get("DEFAULT_FALLBACK_INTENT_NAME")
         return Intent.objects.get(intentId=fallback_intent_id)
 
-    def _process_intent(self, intent, confidence, chat_model, chat_model_response, context):
+    def _process_intent(self, query_intent, active_intent, chat_model_response, context, nlu_result):
         """
         Process the intent and update the result model with extracted parameters and other details.
 
-        :param intent: The Intent object.
+        :param query_intent: The Intent object representing the current query.
         :param confidence: The confidence score of the intent prediction.
         :param chat_model: The original ChatModel instance.
         :param chat_model_response: The ChatModel instance to be updated.
         :param context: The context dictionary.
+        :param nlu_result: The result from NLU pipeline processing.
         :return: Updated ChatModel instance.
         """
-        chat_model_response.intent = {
-            "object_id": str(intent.id),
-            "confidence": confidence,
-            "id": intent.intentId
-        }
 
-        parameters = intent.parameters or []
-        chat_model_response.extracted_parameters = chat_model.extracted_parameters
+        # cancel intent should cancel active intent and reset chat model
+        if query_intent.intentId == "cancel":
+            active_intent = query_intent
+            chat_model_response.complete = True
+            chat_model_response.parameters = []
+            chat_model_response.extracted_parameters = {}
+            chat_model_response.missing_parameters = {}
+            chat_model_response.current_node = None
+            return chat_model_response, active_intent
+
+
+        parameters = active_intent.parameters or []
 
         if parameters:
-            # Extract entities and update extracted_parameters
-            extracted_entities = self.entity_extraction.predict(intent.intentId, chat_model.input_text)
-
-            # Replace synonyms in the extracted parameters
-            extracted_entities = self.entity_extraction.replace_synonyms(extracted_entities)
+            # Get entities from NLU pipeline result
+            extracted_entities = nlu_result.get("entities", {})
 
             # Group entities by type
             entities_by_type = {}
@@ -150,9 +167,22 @@ class DialogueManager:
                     entities_by_type[entity_name] = []
                 entities_by_type[entity_name].append(entity_value)
 
+            # populate parameters
+            if len(chat_model_response.parameters) == 0:
+                for param in parameters:
+                    chat_model_response.parameters.append({
+                        "name": param.name,
+                        "type": param.type,
+                        "required": param.required
+                    })
+                    
             # Match extracted entities with parameters based on type
             for param in parameters:
-                if param.type != "free_text":  # Skip free_text parameters
+                # For free_text parameters being prompted
+                if param.type == "free_text" and chat_model_response.current_node == param.name:
+                    chat_model_response.extracted_parameters[param.name] = chat_model_response.input_text
+                    continue
+                else:
                     # Get all entities of matching type
                     if param.type in entities_by_type and entities_by_type[param.type]:
                         # Take the next available entity of this type
@@ -162,13 +192,13 @@ class DialogueManager:
             context["parameters"] = chat_model_response.extracted_parameters
 
             # Handle missing parameters
-            chat_model_response = self._handle_missing_parameters(parameters, chat_model_response, intent)
+            chat_model_response = self._handle_missing_parameters(parameters, chat_model_response)
 
         # Check if there are no missing parameters to mark the intent as complete
         chat_model_response.complete = not chat_model_response.missing_parameters
-        return chat_model_response
+        return chat_model_response, active_intent
 
-    def _handle_missing_parameters(self, parameters, chat_model_response, intent):
+    def _handle_missing_parameters(self, parameters, chat_model_response):
         """
         Handle missing parameters in the result model.
 
@@ -179,20 +209,12 @@ class DialogueManager:
         """
         missing_parameters = []
         chat_model_response.missing_parameters = []
-        chat_model_response.parameters = []
+
+        # clear current node
+        chat_model_response.current_node = None
+        chat_model_response.speech_response = None
 
         for parameter in parameters:
-            chat_model_response.parameters.append({
-                "name": parameter.name,
-                "type": parameter.type,
-                "required": parameter.required
-            })
-
-            # For free_text parameters being prompted
-            if parameter.type == "free_text" and chat_model_response.current_node == parameter.name:
-                chat_model_response.extracted_parameters[parameter.name] = chat_model_response.input_text
-                continue
-
             if parameter.required and parameter.name not in chat_model_response.extracted_parameters:
                 chat_model_response.missing_parameters.append(parameter.name)
                 missing_parameters.append(parameter)

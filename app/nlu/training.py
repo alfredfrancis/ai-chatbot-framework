@@ -1,65 +1,39 @@
 # -*- coding: utf-8 -*-
 import os
-
-from flask import current_app as app
 from app.chat.controllers import dialogue_manager
 from app.intents.models import Intent
-from app.nlu.classifiers.sklearn_intent_classifer import \
-    SklearnIntentClassifier
-from app.nlu.entity_extractors.crf_entity_extractor import EntityExtractor
+from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor
+from app.chat.utils import get_synonyms
 
-def train_models(app):
+def train_pipeline(models_dir):
     """
-    Initiate NER and Intent Classification training
+    Initiate NLU pipeline training
     :return:
     """
-    # create models dir if doesnt exist
-    if not os.path.exists(app.config["MODELS_DIR"]):
-        os.makedirs(app.config["MODELS_DIR"])
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
 
-    # generate intent classifier training data
+    # get all intents
     intents = Intent.objects
-
     if not intents:
-        raise Exception("NO_DATA")
+        raise Exception("No intents found for training")
 
-    # train intent classifier on all intents
-    train_intent_classifier(intents)
-
-    # train ner model for each Stories
+    # prepare training data
+    training_data = []
     for intent in intents:
-        train_all_ner(intent.intentId, intent.trainingData)
-
-    dialogue_manager.update_model(app)
-
-def train_intent_classifier(intents):
-    """
-    Train intent classifier model
-    :param intents:
-    :return:
-    """
-    X = []
-    y = []
-    for intent in intents:
-        training_data = intent.trainingData
-        for example in training_data:
+        for example in intent.trainingData:
             if example.get("text").strip() == "":
                 continue
-            X.append(example.get("text"))
-            y.append(intent.intentId)
+            example["intent"] = intent.intentId
+            training_data.append(example)
 
-    intent_classifier = SklearnIntentClassifier()
-    intent_classifier.train(X, y,outpath=app.config["MODELS_DIR"])
+    # initialize and train pipeline
+    synonyms = get_synonyms()
+    pipeline = NLUPipeline([
+        IntentClassifier(),
+        EntityExtractor(synonyms)
+    ])
+    pipeline.train(training_data, models_dir)
 
-def train_all_ner(story_id, training_data):
-    """
-    Train NER model for single Story
-    :param story_id:
-    :param training_data:
-    :return:
-    """
-    entityExtraction = EntityExtractor()
-    # generate crf training data
-    ner_training_data = entityExtraction.json2crf(training_data)
-    # train and store ner model
-    entityExtraction.train(ner_training_data, story_id)
+    # update dialogue manager with new models
+    dialogue_manager.update_model(models_dir)
