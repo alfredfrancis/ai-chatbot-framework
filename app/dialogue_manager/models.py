@@ -1,6 +1,76 @@
 from typing import Optional, Dict, List, Any
 from datetime import datetime
 from copy import deepcopy
+from dataclasses import dataclass
+
+@dataclass
+class ApiDetailsModel:
+    url: str
+    request_type: str
+    headers: List[Dict[str, str]]
+    is_json: bool = False
+    json_data: str = "{}"
+
+    def get_headers(self) -> Dict[str, str]:
+        headers = {}
+        for header in self.headers:
+            headers[header["headerKey"]] = header["headerValue"]
+        return headers
+
+@dataclass
+class ParameterModel:
+    name: str
+    required: bool = False
+    type: Optional[str] = None
+    prompt: Optional[str] = None
+
+@dataclass
+class IntentModel:
+    name: str
+    intent_id: str
+    speech_response: str
+    user_defined: bool = True
+    api_trigger: bool = False
+    api_details: Optional[ApiDetailsModel] = None
+    parameters: List[ParameterModel] = None
+
+    def __post_init__(self):
+        if self.parameters is None:
+            self.parameters = []
+
+    @classmethod
+    def from_db(cls, db_intent):
+        """Convert database Intent model to domain Intent model"""
+        api_details = None
+        if db_intent.apiDetails:
+            api_details = ApiDetailsModel(
+                url=db_intent.apiDetails.url,
+                request_type=db_intent.apiDetails.requestType,
+                headers=db_intent.apiDetails.headers,
+                is_json=db_intent.apiDetails.isJson,
+                json_data=db_intent.apiDetails.jsonData
+            )
+
+        parameters = []
+        if db_intent.parameters:
+            parameters = [
+                ParameterModel(
+                    name=p.name,
+                    required=p.required,
+                    type=p.type,
+                    prompt=p.prompt
+                ) for p in db_intent.parameters
+            ]
+
+        return cls(
+            name=db_intent.name,
+            intent_id=db_intent.intentId,
+            speech_response=db_intent.speechResponse,
+            user_defined=db_intent.userDefined,
+            api_trigger=db_intent.apiTrigger,
+            api_details=api_details,
+            parameters=parameters
+        )
 
 class ChatModel:
     def __init__(self,

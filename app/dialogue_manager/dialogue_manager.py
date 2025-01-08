@@ -1,36 +1,64 @@
 import json
 import logging
+from typing import Dict, List, Optional, Tuple
 from jinja2 import Template
-from app.agents.models import Bot
+from app.bots.models import Bot
 from app.intents.models import Intent
 from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor
-from app.chat.utils import SilentUndefined, call_api, get_synonyms, split_sentence
-from app.dialogue_manager.models import ChatModel
+from app.dialogue_manager.utils import SilentUndefined, call_api, get_synonyms, split_sentence
+from app.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
 
 logger = logging.getLogger('dialogue_manager')
 
 class DialogueManager:
-    def __init__(self):
-        self.nlu_pipeline = NLUPipeline()
+    def __init__(self,
+         intents: List[IntentModel],
+         nlu_pipeline: NLUPipeline,
+         fallback_intent_id: str,
+         confidence_threshold: float = 0.90,
+    ):
+        self.nlu_pipeline = nlu_pipeline
+        self.intents = {intent.intent_id: intent for intent in intents}  # Map for faster lookup
+        self.fallback_intent_id = fallback_intent_id
+        self.confidence_threshold = confidence_threshold
+
+    @classmethod
+    def from_config(cls, app):
+        """
+        Initialize DialogueManager with all required dependencies
+        """
+
+        synonyms = get_synonyms()
+
+        # Initialize pipeline with components
+        nlu_pipeline = NLUPipeline([
+            IntentClassifier(),
+            EntityExtractor(synonyms)
+        ])
+        
+        # Load all intents and convert to domain models
+        db_intents = Intent.objects
+        intents = [IntentModel.from_db(intent) for intent in db_intents]
+        
+        # Get configuration
+        fallback_intent_id = app.config.get("DEFAULT_FALLBACK_INTENT_NAME")
+        
+        # Get bot configuration
+        bot = Bot.objects.get(name="default")
+        confidence_threshold = bot.config.get("confidence_threshold", 0.90)
+        
+        return cls(intents, nlu_pipeline, fallback_intent_id, confidence_threshold)
         
     def update_model(self, models_dir):
         """
         Signal hook to be called after training is completed.
         Reloads ML models and synonyms.
         """
-        synonyms = get_synonyms()
-        
-        # Initialize pipeline with components
-        self.nlu_pipeline = NLUPipeline([
-            IntentClassifier(),
-            EntityExtractor(synonyms)
-        ])
-        
         # Load models
         self.nlu_pipeline.load(models_dir)
         logger.info("NLU Pipeline models updated")
 
-    def process(self, app, chat_model: ChatModel) -> ChatModel:
+    def process(self, chat_model: ChatModel) -> ChatModel:
         """
         Single entry point to process the dialogue request.
 
@@ -45,33 +73,31 @@ class DialogueManager:
         if chat_model_response.complete:
             chat_model_response.reset()
 
-
-
         try:
             # Step 1: Process through NLU pipeline
             nlu_result = self.nlu_pipeline.process({"text": chat_model_response.input_text})
             
             # Step 2: Get intent ID and confidence
-            query_intent_id, intent_confidence = self._get_intent_id_and_confidence(app, chat_model_response, nlu_result)
+            query_intent_id, intent_confidence = self._get_intent_id_and_confidence(chat_model_response, nlu_result)
 
             # Step 3: Retrieve the intent object
             query_intent = self._get_intent(query_intent_id)
             if query_intent is None:
-                query_intent = self._get_fallback_intent(app)
+                query_intent = self._get_fallback_intent()
             
             chat_model_response.nlu = nlu_result
 
-            # if query_intent is not the same as acitve intent, fetch active intent as well
+            # if query_intent is not the same as active intent, fetch active intent as well
             active_intent_id = chat_model_response.intent.get("id")
-            if active_intent_id and  query_intent_id != active_intent_id:
+            if active_intent_id and query_intent_id != active_intent_id:
                 active_intent = self._get_intent(chat_model_response.intent["id"])
             else:
                 active_intent = query_intent
 
             # Step 4: Process the intent
-            chat_model_response, active_intent = self._process_intent(query_intent, active_intent, chat_model_response, context, nlu_result)
+            chat_model_response = self._process_intent(query_intent, active_intent, chat_model_response, context, nlu_result)
             chat_model_response.intent = {
-                "id": active_intent.intentId
+                "id": active_intent.intent_id
             }
 
             # Step 5: Handle API trigger if the intent is complete
@@ -85,13 +111,9 @@ class DialogueManager:
             logger.error(f"Error processing request: {e}", exc_info=True)
             raise
 
-    def _get_intent_id_and_confidence(self, app, chat_model, nlu_result):
+    def _get_intent_id_and_confidence(self, chat_model: ChatModel, nlu_result: Dict) -> Tuple[str, float]:
         """
         Determine the intent ID and confidence based on the request input.
-
-        :param chat_model: The ChatModel instance containing the request data.
-        :param nlu_result: The result from NLU pipeline processing.
-        :return: Tuple of (intent_id, confidence).
         """
         input_text = chat_model.input_text
         if input_text.startswith("/"):
@@ -99,62 +121,40 @@ class DialogueManager:
             confidence = 1.0
         else:
             predicted = nlu_result["intent"]
-            bot = Bot.objects.get(name="default")
-            
-            if predicted["confidence"] < bot.config.get("confidence_threshold", 0.90):
-                intent = Intent.objects.get(intentId=app.config["DEFAULT_FALLBACK_INTENT_NAME"])
-                return intent.intentId, 1.0
+            if predicted["confidence"] < self.confidence_threshold:
+                return self.fallback_intent_id, 1.0
             else:
                 return predicted["intent"], predicted["confidence"]
         return intent_id, confidence
 
-    def _get_intent(self, intent_id):
+    def _get_intent(self, intent_id: str) -> Optional[IntentModel]:
         """
         Retrieve the intent object by its ID.
-
-        :param intent_id: The ID of the intent.
-        :return: The Intent object.
         """
-        try:
-            return Intent.objects.get(intentId=intent_id)
-        except Intent.DoesNotExist:
-            logger.warning(f"Intent not found: {intent_id}")
-            return None
+        return self.intents.get(intent_id)
 
-    def _get_fallback_intent(self, app):
+    def _get_fallback_intent(self) -> IntentModel:
         """
-        Retrieve the fallback intent from the app configuration.
-
-        :return: The fallback Intent object.
+        Retrieve the fallback intent.
         """
-        fallback_intent_id = app.config.get("DEFAULT_FALLBACK_INTENT_NAME")
-        return Intent.objects.get(intentId=fallback_intent_id)
+        return self.intents[self.fallback_intent_id]
 
-    def _process_intent(self, query_intent, active_intent, chat_model_response, context, nlu_result):
+    def _process_intent(self, query_intent: IntentModel, active_intent: IntentModel, 
+                       chat_model_response: ChatModel, context: Dict, nlu_result: Dict) -> ChatModel:
         """
         Process the intent and update the result model with extracted parameters and other details.
-
-        :param query_intent: The Intent object representing the current query.
-        :param confidence: The confidence score of the intent prediction.
-        :param chat_model: The original ChatModel instance.
-        :param chat_model_response: The ChatModel instance to be updated.
-        :param context: The context dictionary.
-        :param nlu_result: The result from NLU pipeline processing.
-        :return: Updated ChatModel instance.
         """
-
         # cancel intent should cancel active intent and reset chat model
-        if query_intent.intentId == "cancel":
+        if query_intent.intent_id == "cancel":
             active_intent = query_intent
             chat_model_response.complete = True
             chat_model_response.parameters = []
             chat_model_response.extracted_parameters = {}
             chat_model_response.missing_parameters = {}
             chat_model_response.current_node = None
-            return chat_model_response, active_intent
+            return chat_model_response
 
-
-        parameters = active_intent.parameters or []
+        parameters = active_intent.parameters
 
         if parameters:
             # Get entities from NLU pipeline result
@@ -196,16 +196,11 @@ class DialogueManager:
 
         # Check if there are no missing parameters to mark the intent as complete
         chat_model_response.complete = not chat_model_response.missing_parameters
-        return chat_model_response, active_intent
+        return chat_model_response
 
-    def _handle_missing_parameters(self, parameters, chat_model_response):
+    def _handle_missing_parameters(self, parameters: List[ParameterModel], chat_model_response: ChatModel) -> ChatModel:
         """
         Handle missing parameters in the result model.
-
-        :param parameters: List of parameters from the intent.
-        :param chat_model_response: The ChatModel instance to be updated.
-        :param intent: The Intent object.
-        :return: Updated ChatModel instance.
         """
         missing_parameters = []
         chat_model_response.missing_parameters = []
@@ -226,47 +221,39 @@ class DialogueManager:
 
         return chat_model_response
 
-    def _handle_api_trigger(self, intent, chat_model_response, context):
+    def _handle_api_trigger(self, intent: IntentModel, chat_model_response: ChatModel, context: Dict) -> ChatModel:
         """
         Handle API trigger if the intent requires it.
-
-        :param intent: The Intent object.
-        :param chat_model_response: The ChatModel instance to be updated.
-        :param context: The context dictionary.
-        :return: Updated ChatModel instance.
         """
-        if intent.apiTrigger:
+        if intent.api_trigger and intent.api_details:
             try:
                 result = self._call_intent_api(intent, context)
                 context["result"] = result
-                template = Template(intent.speechResponse, undefined=SilentUndefined)
+                template = Template(intent.speech_response, undefined=SilentUndefined)
                 chat_model_response.speech_response = split_sentence(template.render(**context))
             except Exception as e:
                 logger.warning(f"API call failed: {e}")
                 chat_model_response.speech_response = ["Service is not available. Please try again later."]
         else:
             context["result"] = {}
-            template = Template(intent.speechResponse, undefined=SilentUndefined)
+            template = Template(intent.speech_response, undefined=SilentUndefined)
             chat_model_response.speech_response = split_sentence(template.render(**context))
 
         return chat_model_response
 
-    def _call_intent_api(self, intent, context):
+    def _call_intent_api(self, intent: IntentModel, context: Dict):
         """
         Call the API associated with the intent.
-
-        :param intent: The Intent object.
-        :param context: The context dictionary.
-        :return: The result of the API call.
         """
-        headers = intent.apiDetails.get_headers()
-        url_template = Template(intent.apiDetails.url, undefined=SilentUndefined)
+        api_details = intent.api_details
+        headers = api_details.get_headers()
+        url_template = Template(api_details.url, undefined=SilentUndefined)
         rendered_url = url_template.render(**context)
 
-        if intent.apiDetails.isJson:
-            request_template = Template(intent.apiDetails.jsonData, undefined=SilentUndefined)
+        if api_details.is_json:
+            request_template = Template(api_details.json_data, undefined=SilentUndefined)
             parameters = json.loads(request_template.render(**context))
         else:
             parameters = context.get("parameters", {})
 
-        return call_api(rendered_url, intent.apiDetails.requestType, headers, parameters, intent.apiDetails.isJson)
+        return call_api(rendered_url, api_details.request_type, headers, parameters, api_details.is_json)

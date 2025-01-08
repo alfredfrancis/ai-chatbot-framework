@@ -3,7 +3,7 @@ import os
 from app.chat.controllers import dialogue_manager
 from app.intents.models import Intent
 from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor
-from app.chat.utils import get_synonyms
+from app.dialogue_manager.utils import get_synonyms
 
 def train_pipeline(models_dir):
     """

@@ -29,7 +29,7 @@ def create_app(env="Development"):
     global spacy_tokenizer
     spacy_tokenizer = spacy.load(app.config["SPACY_LANG_MODEL"])
 
-    from app.agents.controllers import bots
+    from app.bots.controllers import bots
     from app.nlu.controllers import nlu
     from app.intents.controllers import intents
     from app.train.controllers import train

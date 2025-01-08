@@ -1,6 +1,3 @@
-from datetime import datetime
-
-import parsedatetime as pdt
 from mongoengine.fields import EmbeddedDocumentField
 from mongoengine.fields import EmbeddedDocumentListField
 from mongoengine.fields import GenericEmbeddedDocumentField
@@ -8,14 +5,6 @@ from mongoengine.fields import GenericReferenceField
 from mongoengine.fields import ListField
 from mongoengine.fields import ReferenceField
 from mongoengine.fields import SortedListField
-
-
-def date_from_string(timeString):
-    cal = pdt.Calendar()
-    now = datetime.now()
-    result = str(cal.parseDT(timeString.strip(), now)[0])
-    return result
-
 
 def update_document(document, data_dict):
     """

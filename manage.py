@@ -9,8 +9,8 @@ cli = AppGroup('manage', help='migrate commands')
 @cli.command('migrate')
 @with_appcontext
 def migrate():
-    from app.agents.models import Bot
-    from app.intents.controllers import import_json
+    from app.bots.models import Bot
+    from app.bots.controllers import import_json
     from app.nlu.training import train_pipeline
 
     # Create default bot

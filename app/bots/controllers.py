@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, Response, abort
 from bson.json_util import dumps, loads
-from app.agents.models import Bot
+from app.bots.models import Bot
 from app.intents.models import Intent
 from app.entities.models import Entity
 from app.commons.utils import update_document
