@@ -11,5 +11,5 @@ def build_models():
     Build Intent classification and NER Models
     :return:
     """
-    train_pipeline(app.config["MODELS_DIR"])
+    train_pipeline(app)
     return jsonify({"result": True})

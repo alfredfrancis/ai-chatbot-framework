@@ -1,23 +1,23 @@
 import os
+from typing import Dict, Any
+
 import cloudpickle
 import numpy as np
-from app import spacy_tokenizer
 
 class SklearnIntentClassifier:
 
     def __init__(self):
         self.model = None
 
-    def get_spacy_embedding(self, sentence):
+    def get_spacy_embedding(self, spacy_doc):
         """
         perform basic cleaning,tokenization and lemmatization
         :param sentence:
         :return list of clean tokens:
         """
-        spacy_obj = spacy_tokenizer(sentence)
-        return np.array(spacy_obj.vector)
+        return np.array(spacy_doc.vector)
 
-    def train(self, X, y, outpath=None, verbose=True):
+    def train(self, training_data, outpath=None, verbose=True):
         """
         Train intent classifier for given training data
         :param X:
@@ -28,6 +28,14 @@ class SklearnIntentClassifier:
         """
         from sklearn.model_selection import GridSearchCV
         from sklearn.svm import SVC
+
+        X = []
+        y = []
+        for example in training_data:
+            if example.get("text", "").strip() == "":
+                continue
+            X.append(example.get("spacy_doc"))
+            y.append(example.get("intent"))
 
         X = np.stack(
             [
@@ -85,12 +93,12 @@ class SklearnIntentClassifier:
         :return: tuple of first, the most probable label
         and second, its probability"""
 
-        pred_result = self.model.predict_proba([self.get_spacy_embedding(X)])
+        pred_result = self.model.predict_proba([self.get_spacy_embedding(X.get("spacy_doc"))])
         # sort the probabilities retrieving the indices of the elements
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
         return sorted_indices, pred_result[:, sorted_indices]
 
-    def process(self, x, INTENT_RANKING_LENGTH=5):
+    def process(self, x: Dict[str, Any], INTENT_RANKING_LENGTH=5):
         """Returns the most likely intent and
         its probability for the input text."""
 

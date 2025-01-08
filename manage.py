@@ -35,7 +35,7 @@ def migrate():
     # Train models
     try:
         print("Training models..")
-        train_pipeline(app.config["MODELS_DIR"])
+        train_pipeline(app)
         print("Training models finished.")
     except Exception as e:
         error_message = str(e)

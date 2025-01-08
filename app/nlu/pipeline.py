@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 import os
 
-from app import spacy_tokenizer
-
 
 class NLUComponent(ABC):
     """Abstract base class for NLU pipeline components."""
@@ -22,6 +20,34 @@ class NLUComponent(ABC):
     def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Process a message and return the extracted information."""
         pass
+
+
+class SpacyFeaturizer(NLUComponent):
+    """Spacy featurizer component that processes text and adds spacy features."""
+    
+    def __init__(self, model_name: str):
+        import spacy
+        self.tokenizer = spacy.load(model_name)
+    
+    def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
+        for example in training_data:
+            if example.get("text", "").strip() == "":
+                continue
+            example["spacy_doc"] = self.tokenizer(example["text"])
+    
+    def load(self, model_path: str) -> bool:
+        """Nothing to load for spacy featurizer."""
+        return True
+    
+    def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Process text with spacy and add doc to message."""
+        if not message.get("text"):
+            return message
+            
+        doc = self.tokenizer(message["text"])
+        message["spacy_doc"] = doc
+        return message
+
 
 class NLUPipeline:
     """Main NLU pipeline that manages components and their execution order."""
@@ -56,6 +82,7 @@ class NLUPipeline:
             message = component.process(message)
         return message
 
+
 class IntentClassifier(NLUComponent):
     """Intent classification wrapper component."""
     
@@ -64,33 +91,26 @@ class IntentClassifier(NLUComponent):
         self.classifier = SklearnIntentClassifier()
     
     def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
-        X = []
-        y = []
-        for example in training_data:
-            if example.get("text", "").strip() == "":
-                continue
-            X.append(example.get("text"))
-            y.append(example.get("intent"))
-        
-        self.classifier.train(X, y, outpath=model_path)
+        self.classifier.train(training_data, outpath=model_path)
     
     def load(self, model_path: str) -> bool:
         return self.classifier.load(model_path)
     
     def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        if not message.get("text"):
+        if not message.get("text") or not message.get("spacy_doc"):
             return message
             
-        predicted, _ = self.classifier.process(message["text"])
+        predicted, _ = self.classifier.process(message)
         message["intent"] = predicted
         return message
+
 
 class EntityExtractor(NLUComponent):
     """Entity extraction wrapper component."""
     
     def __init__(self, synonyms: Optional[Dict[str, str]] = None):
         from app.nlu.entity_extractors.crf_entity_extractor import CRFEntityExtractor
-        self.extractor = CRFEntityExtractor(spacy_tokenizer, synonyms or {})
+        self.extractor = CRFEntityExtractor(synonyms or {})
     
     def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
         # Group training data by intent
@@ -111,10 +131,10 @@ class EntityExtractor(NLUComponent):
         return True
     
     def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        if not message.get("text") or not message.get("intent", {}).get("intent"):
+        if not message.get("text") or not message.get("intent", {}).get("intent") or not message.get("spacy_doc"):
             return message
             
         intent_id = message["intent"]["intent"]
-        entities = self.extractor.predict(intent_id, message["text"])
+        entities = self.extractor.predict(intent_id, message["text"], message["spacy_doc"])
         message["entities"] = entities
         return message 

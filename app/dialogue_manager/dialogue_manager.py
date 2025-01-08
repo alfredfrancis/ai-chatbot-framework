@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from jinja2 import Template
 from app.bots.models import Bot
 from app.intents.models import Intent
-from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor
+from app.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
 from app.dialogue_manager.utils import SilentUndefined, call_api, get_synonyms, split_sentence
 from app.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
 
@@ -12,15 +12,15 @@ logger = logging.getLogger('dialogue_manager')
 
 class DialogueManager:
     def __init__(self,
-         intents: List[IntentModel],
-         nlu_pipeline: NLUPipeline,
-         fallback_intent_id: str,
-         confidence_threshold: float = 0.90,
-    ):
+                 intents: List[IntentModel],
+                 nlu_pipeline: NLUPipeline,
+                 fallback_intent_id: str,
+                 intent_confidence_threshold: float,
+                 ):
         self.nlu_pipeline = nlu_pipeline
         self.intents = {intent.intent_id: intent for intent in intents}  # Map for faster lookup
         self.fallback_intent_id = fallback_intent_id
-        self.confidence_threshold = confidence_threshold
+        self.confidence_threshold = intent_confidence_threshold
 
     @classmethod
     def from_config(cls, app):
@@ -32,6 +32,7 @@ class DialogueManager:
 
         # Initialize pipeline with components
         nlu_pipeline = NLUPipeline([
+            SpacyFeaturizer(app.config["SPACY_LANG_MODEL"]),
             IntentClassifier(),
             EntityExtractor(synonyms)
         ])
@@ -85,7 +86,10 @@ class DialogueManager:
             if query_intent is None:
                 query_intent = self._get_fallback_intent()
             
-            chat_model_response.nlu = nlu_result
+            chat_model_response.nlu = {
+                "entities": nlu_result.get("entities"),
+                "intent": nlu_result.get("intent"),
+            }
 
             # if query_intent is not the same as active intent, fetch active intent as well
             active_intent_id = chat_model_response.intent.get("id")

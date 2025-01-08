@@ -106,7 +106,7 @@ def delete_intent(id):
     Intent.objects.get(id=ObjectId(id)).delete()
 
     try:
-        train_pipeline(app.config["MODELS_DIR"])
+        train_pipeline(app)
     except BaseException:
         pass
 

@@ -3,12 +3,11 @@ from flask import Flask,send_from_directory
 from flask_cors import CORS
 from flask_mongoengine import MongoEngine
 from config import config
+from app.dialogue_manager.dialogue_manager import DialogueManager
 
 admin_panel_dist = 'static/'
 
 db = MongoEngine()
-
-spacy_tokenizer = None
 
 def create_app(env="Development"):
     app = Flask(__name__)
@@ -25,9 +24,10 @@ def create_app(env="Development"):
     CORS(app)
     db.init_app(app)
 
-    import spacy
-    global spacy_tokenizer
-    spacy_tokenizer = spacy.load(app.config["SPACY_LANG_MODEL"])
+    # initialize dialogue_manager
+    dialogue_manager = DialogueManager.from_config(app)
+    dialogue_manager.update_model(app.config["MODELS_DIR"])
+    app.dialogue_manager : DialogueManager = dialogue_manager
 
     from app.bots.controllers import bots
     from app.nlu.controllers import nlu

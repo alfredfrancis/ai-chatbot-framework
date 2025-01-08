@@ -22,7 +22,6 @@ def get_synonyms():
         for value in entity.entity_values:
             for synonym in value.synonyms:
                 synonyms[synonym] = value.value
-    app.logger.info("loaded synonyms %s", synonyms)
     return synonyms
 
 

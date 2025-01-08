@@ -9,41 +9,39 @@ class CRFEntityExtractor:
     Performs NER training, prediction, model import/export
     """
 
-    def __init__(self, tokenizer, synonyms=[]):
-        self.tokenizer = tokenizer
+    def __init__(self, synonyms=[]):
         self.synonyms = synonyms
 
-    def pos_tagger(self, sentence):
+    def pos_tagger(self, doc):
         """
-        perform POS tagging on a given sentence
-        :param sentence:
-        :return:
+        perform POS tagging on a given spacy doc
+        :param doc: spacy doc
+        :return: tagged sentence
         """
-        doc = self.tokenizer(sentence)
         tagged_sentence = []
         for token in doc:
             tagged_sentence.append((token.text, token.tag_))
-        return tagged_sentence, doc
+        return tagged_sentence
 
-    def pos_tag_and_label(self, sentence):
+    def pos_tag_and_label(self, text, doc):
         """
         Perform POS tagging and BIO labeling on given sentence
-        :param sentence:
+        :param text: original text
+        :param doc: spacy doc
         :return:
         """
-        tagged_sentence, _ = self.pos_tagger(sentence)
+        tagged_sentence = self.pos_tagger(doc)
         tagged_sentence_json = []
         for token, postag in tagged_sentence:
             tagged_sentence_json.append([token, postag, "O"])
         return tagged_sentence_json
 
-    def sentence_tokenize(self, sentences):
+    def sentence_tokenize(self, doc):
         """
         Sentence tokenizer
-        :param sentences:
+        :param doc: spacy doc
         :return:
         """
-        doc = self.tokenizer(sentences)
         words = [token.text for token in doc]
         return " ".join(words)
 
@@ -187,15 +185,16 @@ class CRFEntityExtractor:
                 labels.append(tp[2:])
         return labels
 
-    def predict(self, model_name, sentence):
+    def predict(self, model_name, text, doc):
         """
         Predict NER labels for given model and query
-        :param model_name:
-        :param sentence:
+        :param model_name: model name
+        :param text: original text
+        :param doc: spacy doc
         :return:
         """
-        tagged_token, doc = self.pos_tagger(sentence)
         words = [token.text for token in doc]
+        tagged_token = self.pos_tagger(doc)
         tagger = pycrfsuite.Tagger()
         tagger.open("{}/{}.model".format(app.config["MODELS_DIR"], model_name))
         predicted_labels = tagger.tag(self.sent_to_features(tagged_token))
@@ -214,7 +213,7 @@ class CRFEntityExtractor:
 
         for example in training_data:
             # POS tag and initialize bio label as 'O' for all the tokens
-            tagged_example = self.pos_tag_and_label(example.get("text"))
+            tagged_example = self.pos_tag_and_label(example.get("text"), example.get("spacy_doc"))
 
             # find no of words before selection
             for entity in example.get("entities"):
