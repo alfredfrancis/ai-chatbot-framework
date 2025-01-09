@@ -1,15 +1,15 @@
 from typing import Dict
-
 from app.admin.bots.schemas import Bot
 from app.admin.entities.store import list_entities
 from app.admin.intents.store import list_intents
 from app.database import database
-from app.admin.entities.schemas import Entity
-from app.admin.intents.schemas import Intent
 
 bot_collection = database.get_collection("bot")
 intent_collection = database.get_collection("intent")
 entity_collection = database.get_collection("entity")
+
+async def add_bot(data: dict):
+    return await bot_collection.insert_one(data)
 
 async def get_bot(name: str)-> Bot:
     bot = await bot_collection.find_one({"name": name})

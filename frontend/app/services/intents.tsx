@@ -13,10 +13,10 @@ export const getIntent = async (id: string): Promise<IntentModel> => {
 };
 
 export const saveIntent = async (intent: IntentModel): Promise<IntentModel> => {
-  if (intent._id) {
+  if (intent.id) {
     return updateIntent(intent);
   } else {
-    delete intent._id;
+    delete intent.id;
     return createIntent(intent);
   }
 };
@@ -31,7 +31,7 @@ export const createIntent = async (intent: IntentModel): Promise<IntentModel> =>
 };
 
 export const updateIntent = async (intent: IntentModel): Promise<IntentModel> => {
-  const response = await fetch(`${API_BASE_URL}intents/${intent._id?.$oid}`, {
+  const response = await fetch(`${API_BASE_URL}intents/${intent.id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(intent),

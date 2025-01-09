@@ -1,29 +1,27 @@
 import json
-
+import logging
 import requests
 from jinja2 import Undefined
+from app.admin.entities.store import list_entities
 
-from flask import current_app as app
-from app.repository.entities import Entity
-
+logger = logging.getLogger("dialogue_manager")
 
 def split_sentence(sentence):
     return sentence.split("###")
 
-
-def get_synonyms():
+async def get_synonyms():
     """
     Build synonyms dict from DB
     :return:
     """
     synonyms = {}
 
-    for entity in Entity.objects:
+    entities = await list_entities()
+    for entity in entities:
         for value in entity.entity_values:
             for synonym in value.synonyms:
                 synonyms[synonym] = value.value
     return synonyms
-
 
 def call_api(url, type, headers={}, parameters={}, is_json=False):
     """
@@ -34,7 +32,7 @@ def call_api(url, type, headers={}, parameters={}, is_json=False):
     :param is_json:
     :return:
     """
-    app.logger.info("Initiating API Call with following info: url => {} payload => {}".format(url, parameters))
+    logger.debug("Initiating API Call with following info: url => {} payload => {}".format(url, parameters))
     if "GET" in type:
         response = requests.get(url, headers=headers, params=parameters, timeout=5)
     elif "POST" in type:
@@ -52,7 +50,7 @@ def call_api(url, type, headers={}, parameters={}, is_json=False):
     else:
         raise Exception("unsupported request method.")
     result = json.loads(response.text)
-    app.logger.info("API response => %s", result)
+    logger.debug("API response => %s", result)
     return result
 
 
