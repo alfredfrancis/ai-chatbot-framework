@@ -48,7 +48,7 @@ interface EntityValue{
 }
 
 interface EntityModel {
-  _id?: MongoId;
+  id?: string;
   name: string;
   entity_values: EntityValue[];
 }

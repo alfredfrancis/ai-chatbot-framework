@@ -36,6 +36,7 @@ const EntitiesPage: React.FC = () => {
 
     try {
       const result = await createEntity({ name: newEntityName, entity_values: [] });
+      console.log(result)
       setEntities([...entities, result]);
       setNewEntityName('');
       addSnackbar('Entity created successfully', 'success');
@@ -46,7 +47,7 @@ const EntitiesPage: React.FC = () => {
   };
 
   const handleEdit = (entity: EntityModel) => {
-    router.push(`/admin/entities/${entity?._id?.$oid}`);
+    router.push(`/admin/entities/${entity?.id}`);
   };
 
   const handleDelete = async (id: string, index: number) => {
@@ -103,7 +104,7 @@ const EntitiesPage: React.FC = () => {
         <div className="divide-y divide-gray-200">
           {entities.map((entity, index) => (
             <div 
-              key={entity?._id?.$oid}
+              key={entity?.id}
               className="py-4 flex items-center justify-between group"
             >
               <div className="flex-1">
@@ -117,7 +118,7 @@ const EntitiesPage: React.FC = () => {
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(entity?._id?.$oid || "", index)}
+                  onClick={() => handleDelete(entity?.id || "", index)}
                   className="px-3 py-1.5 text-sm font-medium rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200"
                 >
                   Delete
