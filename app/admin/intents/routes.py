@@ -19,7 +19,8 @@ async def read_intents():
 @router.get("/{intent_id}")
 async def read_intent(intent_id: str):
     """Get a specific intent by ID"""
-    return await store.get_intent(intent_id)
+    intent = await store.get_intent(intent_id)
+    return intent
 
 @router.put("/{intent_id}")
 async def update_intent(intent_id: str, intent: Intent):
