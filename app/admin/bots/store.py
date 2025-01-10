@@ -28,7 +28,7 @@ async def export_bot(name) -> Dict:
     entities = await list_entities()
 
     entities = [entity.model_dump(exclude={"id"}) for entity in entities]
-    intents = [intent.model_dump(exclude={"id"})  for intent in intents]
+    intents = [intent.model_dump(exclude={"id": True, "parameters": {'__all__': {"id"}}})  for intent in intents]
 
     export_data = {
         "intents": intents,
