@@ -14,7 +14,7 @@ def migrate():
         from app.admin.bots.store import import_bot
 
         try:
-            default_bot = Bot(name="default")
+            default_bot = Bot(name="default",config={"confidence_threshold": 0.85})
             await add_bot(default_bot.model_dump())
             print(f"Created default bot")
         except DuplicateKeyError:
