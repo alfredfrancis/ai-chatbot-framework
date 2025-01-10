@@ -14,7 +14,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: flask --app=manage manage migrate
+    command: python manage.py migrate
     environment:
       APPLICATION_ENV: Development
       APP_MONGODB_HOST: "mongodb://mongodb:27017/iky-ai"
@@ -26,7 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: flask run --host=0.0.0.0 --debug --port=8080
+    command: fastapi run --host=0.0.0.0 --reload --port=8080
     environment:
       APPLICATION_ENV: Development
       APP_MONGODB_HOST: "mongodb://mongodb:27017/iky-ai"

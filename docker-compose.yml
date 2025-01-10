@@ -2,8 +2,8 @@ version: '2'
 services:
   migrate:
     container_name: migrate
-    image: alfredfrancis/ai-chatbot-framework:latest
-    command: flask --app=manage  manage  migrate
+    image: alfredfrancis/ai-chatbot-framework_backend:latest
+    command: python manage.py migrate
     environment:
       APPLICATION_ENV: Production
     depends_on:
@@ -15,7 +15,7 @@ services:
     hostname: frontend
     restart: always
     ports:
-      - 3000:3000
+      - "3000:3000"
     depends_on:
       - backend
 
@@ -27,7 +27,7 @@ services:
     environment:
       APPLICATION_ENV: Production
     ports:
-      - 8080:80
+      - "8080:80"
     depends_on:
       - migrate
       - mongodb
