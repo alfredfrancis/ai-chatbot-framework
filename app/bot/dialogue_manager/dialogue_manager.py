@@ -4,7 +4,10 @@ from typing import Dict, List, Optional, Tuple
 from jinja2 import Template
 from app.admin.bots.store import get_bot
 from app.admin.intents.store import list_intents
-from app.bot.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
+from app.bot.nlu.pipeline import NLUPipeline
+from app.bot.nlu.featurizers import SpacyFeaturizer
+from app.bot.nlu.intent_classifiers import IntentClassifier
+from app.bot.nlu.entity_extractors import EntityExtractor
 from app.bot.dialogue_manager.utils import SilentUndefined, call_api, get_synonyms, split_sentence
 from app.bot.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
 from app.config import app_config

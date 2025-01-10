@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 import os
 
-
 class NLUComponent(ABC):
     """Abstract base class for NLU pipeline components."""
     
@@ -53,77 +52,3 @@ class NLUPipeline:
         for component in self.components:
             message = component.process(message)
         return message
-
-class SpacyFeaturizer(NLUComponent):
-    """Spacy featurizer component that processes text and adds spacy features."""
-
-    def __init__(self, model_name: str):
-        import spacy
-        self.tokenizer = spacy.load(model_name)
-
-    def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
-        for example in training_data:
-            if example.get("text", "").strip() == "":
-                continue
-            example["spacy_doc"] = self.tokenizer(example["text"])
-
-    def load(self, model_path: str) -> bool:
-        """Nothing to load for spacy featurizer."""
-        return True
-
-    def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        """Process text with spacy and add doc to message."""
-        if not message.get("text"):
-            return message
-
-        doc = self.tokenizer(message["text"])
-        message["spacy_doc"] = doc
-        return message
-
-
-class IntentClassifier(NLUComponent):
-    """Intent classification wrapper component."""
-    
-    def __init__(self):
-        from app.bot.nlu.classifiers.sklearn_intent_classifer import SklearnIntentClassifier
-        self.classifier = SklearnIntentClassifier()
-    
-    def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
-        self.classifier.train(training_data, outpath=model_path)
-    
-    def load(self, model_path: str) -> bool:
-        return self.classifier.load(model_path)
-    
-    def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        if not message.get("text") or not message.get("spacy_doc"):
-            return message
-            
-        predicted, _ = self.classifier.process(message)
-        message["intent"] = predicted
-        return message
-
-
-class EntityExtractor(NLUComponent):
-    """Entity extraction wrapper component."""
-    
-    def __init__(self, synonyms: Optional[Dict[str, str]] = None):
-        from app.bot.nlu.entity_extractors.crf_entity_extractor import CRFEntityExtractor
-        self.extractor = CRFEntityExtractor(synonyms or {})
-    
-    def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
-        # Convert all training data to CRF format at once
-        ner_training_data = self.extractor.json2crf(training_data)
-        # Train a single model for all entities
-        self.extractor.train(ner_training_data, "entity_model")
-    
-    def load(self, model_path: str) -> bool:
-        # Load the single entity model
-        return self.extractor.load(model_path)
-    
-    def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        if not message.get("text") or not message.get("spacy_doc"):
-            return message
-
-        entities = self.extractor.predict(message)
-        message["entities"] = entities
-        return message 

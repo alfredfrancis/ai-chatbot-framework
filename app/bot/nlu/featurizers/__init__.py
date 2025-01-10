@@ -1,0 +1,1 @@
+from app.bot.nlu.featurizers.spacy_featurizer import SpacyFeaturizer

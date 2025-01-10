@@ -1,9 +1,11 @@
-# -*- coding: utf-8 -*-
 import os
 
 from app.bot.dialogue_manager.dialogue_manager import DialogueManager
 from app.admin.intents.store import list_intents
-from app.bot.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
+from app.bot.nlu.pipeline import NLUPipeline
+from app.bot.nlu.featurizers import SpacyFeaturizer
+from app.bot.nlu.intent_classifiers import IntentClassifier
+from app.bot.nlu.entity_extractors import EntityExtractor
 from app.bot.dialogue_manager.utils import get_synonyms
 
 from app.config import app_config
