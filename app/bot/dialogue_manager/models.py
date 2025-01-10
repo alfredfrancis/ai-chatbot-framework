@@ -2,6 +2,8 @@ from typing import Optional, Dict, List, Any
 from datetime import datetime
 from copy import deepcopy
 from dataclasses import dataclass
+from app.admin.intents.schemas import Intent
+
 
 @dataclass
 class ApiDetailsModel:
@@ -39,7 +41,7 @@ class IntentModel:
             self.parameters = []
 
     @classmethod
-    def from_db(cls, db_intent):
+    def from_db(cls, db_intent: Intent):
         """Convert database Intent model to domain Intent model"""
         api_details = None
         if db_intent.apiDetails:

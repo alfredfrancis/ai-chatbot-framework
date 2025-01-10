@@ -13,10 +13,10 @@ export const getEntity = async (id: string): Promise<EntityModel> => {
 };
 
 export const saveEntity = async (entity: EntityModel): Promise<EntityModel> => {
-  if (entity._id) {
+  if (entity.id) {
     return updateEntity(entity);
   } else {
-    delete entity._id;
+    delete entity.id;
     return createEntity(entity);
   }
 };
@@ -31,7 +31,7 @@ export const createEntity = async (entity: EntityModel): Promise<EntityModel> =>
 };
 
 export const updateEntity = async (entity: EntityModel): Promise<EntityModel> => {
-  const response = await fetch(`${API_BASE_URL}entities/${entity._id?.$oid}`, {
+  const response = await fetch(`${API_BASE_URL}entities/${entity.id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(entity),

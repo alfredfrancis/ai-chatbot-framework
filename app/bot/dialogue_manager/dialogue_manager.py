@@ -2,11 +2,12 @@ import json
 import logging
 from typing import Dict, List, Optional, Tuple
 from jinja2 import Template
-from app.repository.bot import Bot
-from app.repository.intents import Intent
+from app.admin.bots.store import get_bot
+from app.admin.intents.store import list_intents
 from app.bot.nlu.pipeline import NLUPipeline, IntentClassifier, EntityExtractor, SpacyFeaturizer
 from app.bot.dialogue_manager.utils import SilentUndefined, call_api, get_synonyms, split_sentence
 from app.bot.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
+from app.config import app_config
 
 logger = logging.getLogger('dialogue_manager')
 
@@ -23,29 +24,29 @@ class DialogueManager:
         self.confidence_threshold = intent_confidence_threshold
 
     @classmethod
-    def from_config(cls, app):
+    async def from_config(cls):
         """
         Initialize DialogueManager with all required dependencies
         """
 
-        synonyms = get_synonyms()
+        synonyms = await get_synonyms()
 
         # Initialize pipeline with components
         nlu_pipeline = NLUPipeline([
-            SpacyFeaturizer(app.config["SPACY_LANG_MODEL"]),
+            SpacyFeaturizer(app_config.SPACY_LANG_MODEL),
             IntentClassifier(),
             EntityExtractor(synonyms)
         ])
         
         # Load all intents and convert to domain models
-        db_intents = Intent.objects
+        db_intents = await list_intents()
         intents = [IntentModel.from_db(intent) for intent in db_intents]
         
         # Get configuration
-        fallback_intent_id = app.config.get("DEFAULT_FALLBACK_INTENT_NAME")
+        fallback_intent_id = app_config.DEFAULT_FALLBACK_INTENT_NAME
         
         # Get bot configuration
-        bot = Bot.objects.get(name="default")
+        bot = await get_bot("default")
         confidence_threshold = bot.config.get("confidence_threshold", 0.90)
         
         return cls(intents, nlu_pipeline, fallback_intent_id, confidence_threshold)
@@ -99,7 +100,7 @@ class DialogueManager:
                 active_intent = query_intent
 
             # Step 4: Process the intent
-            chat_model_response = self._process_intent(query_intent, active_intent, chat_model_response, context, nlu_result)
+            chat_model_response, active_intent = self._process_intent(query_intent, active_intent, chat_model_response, context, nlu_result)
             chat_model_response.intent = {
                 "id": active_intent.intent_id
             }
@@ -144,7 +145,7 @@ class DialogueManager:
         return self.intents[self.fallback_intent_id]
 
     def _process_intent(self, query_intent: IntentModel, active_intent: IntentModel, 
-                       chat_model_response: ChatModel, context: Dict, nlu_result: Dict) -> ChatModel:
+                       chat_model_response: ChatModel, context: Dict, nlu_result: Dict) -> (ChatModel, IntentModel):
         """
         Process the intent and update the result model with extracted parameters and other details.
         """
@@ -156,7 +157,7 @@ class DialogueManager:
             chat_model_response.extracted_parameters = {}
             chat_model_response.missing_parameters = {}
             chat_model_response.current_node = None
-            return chat_model_response
+            return chat_model_response, active_intent
 
         parameters = active_intent.parameters
 
@@ -200,11 +201,15 @@ class DialogueManager:
 
         # Check if there are no missing parameters to mark the intent as complete
         chat_model_response.complete = not chat_model_response.missing_parameters
-        return chat_model_response
+        return chat_model_response, active_intent
 
     def _handle_missing_parameters(self, parameters: List[ParameterModel], chat_model_response: ChatModel) -> ChatModel:
         """
         Handle missing parameters in the result model.
+
+        :param parameters: List of parameters from the intent.
+        :param chat_model_response: The ChatModel instance to be updated.
+        :return: Updated ChatModel instance.
         """
         missing_parameters = []
         chat_model_response.missing_parameters = []

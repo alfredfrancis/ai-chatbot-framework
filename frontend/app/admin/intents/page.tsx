@@ -26,21 +26,21 @@ const IntentsPage: React.FC = () => {
   };
 
   const handleEdit = (intent: IntentModel) => {
-    if(intent._id){
-      router.push(`/admin/intents/${intent._id.$oid}`);
+    if(intent.id){
+      router.push(`/admin/intents/${intent.id}`);
     } 
   };
 
   const handleTrain = (intent: IntentModel) => {
-    if(intent._id){
-    router.push(`/admin/intents/${intent._id.$oid}/train`);
+    if(intent.id){
+    router.push(`/admin/intents/${intent.id}/train`);
     }
   };
 
   const handleDelete = async (intent: IntentModel) => {
-    if (intent._id && window.confirm('Are you sure you want to delete this intent?')) {
+    if (intent.id && window.confirm('Are you sure you want to delete this intent?')) {
       try {
-        await deleteIntent(intent._id.$oid);
+        await deleteIntent(intent.id);
         addSnackbar('Intent deleted successfully', 'success');
         fetchIntents();
       } catch (error) {
@@ -92,7 +92,7 @@ const IntentsPage: React.FC = () => {
       <div className="grid gap-4">
         {intents.map((intent) => (
           <div 
-            key={intent?._id?.$oid} 
+            key={intent?.id} 
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:border-green-200 transition-colors duration-200 group"
           >
             <div className="flex items-center justify-between">
