@@ -26,10 +26,6 @@ interface ChatState {
   date?: Date;
 }
 
-interface MongoId {
-  $oid: string;
-}
-
 interface Entity {
   name: string;
   value: string;
@@ -48,13 +44,13 @@ interface EntityValue{
 }
 
 interface EntityModel {
-  _id?: MongoId;
+  id?: string;
   name: string;
   entity_values: EntityValue[];
 }
 
 interface IntentModel {
-  _id?: MongoId;
+  id?: string;
   name: string;
   description?: string;
   intentId?: string;
@@ -104,4 +100,4 @@ export const trainModels = async () => {
   return response.json();
 };
 
-export type { Entity, Example, EntityModel,EntityValue, IntentModel, ChatState, MongoId, Parameter, Intent }; 
+export type { Entity, Example, EntityModel,EntityValue, IntentModel, ChatState, Parameter, Intent }; 

@@ -230,7 +230,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                       </optgroup>
                       <optgroup label="Entities">
                         {entities.map(entity => (
-                          <option key={entity?._id?.$oid} value={entity.name}>
+                          <option key={entity?.id} value={entity.name}>
                             {entity.name}
                           </option>
                         ))}

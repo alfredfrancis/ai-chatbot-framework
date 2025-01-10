@@ -1,46 +1,43 @@
-from flask.cli import AppGroup, with_appcontext
+import typer
+import asyncio
+from json import loads
+from pymongo.errors import DuplicateKeyError
+from app.main import app
 
-from app import create_app
+cli = typer.Typer()
 
-app = create_app()
-
-cli = AppGroup('manage', help='migrate commands')
-
-@cli.command('migrate')
-@with_appcontext
+@cli.command()
 def migrate():
-    from app.repository.models import Bot
-    from app.admin.bots import import_json
-    from app.bot.nlu.training import train_pipeline
+    async def async_migrate():
+        from app.admin.bots.schemas import Bot
+        from app.admin.bots.store import add_bot
+        from app.admin.bots.store import import_bot
 
-    # Create default bot
-    try:
-        bot = Bot()
-        bot.name = "default"
-        bot.save()
-        print("Created default bot")
-    except Exception as e:
-        print(f"Default bot creation failed or already exists: {e}")
+        try:
+            default_bot = Bot(name="default")
+            await add_bot(default_bot.model_dump())
+            print(f"Created default bot")
+        except DuplicateKeyError:
+            print("Default bot already exists")
 
-    # Import default intents
-    try:
-        with open("migrations/default_intents.json", "r") as json_file:
-            stories = import_json(json_file)
-            print(f"Imported {len(stories)} Stories")
-    except FileNotFoundError:
-        print("Error: 'migrations/default_intents.json' file not found.")
-    except Exception as e:
-        print(f"Failed to import intents: {e}")
+        try:
+            with open("migrations/default_intents.json", "r") as json_file:
+                json_data = loads(json_file.read())
+                imported_intents = await import_bot("default", json_data)
+                print(f"Imported {imported_intents.get('num_intents_created')} intents for default bot")
+        except FileNotFoundError:
+            print("Error: 'migrations/default_intents.json' file not found.")
 
-    # Train models
-    try:
-        print("Training models..")
-        train_pipeline(app)
+    asyncio.run(async_migrate())
+
+@cli.command()
+def train():
+    async def async_train():
+        from app.bot.nlu.training import train_pipeline
+        print("Training models...")
+        await train_pipeline(app)
         print("Training models finished.")
-    except Exception as e:
-        error_message = str(e)
-        if error_message == "NO_DATA":
-            error_message = "Load data first into MongoDB. Refer to the README."
-        print(f"Could not train models: {error_message}")
+    asyncio.run(async_train())
 
-app.cli.add_command(cli)
+if __name__ == "__main__":
+    cli()
