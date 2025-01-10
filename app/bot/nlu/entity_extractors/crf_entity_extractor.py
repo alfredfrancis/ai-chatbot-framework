@@ -1,6 +1,8 @@
 import pycrfsuite
 from app.config import app_config
 
+MODEL_NAME = "crf__entity_extractor.model"
+
 class CRFEntityExtractor:
     """
     Performs NER training, prediction, model import/export
@@ -10,6 +12,7 @@ class CRFEntityExtractor:
         import spacy
         self.tokenizer = spacy.load("en_core_web_md")
         self.synonyms = synonyms
+        self.tagger = None
 
     def replace_synonyms(self, entities):
         """
@@ -88,7 +91,7 @@ class CRFEntityExtractor:
         """
         return [label for token, postag, label in sent]
 
-    def train(self, train_sentences, model_name):
+    def train(self, train_sentences, model_path: str):
         """
         Train NER model for given model
         :param train_sentences:
@@ -110,8 +113,22 @@ class CRFEntityExtractor:
             # include transitions that are possible, but not observed
             'feature.possible_transitions': True
         })
-        trainer.train('model_files/%s.model' % model_name)
+        trainer.train(f"{model_path}/{MODEL_NAME}")
         return True
+
+    def load(self, model_path: str) -> bool:
+        """
+        Load the CRF model from the given path
+        :param model_path: Path to the model directory
+        :return: True if successful, False otherwise
+        """
+        try:
+            self.tagger = pycrfsuite.Tagger()
+            self.tagger.open(f"{model_path}/entity_model.model")
+            return True
+        except Exception as e:
+            print(f"Error loading CRF model: {e}")
+            return False
 
     def crf2json(self, tagged_sentence):
         """
@@ -143,19 +160,16 @@ class CRFEntityExtractor:
                 labels.append(tp[2:])
         return labels
 
-    def predict(self, model_name, message):
+    def predict(self, message):
         """
-        Predict NER labels for given model and query
-        :param model_name:
+        Predict NER labels for given message
         :param message:
         :return:
         """
         spacy_doc = message.get("spacy_doc")
         tagged_token = self.pos_tagger(spacy_doc)
         words = [token.text for token in spacy_doc]
-        tagger = pycrfsuite.Tagger()
-        tagger.open("{}/{}.model".format(app_config.MODELS_DIR, model_name))
-        predicted_labels = tagger.tag(self.sent_to_features(tagged_token))
+        predicted_labels = self.tagger.tag(self.sent_to_features(tagged_token))
         extracted_entities = self.crf2json(
             zip(words, predicted_labels))
         return self.replace_synonyms(extracted_entities)
