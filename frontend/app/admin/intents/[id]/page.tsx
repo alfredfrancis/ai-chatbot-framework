@@ -56,7 +56,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
       ...prev,
       parameters: [...prev.parameters, {
         name: '',
-        type: '',
+        type: 'free_text',
         required: false,
         prompt: ''
       }]
