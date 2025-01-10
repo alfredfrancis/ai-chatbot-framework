@@ -5,6 +5,8 @@ import { getIntent } from '../../../../services/intents';
 import { getTrainingData, saveTrainingData,EntityModel, IntentModel } from '../../../../services/training';
 import { getEntities } from '../../../../services/entities';
 import { useSnackbar } from '../../../../components/Snackbar/SnackbarContext';
+import { Popover } from 'flowbite-react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import './style.css';
 
 interface Entity {
@@ -43,6 +45,7 @@ export default function TrainPage({ params }: PageProps) {
     begin: 0,
     end: 0
   });
+  const [activeExampleIndex, setActiveExampleIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,16 +66,71 @@ export default function TrainPage({ params }: PageProps) {
     fetchData();
   }, [id, addSnackbar]);
 
-  const getAnnotatedText = (example: Example) => {
-    let text = example.text;
-    example.entities.forEach(entity => {
-      const key = entity.value;
-      text = text.replace(
-        new RegExp(key, 'g'),
-        `<mark class="entity-highlight">${key}</mark>`
-      );
+  const handleTextChange = (exampleIndex: number, event: React.FormEvent<HTMLDivElement>) => {
+    const selection = window.getSelection();
+    const cursorPosition = selection?.focusOffset || 0;
+    const node = selection?.focusNode;
+
+    const newText = event.currentTarget.textContent || '';
+    setTrainingData(prev => prev.map((example, index) => {
+      if (index === exampleIndex) {
+        return {
+          ...example,
+          text: newText,
+          entities: example.entities.filter(entity => {
+            // Keep entities that are still within the text bounds
+            return entity.begin <= newText.length && entity.end <= newText.length;
+          })
+        };
+      }
+      return example;
+    }));
+
+    // Restore cursor position after React re-render
+    requestAnimationFrame(() => {
+      if (selection && node?.parentElement) {
+        const range = document.createRange();
+        range.setStart(node, cursorPosition);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
     });
-    return text;
+  };
+
+  const renderTrainingText = (example: Example) => {
+    if (!example.entities.length) {
+      return example.text;
+    }
+
+    const result = [];
+    let lastIndex = 0;
+    
+    // Sort entities by begin position to ensure correct order
+    const sortedEntities = [...example.entities].sort((a, b) => a.begin - b.begin);
+    
+    for (const entity of sortedEntities) {
+      // Add text before the entity
+      if (entity.begin > lastIndex) {
+        result.push(example.text.substring(lastIndex, entity.begin));
+      }
+      
+      // Add the entity
+      result.push(
+        <mark key={`${entity.begin}-${entity.end}`} className="entity-highlight">
+          {entity.value}
+        </mark>
+      );
+      
+      lastIndex = entity.end;
+    }
+    
+    // Add remaining text
+    if (lastIndex < example.text.length) {
+      result.push(example.text.substring(lastIndex));
+    }
+    
+    return result;
   };
 
   const addNewExample = () => {
@@ -133,11 +191,14 @@ export default function TrainPage({ params }: PageProps) {
     return { value, begin, end };
   };
 
-  const handleAnnotate = () => {
+  const handleAnnotate = (exampleIndex: number) => {
     snapSelectionToWord();
     const info = getSelectionInfo();
     if (info) {
       setSelectionInfo(info);
+      setActiveExampleIndex(exampleIndex);
+    } else {
+      setActiveExampleIndex(null);
     }
   };
 
@@ -160,6 +221,7 @@ export default function TrainPage({ params }: PageProps) {
     }));
     setNewEntityName('');
     setSelectionInfo({ value: '', begin: 0, end: 0 });
+    setActiveExampleIndex(null);
   };
 
   const updateTrainingData = async () => {
@@ -184,9 +246,27 @@ export default function TrainPage({ params }: PageProps) {
             Save Training Data
           </button>
         </div>
-        <p className="text-gray-600 mt-1">
-          Train your intent for possible user inputs. Tag required parameters using mouse and give them labels.
-        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-gray-600">
+            Train your intent for possible user inputs.
+          </p>
+          <Popover 
+            content={
+              <div className="max-w-sm space-y-2 p-3 bg-gray-50 rounded-lg">
+                <p>
+                  To add entity annotations:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Select the text you want to annotate</li>
+                  <li>Choose an entity type from the dropdown</li>
+                  <li>Click the "Add Entity" button</li>
+                </ul>
+              </div>
+            }
+          >
+            <QuestionMarkCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500 cursor-help" />
+          </Popover>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -212,9 +292,14 @@ export default function TrainPage({ params }: PageProps) {
           <div key={exampleIndex} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex justify-between items-start mb-4">
               <div
-                className="flex-1 p-4 bg-gray-50 rounded-lg"
-                dangerouslySetInnerHTML={{ __html: getAnnotatedText(example) }}
-              />
+                className="flex-1 p-4 bg-gray-50 rounded-lg training-text"
+                contentEditable
+                onMouseUp={() => handleAnnotate(exampleIndex)}
+                onInput={(e) => handleTextChange(exampleIndex, e)}
+                suppressContentEditableWarning
+              >
+                {renderTrainingText(example)}
+              </div>
               <button
                 onClick={() => deleteExample(exampleIndex)}
                 className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded-lg"
@@ -225,17 +310,8 @@ export default function TrainPage({ params }: PageProps) {
               </button>
             </div>
 
-            <div
-              className="p-4 bg-gray-50 rounded-lg mb-4"
-              contentEditable
-              onMouseUp={handleAnnotate}
-              suppressContentEditableWarning
-            >
-              {example.text}
-            </div>
-
             <div className="mb-4">
-              {selectionInfo.value && (
+              {activeExampleIndex === exampleIndex && selectionInfo.value && (
                 <div className="flex gap-4 items-center">
                   <select
                     value={newEntityName}
@@ -257,29 +333,28 @@ export default function TrainPage({ params }: PageProps) {
                   </button>
                 </div>
               )}
-
-              {example.entities.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Tagged Entities:</h4>
-                  <div className="space-y-2">
-                    {example.entities.map((entity, entityIndex) => (
-                      <div key={entityIndex} className="flex items-center gap-2">
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
-                          {entity.name}: {entity.value}
-                        </span>
-                        <button
-                          onClick={() => deleteEntity(exampleIndex, entityIndex)}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+                {example.entities.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium text-gray-700 mb-2">Tagged Entities:</h4>
+                    <div className="space-y-2">
+                      {example.entities.map((entity, entityIndex) => (
+                        <div key={entityIndex} className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                            {entity.name}: {entity.value}
+                          </span>
+                          <button
+                            onClick={() => deleteEntity(exampleIndex, entityIndex)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         ))}

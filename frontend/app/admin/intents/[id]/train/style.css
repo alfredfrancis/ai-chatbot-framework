@@ -3,6 +3,15 @@
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   margin: 0 0.125rem;
+  display: inline-block;
+  position: relative;
+  white-space: pre-wrap;
+}
+
+.training-text {
+  min-height: 3rem;
+  cursor: text;
+  white-space: pre-wrap;
 }
 
 [contenteditable] {
