@@ -8,8 +8,10 @@ from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
 from app.bot.nlu.intent_classifiers import IntentClassifier
 from app.bot.nlu.entity_extractors import EntityExtractor
-from app.bot.dialogue_manager.utils import SilentUndefined, call_api, get_synonyms, split_sentence
+from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
+from app.admin.entities.store import list_synonyms
 from app.bot.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
+from app.bot.dialogue_manager.http_client import call_api
 from app.config import app_config
 
 logger = logging.getLogger('dialogue_manager')
@@ -32,7 +34,7 @@ class DialogueManager:
         Initialize DialogueManager with all required dependencies
         """
 
-        synonyms = await get_synonyms()
+        synonyms = await list_synonyms()
 
         # Initialize pipeline with components
         nlu_pipeline = NLUPipeline([
@@ -63,7 +65,7 @@ class DialogueManager:
         self.nlu_pipeline.load(models_dir)
         logger.info("NLU Pipeline models updated")
 
-    def process(self, chat_model: ChatModel) -> ChatModel:
+    async def process(self, chat_model: ChatModel) -> ChatModel:
         """
         Single entry point to process the dialogue request.
 
@@ -110,7 +112,7 @@ class DialogueManager:
 
             # Step 5: Handle API trigger if the intent is complete
             if chat_model_response.complete:
-                chat_model_response = self._handle_api_trigger(active_intent, chat_model_response, context)
+                chat_model_response = await self._handle_api_trigger(active_intent, chat_model_response, context)
 
             logger.info(f"Processed input: {chat_model_response.input_text}", extra=chat_model_response.to_json())
             return chat_model_response
@@ -233,27 +235,27 @@ class DialogueManager:
 
         return chat_model_response
 
-    def _handle_api_trigger(self, intent: IntentModel, chat_model_response: ChatModel, context: Dict) -> ChatModel:
+    async def _handle_api_trigger(self, intent: IntentModel, chat_model_response: ChatModel, context: Dict) -> ChatModel:
         """
         Handle API trigger if the intent requires it.
         """
         if intent.api_trigger and intent.api_details:
             try:
-                result = self._call_intent_api(intent, context)
+                result = await self._call_intent_api(intent, context)
                 context["result"] = result
-                template = Template(intent.speech_response, undefined=SilentUndefined)
-                chat_model_response.speech_response = split_sentence(template.render(**context))
+                template = Template(intent.speech_response, undefined=SilentUndefined, enable_async=True)
+                chat_model_response.speech_response = split_sentence(await template.render_async(**context))
             except Exception as e:
                 logger.warning(f"API call failed: {e}")
                 chat_model_response.speech_response = ["Service is not available. Please try again later."]
         else:
             context["result"] = {}
-            template = Template(intent.speech_response, undefined=SilentUndefined)
-            chat_model_response.speech_response = split_sentence(template.render(**context))
+            template = Template(intent.speech_response, undefined=SilentUndefined, enable_async=True)
+            chat_model_response.speech_response = split_sentence(await template.render_async(**context))
 
         return chat_model_response
 
-    def _call_intent_api(self, intent: IntentModel, context: Dict):
+    async def _call_intent_api(self, intent: IntentModel, context: Dict):
         """
         Call the API associated with the intent.
         """
@@ -268,4 +270,4 @@ class DialogueManager:
         else:
             parameters = context.get("parameters", {})
 
-        return call_api(rendered_url, api_details.request_type, headers, parameters, api_details.is_json)
+        return await call_api(rendered_url, api_details.request_type, headers, parameters, api_details.is_json)

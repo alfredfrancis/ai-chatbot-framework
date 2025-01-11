@@ -14,7 +14,7 @@ async def chat(request: Request, body: dict):
     try:
         # Access the dialogue manager from the fast api application state.
         chat_request = ChatModel.from_json(body)
-        chat_response = request.app.state.dialogue_manager.process(chat_request)
+        chat_response = await request.app.state.dialogue_manager.process(chat_request)
         return chat_response.to_json()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing request: {e}")

@@ -25,3 +25,13 @@ async def edit_entity(entity_id: str, entity_data: dict) -> dict:
 async def delete_entity(entity_id: str):
     await entity_collection.delete_one({"_id": ObjectId(entity_id)})
 
+async def list_synonyms():
+    """ list all synonyms across the entities"""
+    synonyms = {}
+
+    entities = await list_entities()
+    for entity in entities:
+        for value in entity.entity_values:
+            for synonym in value.synonyms:
+                synonyms[synonym] = value.value
+    return synonyms

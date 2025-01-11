@@ -6,7 +6,7 @@ from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
 from app.bot.nlu.intent_classifiers import IntentClassifier
 from app.bot.nlu.entity_extractors import EntityExtractor
-from app.bot.dialogue_manager.utils import get_synonyms
+from app.admin.entities.store import list_synonyms
 
 from app.config import app_config
 
@@ -36,7 +36,7 @@ async def train_pipeline(app):
             training_data.append(example)
 
     # initialize and train pipeline
-    synonyms = await get_synonyms()
+    synonyms = await list_synonyms()
     pipeline = NLUPipeline([
         SpacyFeaturizer(spacy_model_name),
         IntentClassifier(),
