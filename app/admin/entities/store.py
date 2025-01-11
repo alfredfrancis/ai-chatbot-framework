@@ -19,7 +19,7 @@ async def list_entities() -> List[Entity]:
     entities = await entity_collection.find().to_list()
     return [Entity.model_validate(entity) for entity in entities]
 
-async def edit_entity(entity_id: str, entity_data: dict) -> dict:
+async def edit_entity(entity_id: str, entity_data: dict):
     await entity_collection.update_one({"_id": ObjectId(entity_id)}, {"$set": entity_data})
 
 async def delete_entity(entity_id: str):
@@ -35,3 +35,16 @@ async def list_synonyms():
             for synonym in value.synonyms:
                 synonyms[synonym] = value.value
     return synonyms
+
+async def bulk_import_entities(entities: List[Dict]) -> List[str]:
+    created_entities = []
+    if entities:
+        for entity in entities:
+            result = await entity_collection.update_one(
+                {"name": entity.get("name")}, 
+                {"$set": entity},
+                upsert=True
+            )
+            if result.upserted_id:
+                created_entities.append(str(result.upserted_id))
+    return created_entities

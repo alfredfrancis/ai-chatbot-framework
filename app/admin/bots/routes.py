@@ -38,8 +38,6 @@ async def import_bot(name: str, file: UploadFile = File(...)):
     """
     Import intents and entities from a JSON file for the bot
     """
-    if not file:
-        raise HTTPException(status_code=400, detail="No file part")
 
     content = await file.read()
     json_data = json.loads(content)
