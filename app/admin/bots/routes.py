@@ -34,7 +34,7 @@ async def export_bot(name: str):
     )
 
 @router.post("/{name}/import")
-async def import_agent(name: str, file: UploadFile = File(...)):
+async def import_bot(name: str, file: UploadFile = File(...)):
     """
     Import intents and entities from a JSON file for the bot
     """

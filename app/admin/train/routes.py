@@ -15,7 +15,7 @@ async def save_training_data(intent_id: str, training_data: list[dict]):
 
     intent.trainingData = training_data
     await store.edit_intent(intent_id, intent.model_dump())  # Update the intent with training data
-    return {"success": True}
+    return {"status": "success"}
 
 @router.get('/{intent_id}/data')
 async def get_training_data(intent_id: str):
@@ -34,4 +34,4 @@ async def build_models(request: Request, background_tasks: BackgroundTasks):
     Build Intent classification and NER Models
     """
     background_tasks.add_task(train_pipeline, request.app)
-    return {"success": True}
+    return {"status": "training started in the background"}
