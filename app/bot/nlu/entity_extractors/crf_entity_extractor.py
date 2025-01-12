@@ -1,7 +1,9 @@
 import pycrfsuite
 from app.config import app_config
+import logging
 
 MODEL_NAME = "crf__entity_extractor.model"
+logger = logging.getLogger(__name__)
 
 class CRFEntityExtractor:
     """
@@ -10,7 +12,6 @@ class CRFEntityExtractor:
 
     def __init__(self, synonyms={}):
         import spacy
-        self.tokenizer = spacy.load("en_core_web_md")
         self.synonyms = synonyms
         self.tagger = None
 
@@ -127,7 +128,7 @@ class CRFEntityExtractor:
             self.tagger.open(f"{model_path}/entity_model.model")
             return True
         except Exception as e:
-            print(f"Error loading CRF model: {e}")
+            logger.error(f"Error loading CRF model: {e}")
             return False
 
     def crf2json(self, tagged_sentence):

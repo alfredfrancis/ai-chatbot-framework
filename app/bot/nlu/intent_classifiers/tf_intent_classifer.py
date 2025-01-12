@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 
 import cloudpickle
 import numpy as np
@@ -12,6 +13,7 @@ from tensorflow.python.layers.core import Dropout
 
 np.random.seed(1)
 
+logger = logging.getLogger(__name__)
 
 class TfIntentClassifier:
 
@@ -82,14 +84,14 @@ class TfIntentClassifier:
 
             )
             if verbose:
-                print("TF Model written out to {}"
+                logger.info("TF Model written out to {}"
                       .format(os.path.join(models_dir, "tf_intent_model.hd5")))
 
             cloudpickle.dump(self.label_encoder, open(
                 os.path.join(models_dir, "labels.pkl"), 'wb'))
 
             if verbose:
-                print("Labels written out to {}"
+                logger.info("Labels written out to {}"
                       .format(os.path.join(models_dir, "labels.pkl")))
 
     def load(self, models_dir):
@@ -103,11 +105,11 @@ class TfIntentClassifier:
 
             self.graph = tf.get_default_graph()
 
-            print("Tf model loaded")
+            logger.info("Tf model loaded")
 
             with open(os.path.join(models_dir, "labels.pkl"), 'rb') as f:
                 self.label_encoder = cloudpickle.load(f)
-                print("Labels model loaded")
+                logger.info("Labels model loaded")
 
         except IOError:
             return False
@@ -139,7 +141,7 @@ class TfIntentClassifier:
         its probability for the input text."""
 
         if not self.model:
-            print("no class")
+            logger.info("no class")
             intent = None
             intent_ranking = []
         else:
