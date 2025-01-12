@@ -7,10 +7,10 @@ from app.bot.nlu.featurizers import SpacyFeaturizer
 from app.bot.nlu.intent_classifiers import IntentClassifier
 from app.bot.nlu.entity_extractors import EntityExtractor
 from app.admin.entities.store import list_synonyms
-
+from app.dependencies import set_dialogue_manager
 from app.config import app_config
 
-async def train_pipeline(app):
+async def train_pipeline():
     """
     Initiate NLU pipeline training
     :return:
@@ -46,7 +46,10 @@ async def train_pipeline(app):
     pipeline.train(training_data, models_dir)
 
     # recreate dialogue manager with new data
-    app.state.dialogue_manager = await DialogueManager.from_config()
+    dialogue_manager = await DialogueManager.from_config()
 
     # update dialogue manager with new models
-    app.state.dialogue_manager.update_model(models_dir)
+    dialogue_manager.update_model(models_dir)
+
+    await set_dialogue_manager(dialogue_manager)
+

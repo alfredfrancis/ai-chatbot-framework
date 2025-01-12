@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from app.admin.intents import store
 from app.bot.nlu.training import train_pipeline
 
@@ -29,9 +29,9 @@ async def get_training_data(intent_id: str):
     return intent.trainingData
 
 @router.post('/build_models')
-async def build_models(request: Request, background_tasks: BackgroundTasks):
+async def build_models(background_tasks: BackgroundTasks):
     """
     Build Intent classification and NER Models
     """
-    background_tasks.add_task(train_pipeline, request.app)
+    background_tasks.add_task(train_pipeline)
     return {"status": "training started in the background"}
