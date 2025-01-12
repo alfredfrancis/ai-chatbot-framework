@@ -1,41 +1,46 @@
 import os
+import dotenv
+from pydantic import BaseModel
 
-class BaseConfig(object):
-    DEBUG = False
-    Development = False
-    MONGODB_HOST = "mongodb://127.0.0.1:27017/iky-ai"
+dotenv.load_dotenv()
+
+class BaseConfig(BaseModel):
+    DEBUG: bool = False
+    Development: bool = False
+    MONGODB_HOST: str = "mongodb://127.0.0.1:27017/iky-ai"
 
     # Intent Classifier model details
-    MODELS_DIR = "model_files/"
-    INTENT_MODEL_NAME = "intent.model"
-    DEFAULT_FALLBACK_INTENT_NAME = "fallback"
-    DEFAULT_WELCOME_INTENT_NAME = "init_conversation"
-    USE_WORD_VECTORS = True
-    SPACY_LANG_MODEL = "en_core_web_md"
+    MODELS_DIR: str = "model_files/"
+    INTENT_MODEL_NAME: str = "intent.model"
+    DEFAULT_FALLBACK_INTENT_NAME: str = "fallback"
+    DEFAULT_WELCOME_INTENT_NAME: str = "init_conversation"
+    USE_WORD_VECTORS: bool = True
+    SPACY_LANG_MODEL: str = "en_core_web_md"
 
 class DevelopmentConfig(BaseConfig):
-    DEBUG = True
-    Development = True
-    TEMPLATES_AUTO_RELOAD=True
+    DEBUG: bool = True
+    Development: bool = True
+    TEMPLATES_AUTO_RELOAD: bool = True
 
 class TestingConfig(BaseConfig):
-    DEBUG = True
-    TESTING = True
+    DEBUG: bool = True
+    TESTING: bool = True
 
 class ProductionConfig(BaseConfig):
     # MongoDB Database Details
-    MONGODB_HOST = "mongodb://mongodb:27017/iky-ai"
-
-class HerokuConfig(ProductionConfig):
-    MONGODB_HOST = os.environ.get('MONGO_URL')
-
-class HelmConfig(ProductionConfig):
-    MONGODB_HOST = os.environ.get('MONGO_URL')
+    MONGODB_HOST: str = "mongodb://mongodb:27017/iky-ai"
 
 config = {
     'Development': DevelopmentConfig,
     'Testing': TestingConfig,
     'Production': ProductionConfig,
-    'Heroku': HerokuConfig,
-    'Helm': HelmConfig
 }
+
+def from_envvar():
+    """Get configuration class from environment variable."""
+    choice = os.environ.get('APPLICATION_ENV', 'Development')
+    if choice not in config:
+        msg = "APPLICATION_ENV={} is not valid, must be one of {}".format(choice, set(config))
+        raise ValueError(msg)
+    loaded_config = config[choice](**os.environ)
+    return loaded_config

@@ -24,7 +24,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["python", "manage.py", "migrate"]
           env:
-            - name: MONGO_URL
+            - name: MONGODB_HOST
               value: {{.Values.mongodb.uri}}
             - name: APPLICATION_ENV
               value: 'Helm'
