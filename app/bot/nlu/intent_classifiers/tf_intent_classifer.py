@@ -16,6 +16,7 @@ np.random.seed(1)
 
 logger = logging.getLogger(__name__)
 
+
 class TfIntentClassifier(NLUComponent):
     """TensorFlow-based intent classifier that implements NLUComponent interface."""
 
@@ -25,25 +26,27 @@ class TfIntentClassifier(NLUComponent):
 
     def __init__(self):
         self.model = None
-        self.nlp = spacy.load('en')
+        self.nlp = spacy.load("en")
         self.label_encoder = LabelBinarizer()
         self.graph = None
 
     def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
         """Train intent classifier for given training data"""
+
         def create_model():
             """Define and return tensorflow model."""
             model = Sequential()
-            model.add(Dense(256, activation=tf.nn.relu,
-                          input_shape=(vocab_size,)))
+            model.add(Dense(256, activation=tf.nn.relu, input_shape=(vocab_size,)))
             model.add(Dropout(0.2))
             model.add(Dense(128, activation=tf.nn.relu))
             model.add(Dropout(0.2))
             model.add(Dense(num_labels, activation=tf.nn.softmax))
 
-            model.compile(loss='categorical_crossentropy',
-                        optimizer='adam',
-                        metrics=['accuracy'])
+            model.compile(
+                loss="categorical_crossentropy",
+                optimizer="adam",
+                metrics=["accuracy"],
+            )
 
             model.summary()
             return model
@@ -83,7 +86,7 @@ class TfIntentClassifier(NLUComponent):
 
             # Save label encoder
             labels_file = os.path.join(model_path, self.LABELS_NAME)
-            with open(labels_file, 'wb') as f:
+            with open(labels_file, "wb") as f:
                 cloudpickle.dump(self.label_encoder, f)
             logger.info(f"Labels written out to {labels_file}")
 
@@ -101,7 +104,7 @@ class TfIntentClassifier(NLUComponent):
 
             # Load label encoder
             labels_file = os.path.join(model_path, self.LABELS_NAME)
-            with open(labels_file, 'rb') as f:
+            with open(labels_file, "rb") as f:
                 self.label_encoder = cloudpickle.load(f)
             logger.info("Labels model loaded")
             return True
@@ -129,17 +132,23 @@ class TfIntentClassifier(NLUComponent):
 
         if self.model:
             intents, probabilities = self.predict_proba(message)
-            intents = [self.label_encoder.classes_[intent]
-                      for intent in intents.flatten()]
+            intents = [
+                self.label_encoder.classes_[intent] for intent in intents.flatten()
+            ]
             probabilities = probabilities.flatten()
 
             if len(intents) > 0 and len(probabilities) > 0:
                 ranking = list(zip(list(intents), list(probabilities)))
-                ranking = ranking[:self.INTENT_RANKING_LENGTH]
+                ranking = ranking[: self.INTENT_RANKING_LENGTH]
 
-                intent = {"intent": intents[0], "confidence": float("%.2f" % probabilities[0])}
-                intent_ranking = [{"intent": intent_name, "confidence": float("%.2f" % score)}
-                                for intent_name, score in ranking]
+                intent = {
+                    "intent": intents[0],
+                    "confidence": float("%.2f" % probabilities[0]),
+                }
+                intent_ranking = [
+                    {"intent": intent_name, "confidence": float("%.2f" % score)}
+                    for intent_name, score in ranking
+                ]
             else:
                 intent = {"name": None, "confidence": 0.0}
                 intent_ranking = []

@@ -1,4 +1,3 @@
-import json
 import logging
 import aiohttp
 import asyncio
@@ -7,17 +6,18 @@ from aiohttp import ClientTimeout
 
 logger = logging.getLogger("http_client")
 
+
 async def call_api(
     url: str,
     method: str,
     headers: Optional[Dict[str, str]] = None,
     parameters: Optional[Dict[str, Any]] = None,
     is_json: bool = False,
-    timeout: int = 30
+    timeout: int = 30,
 ) -> Dict[str, Any]:
     """
     Asynchronously call external API with improved error handling and timeout management
-    
+
     Args:
         url: The API endpoint URL
         method: HTTP method (GET, POST, PUT, DELETE)
@@ -25,10 +25,10 @@ async def call_api(
         parameters: Optional request parameters or body
         is_json: Whether to send parameters as JSON body
         timeout: Request timeout in seconds
-    
+
     Returns:
         Dict containing the API response
-    
+
     Raises:
         aiohttp.ClientError: For HTTP-specific errors
         asyncio.TimeoutError: When request times out
@@ -42,17 +42,27 @@ async def call_api(
     try:
         async with aiohttp.ClientSession(timeout=timeout_config) as session:
             method = method.upper()
-            logger.debug(f"Initiating async API Call: url={url} method={method} payload={parameters}")
+            logger.debug(
+                f"Initiating async API Call: url={url} \
+                    method={method} payload={parameters}"
+            )
 
             if method == "GET":
-                async with session.get(url, headers=headers, params=parameters) as response:
+                async with session.get(
+                    url, headers=headers, params=parameters
+                ) as response:
                     result = await response.json()
             elif method in ["POST", "PUT"]:
-                kwargs = {"headers": headers, "json" if is_json else "params": parameters}
+                kwargs = {
+                    "headers": headers,
+                    "json" if is_json else "params": parameters,
+                }
                 async with getattr(session, method.lower())(url, **kwargs) as response:
                     result = await response.json()
             elif method == "DELETE":
-                async with session.delete(url, headers=headers, params=parameters) as response:
+                async with session.delete(
+                    url, headers=headers, params=parameters
+                ) as response:
                     result = await response.json()
             else:
                 raise ValueError(f"Unsupported request method: {method}")
@@ -69,4 +79,4 @@ async def call_api(
         raise
     except Exception as e:
         logger.error(f"Unexpected error during API call: {str(e)}")
-        raise 
+        raise

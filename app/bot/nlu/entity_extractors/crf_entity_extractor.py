@@ -1,5 +1,4 @@
 import pycrfsuite
-from app.config import app_config
 import logging
 from typing import Dict, Any, List, Optional
 from app.bot.nlu.pipeline import NLUComponent
@@ -7,13 +6,13 @@ from app.bot.nlu.pipeline import NLUComponent
 MODEL_NAME = "crf__entity_extractor.model"
 logger = logging.getLogger(__name__)
 
+
 class CRFEntityExtractor(NLUComponent):
     """
     Performs NER training, prediction, model import/export
     """
 
     def __init__(self, synonyms: Optional[Dict[str, str]] = None):
-        import spacy
         self.synonyms = synonyms or {}
         self.tagger = None
 
@@ -40,41 +39,45 @@ class CRFEntityExtractor(NLUComponent):
         word = sent[i][0]
         postag = sent[i][1]
         features = [
-            'bias',
-            'word.lower=' + word.lower(),
-            'word[-3:]=' + word[-3:],
-            'word[-2:]=' + word[-2:],
-            'word.isupper=%s' % word.isupper(),
-            'word.istitle=%s' % word.istitle(),
-            'word.isdigit=%s' % word.isdigit(),
-            'postag=' + postag,
-            'postag[:2]=' + postag[:2],
-            ]
+            "bias",
+            "word.lower=" + word.lower(),
+            "word[-3:]=" + word[-3:],
+            "word[-2:]=" + word[-2:],
+            "word.isupper=%s" % word.isupper(),
+            "word.istitle=%s" % word.istitle(),
+            "word.isdigit=%s" % word.isdigit(),
+            "postag=" + postag,
+            "postag[:2]=" + postag[:2],
+        ]
         if i > 0:
             word1 = sent[i - 1][0]
             postag1 = sent[i - 1][1]
-            features.extend([
-                '-1:word.lower=' + word1.lower(),
-                '-1:word.istitle=%s' % word1.istitle(),
-                '-1:word.isupper=%s' % word1.isupper(),
-                '-1:postag=' + postag1,
-                '-1:postag[:2]=' + postag1[:2],
-                ])
+            features.extend(
+                [
+                    "-1:word.lower=" + word1.lower(),
+                    "-1:word.istitle=%s" % word1.istitle(),
+                    "-1:word.isupper=%s" % word1.isupper(),
+                    "-1:postag=" + postag1,
+                    "-1:postag[:2]=" + postag1[:2],
+                ]
+            )
         else:
-            features.append('BOS')
+            features.append("BOS")
 
         if i < len(sent) - 1:
             word1 = sent[i + 1][0]
             postag1 = sent[i + 1][1]
-            features.extend([
-                '+1:word.lower=' + word1.lower(),
-                '+1:word.istitle=%s' % word1.istitle(),
-                '+1:word.isupper=%s' % word1.isupper(),
-                '+1:postag=' + postag1,
-                '+1:postag[:2]=' + postag1[:2],
-                ])
+            features.extend(
+                [
+                    "+1:word.lower=" + word1.lower(),
+                    "+1:word.istitle=%s" % word1.istitle(),
+                    "+1:word.isupper=%s" % word1.isupper(),
+                    "+1:postag=" + postag1,
+                    "+1:postag[:2]=" + postag1[:2],
+                ]
+            )
         else:
-            features.append('EOS')
+            features.append("EOS")
 
         return features
 
@@ -98,7 +101,7 @@ class CRFEntityExtractor(NLUComponent):
         """Train the component with given training data and save to model_path."""
         # Convert training data to CRF format
         ner_training_data = self.json2crf(training_data)
-        
+
         # Train using existing logic
         features = [self.sent_to_features(s) for s in ner_training_data]
         labels = [self.sent_to_labels(s) for s in ner_training_data]
@@ -107,13 +110,15 @@ class CRFEntityExtractor(NLUComponent):
         for xseq, yseq in zip(features, labels):
             trainer.append(xseq, yseq)
 
-        trainer.set_params({
-            'c1': 1.0,  # coefficient for L1 penalty
-            'c2': 1e-3,  # coefficient for L2 penalty
-            'max_iterations': 50,  # stop earlier
-            # include transitions that are possible, but not observed
-            'feature.possible_transitions': True
-        })
+        trainer.set_params(
+            {
+                "c1": 1.0,  # coefficient for L1 penalty
+                "c2": 1e-3,  # coefficient for L2 penalty
+                "max_iterations": 50,  # stop earlier
+                # include transitions that are possible, but not observed
+                "feature.possible_transitions": True,
+            }
+        )
         trainer.train(f"{model_path}/{MODEL_NAME}")
 
     def load(self, model_path: str) -> bool:
@@ -170,8 +175,7 @@ class CRFEntityExtractor(NLUComponent):
         tagged_token = self.pos_tagger(spacy_doc)
         words = [token.text for token in spacy_doc]
         predicted_labels = self.tagger.tag(self.sent_to_features(tagged_token))
-        extracted_entities = self.crf2json(
-            zip(words, predicted_labels))
+        extracted_entities = self.crf2json(zip(words, predicted_labels))
         return self.replace_synonyms(extracted_entities)
 
     def pos_tagger(self, spacy_doc):
@@ -199,7 +203,8 @@ class CRFEntityExtractor(NLUComponent):
 
     def json2crf(self, training_data):
         """
-        Takes JSON annotated data and converts it to CRFSuite training data representation.
+        Takes JSON annotated data and
+        converts it to CRFSuite training data representation.
         :param training_data: List of training examples with annotated entities.
         :return: List of tokenized, POS-tagged, and BIO-labeled sentences.
         """
@@ -222,8 +227,8 @@ class CRFEntityExtractor(NLUComponent):
                 # Use char_span to map entity character offsets to token spans
                 span = spacy_doc.char_span(begin_char, end_char)
                 if not span:
-                    continue  # Skip if the span cannot be resolved (e.g., partial tokens)
-
+                    # Skip if the span cannot be resolved (e.g., partial tokens)
+                    continue
                 # BIO tagging for the resolved token span
                 for i, token in enumerate(span):
                     token_index = token.i

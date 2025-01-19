@@ -1,11 +1,13 @@
 from typing import Any, Dict, List
 from app.bot.nlu.pipeline import NLUComponent
 
+
 class SpacyFeaturizer(NLUComponent):
     """Spacy featurizer component that processes text and adds spacy features."""
 
     def __init__(self, model_name: str):
         import spacy
+
         self.tokenizer = spacy.load(model_name)
 
     def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:

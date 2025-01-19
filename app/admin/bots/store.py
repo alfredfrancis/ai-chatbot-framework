@@ -6,19 +6,24 @@ from app.database import database
 
 bot_collection = database.get_collection("bot")
 
+
 async def add_bot(data: dict):
     await bot_collection.insert_one(data)
+
 
 async def get_bot(name: str) -> Bot:
     bot = await bot_collection.find_one({"name": name})
     return Bot.model_validate(bot)
 
+
 async def get_config(name: str) -> Dict:
     bot = await get_bot(name)
     return bot.config
 
+
 async def update_config(name: str, entity_data: dict):
     await bot_collection.update_one({"name": name}, {"$set": {"config": entity_data}})
+
 
 async def export_bot(name) -> Dict:
     # Get all intents and entities
@@ -26,13 +31,14 @@ async def export_bot(name) -> Dict:
     entities = await list_entities()
 
     entities = [entity.model_dump(exclude={"id"}) for entity in entities]
-    intents = [intent.model_dump(exclude={"id": True, "parameters": {'__all__': {"id"}}})  for intent in intents]
+    intents = [
+        intent.model_dump(exclude={"id": True, "parameters": {"__all__": {"id"}}})
+        for intent in intents
+    ]
 
-    export_data = {
-        "intents": intents,
-        "entities": entities
-    }
+    export_data = {"intents": intents, "entities": entities}
     return export_data
+
 
 async def import_bot(name: str, data: Dict):
     intents = data.get("intents", [])
@@ -43,6 +49,5 @@ async def import_bot(name: str, data: Dict):
 
     return {
         "num_intents_created": len(created_intents),
-        "num_entities_created": len(created_entities)
+        "num_entities_created": len(created_entities),
     }
-

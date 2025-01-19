@@ -7,6 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class SklearnIntentClassifier(NLUComponent):
     """Sklearn-based intent classifier that implements NLUComponent interface."""
 
@@ -37,12 +38,7 @@ class SklearnIntentClassifier(NLUComponent):
             X.append(example.get("spacy_doc"))
             y.append(example.get("intent"))
 
-        X = np.stack(
-            [
-                self.get_spacy_embedding(example)
-                for example in X
-            ]
-        )
+        X = np.stack([self.get_spacy_embedding(example) for example in X])
 
         _, counts = np.unique(y, return_counts=True)
         cv_splits = max(2, min(5, np.min(counts) // 5))
@@ -52,20 +48,20 @@ class SklearnIntentClassifier(NLUComponent):
         ]
 
         classifier = GridSearchCV(
-                SVC(C=1, probability=True, class_weight="balanced"),
-                param_grid=tuned_parameters,
-                n_jobs=-1,
-                cv=cv_splits,
-                scoring="f1_weighted",
-                verbose=1,
-            )
+            SVC(C=1, probability=True, class_weight="balanced"),
+            param_grid=tuned_parameters,
+            n_jobs=-1,
+            cv=cv_splits,
+            scoring="f1_weighted",
+            verbose=1,
+        )
 
         classifier.fit(X, y)
 
         if model_path:
             path = os.path.join(model_path, self.MODEL_NAME)
-            with open(path, 'wb') as f:
-                cloudpickle.dump(classifier.best_estimator_, f) 
+            with open(path, "wb") as f:
+                cloudpickle.dump(classifier.best_estimator_, f)
         logger.info("Training completed & model written out to {}".format(path))
 
         self.model = classifier.best_estimator_
@@ -74,7 +70,7 @@ class SklearnIntentClassifier(NLUComponent):
         """Load trained model from given path"""
         try:
             path = os.path.join(model_path, self.MODEL_NAME)
-            with open(path, 'rb') as f:
+            with open(path, "rb") as f:
                 self.model = cloudpickle.load(f)
             return True
         except IOError:
@@ -88,7 +84,9 @@ class SklearnIntentClassifier(NLUComponent):
         :return: tuple of first, the most probable label
         and second, its probability"""
 
-        pred_result = self.model.predict_proba([self.get_spacy_embedding(X.get("spacy_doc"))])
+        pred_result = self.model.predict_proba(
+            [self.get_spacy_embedding(X.get("spacy_doc"))]
+        )
         # sort the probabilities retrieving the indices of the elements
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
         return sorted_indices, pred_result[:, sorted_indices]
@@ -103,17 +101,18 @@ class SklearnIntentClassifier(NLUComponent):
 
         if self.model:
             intents, probabilities = self.predict_proba(message)
-            intents = [self.model.classes_[intent]
-                       for intent in intents.flatten()]
+            intents = [self.model.classes_[intent] for intent in intents.flatten()]
             probabilities = probabilities.flatten()
 
             if len(intents) > 0 and len(probabilities) > 0:
                 ranking = list(zip(list(intents), list(probabilities)))
-                ranking = ranking[:self.INTENT_RANKING_LENGTH]
+                ranking = ranking[: self.INTENT_RANKING_LENGTH]
 
                 intent = {"intent": intents[0], "confidence": probabilities[0]}
-                intent_ranking = [{"intent": intent_name, "confidence": score}
-                                  for intent_name, score in ranking]
+                intent_ranking = [
+                    {"intent": intent_name, "confidence": score}
+                    for intent_name, score in ranking
+                ]
             else:
                 intent = {"name": None, "confidence": 0.0}
                 intent_ranking = []
@@ -121,4 +120,3 @@ class SklearnIntentClassifier(NLUComponent):
         message["intent"] = intent
         message["intent_ranking"] = intent_ranking
         return message
-
