@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from app.admin.intents import store
+from app.dependencies import reload_dialogue_manager
 from app.bot.nlu.training import train_pipeline
 
 router = APIRouter(prefix='/train')
@@ -33,5 +34,13 @@ async def build_models(background_tasks: BackgroundTasks):
     """
     Build Intent classification and NER Models
     """
-    background_tasks.add_task(train_pipeline)
+    background_tasks.add_task(build_models_background)
     return {"status": "training started in the background"}
+
+
+async def build_models_background():
+    """
+    Build Intent classification and NER Models
+    """
+    await train_pipeline()
+    await reload_dialogue_manager()

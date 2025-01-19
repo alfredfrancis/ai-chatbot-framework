@@ -6,8 +6,8 @@ from app.admin.bots.store import get_bot
 from app.admin.intents.store import list_intents
 from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
-from app.bot.nlu.intent_classifiers import IntentClassifier
-from app.bot.nlu.entity_extractors import EntityExtractor
+from app.bot.nlu.intent_classifiers import SklearnIntentClassifier
+from app.bot.nlu.entity_extractors import CRFEntityExtractor
 from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
 from app.admin.entities.store import list_synonyms
 from app.bot.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
@@ -39,8 +39,8 @@ class DialogueManager:
         # Initialize pipeline with components
         nlu_pipeline = NLUPipeline([
             SpacyFeaturizer(app_config.SPACY_LANG_MODEL),
-            IntentClassifier(),
-            EntityExtractor(synonyms)
+            SklearnIntentClassifier(),
+            CRFEntityExtractor(synonyms)
         ])
         
         # Load all intents and convert to domain models

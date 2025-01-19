@@ -1,8 +1,6 @@
 import logging
 from jinja2 import Undefined
 
-logger = logging.getLogger("dialogue_manager")
-
 def split_sentence(sentence):
     return sentence.split("###")
 

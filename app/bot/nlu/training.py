@@ -1,13 +1,11 @@
 import os
 
-from app.bot.dialogue_manager.dialogue_manager import DialogueManager
 from app.admin.intents.store import list_intents
 from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
-from app.bot.nlu.intent_classifiers import IntentClassifier
-from app.bot.nlu.entity_extractors import EntityExtractor
+from app.bot.nlu.intent_classifiers import SklearnIntentClassifier
+from app.bot.nlu.entity_extractors import CRFEntityExtractor
 from app.admin.entities.store import list_synonyms
-from app.dependencies import set_dialogue_manager
 from app.config import app_config
 
 async def train_pipeline():
@@ -39,17 +37,8 @@ async def train_pipeline():
     synonyms = await list_synonyms()
     pipeline = NLUPipeline([
         SpacyFeaturizer(spacy_model_name),
-        IntentClassifier(),
-        EntityExtractor(synonyms)
+        SklearnIntentClassifier(),
+        CRFEntityExtractor(synonyms)
     ])
 
     pipeline.train(training_data, models_dir)
-
-    # recreate dialogue manager with new data
-    dialogue_manager = await DialogueManager.from_config()
-
-    # update dialogue manager with new models
-    dialogue_manager.update_model(models_dir)
-
-    await set_dialogue_manager(dialogue_manager)
-
