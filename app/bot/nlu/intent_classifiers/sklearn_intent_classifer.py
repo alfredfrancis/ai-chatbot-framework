@@ -1,10 +1,17 @@
 import os
-from typing import Dict, Any
-
+from typing import Dict, Any, List
 import cloudpickle
 import numpy as np
+from app.bot.nlu.pipeline import NLUComponent
+import logging
 
-class SklearnIntentClassifier:
+logger = logging.getLogger(__name__)
+
+class SklearnIntentClassifier(NLUComponent):
+    """Sklearn-based intent classifier that implements NLUComponent interface."""
+
+    INTENT_RANKING_LENGTH = 3
+    MODEL_NAME = "sklearn_intent_model.hd5"
 
     def __init__(self):
         self.model = None
@@ -17,15 +24,8 @@ class SklearnIntentClassifier:
         """
         return np.array(spacy_doc.vector)
 
-    def train(self, training_data, outpath=None, verbose=True):
-        """
-        Train intent classifier for given training data
-        :param X:
-        :param y:
-        :param outpath:
-        :param verbose:
-        :return:
-        """
+    def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
+        """Train intent classifier for given training data"""
         from sklearn.model_selection import GridSearchCV
         from sklearn.svm import SVC
 
@@ -44,7 +44,7 @@ class SklearnIntentClassifier:
             ]
         )
 
-        items, counts = np.unique(y, return_counts=True)
+        _, counts = np.unique(y, return_counts=True)
         cv_splits = max(2, min(5, np.min(counts) // 5))
 
         tuned_parameters = [
@@ -62,26 +62,21 @@ class SklearnIntentClassifier:
 
         classifier.fit(X, y)
 
-        if outpath:
-            path = os.path.join(outpath, "sklearn_intent_model.hd5")
+        if model_path:
+            path = os.path.join(model_path, self.MODEL_NAME)
             with open(path, 'wb') as f:
-                cloudpickle.dump(classifier.best_estimator_, f)
+                cloudpickle.dump(classifier.best_estimator_, f) 
+        logger.info("Training completed & model written out to {}".format(path))
 
-                if verbose:
-                    print("Model written out to {}".format(outpath))
+        self.model = classifier.best_estimator_
 
-        return classifier.best_estimator_
-
-    def load(self, PATH):
-        """
-        load trained model from given path
-        :param PATH:
-        :return:
-        """
+    def load(self, model_path: str) -> bool:
+        """Load trained model from given path"""
         try:
-            PATH = os.path.join(PATH, "sklearn_intent_model.hd5")
-            with open(PATH, 'rb') as f:
+            path = os.path.join(model_path, self.MODEL_NAME)
+            with open(path, 'rb') as f:
                 self.model = cloudpickle.load(f)
+            return True
         except IOError:
             return False
 
@@ -98,30 +93,32 @@ class SklearnIntentClassifier:
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
         return sorted_indices, pred_result[:, sorted_indices]
 
-    def process(self, x: Dict[str, Any], INTENT_RANKING_LENGTH=5):
-        """Returns the most likely intent and
-        its probability for the input text."""
+    def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a message and return the extracted information."""
+        if not message.get("text") or not message.get("spacy_doc"):
+            return message
 
         intent = {"name": None, "confidence": 0.0}
         intent_ranking = []
 
         if self.model:
-            intents, probabilities = self.predict_proba(x)
+            intents, probabilities = self.predict_proba(message)
             intents = [self.model.classes_[intent]
                        for intent in intents.flatten()]
             probabilities = probabilities.flatten()
 
             if len(intents) > 0 and len(probabilities) > 0:
                 ranking = list(zip(list(intents), list(probabilities)))
-                ranking = ranking[:INTENT_RANKING_LENGTH]
+                ranking = ranking[:self.INTENT_RANKING_LENGTH]
 
                 intent = {"intent": intents[0], "confidence": probabilities[0]}
                 intent_ranking = [{"intent": intent_name, "confidence": score}
                                   for intent_name, score in ranking]
-
             else:
                 intent = {"name": None, "confidence": 0.0}
                 intent_ranking = []
 
-        return intent, intent_ranking
+        message["intent"] = intent
+        message["intent_ranking"] = intent_ranking
+        return message
 

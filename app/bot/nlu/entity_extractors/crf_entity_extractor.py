@@ -1,18 +1,20 @@
 import pycrfsuite
 from app.config import app_config
 import logging
+from typing import Dict, Any, List, Optional
+from app.bot.nlu.pipeline import NLUComponent
 
 MODEL_NAME = "crf__entity_extractor.model"
 logger = logging.getLogger(__name__)
 
-class CRFEntityExtractor:
+class CRFEntityExtractor(NLUComponent):
     """
     Performs NER training, prediction, model import/export
     """
 
-    def __init__(self, synonyms={}):
+    def __init__(self, synonyms: Optional[Dict[str, str]] = None):
         import spacy
-        self.synonyms = synonyms
+        self.synonyms = synonyms or {}
         self.tagger = None
 
     def replace_synonyms(self, entities):
@@ -92,15 +94,14 @@ class CRFEntityExtractor:
         """
         return [label for token, postag, label in sent]
 
-    def train(self, train_sentences, model_path: str):
-        """
-        Train NER model for given model
-        :param train_sentences:
-        :param model_name:
-        :return:
-        """
-        features = [self.sent_to_features(s) for s in train_sentences]
-        labels = [self.sent_to_labels(s) for s in train_sentences]
+    def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
+        """Train the component with given training data and save to model_path."""
+        # Convert training data to CRF format
+        ner_training_data = self.json2crf(training_data)
+        
+        # Train using existing logic
+        features = [self.sent_to_features(s) for s in ner_training_data]
+        labels = [self.sent_to_labels(s) for s in ner_training_data]
 
         trainer = pycrfsuite.Trainer(verbose=False)
         for xseq, yseq in zip(features, labels):
@@ -110,12 +111,10 @@ class CRFEntityExtractor:
             'c1': 1.0,  # coefficient for L1 penalty
             'c2': 1e-3,  # coefficient for L2 penalty
             'max_iterations': 50,  # stop earlier
-
             # include transitions that are possible, but not observed
             'feature.possible_transitions': True
         })
         trainer.train(f"{model_path}/{MODEL_NAME}")
-        return True
 
     def load(self, model_path: str) -> bool:
         """
@@ -238,3 +237,12 @@ class CRFEntityExtractor:
             # Append the fully labeled example
             labeled_examples.append(tagged_example)
         return labeled_examples
+
+    def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a message and return the extracted information."""
+        if not message.get("text") or not message.get("spacy_doc"):
+            return message
+
+        entities = self.predict(message)
+        message["entities"] = entities
+        return message

@@ -1,7 +1,7 @@
 import os
 import time
 import logging
-
+from typing import Dict, Any, List
 import cloudpickle
 import numpy as np
 import spacy
@@ -10,12 +10,18 @@ from sklearn.preprocessing import LabelBinarizer
 from tensorflow.python.keras import Sequential
 from tensorflow.python.layers.core import Dense
 from tensorflow.python.layers.core import Dropout
+from app.bot.nlu.pipeline import NLUComponent
 
 np.random.seed(1)
 
 logger = logging.getLogger(__name__)
 
-class TfIntentClassifier:
+class TfIntentClassifier(NLUComponent):
+    """TensorFlow-based intent classifier that implements NLUComponent interface."""
+
+    INTENT_RANKING_LENGTH = 3
+    MODEL_NAME = "tf_intent_model.hd5"
+    LABELS_NAME = "labels.pkl"
 
     def __init__(self):
         self.model = None
@@ -23,41 +29,33 @@ class TfIntentClassifier:
         self.label_encoder = LabelBinarizer()
         self.graph = None
 
-    def train(self, X, y, models_dir=None, verbose=True):
-        """
-        Train intent classifier for given training data
-        :param X:
-        :param y:
-        :param models_dir:
-        :param verbose:
-        :return:
-        """
-
+    def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
+        """Train intent classifier for given training data"""
         def create_model():
-            """
-            Define and return tensorflow model.
-            """
+            """Define and return tensorflow model."""
             model = Sequential()
             model.add(Dense(256, activation=tf.nn.relu,
-                            input_shape=(vocab_size,)))
+                          input_shape=(vocab_size,)))
             model.add(Dropout(0.2))
             model.add(Dense(128, activation=tf.nn.relu))
             model.add(Dropout(0.2))
             model.add(Dense(num_labels, activation=tf.nn.softmax))
 
-            """
-            tried:
-            loss functions =>  categorical_crossentropy, binary_crossentropy
-            optimizers => adam, rmsprop
-            """
-
             model.compile(loss='categorical_crossentropy',
-                          optimizer='adam',
-                          metrics=['accuracy'])
+                        optimizer='adam',
+                        metrics=['accuracy'])
 
             model.summary()
-
             return model
+
+        # Extract training features
+        X = []
+        y = []
+        for example in training_data:
+            if example.get("text", "").strip() == "":
+                continue
+            X.append(example.get("text"))
+            y.append(example.get("intent"))
 
         # spacy context vector size
         vocab_size = 384
@@ -77,94 +75,75 @@ class TfIntentClassifier:
         # start training
         self.model.fit(x_train, y_train, shuffle=True, epochs=300, verbose=1)
 
-        if models_dir:
-            tf.keras.models.save_model(
-                self.model,
-                os.path.join(models_dir, "tf_intent_model.hd5")
+        if model_path:
+            # Save model
+            model_file = os.path.join(model_path, self.MODEL_NAME)
+            tf.keras.models.save_model(self.model, model_file)
+            logger.info(f"TF Model written out to {model_file}")
 
-            )
-            if verbose:
-                logger.info("TF Model written out to {}"
-                      .format(os.path.join(models_dir, "tf_intent_model.hd5")))
+            # Save label encoder
+            labels_file = os.path.join(model_path, self.LABELS_NAME)
+            with open(labels_file, 'wb') as f:
+                cloudpickle.dump(self.label_encoder, f)
+            logger.info(f"Labels written out to {labels_file}")
 
-            cloudpickle.dump(self.label_encoder, open(
-                os.path.join(models_dir, "labels.pkl"), 'wb'))
-
-            if verbose:
-                logger.info("Labels written out to {}"
-                      .format(os.path.join(models_dir, "labels.pkl")))
-
-    def load(self, models_dir):
+    def load(self, model_path: str) -> bool:
+        """Load trained model from given path"""
         try:
             del self.model
-
             tf.keras.backend.clear_session()
 
-            self.model = tf.keras.models.load_model(
-                os.path.join(models_dir, "tf_intent_model.hd5"), compile=True)
-
+            # Load model
+            model_file = os.path.join(model_path, self.MODEL_NAME)
+            self.model = tf.keras.models.load_model(model_file, compile=True)
             self.graph = tf.get_default_graph()
+            logger.info("TF model loaded")
 
-            logger.info("Tf model loaded")
-
-            with open(os.path.join(models_dir, "labels.pkl"), 'rb') as f:
+            # Load label encoder
+            labels_file = os.path.join(model_path, self.LABELS_NAME)
+            with open(labels_file, 'rb') as f:
                 self.label_encoder = cloudpickle.load(f)
-                logger.info("Labels model loaded")
+            logger.info("Labels model loaded")
+            return True
 
-        except IOError:
+        except Exception as e:
+            logger.error(f"Error loading model: {e}")
             return False
 
-    def predict(self, text):
-        """
-        Predict class label for given model
-        :param text:
-        :return:
-        """
-        return self.process(text)
-
-    def predict_proba(self, x):
-        """Given a bow vector of an input text, predict most probable label.
-         Returns only the most likely label.
-
-        :param x: raw input text
-        :return: tuple of first, the most probable label and second,
-         its probability"""
-
-        x_predict = [self.nlp(x).vector]
+    def predict_proba(self, message: Dict[str, Any]):
+        """Given a message, predict most probable label.
+        Returns tuple of sorted indices and probabilities."""
+        x_predict = [self.nlp(message.get("text")).vector]
         with self.graph.as_default():
             pred_result = self.model.predict(np.array([x_predict[0]]))
         sorted_indices = np.fliplr(np.argsort(pred_result, axis=1))
         return sorted_indices, pred_result[:, sorted_indices]
 
-    def process(self, x, return_type="intent", INTENT_RANKING_LENGTH=5):
-        """Returns the most likely intent and
-        its probability for the input text."""
+    def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a message and return the extracted information."""
+        if not message.get("text"):
+            return message
 
-        if not self.model:
-            logger.info("no class")
-            intent = None
-            intent_ranking = []
-        else:
-            intents, probabilities = self.predict_proba(x)
+        intent = {"name": None, "confidence": 0.0}
+        intent_ranking = []
+
+        if self.model:
+            intents, probabilities = self.predict_proba(message)
             intents = [self.label_encoder.classes_[intent]
-                       for intent in intents.flatten()]
+                      for intent in intents.flatten()]
             probabilities = probabilities.flatten()
 
             if len(intents) > 0 and len(probabilities) > 0:
                 ranking = list(zip(list(intents), list(probabilities)))
-                ranking = ranking[:INTENT_RANKING_LENGTH]
+                ranking = ranking[:self.INTENT_RANKING_LENGTH]
 
-                intent = {"intent": intents[0],
-                          "confidence": float("%.2f" % probabilities[0])}
-
-                intent_ranking = [{"intent": intent_name,
-                                   "confidence": float("%.2f" % score)}
-                                  for intent_name, score in ranking]
-
+                intent = {"intent": intents[0], "confidence": float("%.2f" % probabilities[0])}
+                intent_ranking = [{"intent": intent_name, "confidence": float("%.2f" % score)}
+                                for intent_name, score in ranking]
             else:
                 intent = {"name": None, "confidence": 0.0}
                 intent_ranking = []
-        if return_type == "intent":
-            return intent
-        else:
-            return intent_ranking
+
+        message["intent"] = intent
+        message["intent_ranking"] = intent_ranking
+        return message
