@@ -1,4 +1,3 @@
-
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -16,10 +15,11 @@ from app.bot.chat.routes import router as chat_router
 @asynccontextmanager
 async def lifespan(_):
     await init_dialogue_manager()
-    yield 
+    yield
     database_client.close()
 
-app = FastAPI(title="AI Chatbot Framework",lifespan=lifespan)
+
+app = FastAPI(title="AI Chatbot Framework", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,13 +31,16 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+
 @app.get("/ready")
 async def ready():
     return {"status": "ok"}
 
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to AI Chatbot Framework API"}
+
 
 # admin apis
 admin_router = APIRouter(prefix="/admin", tags=["admin"])

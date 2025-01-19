@@ -8,6 +8,7 @@ from app.bot.nlu.entity_extractors import CRFEntityExtractor
 from app.admin.entities.store import list_synonyms
 from app.config import app_config
 
+
 async def train_pipeline():
     """
     Initiate NLU pipeline training
@@ -35,10 +36,12 @@ async def train_pipeline():
 
     # initialize and train pipeline
     synonyms = await list_synonyms()
-    pipeline = NLUPipeline([
-        SpacyFeaturizer(spacy_model_name),
-        SklearnIntentClassifier(),
-        CRFEntityExtractor(synonyms)
-    ])
+    pipeline = NLUPipeline(
+        [
+            SpacyFeaturizer(spacy_model_name),
+            SklearnIntentClassifier(),
+            CRFEntityExtractor(synonyms),
+        ]
+    )
 
     pipeline.train(training_data, models_dir)

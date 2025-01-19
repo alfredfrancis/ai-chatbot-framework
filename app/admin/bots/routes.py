@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import Response
 from typing import Dict, Any
 import json
@@ -7,6 +7,7 @@ from app.admin.bots import store
 
 router = APIRouter(prefix="/bots")
 
+
 @router.put("/{name}/config")
 async def set_config(name: str, config: Dict[str, Any]):
     """
@@ -14,12 +15,14 @@ async def set_config(name: str, config: Dict[str, Any]):
     """
     return await store.update_config(name, config)
 
+
 @router.get("/{name}/config")
 async def get_config(name: str):
     """
     Get bot config
     """
     return await store.get_config(name)
+
 
 @router.get("/{name}/export")
 async def export_bot(name: str):
@@ -29,9 +32,10 @@ async def export_bot(name: str):
     data = await store.export_bot(name)
     return Response(
         content=json.dumps(data),
-        media_type='application/json',
-        headers={'Content-Disposition': 'attachment;filename=chatbot_data.json'}
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment;filename=chatbot_data.json"},
     )
+
 
 @router.post("/{name}/import")
 async def import_bot(name: str, file: UploadFile = File(...)):

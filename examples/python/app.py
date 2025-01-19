@@ -1,12 +1,12 @@
-import requests,json
+import requests, json
 import logging
 
 logger = logging.getLogger(__name__)
 
-''' 
+""" 
 define initial payload
 set input = 'init_conversation' so that bot will return default welcome message
-'''
+"""
 payload = {
     "currentNode": "",
     "complete": None,
@@ -16,7 +16,7 @@ payload = {
     "speechResponse": "",
     "intent": {},
     "input": "init_conversation",
-    "missingParameters": []
+    "missingParameters": [],
 }
 
 while True:
@@ -25,6 +25,6 @@ while True:
     payload = json.loads(r.text)
 
     logger.info("Iky\t" + payload.get("speechResponse"))
-    
+
     # read user input
-    payload["input"]=input("You:\t")
+    payload["input"] = input("You:\t")

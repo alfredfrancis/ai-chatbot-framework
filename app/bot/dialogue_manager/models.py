@@ -19,12 +19,14 @@ class ApiDetailsModel:
             headers[header["headerKey"]] = header["headerValue"]
         return headers
 
+
 @dataclass
 class ParameterModel:
     name: str
     required: bool = False
     type: Optional[str] = None
     prompt: Optional[str] = None
+
 
 @dataclass
 class IntentModel:
@@ -50,18 +52,16 @@ class IntentModel:
                 request_type=db_intent.apiDetails.requestType,
                 headers=db_intent.apiDetails.headers,
                 is_json=db_intent.apiDetails.isJson,
-                json_data=db_intent.apiDetails.jsonData
+                json_data=db_intent.apiDetails.jsonData,
             )
 
         parameters = []
         if db_intent.parameters:
             parameters = [
                 ParameterModel(
-                    name=p.name,
-                    required=p.required,
-                    type=p.type,
-                    prompt=p.prompt
-                ) for p in db_intent.parameters
+                    name=p.name, required=p.required, type=p.type, prompt=p.prompt
+                )
+                for p in db_intent.parameters
             ]
 
         return cls(
@@ -71,22 +71,25 @@ class IntentModel:
             user_defined=db_intent.userDefined,
             api_trigger=db_intent.apiTrigger,
             api_details=api_details,
-            parameters=parameters
+            parameters=parameters,
         )
 
+
 class ChatModel:
-    def __init__(self,
-                 input_text: str,
-                 context: Optional[Dict] = None,
-                 intent: Optional[Dict] = None,
-                 extracted_parameters: Optional[Dict] = None,
-                 missing_parameters: Optional[List[str]] = None,
-                 complete: bool = False,
-                 speech_response: Optional[List[str]] = None,
-                 current_node: str = "",
-                 parameters: Optional[List[Dict[str, Any]]] = None,
-                 owner: str = "",
-                 date: Optional[str] = None):
+    def __init__(
+        self,
+        input_text: str,
+        context: Optional[Dict] = None,
+        intent: Optional[Dict] = None,
+        extracted_parameters: Optional[Dict] = None,
+        missing_parameters: Optional[List[str]] = None,
+        complete: bool = False,
+        speech_response: Optional[List[str]] = None,
+        current_node: str = "",
+        parameters: Optional[List[Dict[str, Any]]] = None,
+        owner: str = "",
+        date: Optional[str] = None,
+    ):
         self.input_text = input_text
         self.context = context or {}
         self.intent = intent or {}
@@ -113,7 +116,7 @@ class ChatModel:
             current_node=request_json.get("currentNode", ""),
             parameters=request_json.get("parameters", []),
             owner=request_json.get("owner", ""),
-            date=request_json.get("date", None)
+            date=request_json.get("date", None),
         )
 
     def to_json(self) -> Dict:
@@ -129,7 +132,7 @@ class ChatModel:
             "currentNode": self.current_node,
             "parameters": self.parameters,
             "owner": self.owner,
-            "date": self.date
+            "date": self.date,
         }
 
     def clone(self):
