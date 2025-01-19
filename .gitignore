@@ -9,3 +9,5 @@ env/
 .pytest_cache/
 .vscode
 model_files/
+.ruff_cache/
+.idea/

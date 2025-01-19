@@ -8,7 +8,8 @@ class NLUComponent(ABC):
 
     @abstractmethod
     def train(self, training_data: List[Dict[str, Any]], model_path: str) -> None:
-        """Train the component with given training data and save to model_path."""
+        """Train the component with given training data
+        and save to model_path."""
         pass
 
     @abstractmethod

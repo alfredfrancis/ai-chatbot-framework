@@ -43,7 +43,9 @@ class TfIntentClassifier(NLUComponent):
             model.add(Dense(num_labels, activation=tf.nn.softmax))
 
             model.compile(
-                loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"]
+                loss="categorical_crossentropy",
+                optimizer="adam",
+                metrics=["accuracy"],
             )
 
             model.summary()

@@ -10,7 +10,11 @@ from app.bot.nlu.intent_classifiers import SklearnIntentClassifier
 from app.bot.nlu.entity_extractors import CRFEntityExtractor
 from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
 from app.admin.entities.store import list_synonyms
-from app.bot.dialogue_manager.models import ChatModel, IntentModel, ParameterModel
+from app.bot.dialogue_manager.models import (
+    ChatModel,
+    IntentModel,
+    ParameterModel,
+)
 from app.bot.dialogue_manager.http_client import call_api
 from app.config import app_config
 
@@ -107,7 +111,8 @@ class DialogueManager:
                 "intent": nlu_result.get("intent"),
             }
 
-            # if query_intent is not the same as active intent, fetch active intent as well
+            # if query_intent is not the same as active intent,
+            # fetch active intent as well
             active_intent_id = chat_model_response.intent.get("id")
             if active_intent_id and query_intent_id != active_intent_id:
                 active_intent = self._get_intent(chat_model_response.intent["id"])
@@ -116,7 +121,11 @@ class DialogueManager:
 
             # Step 4: Process the intent
             chat_model_response, active_intent = self._process_intent(
-                query_intent, active_intent, chat_model_response, context, nlu_result
+                query_intent,
+                active_intent,
+                chat_model_response,
+                context,
+                nlu_result,
             )
             chat_model_response.intent = {"id": active_intent.intent_id}
 
@@ -175,7 +184,8 @@ class DialogueManager:
         nlu_result: Dict,
     ) -> (ChatModel, IntentModel):
         """
-        Process the intent and update the result model with extracted parameters and other details.
+        Process the intent and update the result model
+        with extracted parameters and other details.
         """
         # cancel intent should cancel active intent and reset chat model
         if query_intent.intent_id == "cancel":
@@ -238,7 +248,8 @@ class DialogueManager:
                 parameters, chat_model_response
             )
 
-        # Check if there are no missing parameters to mark the intent as complete
+        # Check if there are no missing parameters
+        # to mark the intent as complete
         chat_model_response.complete = not chat_model_response.missing_parameters
         return chat_model_response, active_intent
 
@@ -285,7 +296,9 @@ class DialogueManager:
                 result = await self._call_intent_api(intent, context)
                 context["result"] = result
                 template = Template(
-                    intent.speech_response, undefined=SilentUndefined, enable_async=True
+                    intent.speech_response,
+                    undefined=SilentUndefined,
+                    enable_async=True,
                 )
                 chat_model_response.speech_response = split_sentence(
                     await template.render_async(**context)
@@ -298,7 +311,9 @@ class DialogueManager:
         else:
             context["result"] = {}
             template = Template(
-                intent.speech_response, undefined=SilentUndefined, enable_async=True
+                intent.speech_response,
+                undefined=SilentUndefined,
+                enable_async=True,
             )
             chat_model_response.speech_response = split_sentence(
                 await template.render_async(**context)

@@ -59,7 +59,10 @@ class IntentModel:
         if db_intent.parameters:
             parameters = [
                 ParameterModel(
-                    name=p.name, required=p.required, type=p.type, prompt=p.prompt
+                    name=p.name,
+                    required=p.required,
+                    type=p.type,
+                    prompt=p.prompt,
                 )
                 for p in db_intent.parameters
             ]

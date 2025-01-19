@@ -43,7 +43,8 @@ async def call_api(
         async with aiohttp.ClientSession(timeout=timeout_config) as session:
             method = method.upper()
             logger.debug(
-                f"Initiating async API Call: url={url} method={method} payload={parameters}"
+                f"Initiating async API Call: url={url} \
+                    method={method} payload={parameters}"
             )
 
             if method == "GET":

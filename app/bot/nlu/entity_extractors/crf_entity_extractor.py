@@ -13,7 +13,6 @@ class CRFEntityExtractor(NLUComponent):
     """
 
     def __init__(self, synonyms: Optional[Dict[str, str]] = None):
-
         self.synonyms = synonyms or {}
         self.tagger = None
 
@@ -204,7 +203,8 @@ class CRFEntityExtractor(NLUComponent):
 
     def json2crf(self, training_data):
         """
-        Takes JSON annotated data and converts it to CRFSuite training data representation.
+        Takes JSON annotated data and
+        converts it to CRFSuite training data representation.
         :param training_data: List of training examples with annotated entities.
         :return: List of tokenized, POS-tagged, and BIO-labeled sentences.
         """
@@ -227,8 +227,8 @@ class CRFEntityExtractor(NLUComponent):
                 # Use char_span to map entity character offsets to token spans
                 span = spacy_doc.char_span(begin_char, end_char)
                 if not span:
-                    continue  # Skip if the span cannot be resolved (e.g., partial tokens)
-
+                    # Skip if the span cannot be resolved (e.g., partial tokens)
+                    continue
                 # BIO tagging for the resolved token span
                 for i, token in enumerate(span):
                     token_index = token.i
