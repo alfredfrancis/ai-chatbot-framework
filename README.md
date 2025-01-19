@@ -1,6 +1,6 @@
 <img src="https://i.ibb.co/vLR1wpG/logo.png" width="280"/>
 
-[![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/docker-build-push.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/docker-build-push.yml)
+[![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-backend.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-backend.yml) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-frontend.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-frontend.yml)
 
 
 
