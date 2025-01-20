@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 from app.database import ObjectIdField
 
@@ -17,5 +17,4 @@ class Entity(BaseModel):
     name: str
     entity_values: List[EntityValue] = []
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)

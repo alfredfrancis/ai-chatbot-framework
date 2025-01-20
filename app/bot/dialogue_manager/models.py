@@ -1,5 +1,5 @@
 from typing import Optional, Dict, List, Any
-from datetime import datetime
+from datetime import datetime, UTC
 from copy import deepcopy
 from dataclasses import dataclass
 from app.admin.intents.schemas import Intent
@@ -104,7 +104,7 @@ class ChatModel:
         self.current_node = current_node
         self.parameters = parameters or []
         self.owner = owner
-        self.date = date or datetime.utcnow().isoformat()
+        self.date = date or datetime.now(UTC).isoformat()
 
     @classmethod
     def from_json(cls, request_json: Dict):

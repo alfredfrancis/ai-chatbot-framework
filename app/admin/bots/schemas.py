@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Dict, Any
 from app.database import ObjectIdField
 
@@ -10,5 +10,4 @@ class Bot(BaseModel):
     name: str
     config: Dict[str, Any] = {}
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
