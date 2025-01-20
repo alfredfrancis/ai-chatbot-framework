@@ -43,14 +43,9 @@ kubectl port-forward --namespace=ai-chatbot-framework service/ingress-nginx-cont
 
 Open http://localhost:8080/
 
-## Development
+### Contributing
 
-### Start development server
-
-```sh
-docker-compose -f docker-compose.dev.yml up -d
-```
-Open http://localhost:3000/
+Want to contribute? Check out our [contribution guidelines](CONTRIBUTING.md).
 
 ### Tutorial
 
