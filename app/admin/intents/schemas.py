@@ -1,5 +1,5 @@
 from app.database import ObjectIdField
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 
@@ -14,8 +14,7 @@ class LabeledSentences(BaseModel):
     id: ObjectIdField = Field(default_factory=generate_object_id)
     data: List[str] = []
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class Parameter(BaseModel):
@@ -27,8 +26,7 @@ class Parameter(BaseModel):
     type: Optional[str] = None
     prompt: Optional[str] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class ApiDetails(BaseModel):
@@ -61,5 +59,4 @@ class Intent(BaseModel):
     labeledSentences: List[LabeledSentences] = []
     trainingData: List[Dict[str, Any]] = []
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
