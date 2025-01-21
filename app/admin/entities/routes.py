@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.admin.entities import store
 from app.admin.entities.schemas import Entity
 
-router = APIRouter(prefix="/entities")
+router = APIRouter(prefix="/entities", tags=["entities"])
 
 
 @router.post("/")

@@ -16,6 +16,7 @@ def migrate():
         from app.admin.bots.schemas import Bot
         from app.admin.bots.store import add_bot
         from app.admin.bots.store import import_bot
+        from app.admin.integrations.store import ensure_default_integrations
 
         try:
             default_bot = Bot(name="default", config={"confidence_threshold": 0.85})
@@ -33,6 +34,8 @@ def migrate():
                 )
         except FileNotFoundError:
             logger.error("Error: 'migrations/default_intents.json' file not found.")
+
+        await ensure_default_integrations()
 
     asyncio.run(async_migrate())
 
