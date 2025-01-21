@@ -118,9 +118,7 @@ class TestDialogueManager:
         current_state = await dialogue_manager.process(message)
 
         # Verify state was initialized and saved
-        mock_memory_saver.init_state.assert_called_once_with(
-            thread_id="user1", user_message=message
-        )
+        mock_memory_saver.init_state.assert_called_once_with("user1")
         mock_memory_saver.save.assert_called_once()
 
         assert current_state.complete is True
