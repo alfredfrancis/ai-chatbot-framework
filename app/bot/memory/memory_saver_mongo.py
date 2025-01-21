@@ -23,7 +23,6 @@ class MemorySaverMongo(MemorySaver):
             {"_id": 0, "nlu": 0, "date": 0, "user_message": 0, "bot_message": 0},
             sort=[("$natural", -1)],
         )
-        print(result)
         if result:
             return State.from_dict(result)
         return None
