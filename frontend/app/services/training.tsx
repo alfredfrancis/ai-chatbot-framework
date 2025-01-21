@@ -12,20 +12,6 @@ interface Intent {
   [key: string]: unknown;
 }
 
-interface ChatState {
-  currentNode: string;
-  complete: boolean | null;
-  context: Record<string, unknown>;
-  parameters: Parameter[];
-  extractedParameters: Record<string, unknown>;
-  speechResponse: string[];
-  intent: Intent;
-  input: string;
-  missingParameters: Parameter[];
-  owner?: string;
-  date?: Date;
-}
-
 interface Entity {
   name: string;
   value: string;
@@ -100,4 +86,4 @@ export const trainModels = async () => {
   return response.json();
 };
 
-export type { Entity, Example, EntityModel,EntityValue, IntentModel, ChatState, Parameter, Intent }; 
+export type { Entity, Example, EntityModel,EntityValue, IntentModel, Parameter, Intent }; 

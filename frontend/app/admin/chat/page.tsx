@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { converse } from '../../services/chat';
-import type { ChatState } from '../../services/training';
+import { converse, ChatState, UserMessage } from '../../services/chat';
+import { v4 as uuidv4 } from 'uuid';
 import './style.css';
 
 interface Message {
@@ -13,81 +13,75 @@ interface Message {
 const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [chatCurrent, setChatCurrent] = useState<ChatState | null>(null);
+  const [threadId, setThreadId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [chatState, setChatState] = useState<ChatState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
+
+  // Initialize threadId on client side only
+  useEffect(() => {
+    setThreadId(uuidv4());
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const processResponse = useCallback((response: ChatState) => {
-    response.owner = 'chat';
-    response.date = new Date();
-    setChatCurrent(response);
-
-    if (Array.isArray(response.speechResponse)) {
-      response.speechResponse.forEach((item, index) => {
-        setTimeout(() => {
-          setMessages(prev => [...prev, { content: item, author: 'chat' }]);
-        }, 500 * index);
-      });
-    }
+  const processResponse = useCallback((responses: ChatState) => {
+    setChatState(responses);
+    responses.bot_message.forEach((response, index) => {
+      setTimeout(() => {
+        setMessages(prev => [...prev, { content: response.text, author: 'chat' }]);
+      }, 500 * index);
+    });
   }, []);
 
   const initChat = useCallback(async () => {
-    const initialChat: ChatState = {
-      currentNode: '',
-      complete: null,
-      context: {},
-      parameters: [],
-      extractedParameters: {},
-      speechResponse: [],
-      intent: {},
-      input: '/init_conversation',
-      missingParameters: []
+    const initialMessage: UserMessage = {
+      thread_id: threadId,
+      text: '/init_conversation',
+      context: {}
     };
 
     try {
-      const response = await converse(initialChat);
-      processResponse(response);
+      const response = await converse(initialMessage);
+      processResponse(response); // Assuming the first response is the most relevant
     } catch (error) {
       console.error('Error initializing chat:', error);
     }
-  }, [processResponse]);
+  }, [threadId, processResponse]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   useEffect(() => {
-    if (isInitialMount.current) {
+    if (isInitialMount.current && threadId) {
       isInitialMount.current = false;
       initChat();
     }
-  }, [initChat]);
+  }, [initChat, threadId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading || !chatCurrent) return;
+    if (!input.trim() || isLoading) return;
 
     setIsLoading(true);
     const userMessage = input;
     setInput('');
     setMessages(prev => [...prev, { content: userMessage, author: 'user' }]);
 
-    const sendMessage: ChatState = {
-      ...chatCurrent,
-      input: userMessage,
-      owner: 'user'
+    const message: UserMessage = {
+      thread_id: threadId,
+      text: userMessage,
+      context: {}
     };
-    setChatCurrent(sendMessage);
 
     try {
-      const response = await converse(sendMessage);
+      const response = await converse(message);
       setTimeout(() => {
-        processResponse(response);
+        processResponse(response); // Assuming the first response is the most relevant
         setIsLoading(false);
       }, 1000);
     } catch (error) {
@@ -105,7 +99,7 @@ const ChatPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chat Window */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[600px]">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-y-auto h-[70vh]">
           <div className="chat-container flex-1 p-4 space-y-4">
             {messages.map((message, index) => (
               <div
@@ -152,11 +146,11 @@ const ChatPage: React.FC = () => {
           </form>
         </div>
 
-        {/* JSON Response */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">POST /api/v1</h3>
-          <pre className="bg-gray-50 p-4 rounded-lg overflow-auto h-[500px] text-sm">
-            {JSON.stringify(chatCurrent, null, 2)}
+        {/* Debug Area */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-[70vh] overflow-y-auto">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">Current State</h3>
+          <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-y-auto">
+            {JSON.stringify(chatState, null, 2) || 'No chat state available'}
           </pre>
         </div>
       </div>

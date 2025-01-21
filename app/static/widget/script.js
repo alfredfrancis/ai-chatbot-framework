@@ -203,16 +203,11 @@
       this.isOpen = false;
       this.isTyping = false;
       this.currentState = {
-        currentNode: "",
-        complete: null,
-        context: window.chat_context || {},
-        parameters: [],
-        extractedParameters: {},
-        speechResponse: [],
-        intent: {},
-        input: "",
-        missingParameters: []
+        thread_id: this.uuid(),
+        text: "/init_conversation",
+        context: {},
       };
+      this.response = [];
       this.createElements();
       this.attachEventListeners();
       this.initChat();
@@ -289,7 +284,7 @@
     addMessage(content, isUser = false) {
       const message = document.createElement('div');
       message.className = `iky-message ${isUser ? 'user' : 'bot'}`;
-      message.textContent = content;
+      message.innerHTML = content; // Changed from textContent to innerHTML to render HTML content
       this.messages.appendChild(message);
       this.scrollToBottom();
     }
@@ -321,6 +316,13 @@
       this.messages.scrollTop = this.messages.scrollHeight;
     }
 
+    uuid() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+          return v.toString(16);
+      });
+    }
+
     async initChat() {
       try {
         const response = await fetch(`${window.iky_base_url}bots/v1/chat`, {
@@ -328,24 +330,21 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            ...this.currentState,
-            input: '/init_conversation'
-          }),
+          body: JSON.stringify(this.currentState),
         });
 
         const data = await response.json();
-        this.currentState = { ...data };
+        this.response = { ...data };
 
         // Add bot response(s)
-        if (Array.isArray(data.speechResponse)) {
-          data.speechResponse.forEach((response, index) => {
+        if (Array.isArray(data)) {
+          data.forEach((response, index) => {
             setTimeout(() => {
-              this.addMessage(response);
+              this.addMessage(response.text);
             }, index * 500);
           });
-        } else if (data.speechResponse) {
-          this.addMessage(data.speechResponse);
+        } else if (data) {
+          this.addMessage(data.text);
         }
       } catch (error) {
         console.error('Error initializing chat:', error);
@@ -368,25 +367,25 @@
           },
           body: JSON.stringify({
             ...this.currentState,
-            input: message
+            text: message
           }),
         });
 
         const data = await response.json();
-        this.currentState = { ...data };
+        this.response = { ...data };
 
         // Hide typing indicator
         this.hideTyping();
 
         // Add bot response(s)
-        if (Array.isArray(data.speechResponse)) {
-          data.speechResponse.forEach((response, index) => {
+        if (Array.isArray(data)) {
+          data.forEach((response, index) => {
             setTimeout(() => {
-              this.addMessage(response);
+              this.addMessage(response.text);
             }, index * 500);
           });
-        } else if (data.speechResponse) {
-          this.addMessage(data.speechResponse);
+        } else if (data) {
+          this.addMessage(data.text);
         }
       } catch (error) {
         console.error('Error sending message:', error);
