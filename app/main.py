@@ -9,6 +9,8 @@ from app.admin.bots.routes import router as bots_router
 from app.admin.entities.routes import router as entities_router
 from app.admin.intents.routes import router as intents_router
 from app.admin.train.routes import router as train_router
+from app.admin.test.routes import router as test_router
+
 from app.bot.chat.routes import router as chat_router
 
 
@@ -48,6 +50,7 @@ admin_router.include_router(bots_router)
 admin_router.include_router(intents_router)
 admin_router.include_router(entities_router)
 admin_router.include_router(train_router)
+admin_router.include_router(test_router)
 app.include_router(admin_router)
 
 app.include_router(chat_router, prefix="/bots", tags=["bots"])
