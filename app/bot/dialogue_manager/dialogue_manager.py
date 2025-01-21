@@ -4,6 +4,9 @@ from typing import Dict, List, Optional, Tuple
 from jinja2 import Template
 from app.admin.bots.store import get_bot
 from app.admin.intents.store import list_intents
+from app.bot.memory import MemorySaver
+from app.bot.memory.memory_saver_mongo import MemorySaverMongo
+from app.bot.memory.models import State
 from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
 from app.bot.nlu.intent_classifiers import SklearnIntentClassifier
@@ -11,12 +14,13 @@ from app.bot.nlu.entity_extractors import CRFEntityExtractor
 from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
 from app.admin.entities.store import list_synonyms
 from app.bot.dialogue_manager.models import (
-    ChatModel,
     IntentModel,
     ParameterModel,
+    UserMessage,
 )
 from app.bot.dialogue_manager.http_client import call_api
 from app.config import app_config
+from app.database import client
 
 logger = logging.getLogger("dialogue_manager")
 
@@ -24,11 +28,13 @@ logger = logging.getLogger("dialogue_manager")
 class DialogueManager:
     def __init__(
         self,
+        memory_saver: MemorySaver,
         intents: List[IntentModel],
         nlu_pipeline: NLUPipeline,
         fallback_intent_id: str,
         intent_confidence_threshold: float,
     ):
+        self.memory_saver = memory_saver
         self.nlu_pipeline = nlu_pipeline
         self.intents = {
             intent.intent_id: intent for intent in intents
@@ -64,7 +70,15 @@ class DialogueManager:
         bot = await get_bot("default")
         confidence_threshold = bot.config.get("confidence_threshold", 0.90)
 
-        return cls(intents, nlu_pipeline, fallback_intent_id, confidence_threshold)
+        memory_saver = MemorySaverMongo(client)
+
+        return cls(
+            memory_saver,
+            intents,
+            nlu_pipeline,
+            fallback_intent_id,
+            confidence_threshold,
+        )
 
     def update_model(self, models_dir):
         """
@@ -75,83 +89,89 @@ class DialogueManager:
         self.nlu_pipeline.load(models_dir)
         logger.info("NLU Pipeline models updated")
 
-    async def process(self, chat_model: ChatModel) -> ChatModel:
+    async def process(self, message: UserMessage) -> State:
         """
-        Single entry point to process the dialogue request.
+        Single entry point to process the user message.
 
-        :param chat_model: The ChatModel instance containing the request data.
-        :return: Processed ChatModel instance.
+        :param message: UserMessage instance containing the request data.
+        :return: current state of the conversation including the bot response
         """
-        logger.debug(f"Received request: {chat_model.to_json()}")
-        chat_model_response = chat_model.clone()
-        context = {"context": chat_model.context}
 
-        # reset intent and parameters of already completed conversation
-        if chat_model_response.complete:
-            chat_model_response.reset()
+        # Step 1: Get current state
+        current_state = await self.memory_saver.get(message.thread_id)
+
+        if not current_state:
+            logger.debug(
+                f"No current state found for thread_id: {message.thread_id}, creating new state"
+            )
+            current_state = await self.memory_saver.init_state(message.thread_id)
+
+        current_state.update(message)
 
         try:
-            # Step 1: Process through NLU pipeline
+            # Step 2: Process through NLU pipeline
             nlu_result = self.nlu_pipeline.process(
-                {"text": chat_model_response.input_text}
+                {"text": current_state.user_message.text}
             )
 
-            # Step 2: Get intent ID and confidence
-            query_intent_id, intent_confidence = self._get_intent_id_and_confidence(
-                chat_model_response, nlu_result
+            # Step 3: Get intent ID and confidence
+            query_intent_id, _ = self._get_intent_id_and_confidence(
+                current_state, nlu_result
             )
 
-            # Step 3: Retrieve the intent object
+            # Step 4: Retrieve the intent object
             query_intent = self._get_intent(query_intent_id)
             if query_intent is None:
                 query_intent = self._get_fallback_intent()
 
-            chat_model_response.nlu = {
+            current_state.nlu = {
                 "entities": nlu_result.get("entities"),
                 "intent": nlu_result.get("intent"),
             }
 
             # if query_intent is not the same as active intent,
             # fetch active intent as well
-            active_intent_id = chat_model_response.intent.get("id")
+            active_intent_id = current_state.get_active_intent_id()
             if active_intent_id and query_intent_id != active_intent_id:
-                active_intent = self._get_intent(chat_model_response.intent["id"])
+                active_intent = self._get_intent(current_state.intent["id"])
             else:
                 active_intent = query_intent
 
-            # Step 4: Process the intent
-            chat_model_response, active_intent = self._process_intent(
+            # Step 5: Process the intent
+            current_state, active_intent = self._process_intent(
                 query_intent,
                 active_intent,
-                chat_model_response,
-                context,
-                nlu_result,
+                current_state,
             )
-            chat_model_response.intent = {"id": active_intent.intent_id}
+            current_state.intent = {"id": active_intent.intent_id}
 
-            # Step 5: Handle API trigger if the intent is complete
-            if chat_model_response.complete:
-                chat_model_response = await self._handle_api_trigger(
-                    active_intent, chat_model_response, context
+            # Step 6: Handle API trigger if the intent is complete
+            if current_state.complete:
+                current_state = await self._handle_api_trigger(
+                    active_intent, current_state
                 )
 
-            logger.info(
-                f"Processed input: {chat_model_response.input_text}",
-                extra=chat_model_response.to_json(),
+            logger.debug(
+                f"Processed input: {current_state.thread_id}",
+                extra=current_state.to_dict(),
             )
-            return chat_model_response
+
+            # Step 7: Save the state
+            await self.memory_saver.save(message.thread_id, current_state)
+
+            return current_state
 
         except Exception as e:
             logger.error(f"Error processing request: {e}", exc_info=True)
             raise
 
     def _get_intent_id_and_confidence(
-        self, chat_model: ChatModel, nlu_result: Dict
+        self, current_state: State, nlu_result: Dict
     ) -> Tuple[str, float]:
         """
         Determine the intent ID and confidence based on the request input.
         """
-        input_text = chat_model.input_text
+        input_text = current_state.user_message.text
         if input_text.startswith("/"):
             intent_id = input_text.split("/")[1]
             confidence = 1.0
@@ -179,10 +199,8 @@ class DialogueManager:
         self,
         query_intent: IntentModel,
         active_intent: IntentModel,
-        chat_model_response: ChatModel,
-        context: Dict,
-        nlu_result: Dict,
-    ) -> (ChatModel, IntentModel):
+        current_state: State,
+    ) -> Tuple[State, IntentModel]:
         """
         Process the intent and update the result model
         with extracted parameters and other details.
@@ -190,18 +208,18 @@ class DialogueManager:
         # cancel intent should cancel active intent and reset chat model
         if query_intent.intent_id == "cancel":
             active_intent = query_intent
-            chat_model_response.complete = True
-            chat_model_response.parameters = []
-            chat_model_response.extracted_parameters = {}
-            chat_model_response.missing_parameters = {}
-            chat_model_response.current_node = None
-            return chat_model_response, active_intent
+            current_state.complete = True
+            current_state.parameters = []
+            current_state.extracted_parameters = {}
+            current_state.missing_parameters = []
+            current_state.current_node = None
+            return current_state, active_intent
 
         parameters = active_intent.parameters
 
         if parameters:
             # Get entities from NLU pipeline result
-            extracted_entities = nlu_result.get("entities", {})
+            extracted_entities = current_state.nlu.get("entities", {})
 
             # Group entities by type
             entities_by_type = {}
@@ -211,9 +229,9 @@ class DialogueManager:
                 entities_by_type[entity_name].append(entity_value)
 
             # populate parameters
-            if len(chat_model_response.parameters) == 0:
+            if len(current_state.parameters) == 0:
                 for param in parameters:
-                    chat_model_response.parameters.append(
+                    current_state.parameters.append(
                         {
                             "name": param.name,
                             "type": param.type,
@@ -226,36 +244,34 @@ class DialogueManager:
                 # For free_text parameters being prompted
                 if (
                     param.type == "free_text"
-                    and chat_model_response.current_node == param.name
+                    and current_state.current_node == param.name
                 ):
-                    chat_model_response.extracted_parameters[param.name] = (
-                        chat_model_response.input_text
+                    current_state.extracted_parameters[param.name] = (
+                        current_state.user_message.text
                     )
                     continue
                 else:
                     # Get all entities of matching type
                     if param.type in entities_by_type and entities_by_type[param.type]:
                         # Take the next available entity of this type
-                        chat_model_response.extracted_parameters[param.name] = (
+                        current_state.extracted_parameters[param.name] = (
                             entities_by_type[param.type].pop(0)
                         )
 
             # Update context with extracted_parameters
-            context["parameters"] = chat_model_response.extracted_parameters
+            current_state.context["parameters"] = current_state.extracted_parameters
 
             # Handle missing parameters
-            chat_model_response = self._handle_missing_parameters(
-                parameters, chat_model_response
-            )
+            current_state = self._handle_missing_parameters(parameters, current_state)
 
         # Check if there are no missing parameters
         # to mark the intent as complete
-        chat_model_response.complete = not chat_model_response.missing_parameters
-        return chat_model_response, active_intent
+        current_state.complete = not current_state.missing_parameters
+        return current_state, active_intent
 
     def _handle_missing_parameters(
-        self, parameters: List[ParameterModel], chat_model_response: ChatModel
-    ) -> ChatModel:
+        self, parameters: List[ParameterModel], current_state: State
+    ) -> State:
         """
         Handle missing parameters in the result model.
 
@@ -264,62 +280,65 @@ class DialogueManager:
         :return: Updated ChatModel instance.
         """
         missing_parameters = []
-        chat_model_response.missing_parameters = []
+        current_state.missing_parameters = []
 
         # clear current node
-        chat_model_response.current_node = None
-        chat_model_response.speech_response = None
+        current_state.current_node = None
+        current_state.bot_message = []
 
         for parameter in parameters:
             if (
                 parameter.required
-                and parameter.name not in chat_model_response.extracted_parameters
+                and parameter.name not in current_state.extracted_parameters
             ):
-                chat_model_response.missing_parameters.append(parameter.name)
+                current_state.missing_parameters.append(parameter.name)
                 missing_parameters.append(parameter)
 
         if missing_parameters:
             current_node = missing_parameters[0]
-            chat_model_response.current_node = current_node.name
-            chat_model_response.speech_response = split_sentence(current_node.prompt)
-
-        return chat_model_response
+            current_state.current_node = current_node.name
+            current_state.bot_message = [
+                {"text": msg} for msg in split_sentence(current_node.prompt)
+            ]
+        return current_state
 
     async def _handle_api_trigger(
-        self, intent: IntentModel, chat_model_response: ChatModel, context: Dict
-    ) -> ChatModel:
+        self, intent: IntentModel, current_state: State
+    ) -> State:
         """
         Handle API trigger if the intent requires it.
         """
         if intent.api_trigger and intent.api_details:
             try:
-                result = await self._call_intent_api(intent, context)
-                context["result"] = result
+                result = await self._call_intent_api(intent, current_state.context)
+                current_state.context["result"] = result
                 template = Template(
                     intent.speech_response,
                     undefined=SilentUndefined,
                     enable_async=True,
                 )
-                chat_model_response.speech_response = split_sentence(
-                    await template.render_async(**context)
-                )
+                rendered_text = await template.render_async(**current_state.context)
+                current_state.bot_message = [
+                    {"text": msg} for msg in split_sentence(rendered_text)
+                ]
             except Exception as e:
                 logger.warning(f"API call failed: {e}")
-                chat_model_response.speech_response = [
-                    "Service is not available. Please try again later."
+                current_state.bot_message = [
+                    {"text": "Service is not available. Please try again later."}
                 ]
         else:
-            context["result"] = {}
+            current_state.context["result"] = {}
             template = Template(
                 intent.speech_response,
                 undefined=SilentUndefined,
                 enable_async=True,
             )
-            chat_model_response.speech_response = split_sentence(
-                await template.render_async(**context)
-            )
+            rendered_text = await template.render_async(**current_state.context)
+            current_state.bot_message = [
+                {"text": msg} for msg in split_sentence(rendered_text)
+            ]
 
-        return chat_model_response
+        return current_state
 
     async def _call_intent_api(self, intent: IntentModel, context: Dict):
         """

@@ -3,14 +3,30 @@
 [![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-backend.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-backend.yml) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-frontend.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-frontend.yml)
 
 
+AI Chatbot Framework is an open-source, self-hosted, DIY Chatbot building platform built in Python. With this tool, it’s easy to create Natural Language conversational scenarios with no coding efforts whatsoever. 
+The smooth UI makes it effortless to create and train conversations to the bot. AI Chatbot Framework can live on any channel of your choice (such as Messenger, Slack etc.) by integrating it’s API with that platform.
 
-### An AI Chatbot framework built in Python
+You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has AI capabilities. With this project you can create an AI powered chatting machine in no time. 
 
-AI Chatbot Framework is an AI powered conversational dialog interface built in Python. With this tool, it’s easy to create Natural Language conversational scenarios with no coding efforts whatsoever. The smooth UI makes it effortless to create and train conversations to the bot. AI Chatbot Framework can live on any channel of your choice (such as Messenger, Slack etc.) by integrating it’s API with that platform.
-
-You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has AI capabilities. With this boilerplate project you can create an AI powered chatting machine in no time. Since this is a hobby project, there could be numerous bugs, so contributions through pull requests are welcome!
 
 ![](docs/screenshots/admin_chat_screenshot.png)
+
+## Features
+- Fully Self Hosted
+- Multi-turn Conversations
+- Advanced Natural Language Understanding (NLU)
+  - Spacy Word Embeddings
+  - Intent Recognition (ML)
+  - Entity Extraction (ML)
+  - One shot NLU using Large Language Models (Coming Soon)
+- Persistent Memory & Context Management
+- API request fulfilment
+- Channel Integrations
+  - Web using rest api/chat snippet
+  - Facebook Messenger (coming soon)
+  - WhatsApp via Twilio (coming soon)
+  - Slack (coming soon)
+- Low Code Admin Dashboard
 
 ## Index
 

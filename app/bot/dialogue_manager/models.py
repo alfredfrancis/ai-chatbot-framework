@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Text
 from datetime import datetime, UTC
 from copy import deepcopy
 from dataclasses import dataclass
@@ -149,3 +149,30 @@ class ChatModel:
         self.parameters = []
         self.current_node = {}
         self.speech_response = {}
+
+
+class UserMessage:
+    def __init__(
+        self, thread_id: str, text: Text, context: Dict, channel: Text = "rest"
+    ):
+        self.thread_id = thread_id
+        self.text = text
+        self.channel = channel
+        self.context = context
+
+    def to_dict(self) -> Dict:
+        return {
+            "thread_id": self.thread_id,
+            "text": self.text,
+            "channel": self.channel,
+            "context": self.context,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "UserMessage":
+        return cls(
+            thread_id=data["thread_id"],
+            text=data["text"],
+            context=data["context"],
+            channel=data.get("channel", "rest"),
+        )

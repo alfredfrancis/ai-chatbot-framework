@@ -3,7 +3,7 @@ from app.bot.dialogue_manager.models import UserMessage
 from app.dependencies import get_dialogue_manager
 from app.bot.dialogue_manager.dialogue_manager import DialogueManager
 
-router = APIRouter(prefix="/v1", tags=["bots"])
+router = APIRouter(prefix="/test", tags=["test"])
 
 
 @router.post("/chat")
@@ -21,4 +21,4 @@ async def chat(
         thread_id=body["thread_id"], text=body["text"], context=body["context"]
     )
     new_state = await dialogue_manager.process(user_message)
-    return new_state.bot_message
+    return new_state.to_dict()
