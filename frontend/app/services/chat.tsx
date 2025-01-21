@@ -10,6 +10,12 @@ interface BotResponse {
   text: string;
 }
 
+interface Parameter {
+  name: string;
+  type: string;
+  required: boolean;
+  prompt: string;
+}
 
 interface ChatState {
   thread_id: string;
@@ -26,9 +32,9 @@ interface ChatState {
   intent: {
     id: string;
   };
-  parameters: any[];
+  parameters: Parameter[];
   extracted_parameters: Record<string, unknown>;
-  missing_parameters: any[];
+  missing_parameters: string[];
   complete: boolean;
   current_node: string;
   date: string;
