@@ -7,7 +7,7 @@ class State:
     def __init__(
         self,
         thread_id: Text,
-        user_message: UserMessage,
+        user_message: UserMessage = None,
         bot_message: Optional[List[Dict]] = None,
         context: Optional[Dict] = None,
         intent: Optional[Dict] = None,
@@ -16,7 +16,7 @@ class State:
         missing_parameters: Optional[List[str]] = None,
         complete: bool = False,
         current_node: Text = "",
-        date: Optional[Text] = None,
+        date: Optional[datetime] = None,
     ):
         self.thread_id = thread_id
         self.user_message = user_message
@@ -29,13 +29,14 @@ class State:
         self.missing_parameters = missing_parameters or []
         self.complete = complete
         self.current_node = current_node
-        self.date = date or datetime.now(UTC).isoformat()
+        self.date = date or datetime.now(UTC)
 
     def to_dict(self) -> Dict:
         return {
             "thread_id": self.thread_id,
             "user_message": self.user_message.to_dict(),
             "bot_message": self.bot_message,
+            "nlu": self.nlu,
             "context": self.context,
             "intent": self.intent,
             "parameters": self.parameters,
@@ -44,7 +45,6 @@ class State:
             "complete": self.complete,
             "current_node": self.current_node,
             "date": self.date,
-            "nlu": self.nlu,
         }
 
     @classmethod
@@ -52,9 +52,6 @@ class State:
         # parse all the fields
         return cls(
             thread_id=state_dict["thread_id"],
-            user_message=UserMessage.from_dict(state_dict["user_message"]),
-            bot_message=state_dict["bot_message"],
-            nlu=state_dict["nlu"],
             context=state_dict["context"],
             intent=state_dict["intent"],
             parameters=state_dict["parameters"],
@@ -62,11 +59,11 @@ class State:
             missing_parameters=state_dict["missing_parameters"],
             complete=state_dict["complete"],
             current_node=state_dict["current_node"],
-            date=state_dict["date"],
         )
 
     def update(self, user_message: UserMessage):
         self.user_message = user_message
+        self.date = datetime.now(UTC)
 
         if self.complete:
             self.bot_message = []

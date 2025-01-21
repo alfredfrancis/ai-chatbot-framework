@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Tuple
 from jinja2 import Template
 from app.admin.bots.store import get_bot
 from app.admin.intents.store import list_intents
+from app.bot.memory import MemorySaver
+from app.bot.memory.memory_saver_mongo import MemorySaverMongo
 from app.bot.memory.models import State
 from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
@@ -18,7 +20,7 @@ from app.bot.dialogue_manager.models import (
 )
 from app.bot.dialogue_manager.http_client import call_api
 from app.config import app_config
-from app.bot.memory import MemorySaver, MemorySaverInMemory
+from app.database import client
 
 logger = logging.getLogger("dialogue_manager")
 
@@ -68,7 +70,7 @@ class DialogueManager:
         bot = await get_bot("default")
         confidence_threshold = bot.config.get("confidence_threshold", 0.90)
 
-        memory_saver = MemorySaverInMemory()
+        memory_saver = MemorySaverMongo(client)
 
         return cls(
             memory_saver,
@@ -89,38 +91,35 @@ class DialogueManager:
 
     async def process(self, message: UserMessage) -> State:
         """
-        Single entry point to process the dialogue request.
+        Single entry point to process the user message.
 
-        :param chat_model: The ChatModel instance containing the request data.
-        :return: Processed ChatModel instance.
+        :param message: UserMessage instance containing the request data.
+        :return: current state of the conversation including the bot response
         """
 
-        # get the current state of the conversation
-        current_state = self.memory_saver.get(message.thread_id)
+        # Step 1: Get current state
+        current_state = await self.memory_saver.get(message.thread_id)
 
-        # if there is no current state, create a new one
         if not current_state:
             logger.debug(
                 f"No current state found for thread_id: {message.thread_id}, creating new state"
             )
-            current_state = self.memory_saver.init_state(
-                thread_id=message.thread_id, user_message=message
-            )
-        else:
-            current_state.update(message)
+            current_state = await self.memory_saver.init_state(message.thread_id)
+
+        current_state.update(message)
 
         try:
-            # Step 1: Process through NLU pipeline
+            # Step 2: Process through NLU pipeline
             nlu_result = self.nlu_pipeline.process(
                 {"text": current_state.user_message.text}
             )
 
-            # Step 2: Get intent ID and confidence
+            # Step 3: Get intent ID and confidence
             query_intent_id, _ = self._get_intent_id_and_confidence(
                 current_state, nlu_result
             )
 
-            # Step 3: Retrieve the intent object
+            # Step 4: Retrieve the intent object
             query_intent = self._get_intent(query_intent_id)
             if query_intent is None:
                 query_intent = self._get_fallback_intent()
@@ -130,8 +129,6 @@ class DialogueManager:
                 "intent": nlu_result.get("intent"),
             }
 
-            print(current_state.nlu)
-
             # if query_intent is not the same as active intent,
             # fetch active intent as well
             active_intent_id = current_state.get_active_intent_id()
@@ -140,7 +137,7 @@ class DialogueManager:
             else:
                 active_intent = query_intent
 
-            # Step 4: Process the intent
+            # Step 5: Process the intent
             current_state, active_intent = self._process_intent(
                 query_intent,
                 active_intent,
@@ -148,7 +145,7 @@ class DialogueManager:
             )
             current_state.intent = {"id": active_intent.intent_id}
 
-            # Step 5: Handle API trigger if the intent is complete
+            # Step 6: Handle API trigger if the intent is complete
             if current_state.complete:
                 current_state = await self._handle_api_trigger(
                     active_intent, current_state
@@ -159,9 +156,8 @@ class DialogueManager:
                 extra=current_state.to_dict(),
             )
 
-            self.memory_saver.save(message.thread_id, current_state)
-
-            print(current_state.to_dict())
+            # Step 7: Save the state
+            await self.memory_saver.save(message.thread_id, current_state)
 
             return current_state
 
