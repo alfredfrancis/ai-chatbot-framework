@@ -8,6 +8,7 @@ const MLSettingsPage: React.FC = () => {
     confidence_threshold: 0.5
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [localThreshold, setLocalThreshold] = useState<number>(0.5);
 
   useEffect(() => {
     fetchConfig();
@@ -17,6 +18,7 @@ const MLSettingsPage: React.FC = () => {
     try {
       const data = await getConfig();
       setConfig(data);
+      setLocalThreshold(data.confidence_threshold);
     } catch (error) {
       console.error('Error fetching config:', error);
     } finally {
@@ -27,7 +29,7 @@ const MLSettingsPage: React.FC = () => {
   const handleThresholdChange = async (value: number) => {
     try {
       setConfig(prev => ({ ...prev, confidence_threshold: value }));
-      await updateConfig(config);
+      await updateConfig({ ...config, confidence_threshold: value });
     } catch (error) {
       console.error('Error updating config:', error);
     }
@@ -53,7 +55,7 @@ const MLSettingsPage: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="space-y-6">
           <div>
-            <h2 className="text-lg font-medium text-gray-800 mb-4">Tune ML</h2>
+            <h2 className="text-lg font-medium text-gray-800 mb-4">Intent Classification</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -65,12 +67,14 @@ const MLSettingsPage: React.FC = () => {
                     min="0.1"
                     max="1.0"
                     step="0.05"
-                    value={config.confidence_threshold}
-                    onChange={(e) => handleThresholdChange(parseFloat(e.target.value))}
+                    value={localThreshold}
+                    onChange={(e) => setLocalThreshold(parseFloat(e.target.value))}
+                    onMouseUp={() => handleThresholdChange(localThreshold)}
+                    onTouchEnd={() => handleThresholdChange(localThreshold)}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-500"
                   />
                   <span className="text-sm font-medium text-gray-900 min-w-[4rem]">
-                    {(config.confidence_threshold * 100).toFixed(0)}%
+                    {(localThreshold * 100).toFixed(0)}%
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-gray-500">
@@ -78,15 +82,6 @@ const MLSettingsPage: React.FC = () => {
                 </p>
               </div>
             </div>
-          </div>
-
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">About ML Settings</h3>
-            <p className="text-sm text-gray-500">
-              The confidence threshold determines how certain the model needs to be before matching an intent.
-              A higher threshold means fewer false positives but might miss some valid intents.
-              A lower threshold means more matches but might include some incorrect ones.
-            </p>
           </div>
         </div>
       </div>
