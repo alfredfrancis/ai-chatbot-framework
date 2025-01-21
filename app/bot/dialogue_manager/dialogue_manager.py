@@ -12,7 +12,6 @@ from app.bot.nlu.entity_extractors import CRFEntityExtractor
 from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
 from app.admin.entities.store import list_synonyms
 from app.bot.dialogue_manager.models import (
-    ChatModel,
     IntentModel,
     ParameterModel,
     UserMessage,
@@ -309,7 +308,7 @@ class DialogueManager:
 
     async def _handle_api_trigger(
         self, intent: IntentModel, current_state: State
-    ) -> ChatModel:
+    ) -> State:
         """
         Handle API trigger if the intent requires it.
         """
