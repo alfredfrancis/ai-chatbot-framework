@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
+import { updateIntegration, type Integration } from '@/app/services/integrations';
+import { ToggleSwitch } from "flowbite-react";
 
 interface ChatWidgetProps {
-  baseUrl: string;
+  integration: Integration;
+  onUpdate?: (integration: Integration) => void;
 }
 
-const ChatWidget: React.FC<ChatWidgetProps> = ({ baseUrl }) => {
+const ChatWidget: React.FC<ChatWidgetProps> = ({ integration, onUpdate }) => {
+  const [isEnabled, setIsEnabled] = useState(integration.status);
   const [copied, setCopied] = useState(false);
 
   const widgetCode = `<script type="text/javascript">
 !function(win,doc){"use strict";var script_loader=()=>{try
-{var head=doc.head||doc.getElementsByTagName("head")[0],script=doc.createElement("script");script.setAttribute("type","text/javascript"),script.setAttribute("src","https://alfredfrancis.in/ai-chatbot-framework/app/static/widget/script.js"),head.appendChild(script)}
-catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${baseUrl}",script_loader()}(window,document);
+{var head=doc.head||doc.getElementsByTagName("head")[0],script=doc.createElement("script");script.setAttribute("type","text/javascript"),script.setAttribute("src","${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/static/widget/script.js"),head.appendChild(script)}
+catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}",script_loader()}(window,document);
 </script>`;
 
   const handleCopy = () => {
@@ -20,8 +24,30 @@ catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${baseUrl}",s
     });
   };
 
+  const handleToggle = async (checked: boolean) => {
+    try {
+      setIsEnabled(checked);
+      const updatedIntegration = await updateIntegration(integration.id, {
+        ...integration,
+        status: checked
+      });
+      onUpdate?.(updatedIntegration);
+    } catch (error) {
+      console.error('Failed to update integration:', error);
+      setIsEnabled(!checked); // Revert on error
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between mb-4">
+        <div></div>
+        <ToggleSwitch
+          checked={isEnabled}
+          onChange={handleToggle}
+          label={isEnabled ? 'Enabled' : 'Disabled'}
+        />
+      </div>
       <p className="text-sm text-gray-600 mb-4">
         Copy and paste the below snippet into your HTML code (below body tag) to add the chat widget to your website.
       </p>
@@ -30,7 +56,7 @@ catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${baseUrl}",s
         <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto text-sm font-mono text-gray-800 whitespace-pre-wrap break-all">
           {widgetCode}
         </pre>
-        <button
+        <button 
           onClick={handleCopy}
           className="absolute top-2 right-2 px-3 py-1.5 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition-colors duration-200"
         >

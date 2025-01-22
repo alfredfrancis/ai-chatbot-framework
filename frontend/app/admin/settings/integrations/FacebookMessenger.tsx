@@ -1,32 +1,67 @@
 import React, { useState } from 'react';
 import { Accordion, ToggleSwitch } from "flowbite-react";
+import { updateIntegration, type Integration } from '@/app/services/integrations';
 
 interface FacebookMessengerProps {
-  baseUrl: string;
+  integration: Integration;
+  onUpdate?: (integration: Integration) => void;
 }
 
-const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ baseUrl }) => {
-  const [isEnabled, setIsEnabled] = useState(false);
+const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ integration, onUpdate }) => {
+  const [isEnabled, setIsEnabled] = useState(integration.status);
   const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState({
-    verify: "ai-chatbot-framework",
-    secret: "",
-    pageAccessToken: ""
+    verify: integration.settings.verify || "ai-chatbot-framework",
+    secret: integration.settings.secret || "",
+    pageAccessToken: integration.settings.page_access_token || ""
   });
 
   const handleCopy = () => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
     navigator.clipboard.writeText(`${baseUrl}/webhook/facebook`).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+
+    try {
+      const updatedIntegration = await updateIntegration(integration.id, {
+        ...integration,
+        settings: {
+          ...integration.settings,
+          [name === 'pageAccessToken' ? 'page_access_token' : name]: value
+        }
+      });
+      onUpdate?.(updatedIntegration);
+    } catch (error) {
+      console.error('Failed to update integration:', error);
+    }
+  };
+
+  const handleToggle = async (checked: boolean) => {
+    try {
+      setIsEnabled(checked);
+      const updatedIntegration = await updateIntegration(integration.id, {
+        ...integration,
+        status: checked,
+        settings: {
+          verify: formData.verify,
+          secret: formData.secret,
+          page_access_token: formData.pageAccessToken
+        }
+      });
+      onUpdate?.(updatedIntegration);
+    } catch (error) {
+      console.error('Failed to update integration:', error);
+      setIsEnabled(!checked); // Revert on error
+    }
   };
 
   return (
@@ -36,7 +71,7 @@ const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ baseUrl }) => {
           <h3 className="text-sm font-medium text-gray-700">Facebook Page</h3>
           <ToggleSwitch
             checked={isEnabled}
-            onChange={setIsEnabled}
+            onChange={handleToggle}
             label={isEnabled ? 'Enabled' : 'Disabled'}
           />
         </div>
@@ -83,7 +118,7 @@ const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ baseUrl }) => {
               <div className="mt-1 flex rounded-md shadow-sm">
                 <input
                   type="text"
-                  value={`${baseUrl}/webhook/facebook`}
+                  value={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/webhook/facebook`}
                   readOnly
                   className="flex-1 block w-full px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50"
                 />

@@ -12,24 +12,22 @@ async def list_integrations() -> List[Integration]:
     return [Integration(**integration) for integration in integrations]
 
 
-async def get_integration(integration_name: str) -> Optional[Integration]:
-    """Get a specific integration by name."""
-    integration = await database[collection_name].find_one(
-        {"integration_name": integration_name}
-    )
+async def get_integration(id: str) -> Optional[Integration]:
+    """Get a specific integration by ID."""
+    integration = await database[collection_name].find_one({"id": id})
     if integration:
         return Integration(**integration)
     return None
 
 
 async def update_integration(
-    integration_name: str, integration: IntegrationUpdate
+    id: str, integration: IntegrationUpdate
 ) -> Optional[Integration]:
     """Update an integration's status and settings."""
     update_data = integration.model_dump(exclude_unset=True)
 
     result = await database[collection_name].find_one_and_update(
-        {"integration_name": integration_name},
+        {"id": id},
         {"$set": update_data},
         return_document=True,
     )
@@ -43,7 +41,9 @@ async def ensure_default_integrations():
     """Ensure default integrations exist in the database."""
     default_integrations = [
         {
-            "integration_name": "facebook",
+            "id": "facebook",
+            "name": "Facebook Messenger",
+            "description": "Connect with Facebook Messenger",
             "status": False,
             "settings": {
                 "verify": "ai-chatbot-framework",
@@ -51,12 +51,18 @@ async def ensure_default_integrations():
                 "page_access_token": "",
             },
         },
-        {"integration_name": "chat_widget", "status": True, "settings": {}},
+        {
+            "id": "chat_widget",
+            "name": "Chat Widget",
+            "description": "Add a chat widget to your website",
+            "status": True,
+            "settings": {},
+        },
     ]
 
     for integration in default_integrations:
         await database[collection_name].update_one(
-            {"integration_name": integration["integration_name"]},
+            {"id": integration["id"]},
             {"$setOnInsert": integration},
             upsert=True,
         )

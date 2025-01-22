@@ -5,7 +5,7 @@ interface IntegrationTileProps {
   name: string;
   description: string;
   icon: React.ReactNode;
-  status: string;
+  status: boolean;
   onClick: () => void;
 }
 
@@ -32,11 +32,11 @@ const IntegrationTile: React.FC<IntegrationTileProps> = ({
           </div>
         </div>
         <span className={`text-sm px-2.5 py-0.5 rounded-full ${
-          status === 'Active' 
+          status === true 
             ? 'bg-green-100 text-green-800'
             : 'bg-gray-100 text-gray-800'
         }`}>
-          {status}
+          {status ? 'Active' : 'Inactive'}
         </span>
       </div>
     </div>

@@ -1,7 +1,9 @@
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export interface Integration {
-  integration_name: string;
+  id: string;
+  name: string;
+  description: string;
   status: boolean;
   settings: Record<string, any>;
 }

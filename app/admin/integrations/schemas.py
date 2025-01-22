@@ -3,6 +3,9 @@ from pydantic import BaseModel
 
 
 class IntegrationBase(BaseModel):
+    id: str
+    name: str
+    description: str
     status: bool = False
     settings: Optional[Dict] = {}
 
@@ -16,7 +19,5 @@ class IntegrationUpdate(IntegrationBase):
 
 
 class Integration(IntegrationBase):
-    integration_name: str
-
     class Config:
         from_attributes = True

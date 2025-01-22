@@ -12,19 +12,19 @@ async def list_integrations():
     return await store.list_integrations()
 
 
-@router.get("/{integration_name}", response_model=Integration)
-async def get_integration(integration_name: str):
-    """Get a specific integration by name."""
-    integration = await store.get_integration(integration_name)
+@router.get("/{id}", response_model=Integration)
+async def get_integration(id: str):
+    """Get a specific integration by ID."""
+    integration = await store.get_integration(id)
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
     return integration
 
 
-@router.put("/{integration_name}", response_model=Integration)
-async def update_integration(integration_name: str, integration: IntegrationUpdate):
+@router.put("/{id}", response_model=Integration)
+async def update_integration(id: str, integration: IntegrationUpdate):
     """Update an integration's status and settings."""
-    updated_integration = await store.update_integration(integration_name, integration)
+    updated_integration = await store.update_integration(id, integration)
     if not updated_integration:
         raise HTTPException(status_code=404, detail="Integration not found")
     return updated_integration
