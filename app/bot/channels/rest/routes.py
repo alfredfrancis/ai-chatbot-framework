@@ -3,11 +3,11 @@ from app.bot.dialogue_manager.models import UserMessage
 from app.dependencies import get_dialogue_manager
 from app.bot.dialogue_manager.dialogue_manager import DialogueManager
 
-router = APIRouter(prefix="/v1", tags=["bots"])
+router = APIRouter(prefix="/rest", tags=["rest"])
 
 
-@router.post("/chat")
-async def chat(
+@router.post("/webbook")
+async def webbook(
     body: dict, dialogue_manager: DialogueManager = Depends(get_dialogue_manager)
 ):
     """

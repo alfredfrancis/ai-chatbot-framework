@@ -12,7 +12,8 @@ from app.admin.train.routes import router as train_router
 from app.admin.test.routes import router as test_router
 from app.admin.integrations.routes import router as integrations_router
 
-from app.bot.chat.routes import router as chat_router
+from app.bot.channels.rest.routes import router as rest_router
+from app.bot.channels.facebook.routes import router as facebook_router
 
 
 @asynccontextmanager
@@ -56,4 +57,9 @@ admin_router.include_router(integrations_router)
 
 app.include_router(admin_router)
 
-app.include_router(chat_router, prefix="/bots", tags=["bots"])
+bot_router = APIRouter(prefix="/bots/channels", tags=["channels"])
+bot_router.include_router(rest_router, tags=["rest"])
+bot_router.include_router(facebook_router, tags=["facebook"])
+
+
+app.include_router(bot_router)

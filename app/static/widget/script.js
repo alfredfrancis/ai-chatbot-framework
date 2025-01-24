@@ -325,7 +325,7 @@
 
     async initChat() {
       try {
-        const response = await fetch(`${window.iky_base_url}bots/v1/chat`, {
+        const response = await fetch(`${window.iky_base_url}/bots/channels/rest/webbook`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -360,7 +360,7 @@
       this.showTyping();
 
       try {
-        const response = await fetch(`${window.iky_base_url}bots/v1/chat`, {
+        const response = await fetch(`${window.iky_base_url}/bots/channels/rest/webbook`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

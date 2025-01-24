@@ -18,7 +18,7 @@ const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ integration, onUp
 
   const handleCopy = () => {
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
-    navigator.clipboard.writeText(`${baseUrl}/webhook/facebook`).then(() => {
+    navigator.clipboard.writeText(`${baseUrl}/bots/channels/facebook/webhook`).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -118,7 +118,7 @@ const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ integration, onUp
               <div className="mt-1 flex rounded-md shadow-sm">
                 <input
                   type="text"
-                  value={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/webhook/facebook`}
+                  value={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/bots/channels/facebook/webhook`}
                   readOnly
                   className="flex-1 block w-full px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50"
                 />
