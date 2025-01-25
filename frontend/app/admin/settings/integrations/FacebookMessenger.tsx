@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Accordion, ToggleSwitch } from "flowbite-react";
-import { updateIntegration, type Integration } from '@/app/services/integrations';
+import { updateIntegration, getIntegration,  FacebookSettings, IntegrationDetails } from '@/app/services/integrations';
+
+
 
 interface FacebookMessengerProps {
-  integration: Integration;
-  onUpdate?: (integration: Integration) => void;
+  integration: IntegrationDetails<FacebookSettings>;
+  onUpdate?: (integration: IntegrationDetails<FacebookSettings>) => void;
 }
 
 const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ integration, onUpdate }) => {
@@ -15,6 +17,24 @@ const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ integration, onUp
     secret: integration.settings.secret || "",
     pageAccessToken: integration.settings.page_access_token || ""
   });
+
+  // fetch the integration from the API
+  useEffect(() => {
+    const fetchIntegration = async () => {
+      try {
+        const fetchedIntegration = await getIntegration<FacebookSettings>(integration.id);
+        setIsEnabled(fetchedIntegration.status);
+        setFormData({
+          verify: fetchedIntegration.settings.verify || "ai-chatbot-framework",
+          secret: fetchedIntegration.settings.secret || "",
+          pageAccessToken: fetchedIntegration.settings.page_access_token || ""
+        });
+      } catch (error) {
+        console.error('Failed to fetch integration:', error);
+      }
+    };
+    fetchIntegration();
+  }, [integration.id]);
 
   const handleCopy = () => {
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
@@ -32,7 +52,7 @@ const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ integration, onUp
     }));
 
     try {
-      const updatedIntegration = await updateIntegration(integration.id, {
+      const updatedIntegration = await updateIntegration<FacebookSettings>(integration.id, {
         ...integration,
         settings: {
           ...integration.settings,
@@ -200,4 +220,4 @@ const FacebookMessenger: React.FC<FacebookMessengerProps> = ({ integration, onUp
   );
 };
 
-export default FacebookMessenger; 
+export default FacebookMessenger;

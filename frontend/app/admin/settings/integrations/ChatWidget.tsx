@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { updateIntegration, type Integration } from '@/app/services/integrations';
+import { updateIntegration,  WebSettings, IntegrationDetails } from '@/app/services/integrations';
+
 import { ToggleSwitch } from "flowbite-react";
 
 interface ChatWidgetProps {
-  integration: Integration;
-  onUpdate?: (integration: Integration) => void;
+  integration: IntegrationDetails<WebSettings>;
+  onUpdate?: (integration: IntegrationDetails<WebSettings>) => void;
 }
 
 const ChatWidget: React.FC<ChatWidgetProps> = ({ integration, onUpdate }) => {

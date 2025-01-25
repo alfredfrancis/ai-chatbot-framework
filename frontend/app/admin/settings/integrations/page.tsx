@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { listIntegrations, updateIntegration, type Integration } from '@/app/services/integrations';
+import { listIntegrations, type Integration, type FacebookSettings, type WebSettings, IntegrationDetails } from '@/app/services/integrations';
 import { ArrowLeftIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import ChatWidget from './ChatWidget';
 import FacebookMessenger from './FacebookMessenger';
@@ -48,9 +48,15 @@ const IntegrationsPage: React.FC = () => {
   const renderIntegrationConfig = (integration: Integration) => {
     switch (integration.id) {
       case 'chat_widget':
-        return <ChatWidget integration={integration} onUpdate={handleIntegrationUpdate} />;
+        return <ChatWidget 
+          integration={integration as IntegrationDetails<WebSettings>} 
+          onUpdate={handleIntegrationUpdate} 
+        />;
       case 'facebook':
-        return <FacebookMessenger integration={integration} onUpdate={handleIntegrationUpdate} />;
+        return <FacebookMessenger 
+          integration={integration as IntegrationDetails<FacebookSettings>}
+          onUpdate={handleIntegrationUpdate} 
+        />;
       default:
         return null;
     }
@@ -125,4 +131,4 @@ const IntegrationsPage: React.FC = () => {
   );
 };
 
-export default IntegrationsPage; 
+export default IntegrationsPage;
