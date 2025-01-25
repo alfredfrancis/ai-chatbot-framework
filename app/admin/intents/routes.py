@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.admin.intents import store
 from app.admin.intents.schemas import Intent
 
-router = APIRouter(prefix="/intents")
+router = APIRouter(prefix="/intents", tags=["intents"])
 
 
 @router.post("/")

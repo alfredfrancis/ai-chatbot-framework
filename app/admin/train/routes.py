@@ -3,7 +3,7 @@ from app.admin.intents import store
 from app.dependencies import reload_dialogue_manager
 from app.bot.nlu.training import train_pipeline
 
-router = APIRouter(prefix="/train")
+router = APIRouter(prefix="/train", tags=["train"])
 
 
 @router.post("/{intent_id}/data")

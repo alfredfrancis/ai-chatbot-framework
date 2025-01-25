@@ -13,6 +13,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 
 ## Features
 - Fully Self Hosted
+- Low Code, DIY, Admin Dashboard
 - Multi-turn Conversations
 - Advanced Natural Language Understanding (NLU)
   - Spacy Word Embeddings
@@ -23,19 +24,29 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 - API request fulfilment
 - Channel Integrations
   - Web using rest api/chat snippet
-  - Facebook Messenger (coming soon)
-  - WhatsApp via Twilio (coming soon)
+  - Facebook Messenger
   - Slack (coming soon)
-- Low Code Admin Dashboard
+  - WhatsApp via Twilio (coming soon)
+
 
 ## Index
 
+* [Tech Stack](#tech-stack)
 * [Installation](#installation)
   * [Docker Compose](#using-docker-compose)
   * [Helm](#using-helm)
 * [Development](#development)
 * [Tutorial](#tutorial)
 * [Dependencies](#dependencies-documentations)
+
+### Tech Stack
+
+ - Python / FastAPI / Pydantic
+ - MongoDB / Motor
+ - React / NextJS
+ - scikit-learn / Tensorflow / Keras
+ - Spacy / python-crfsuite
+ - Docker / docker-compose / Kubernetes / Helm
 
 ### Installation
 

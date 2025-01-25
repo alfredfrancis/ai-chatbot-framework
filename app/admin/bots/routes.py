@@ -5,7 +5,7 @@ import json
 
 from app.admin.bots import store
 
-router = APIRouter(prefix="/bots")
+router = APIRouter(prefix="/bots", tags=["bots"])
 
 
 @router.put("/{name}/config")
