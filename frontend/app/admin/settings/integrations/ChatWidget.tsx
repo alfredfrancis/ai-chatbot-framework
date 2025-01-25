@@ -14,7 +14,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ integration, onUpdate }) => {
 
   const widgetCode = `<script type="text/javascript">
 !function(win,doc){"use strict";var script_loader=()=>{try
-{var head=doc.head||doc.getElementsByTagName("head")[0],script=doc.createElement("script");script.setAttribute("type","text/javascript"),script.setAttribute("src","${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/static/widget/script.js"),head.appendChild(script)}
+{var head=doc.head||doc.getElementsByTagName("head")[0],script=doc.createElement("script");script.setAttribute("type","text/javascript"),script.setAttribute("src","https://alfredfrancis.in/ai-chatbot-framework/app/static/widget/script.js"),head.appendChild(script)}
 catch(e){}};win.chat_context={"username":"John"},win.iky_base_url="${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}",script_loader()}(window,document);
 </script>`;
 

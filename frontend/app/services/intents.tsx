@@ -1,6 +1,6 @@
+import { API_BASE_URL } from "./base";
 import type { IntentModel } from './training';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/admin/';
 
 export const getIntents = async (): Promise<IntentModel[]> => {
   const response = await fetch(`${API_BASE_URL}intents/`);

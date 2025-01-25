@@ -1,6 +1,5 @@
 import type { EntityModel } from './training';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/admin/';
+import { API_BASE_URL } from "./base";
 
 export const getEntities = async (): Promise<EntityModel[]> => {
   const response = await fetch(`${API_BASE_URL}entities/`);
