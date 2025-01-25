@@ -1,4 +1,4 @@
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+import { API_BASE_URL } from "./base";
 
 export interface FacebookSettings {
   verify: string;
@@ -22,7 +22,7 @@ export interface IntegrationDetails<T> extends Integration {
 }
 
 export async function listIntegrations(): Promise<Integration[]> {
-  const response = await fetch(`${baseUrl}/admin/integrations/`);
+  const response = await fetch(`${API_BASE_URL}integrations/`);
   if (!response.ok) {
     throw new Error('Failed to fetch integrations');
   }
@@ -30,7 +30,7 @@ export async function listIntegrations(): Promise<Integration[]> {
 }
 
 export async function getIntegration<T>(integrationID: string): Promise<IntegrationDetails<T>> {
-  const response = await fetch(`${baseUrl}/admin/integrations/${integrationID}`);
+  const response = await fetch(`${API_BASE_URL}integrations/${integrationID}`);
   if (!response.ok) {
     throw new Error('Failed to fetch integration');
   }
@@ -44,7 +44,7 @@ export async function updateIntegration<T>(
     settings: T;
   }
 ): Promise<IntegrationDetails<T>> {
-  const response = await fetch(`${baseUrl}/admin/integrations/${integrationID}`, {
+  const response = await fetch(`${API_BASE_URL}integrations/${integrationID}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',

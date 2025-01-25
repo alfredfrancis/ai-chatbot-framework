@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/';
+import { API_BASE_URL } from "./base";
 
 interface UserMessage {
   thread_id: string;
@@ -49,7 +49,7 @@ interface ChatState {
 
 
 export const converse = async (userMessage: UserMessage): Promise<ChatState> => {
-  const response = await fetch(`${API_BASE_URL}admin/test/chat`, {
+  const response = await fetch(`${API_BASE_URL}test/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userMessage),

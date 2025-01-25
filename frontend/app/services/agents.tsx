@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/admin/';
+import { API_BASE_URL } from "./base";
 
 interface AgentConfig {
   confidence_threshold: number
