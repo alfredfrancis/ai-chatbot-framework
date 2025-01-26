@@ -1,10 +1,12 @@
 version: '2'
+name: ai-chatbot-framework
 services:
   migrate:
     container_name: migrate
     image: alfredfrancis/ai-chatbot-framework_backend:latest
     command: python manage.py migrate
     environment:
+      MONGODB_HOST: mongodb://mongodb:27017
       APPLICATION_ENV: Production
     depends_on:
       - mongodb
@@ -25,6 +27,7 @@ services:
     hostname: backend
     restart: always
     environment:
+      MONGODB_HOST: mongodb://mongodb:27017
       APPLICATION_ENV: Production
     ports:
       - "8080:80"

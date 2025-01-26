@@ -1,18 +1,13 @@
-FROM python:3.12.7-slim
+FROM python:3.12-bullseye
 
 WORKDIR /usr/src/app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade pip
 
-# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
 COPY . .
 
 EXPOSE 80

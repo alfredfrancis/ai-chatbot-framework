@@ -11,4 +11,4 @@ ObjectIdField = Annotated[
 ]
 
 client = AsyncIOMotorClient(app_config.MONGODB_HOST)
-database = client.get_database("iky-ai")
+database = client.get_database(app_config.MONGODB_DATABASE)

@@ -8,14 +8,13 @@ dotenv.load_dotenv()
 class BaseConfig(BaseModel):
     DEBUG: bool = False
     Development: bool = False
-    MONGODB_HOST: str = "mongodb://127.0.0.1:27017/iky-ai"
 
-    # Intent Classifier model details
+    MONGODB_HOST: str = "mongodb://127.0.0.1:27017"
+    MONGODB_DATABASE: str = "ai-chatbot-framework"
+
     MODELS_DIR: str = "model_files/"
-    INTENT_MODEL_NAME: str = "intent.model"
     DEFAULT_FALLBACK_INTENT_NAME: str = "fallback"
     DEFAULT_WELCOME_INTENT_NAME: str = "init_conversation"
-    USE_WORD_VECTORS: bool = True
     SPACY_LANG_MODEL: str = "en_core_web_md"
 
 
@@ -31,8 +30,7 @@ class TestingConfig(BaseConfig):
 
 
 class ProductionConfig(BaseConfig):
-    # MongoDB Database Details
-    MONGODB_HOST: str = "mongodb://mongodb:27017/iky-ai"
+    SPACY_LANG_MODEL: str = "en_core_web_lg"
 
 
 config = {

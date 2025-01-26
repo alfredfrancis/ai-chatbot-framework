@@ -1,9 +1,6 @@
 name: Release Frontend
 
 on:
-    push:
-        branches:
-            - master
     release:
         types: [published]
 
