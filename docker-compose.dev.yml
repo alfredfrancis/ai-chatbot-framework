@@ -1,11 +1,10 @@
 version: '2'
+name: ai-chatbot-framework-dev
 services:
   mongodb:
     container_name: mongodb
     image: mongo:4.2.20
     hostname: mongodb
-    ports:
-      - "27017:27017"
     volumes:
       - mongodbdata:/data
 
@@ -17,7 +16,7 @@ services:
     command: python manage.py migrate
     environment:
       APPLICATION_ENV: Development
-      APP_MONGODB_HOST: "mongodb://mongodb:27017/iky-ai"
+      MONGODB_HOST: mongodb://mongodb:27017
     depends_on:
       - mongodb
 
@@ -29,7 +28,7 @@ services:
     command: fastapi run --host=0.0.0.0 --reload --port=8080
     environment:
       APPLICATION_ENV: Development
-      APP_MONGODB_HOST: "mongodb://mongodb:27017/iky-ai"
+      MONGODB_HOST: mongodb://mongodb:27017
     ports:
       - 8080:8080
     volumes:
@@ -43,8 +42,7 @@ services:
     hostname: frontend
     build:
       context: ./frontend
-      dockerfile: dev.Dockerfile
-
+      dockerfile: ./dev.Dockerfile
     volumes:
       - ./frontend/app:/app/app
       - ./frontend/public:/app/public

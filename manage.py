@@ -1,9 +1,10 @@
 import typer
 import asyncio
 from json import loads
+import logging
+import spacy
 from pymongo.errors import DuplicateKeyError
 from app.main import app
-import logging
 
 cli = typer.Typer()
 
@@ -17,6 +18,7 @@ def migrate():
         from app.admin.bots.store import add_bot
         from app.admin.bots.store import import_bot
         from app.admin.integrations.store import ensure_default_integrations
+        from app.config import app_config
 
         try:
             default_bot = Bot(name="default", config={"confidence_threshold": 0.85})
@@ -36,6 +38,12 @@ def migrate():
             logger.error("Error: 'migrations/default_intents.json' file not found.")
 
         await ensure_default_integrations()
+
+        # ensure spacy language models are installed
+        logger.info("Downloading spacy language models...")
+        spacy.cli.download(app_config.SPACY_LANG_MODEL)
+
+        logger.info("Migration finished.")
 
     asyncio.run(async_migrate())
 
