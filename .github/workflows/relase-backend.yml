@@ -1,9 +1,6 @@
 name: Release Backend
 
 on:
-    push:
-        branches:
-            - master
     release:
         types: [published]
 
