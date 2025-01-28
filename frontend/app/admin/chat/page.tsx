@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { converse, ChatState, UserMessage } from '../../services/chat';
-import { v4 as uuidv4 } from 'uuid';
 import './style.css';
 
 interface Message {
@@ -13,16 +12,11 @@ interface Message {
 const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [threadId, setThreadId] = useState<string>('');
+  const threadId = "test-user"
   const [isLoading, setIsLoading] = useState(false);
   const [chatState, setChatState] = useState<ChatState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
-
-  // Initialize threadId on client side only
-  useEffect(() => {
-    setThreadId(uuidv4());
-  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,7 +35,9 @@ const ChatPage: React.FC = () => {
     const initialMessage: UserMessage = {
       thread_id: threadId,
       text: '/init_conversation',
-      context: {}
+      context: {
+        username: "Admin"
+      }
     };
 
     try {

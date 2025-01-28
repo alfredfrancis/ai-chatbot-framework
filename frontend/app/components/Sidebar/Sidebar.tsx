@@ -9,7 +9,8 @@ import {
   ChatBubbleLeftRightIcon,
   Cog6ToothIcon,
   CircleStackIcon,
-  CodeBracketIcon
+  CodeBracketIcon,
+  ClipboardDocumentListIcon
 } from "@heroicons/react/24/outline";
 import "./Sidebar.css";
 import Link from 'next/link';
@@ -19,6 +20,7 @@ const Sidebar = () => {
     { label: "Intents", icon: BeakerIcon, path: "/admin/intents" },
     { label: "Entities", icon: TagIcon, path: "/admin/entities" },
     { label: "Chat", icon: ChatBubbleLeftRightIcon, path: "/admin/chat" },
+    { label: "Logs", icon: ClipboardDocumentListIcon, path: "/admin/chatlogs" },
   ];
 
   const settingsItems = [

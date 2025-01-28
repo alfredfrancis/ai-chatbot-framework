@@ -73,7 +73,6 @@ class State:
             self.missing_parameters = []
             self.complete = False
             self.current_node = None
-            self.date = None
 
     def get_active_intent_id(self):
         if self.intent:

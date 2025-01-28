@@ -2,8 +2,9 @@ import pycrfsuite
 import logging
 from typing import Dict, Any, List, Optional
 from app.bot.nlu.pipeline import NLUComponent
+import os
 
-MODEL_NAME = "crf__entity_extractor.model"
+MODEL_NAME = "crf_entity_extractor.model"
 logger = logging.getLogger(__name__)
 
 
@@ -119,7 +120,8 @@ class CRFEntityExtractor(NLUComponent):
                 "feature.possible_transitions": True,
             }
         )
-        trainer.train(f"{model_path}/{MODEL_NAME}")
+        path = os.path.join(model_path, MODEL_NAME)
+        trainer.train(path)
 
     def load(self, model_path: str) -> bool:
         """
@@ -129,7 +131,8 @@ class CRFEntityExtractor(NLUComponent):
         """
         try:
             self.tagger = pycrfsuite.Tagger()
-            self.tagger.open(f"{model_path}/entity_model.model")
+            path = os.path.join(model_path, MODEL_NAME)
+            self.tagger.open(path)
             return True
         except Exception as e:
             logger.error(f"Error loading CRF model: {e}")
