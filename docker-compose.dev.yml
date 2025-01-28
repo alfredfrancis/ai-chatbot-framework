@@ -2,14 +2,12 @@ version: '2'
 name: ai-chatbot-framework-dev
 services:
   mongodb:
-    container_name: mongodb
     image: mongo:4.2.20
     hostname: mongodb
     volumes:
       - mongodbdata:/data
 
   migrate:
-    container_name: migrate
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,7 +19,6 @@ services:
       - mongodb
 
   app:
-    container_name: backend
     build:
       context: .
       dockerfile: Dockerfile
@@ -38,11 +35,9 @@ services:
       - mongodb
 
   frontend:
-    container_name: frontend
-    hostname: frontend
     build:
       context: ./frontend
-      dockerfile: ./dev.Dockerfile
+      dockerfile: dev.Dockerfile
     volumes:
       - ./frontend/app:/app/app
       - ./frontend/public:/app/public

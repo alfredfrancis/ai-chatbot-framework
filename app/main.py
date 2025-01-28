@@ -11,6 +11,8 @@ from app.admin.intents.routes import router as intents_router
 from app.admin.train.routes import router as train_router
 from app.admin.test.routes import router as test_router
 from app.admin.integrations.routes import router as integrations_router
+from app.admin.chatlogs.routes import router as chatlogs_router
+
 
 from app.bot.channels.rest.routes import router as rest_router
 from app.bot.channels.facebook.routes import router as facebook_router
@@ -54,6 +56,8 @@ admin_router.include_router(entities_router)
 admin_router.include_router(train_router)
 admin_router.include_router(test_router)
 admin_router.include_router(integrations_router)
+admin_router.include_router(chatlogs_router)
+
 
 app.include_router(admin_router)
 
