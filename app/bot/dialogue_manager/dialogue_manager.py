@@ -8,11 +8,8 @@ from app.bot.memory import MemorySaver
 from app.bot.memory.memory_saver_mongo import MemorySaverMongo
 from app.bot.memory.models import State
 from app.bot.nlu.pipeline import NLUPipeline
-from app.bot.nlu.featurizers import SpacyFeaturizer
-from app.bot.nlu.intent_classifiers import SklearnIntentClassifier
-from app.bot.nlu.entity_extractors import CRFEntityExtractor
+from app.bot.nlu.training import create_zero_shot_pipeline
 from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
-from app.admin.entities.store import list_synonyms
 from app.bot.dialogue_manager.models import (
     IntentModel,
     ParameterModel,
@@ -48,20 +45,12 @@ class DialogueManager:
         Initialize DialogueManager with all required dependencies
         """
 
-        synonyms = await list_synonyms()
-
-        # Initialize pipeline with components
-        nlu_pipeline = NLUPipeline(
-            [
-                SpacyFeaturizer(app_config.SPACY_LANG_MODEL),
-                SklearnIntentClassifier(),
-                CRFEntityExtractor(synonyms),
-            ]
-        )
-
         # Load all intents and convert to domain models
         db_intents = await list_intents()
         intents = [IntentModel.from_db(intent) for intent in db_intents]
+
+        # Initialize pipeline with components
+        nlu_pipeline = create_zero_shot_pipeline(db_intents)
 
         # Get configuration
         fallback_intent_id = app_config.DEFAULT_FALLBACK_INTENT_NAME
