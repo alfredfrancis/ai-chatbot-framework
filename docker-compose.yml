@@ -22,7 +22,6 @@ services:
       - backend
 
   backend:
-    container_name: backend
     image: alfredfrancis/ai-chatbot-framework_backend:latest
     hostname: backend
     restart: always
@@ -36,7 +35,6 @@ services:
       - mongodb
 
   mongodb:
-    container_name: mongodb
     image: mongo:4.2.20
     hostname: mongodb
     ports:
