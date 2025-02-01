@@ -14,15 +14,12 @@ logger = logging.getLogger(__name__)
 @cli.command()
 def migrate():
     async def async_migrate():
-        from app.admin.bots.schemas import Bot
-        from app.admin.bots.store import add_bot
-        from app.admin.bots.store import import_bot
+        from app.admin.bots.store import ensure_default_bot, import_bot
         from app.admin.integrations.store import ensure_default_integrations
         from app.config import app_config
 
         try:
-            default_bot = Bot(name="default", config={"confidence_threshold": 0.85})
-            await add_bot(default_bot.model_dump())
+            await ensure_default_bot()
             logger.info("Created default bot")
         except DuplicateKeyError:
             logger.info("Default bot already exists")

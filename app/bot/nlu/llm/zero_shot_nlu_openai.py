@@ -36,8 +36,8 @@ class ZeroShotNLUOpenAI(NLUComponent):
             base_url=kwargs.get("base_url", "http://127.0.0.1:11434/v1"),
             api_key=kwargs.get("api_key", "not-need-for-local-models"),
             model_name=kwargs.get("model_name", "not-need-for-local-models"),
-            temperature=0,
-            extra_body={"max_tokens": kwargs.get("openai_api_max_tokens", 4096)},
+            temperature=kwargs.get("temperature", 0),
+            extra_body={"max_tokens": kwargs.get("max_tokens", 4096)},
         )
 
         # Load and render the prompt template

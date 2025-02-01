@@ -1,13 +1,12 @@
 import os
-from typing import List
 from app.admin.intents.store import list_intents
-from app.admin.intents.schemas import Intent
 from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
 from app.bot.nlu.intent_classifiers import SklearnIntentClassifier
 from app.bot.nlu.entity_extractors import CRFEntityExtractor
 from app.bot.nlu.llm import ZeroShotNLUOpenAI
 from app.admin.entities.store import list_synonyms
+from app.admin.bots.store import get_nlu_config
 from app.config import app_config
 
 
@@ -36,11 +35,19 @@ async def train_pipeline():
             training_data.append(example)
 
     # initialize and train pipeline
-    pipeline = create_zero_shot_pipeline(intents)
+    pipeline = await get_pipeline()
     pipeline.train(training_data, models_dir)
 
 
-def create_ml_pipeline():
+async def get_pipeline():
+    nlu_config = await get_nlu_config("default")
+    if nlu_config.pipeline_type == "traditional":
+        return await create_ml_pipeline(**nlu_config.traditional_settings.dict())
+    if nlu_config.pipeline_type == "llm":
+        return await create_zero_shot_pipeline(**nlu_config.llm_settings.dict())
+
+
+async def create_ml_pipeline(**kwargs):
     """
     Create a machine learning pipeline
     :return:
@@ -55,11 +62,12 @@ def create_ml_pipeline():
     )
 
 
-def create_zero_shot_pipeline(intents: List[Intent]):
+async def create_zero_shot_pipeline(**kwargs):
     """
     Create a zero shot pipeline
     :return:
     """
+    intents = await list_intents()
 
     intent_ids = []
     entity_ids = []
@@ -74,7 +82,7 @@ def create_zero_shot_pipeline(intents: List[Intent]):
             ZeroShotNLUOpenAI(
                 intents=intent_ids,
                 entities=entity_ids,
-                model_name="llama3:8b-instruct-q4_0",
+                **kwargs,
             )
         ]
     )

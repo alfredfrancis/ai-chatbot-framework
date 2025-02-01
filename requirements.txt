@@ -25,6 +25,7 @@ httpcore==1.0.7
 httptools==0.6.4
 httpx==0.28.1
 idna==3.10
+iniconfig==2.0.0
 Jinja2==3.1.5
 jiter==0.8.2
 joblib==1.4.2
@@ -48,12 +49,15 @@ numpy==2.2.2
 openai==1.60.2
 orjson==3.10.15
 packaging==24.2
+pluggy==1.5.0
 preshed==3.0.9
 propcache==0.2.1
 pydantic==2.10.6
 pydantic_core==2.27.2
 Pygments==2.19.1
 pymongo==4.9.2
+pytest==8.3.4
+pytest-asyncio==0.25.3
 python-crfsuite==0.9.11
 python-dotenv==1.0.1
 python-multipart==0.0.20

@@ -1,15 +1,27 @@
 import { API_BASE_URL } from "./base";
 
-interface AgentConfig {
-  confidence_threshold: number
+interface NLUConfig {
+  pipeline_type: 'traditional' | 'llm';
+  traditional_settings: {
+    intent_detection_threshold: number;
+    entity_detection_threshold: number;
+    use_spacy: boolean;
+  };
+  llm_settings: {
+    base_url: string;
+    api_token: string;
+    model_name: string;
+    max_tokens: number;
+    temperature: number;
+  };
 }
 
-export const getConfig = async (): Promise<AgentConfig> => {
+export const getConfig = async (): Promise<NLUConfig> => {
   const response = await fetch(`${API_BASE_URL}bots/default/config`);
   return response.json();
 };
 
-export const updateConfig = async (data: AgentConfig): Promise<AgentConfig> => {
+export const updateConfig = async (data: NLUConfig): Promise<NLUConfig> => {
   const response = await fetch(`${API_BASE_URL}bots/default/config`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -32,4 +44,4 @@ export const exportIntents = async () => {
   window.location.href = `${API_BASE_URL}bots/default/export`;
 };
 
-export type { AgentConfig }; 
+export type { NLUConfig }; 
