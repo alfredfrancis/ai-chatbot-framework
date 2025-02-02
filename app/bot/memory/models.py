@@ -64,6 +64,7 @@ class State:
     def update(self, user_message: UserMessage):
         self.user_message = user_message
         self.date = datetime.now(UTC)
+        self.context.update(user_message.context)
 
         if self.complete:
             self.bot_message = []

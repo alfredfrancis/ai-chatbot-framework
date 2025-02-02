@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from app.bot.dialogue_manager.models import UserMessage
 from app.dependencies import get_dialogue_manager
-from app.bot.dialogue_manager.dialogue_manager import DialogueManager
+from app.bot.dialogue_manager.dialogue_manager import (
+    DialogueManager,
+    DialogueManagerException,
+)
 
 router = APIRouter(prefix="/rest", tags=["rest"])
 
@@ -20,5 +23,8 @@ async def webbook(
     user_message = UserMessage(
         thread_id=body["thread_id"], text=body["text"], context=body["context"]
     )
-    new_state = await dialogue_manager.process(user_message)
+    try:
+        new_state = await dialogue_manager.process(user_message)
+    except DialogueManagerException as e:
+        raise HTTPException(status_code=400, message=str(e))
     return new_state.bot_message

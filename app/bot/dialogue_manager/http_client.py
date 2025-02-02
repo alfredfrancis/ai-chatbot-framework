@@ -7,6 +7,10 @@ from aiohttp import ClientTimeout
 logger = logging.getLogger("http_client")
 
 
+class APICallExcetion(Exception):
+    pass
+
+
 async def call_api(
     url: str,
     method: str,
@@ -73,10 +77,10 @@ async def call_api(
 
     except aiohttp.ClientError as e:
         logger.error(f"HTTP error occurred: {str(e)}")
-        raise
+        raise APICallExcetion(f"HTTP error occurred: {str(e)}")
     except asyncio.TimeoutError:
         logger.error(f"Request timed out after {timeout} seconds")
-        raise
+        raise APICallExcetion(f"Request timed out after {timeout} seconds")
     except Exception as e:
         logger.error(f"Unexpected error during API call: {str(e)}")
         raise
