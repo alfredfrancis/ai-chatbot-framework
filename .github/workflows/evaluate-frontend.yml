@@ -8,7 +8,7 @@ on:
     branches:
       - master
     paths:
-      - 'frontend/*'
+      - 'frontend/**'
   
 jobs:     
   test-nextjs:

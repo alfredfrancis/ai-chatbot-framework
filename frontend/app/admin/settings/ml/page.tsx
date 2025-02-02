@@ -124,6 +124,9 @@ const MLSettingsPage: React.FC = () => {
         {localConfig?.pipeline_type === 'llm' && (
           <div>
             <h2 className="text-lg font-medium text-gray-800 mb-4">LLM Settings</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Configure any OpenAI-compactible API endpoints including Deepseek, Gemini, GPT4ALL API, etc.
+            </p>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

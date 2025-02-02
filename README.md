@@ -11,32 +11,27 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ![](docs/screenshots/admin_chat_screenshot.png)
 
 ## Features
-- Fully Self Hosted
-- Low Code, DIY, Admin Dashboard
+- Fully Self-Hosted
+- Low-Code, DIY Admin Dashboard for Bot Development
 - Multi-turn Conversations
+- API request fulfilment (Tool Calling)
+- Persistent Memory & Context Management
 - Advanced Natural Language Understanding (NLU)
   - Spacy Word Embeddings
   - Intent Recognition (ML)
   - Entity Extraction (ML)
   - Zero shot NLU using Large Language Models (LLMs)
-- Persistent Memory & Context Management
-- API request fulfilment
+- Knowledge Base & FAQ answering using RAG (in development)
+- Conversation Logs
 - Channel Integrations
-  - Web using rest api/chat snippet
+  - Web via REST API/Chat Snippet
   - Facebook Messenger
   - Slack (coming soon)
   - WhatsApp via Twilio (coming soon)
 
+### Documentation
 
-## Index
-
-* [Tech Stack](#tech-stack)
-* [Installation](#installation)
-  * [Docker Compose](#using-docker-compose)
-  * [Helm](#using-helm)
-* [Development](#development)
-* [Tutorial](#tutorial)
-* [Dependencies](#dependencies-documentations)
+Check out our [documentation](docs/README.md) to get started.
 
 ### Tech Stack
 
@@ -50,9 +45,5 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 ### Contributing
 
 Want to contribute? Check out our [contribution guidelines](CONTRIBUTING.md).
-
-### Documentation
-
-Check out our [documentation](docs/README.md) to get started.
 
 <hr></hr>
