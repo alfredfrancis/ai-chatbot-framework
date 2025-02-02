@@ -7,22 +7,16 @@ services:
     volumes:
       - mongodbdata:/data
 
-  migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: python manage.py migrate
-    environment:
-      APPLICATION_ENV: Development
-      MONGODB_HOST: mongodb://mongodb:27017
-    depends_on:
-      - mongodb
-
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    command: fastapi run --host=0.0.0.0 --reload --port=8080
+    command:
+      - /bin/bash
+      - -c
+      - |
+        python manage.py migrate
+        fastapi run --host=0.0.0.0 --reload --port=8080
     environment:
       APPLICATION_ENV: Development
       MONGODB_HOST: mongodb://mongodb:27017

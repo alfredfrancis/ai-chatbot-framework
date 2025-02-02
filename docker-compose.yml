@@ -23,7 +23,6 @@ services:
     environment:
       MONGODB_HOST: mongodb://mongodb:27017
       APPLICATION_ENV: Production
-      SPACY_LANG_MODEL: en_core_web_md
     depends_on:
       - mongodb
 
