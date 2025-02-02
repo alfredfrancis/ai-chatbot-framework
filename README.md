@@ -18,7 +18,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
   - Spacy Word Embeddings
   - Intent Recognition (ML)
   - Entity Extraction (ML)
-  - One shot NLU using Large Language Models (Coming Soon)
+  - Zero shot NLU using Large Language Models (LLMs)
 - Persistent Memory & Context Management
 - API request fulfilment
 - Channel Integrations
@@ -54,7 +54,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 docker-compose up -d
 ```
 
-Open http://localhost:3000/
+Open http://localhost:8080/
 
 ### Using Helm
 
@@ -75,8 +75,6 @@ Want to contribute? Check out our [contribution guidelines](CONTRIBUTING.md).
 
 ### Tutorial
 
-Checkout this basic tutorial on youtube,
-
-[![Coming Soon](https://www.wpcc.edu/wp-content/uploads/2021/04/YouTube-Stream-Coming-Soon.jpg)](https://www.youtube.com/watch?v=S1Fj7WinaBA)
+Check out our [tutorial](docs/01-getting-started.md) to get started.
 
 <hr></hr>

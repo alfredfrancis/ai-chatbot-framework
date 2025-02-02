@@ -1,48 +1,47 @@
 version: '2'
 name: ai-chatbot-framework
 services:
-  migrate:
-    container_name: migrate
-    image: alfredfrancis/ai-chatbot-framework_backend:latest
-    command: python manage.py migrate
-    environment:
-      MONGODB_HOST: mongodb://mongodb:27017
-      APPLICATION_ENV: Production
-    depends_on:
-      - mongodb
-
   frontend:
-    container_name: frontend
     image: alfredfrancis/ai-chatbot-framework_frontend:latest
     hostname: frontend
     restart: always
-    ports:
-      - "3000:3000"
     depends_on:
       - backend
 
   backend:
-    container_name: backend
     image: alfredfrancis/ai-chatbot-framework_backend:latest
     hostname: backend
     restart: always
+    command:
+      - /bin/bash
+      - -c
+      - |
+        python manage.py migrate
+        fastapi run --host 0.0.0.0 --port 80 --root-path /api
     environment:
       MONGODB_HOST: mongodb://mongodb:27017
       APPLICATION_ENV: Production
-    ports:
-      - "8080:80"
     depends_on:
-      - migrate
       - mongodb
 
   mongodb:
-    container_name: mongodb
     image: mongo:4.2.20
     hostname: mongodb
     ports:
       - "27017:27017"
     volumes:
       - mongodbdata:/data
+
+  gateway:
+    image: nginx:1.13.3-alpine
+    hostname: gateway
+    volumes:
+      - ./scripts/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+        - "8080:80"
+    depends_on:
+      - backend
+      - frontend
 
 volumes:
   mongodbdata:

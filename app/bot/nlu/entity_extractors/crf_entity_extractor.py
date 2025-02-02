@@ -1,6 +1,6 @@
 import pycrfsuite
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from app.bot.nlu.pipeline import NLUComponent
 import os
 
@@ -13,22 +13,8 @@ class CRFEntityExtractor(NLUComponent):
     Performs NER training, prediction, model import/export
     """
 
-    def __init__(self, synonyms: Optional[Dict[str, str]] = None):
-        self.synonyms = synonyms or {}
+    def __init__(self):
         self.tagger = None
-
-    def replace_synonyms(self, entities):
-        """
-        replace extracted entity values with
-        root word by matching with synonyms dict.
-        :param entities:
-        :return:
-        """
-        for entity in entities.keys():
-            entity_value = str(entities[entity])
-            if entity_value.lower() in self.synonyms:
-                entities[entity] = self.synonyms[entity_value.lower()]
-        return entities
 
     def extract_features(self, sent, i):
         """
@@ -178,8 +164,7 @@ class CRFEntityExtractor(NLUComponent):
         tagged_token = self.pos_tagger(spacy_doc)
         words = [token.text for token in spacy_doc]
         predicted_labels = self.tagger.tag(self.sent_to_features(tagged_token))
-        extracted_entities = self.crf2json(zip(words, predicted_labels))
-        return self.replace_synonyms(extracted_entities)
+        return self.crf2json(zip(words, predicted_labels))
 
     def pos_tagger(self, spacy_doc):
         """

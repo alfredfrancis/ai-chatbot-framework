@@ -13,7 +13,7 @@ async def set_config(name: str, config: Dict[str, Any]):
     """
     Update bot config
     """
-    await store.update_config(name, config)
+    await store.update_nlu_config(name, config)
     return {"message": "Config updated successfully"}
 
 
@@ -22,7 +22,7 @@ async def get_config(name: str):
     """
     Get bot config
     """
-    return await store.get_config(name)
+    return await store.get_nlu_config(name)
 
 
 @router.get("/{name}/export")

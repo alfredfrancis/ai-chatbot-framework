@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from app.admin.intents import store
 from app.dependencies import reload_dialogue_manager
-from app.bot.nlu.training import train_pipeline
+from app.bot.nlu.pipeline_utils import train_pipeline
 
 router = APIRouter(prefix="/train", tags=["train"])
 
