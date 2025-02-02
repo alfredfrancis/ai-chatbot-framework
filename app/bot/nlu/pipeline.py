@@ -44,11 +44,10 @@ class NLUPipeline:
 
     def load(self, model_path: str) -> bool:
         """Load all components from model path."""
-        success = True
         for component in self.components:
             if not component.load(model_path):
-                success = False
-        return success
+                return False
+        return True
 
     def process(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Process message through all components in sequence."""

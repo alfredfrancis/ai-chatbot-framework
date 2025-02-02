@@ -15,11 +15,15 @@ from app.bot.dialogue_manager.models import (
     ParameterModel,
     UserMessage,
 )
-from app.bot.dialogue_manager.http_client import call_api
+from app.bot.dialogue_manager.http_client import call_api, APICallExcetion
 from app.config import app_config
 from app.database import client
 
 logger = logging.getLogger("dialogue_manager")
+
+
+class DialogueManagerException(Exception):
+    pass
 
 
 class DialogueManager:
@@ -77,7 +81,9 @@ class DialogueManager:
         Reloads ML models and synonyms.
         """
         # Load models
-        self.nlu_pipeline.load(models_dir)
+        ok = self.nlu_pipeline.load(models_dir)
+        if not ok:
+            self.nlu_pipeline = None
         logger.info("NLU Pipeline models updated")
 
     async def process(self, message: UserMessage) -> State:
@@ -87,6 +93,11 @@ class DialogueManager:
         :param message: UserMessage instance containing the request data.
         :return: current state of the conversation including the bot response
         """
+
+        if self.nlu_pipeline is None:
+            raise DialogueManagerException(
+                "NLU pipeline is not initialized. Please build the models."
+            )
 
         # Step 1: Get current state
         current_state = await self.memory_saver.get(message.thread_id)
@@ -249,9 +260,6 @@ class DialogueManager:
                             entities_by_type[param.type].pop(0)
                         )
 
-            # Update context with extracted_parameters
-            current_state.context["parameters"] = current_state.extracted_parameters
-
             # Handle missing parameters
             current_state = self._handle_missing_parameters(parameters, current_state)
 
@@ -301,57 +309,72 @@ class DialogueManager:
         """
         if intent.api_trigger and intent.api_details:
             try:
-                result = await self._call_intent_api(intent, current_state.context)
-                current_state.context["result"] = result
+                result = await self._call_intent_api(intent, current_state)
                 template = Template(
                     intent.speech_response,
                     undefined=SilentUndefined,
                     enable_async=True,
                 )
-                rendered_text = await template.render_async(**current_state.context)
+                rendered_text = await template.render_async(
+                    context=current_state.context,
+                    parameters=current_state.extracted_parameters,
+                    result=result,
+                )
+
                 current_state.bot_message = [
                     {"text": msg} for msg in split_sentence(rendered_text)
                 ]
-            except Exception as e:
+
+            except DialogueManagerException as e:
                 logger.warning(f"API call failed: {e}")
                 current_state.bot_message = [
                     {"text": "Service is not available. Please try again later."}
                 ]
         else:
-            current_state.context["result"] = {}
             template = Template(
                 intent.speech_response,
                 undefined=SilentUndefined,
                 enable_async=True,
             )
-            rendered_text = await template.render_async(**current_state.context)
+            rendered_text = await template.render_async(
+                context=current_state.context,
+                parameters=current_state.extracted_parameters,
+            )
             current_state.bot_message = [
                 {"text": msg} for msg in split_sentence(rendered_text)
             ]
-
         return current_state
 
-    async def _call_intent_api(self, intent: IntentModel, context: Dict):
+    async def _call_intent_api(self, intent: IntentModel, current_state: State):
         """
         Call the API associated with the intent.
         """
         api_details = intent.api_details
         headers = api_details.get_headers()
         url_template = Template(api_details.url, undefined=SilentUndefined)
-        rendered_url = url_template.render(**context)
-
+        rendered_url = url_template.render(
+            context=current_state.context, parameters=current_state.extracted_parameters
+        )
         if api_details.is_json:
             request_template = Template(
                 api_details.json_data, undefined=SilentUndefined
             )
-            parameters = json.loads(request_template.render(**context))
+            request_json = request_template.render(
+                context=current_state.context,
+                parameters=current_state.extracted_parameters,
+            )
+            parameters = json.loads(request_json)
         else:
-            parameters = context.get("parameters", {})
+            parameters = current_state.extracted_parameters
 
-        return await call_api(
-            rendered_url,
-            api_details.request_type,
-            headers,
-            parameters,
-            api_details.is_json,
-        )
+        try:
+            return await call_api(
+                rendered_url,
+                api_details.request_type,
+                headers,
+                parameters,
+                api_details.is_json,
+            )
+        except APICallExcetion as e:
+            logger.warning(f"API call failed: {e}")
+            raise DialogueManagerException("API call failed")
