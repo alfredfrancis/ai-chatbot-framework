@@ -6,7 +6,7 @@
 AI Chatbot Framework is an open-source, self-hosted, DIY Chatbot building platform built in Python. With this tool, it’s easy to create Natural Language conversational scenarios with no coding efforts whatsoever. 
 The smooth UI makes it effortless to create and train conversations to the bot. AI Chatbot Framework can live on any channel of your choice (such as Messenger, Slack etc.).
 
-You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has AI capabilities. With this project you can create an AI powered chatbot in no time.  Read the [getting started guide](docs/01-getting-started.md) to get started.
+You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has AI capabilities. With this project you can create an AI powered chatbot in no time.  Read the [documentation](docs/README.md) to get started.
 
 ![](docs/screenshots/admin_chat_screenshot.png)
 
@@ -47,34 +47,12 @@ You don’t need to be an expert at artificial intelligence to create an awesome
  - Spacy / python-crfsuite
  - Docker / docker-compose / Kubernetes / Helm
 
-### Installation
-
-### Using docker-compose (recommended)
-```sh
-docker-compose up -d
-```
-
-Open http://localhost:8080/
-
-### Using Helm
-
-```sh
-helm dep update helm/ai-chatbot-framework
-
-helm upgrade --install --create-namespace -n ai-chatbot-framework ai-chatbot-framework helm/ai-chatbot-framework
-
-# port forward to local (optional)
-kubectl port-forward --namespace=ai-chatbot-framework service/ingress-nginx-controller 8080:80
-```
-
-Open http://localhost:8080/
-
 ### Contributing
 
 Want to contribute? Check out our [contribution guidelines](CONTRIBUTING.md).
 
-### Tutorial
+### Documentation
 
-Check out our [tutorial](docs/01-getting-started.md) to get started.
+Check out our [documentation](docs/README.md) to get started.
 
 <hr></hr>

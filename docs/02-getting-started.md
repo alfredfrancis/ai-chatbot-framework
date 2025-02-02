@@ -30,4 +30,4 @@ The admin panel serves as the central hub for managing your chatbot. You can use
 Access the admin panel at [http://localhost:8080](http://localhost:8080) after starting the application.
 
 ## Next Steps
-- [Create your first intent](02-creating-order-status-check.md)
+- [Create your first intent](03-creating-order-status-check.md)

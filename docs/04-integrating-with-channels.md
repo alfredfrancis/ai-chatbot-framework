@@ -38,14 +38,14 @@ This guide explains how to integrate your chatbot with different communication c
    ```
 
 ### Making Requests
-- Endpoint: `POST /api/chat`
+- Endpoint: `POST /api/bots/channels/rest/webbook`
 - Request format:
   ```json
   {
     "thread_id":"123456",
     "text": "hello world",
     "context": {
-      "Name": "Alfred",
+      "Name": "Alfred"
       // additional context data
     }
   }
@@ -57,7 +57,7 @@ This guide explains how to integrate your chatbot with different communication c
 
 Sample cURL request:
 ```sh
-curl 'http://localhost:8080/bots/channels/rest/webbook' \
+curl 'http://<your-external-ip>:8080/api/bots/channels/rest/webbook' \
   -H 'Content-Type: application/json' \
   --data-raw '{"thread_id":"test-user","text":"/init_conversation","context":{"username":"Admin"}}'
 ```
