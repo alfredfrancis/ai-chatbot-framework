@@ -18,7 +18,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
   - Spacy Word Embeddings
   - Intent Recognition (ML)
   - Entity Extraction (ML)
-  - One shot NLU using Large Language Models (LLMs)
+  - Zero shot NLU using Large Language Models (LLMs)
 - Persistent Memory & Context Management
 - API request fulfilment
 - Channel Integrations

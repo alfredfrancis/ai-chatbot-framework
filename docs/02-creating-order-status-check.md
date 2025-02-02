@@ -67,6 +67,11 @@ Your order status is {{ result['status'] }}
 ```
 
 ## Training
+Now, let's train the NLU models to understand the user queries. We support two types of NLU pipelines:
+   - Default NLU pipeline (using traditional ML and NLP algorithms, requires manual training)
+   - Zero Shot NLU pipeline (using LLMs, no manual training needed)
+
+For this example, we'll use the default NLU pipeline. 
 
 ### 1. Add Training Phrases
 
