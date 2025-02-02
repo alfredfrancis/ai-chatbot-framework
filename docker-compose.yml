@@ -4,8 +4,6 @@ services:
   frontend:
     image: alfredfrancis/ai-chatbot-framework_frontend:latest
     hostname: frontend
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: /api/
     restart: always
     depends_on:
       - backend
