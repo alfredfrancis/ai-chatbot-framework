@@ -23,18 +23,12 @@ export interface ChatLogsResponse {
 }
 
 export async function listChatLogs(page: number, limit: number): Promise<ChatLogsResponse> {
-  const response = await fetch(`${API_BASE_URL}chatlogs?page=${page}&limit=${limit}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch chat logs');
-  }
+  const response = await fetch(`${API_BASE_URL}chatlogs/?page=${page}&limit=${limit}`);
   return response.json();
 }
 
 export async function getChatThread(threadId: string): Promise<ChatLog[]> {
   const response = await fetch(`${API_BASE_URL}chatlogs/${threadId}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch chat thread');
-  }
   return response.json();
 }
 

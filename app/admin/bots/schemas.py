@@ -16,7 +16,7 @@ class LLMSettings(BaseModel):
     """Settings for LLM-based NLU pipeline"""
 
     base_url: str = "http://127.0.0.1:11434/v1"
-    api_token: str = "ollama"
+    api_key: str = "ollama"
     model_name: str = "llama2:13b-chat"
     max_tokens: int = 4096
     temperature: float = 0.7

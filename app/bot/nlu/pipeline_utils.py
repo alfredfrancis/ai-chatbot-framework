@@ -4,6 +4,7 @@ from app.bot.nlu.pipeline import NLUPipeline
 from app.bot.nlu.featurizers import SpacyFeaturizer
 from app.bot.nlu.intent_classifiers import SklearnIntentClassifier
 from app.bot.nlu.entity_extractors import CRFEntityExtractor
+from app.bot.nlu.entity_extractors import SynonymReplacer
 from app.bot.nlu.llm import ZeroShotNLUOpenAI
 from app.admin.entities.store import list_synonyms
 from app.admin.bots.store import get_nlu_config
@@ -57,7 +58,8 @@ async def create_ml_pipeline(**kwargs):
         [
             SpacyFeaturizer(app_config.SPACY_LANG_MODEL),
             SklearnIntentClassifier(),
-            CRFEntityExtractor(synonyms),
+            CRFEntityExtractor(),
+            SynonymReplacer(synonyms),
         ]
     )
 
@@ -68,6 +70,7 @@ async def create_zero_shot_pipeline(**kwargs):
     :return:
     """
     intents = await list_intents()
+    synonyms = await list_synonyms()
 
     intent_ids = []
     entity_ids = []
@@ -83,6 +86,7 @@ async def create_zero_shot_pipeline(**kwargs):
                 intents=intent_ids,
                 entities=entity_ids,
                 **kwargs,
-            )
+            ),
+            SynonymReplacer(synonyms),
         ]
     )

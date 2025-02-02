@@ -8,7 +8,7 @@ from app.bot.memory import MemorySaver
 from app.bot.memory.memory_saver_mongo import MemorySaverMongo
 from app.bot.memory.models import State
 from app.bot.nlu.pipeline import NLUPipeline
-from app.bot.nlu.training import get_pipeline
+from app.bot.nlu.pipeline_utils import get_pipeline
 from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
 from app.bot.dialogue_manager.models import (
     IntentModel,

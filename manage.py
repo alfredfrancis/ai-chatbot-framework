@@ -48,7 +48,7 @@ def migrate():
 @cli.command()
 def train():
     async def async_train():
-        from app.bot.nlu.training import train_pipeline
+        from app.bot.nlu.pipeline_utils import train_pipeline
 
         logger.info("Training models...")
         await train_pipeline(app)

@@ -60,13 +60,16 @@ const MLSettingsPage: React.FC = () => {
         <p className="text-gray-600 mt-1">Configure machine learning parameters for your chatbot</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-8">
-        <div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+        <div className="border-b border-gray-200 pb-6">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 NLU Pipeline Type
               </label>
+              <p className="text-sm text-gray-500 mb-4">
+                Choose how your chatbot processes and understands user messages. Select between a traditional machine learning approach or a modern large language model.
+              </p>
               <select
                 value={localConfig?.pipeline_type}
                 onChange={(e) => handleLocalConfigUpdate({
@@ -75,21 +78,24 @@ const MLSettingsPage: React.FC = () => {
                 })}
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm rounded-md"
               >
-                <option value="traditional"> Default NLU Pipeline (Manul Training Required)</option>
-                <option value="llm">Large Language Model</option>
+                <option value="traditional">Default NLU Pipeline (Manual Training Required)</option>
+                <option value="llm">Large Language Model (Zero-shot Learning)</option>
               </select>
             </div>
           </div>
         </div>
 
         {localConfig?.pipeline_type === 'traditional' && (
-          <div>
+          <div className="border-b border-gray-200 pb-6">
             <h2 className="text-lg font-medium text-gray-800 mb-4">Default NLU Pipeline Settings</h2>
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Intent Detection Threshold
                 </label>
+                <p className="text-sm text-gray-500 mb-4">
+                  Set the minimum confidence level required to match a user message to an intent. A higher threshold means more accurate but potentially fewer matches.
+                </p>
                 <div className="flex items-center gap-4">
                   <input
                     type="range"
@@ -143,12 +149,12 @@ const MLSettingsPage: React.FC = () => {
                 </label>
                 <input
                   type="password"
-                  value={localConfig?.llm_settings.api_token}
+                  value={localConfig?.llm_settings.api_key}
                   onChange={(e) => handleLocalConfigUpdate({
                     ...localConfig!,
                     llm_settings: {
                       ...localConfig!.llm_settings,
-                      api_token: e.target.value
+                      api_key: e.target.value
                     }
                   })}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm"
