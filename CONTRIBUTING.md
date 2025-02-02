@@ -75,7 +75,7 @@ git push origin feature/your-feature-name
 
 ### Project Structure
 - `app/` - Backend Python/FastAPI application
-- `frontend/` - Frontend React application
+- `frontend/` - Frontend NextJS application
 - `helm/` - Helm charts for Kubernetes deployment
 - `examples/` - Example implementations
 - `docs/` - Project documentation

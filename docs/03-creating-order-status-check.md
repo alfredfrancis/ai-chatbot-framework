@@ -117,4 +117,4 @@ For this example, we'll use the default NLU pipeline.
 [![Testing](screenshots/testing.png)](screenshots/testing.png)
 
 ## Next Steps
-- [Integrate with other channels](03-integrating-with-channels.md)
+- [Integrate with other channels](04-integrating-with-channels.md)
