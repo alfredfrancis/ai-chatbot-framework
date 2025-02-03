@@ -231,6 +231,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                         value={param.name}
                         onChange={e => updateParameter(index, 'name', e.target.value)}
                         className="w-full p-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
+                        required
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -267,6 +268,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                             value={param.prompt}
                             onChange={e => updateParameter(index, 'prompt', e.target.value)}
                             className="w-full p-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
+                            required = {param.required}
                           />
                         </div>
                       )}
@@ -471,6 +473,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
             onChange={e => setFormData(prev => ({ ...prev, speechResponse: e.target.value }))}
             className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
             rows={5}
+            required
           />
         </div>
 
