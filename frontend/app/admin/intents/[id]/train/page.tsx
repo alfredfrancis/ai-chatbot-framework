@@ -39,7 +39,7 @@ export default function TrainPage({ params }: PageProps) {
   const [newExampleText, setNewExampleText] = useState('');
   const [newEntityName, setNewEntityName] = useState('');
   const [entities, setEntities] = useState<EntityModel[]>([]);
-  const [intent, setIntent] = useState<IntentModel>({ name: '', parameters: [], speechResponse: '', apiTrigger: false });
+  const [intent, setIntent] = useState<IntentModel>({ name: '',intentId: '', parameters: [], speechResponse: '', apiTrigger: false });
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo>({
     value: '',
     begin: 0,
