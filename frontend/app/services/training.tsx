@@ -41,7 +41,7 @@ interface IntentModel {
   id?: string;
   name: string;
   description?: string;
-  intentId?: string;
+  intentId: string;
   userDefined?: boolean;
   parameters: Array<{
     name: string;

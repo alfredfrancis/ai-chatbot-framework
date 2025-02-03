@@ -4,7 +4,7 @@ import React, { useState, useEffect, use, useCallback } from 'react';
 import { getIntent, saveIntent } from '../../../services/intents';
 import { getEntities } from '../../../services/entities';
 import { Popover } from 'flowbite-react';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { QuestionMarkCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
 import type { EntityModel, IntentModel } from '../../../services/training';
 import { useSnackbar } from '../../../components/Snackbar/SnackbarContext';
 
@@ -12,7 +12,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
   const { addSnackbar } = useSnackbar();
   const defaultPrameterTypes = ['free_text'];
-  
+
   const [formData, setFormData] = useState<IntentModel>({
     name: '',
     intentId: '',
@@ -63,7 +63,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
     }));
   };
 
-  const updateParameter = (index: number, field: string, value: string|boolean) => {
+  const updateParameter = (index: number, field: string, value: string | boolean) => {
     const newParameters = [...formData.parameters];
     newParameters[index] = {
       ...newParameters[index],
@@ -151,7 +151,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-gray-800">
           {id === 'new' ? 'Create Intent' : 'Edit Intent'}
@@ -173,7 +173,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Intent ID</label>
             <input
@@ -186,112 +186,110 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
+        <div className="relative border-t border-gray-200 pt-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-800">Parameters</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-medium text-gray-800">Parameters</h2>
+              <Popover
+                content={
+                  <div className="max-w-sm p-3">
+                    <p>Use ### to split your prompt into multiple lines. Each line will be asked separately in sequence.</p>
+                    <p>Example:</p>
+                    <pre className="bg-white p-2 rounded text-sm">{"What is your name?###Where do you live?###How old are you?"}</pre>
+                  </div>
+                }
+              >
+                <QuestionMarkCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500 cursor-help" />
+              </Popover>
+            </div>
             <button
               type="button"
               onClick={addParameter}
-              className="px-4 py-2 text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600 transition-colors duration-200 flex items-center gap-2"
+              className="px-4 py-2.5 text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600 transition-colors duration-200"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
               Add Parameter
             </button>
           </div>
-          
-          <div className="space-y-4">
-            {formData.parameters.map((param, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                    <input
-                      type="text"
-                      value={param.name}
-                      onChange={e => updateParameter(index, 'name', e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                    <select
-                      value={param.type}
-                      onChange={e => updateParameter(index, 'type', e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
-                    >
-                      <optgroup label="Default">
-                        {defaultPrameterTypes.map(type => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Entities">
-                        {entities.map(entity => (
-                          <option key={entity?.id} value={entity.name}>
-                            {entity.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="flex items-center">
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[20%]">Name</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[20%]">Type</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Required</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[45%]">Prompt</th>
+                  <th scope="col" className="relative px-6 py-3 w-[5%]"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {formData.parameters.map((param, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="text"
+                        value={param.name}
+                        onChange={e => updateParameter(index, 'name', e.target.value)}
+                        className="w-full p-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
+                        required
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={param.type}
+                        onChange={e => updateParameter(index, 'type', e.target.value)}
+                        className="w-full p-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
+                      >
+                        <optgroup label="Default">
+                          {defaultPrameterTypes.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Entities">
+                          {entities.map(entity => (
+                            <option key={entity?.id} value={entity.name}>{entity.name}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={param.required}
                         onChange={e => updateParameter(index, 'required', e.target.checked)}
-                        className="rounded border-gray-300 text-green-500 focus:ring-green-200 mr-2"
+                        className="rounded border-gray-300 text-green-500 focus:ring-green-200"
                       />
-                      <span className="text-sm text-gray-700">Required</span>
-                    </label>
-                  </div>
-                  {param.required && (
-                    <div className="md:col-span-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <label className="block text-sm font-medium text-gray-700">Prompt</label>
-                        <Popover 
-                          content={
-                            <div className="max-w-sm space-y-2 p-3 bg-gray-50 rounded-lg">
-                              <p>
-                                Use ### to split your prompt into multiple lines. Each line will be asked separately in sequence.
-                              </p>
-                              <p>Example:</p>
-                              <pre className="bg-white p-2 rounded-lg text-sm whitespace-pre-wrap break-words">
-                                {"What is your name?###Where do you live?###How old are you?"}
-                              </pre>
-                            </div>
-                          }
-                        >
-                          <QuestionMarkCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500 cursor-help" />
-                        </Popover>
-                      </div>
-                      <input
-                        type="text"
-                        value={param.prompt}
-                        onChange={e => updateParameter(index, 'prompt', e.target.value)}
-                        className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => deleteParameter(index)}
-                    className="px-3 py-1.5 text-sm font-medium rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      {param.required && (
+                        <div className="flex flex-col">
+                          <input
+                            type="text"
+                            value={param.prompt}
+                            onChange={e => updateParameter(index, 'prompt', e.target.value)}
+                            className="w-full p-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
+                            required = {param.required}
+                          />
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        type="button"
+                        onClick={() => deleteParameter(index)}
+                        className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
+        <div className="relative border-t border-gray-200 pt-8 transition-all duration-200 hover:bg-gray-50 rounded-lg p-4 -mx-4">
           <label className="flex items-center mb-4">
             <input
               type="checkbox"
@@ -299,15 +297,13 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
               onChange={e => handleApiTriggerChange(e.target.checked)}
               className="rounded border-gray-300 text-green-500 focus:ring-green-200 mr-2"
             />
-            <span className="text-sm font-medium text-gray-700">Trigger API</span>
+            <span className="text-sm font-medium text-gray-700">REST API Calling</span>
           </label>
 
           {formData.apiTrigger && (
-            <div className="space-y-6 bg-gray-50 rounded-lg p-6 border border-gray-200">
-
-
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="md:col-span-3">
+            <div className="space-y-6 bg-white rounded-lg p-6 border border-gray-200">
+              <div className="grid gap-4 md:grid-cols-6">
+                <div className="md:col-span-5">
                   <label className="block text-sm font-medium text-gray-700 mb-2">API URL</label>
                   <input
                     type="text"
@@ -319,12 +315,12 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                         url: e.target.value
                       }
                     }))}
-                    className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
+                    className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
                     required={formData.apiTrigger}
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Method</label>
                   <select
                     value={formData.apiDetails?.requestType}
@@ -335,7 +331,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                         requestType: e.target.value
                       }
                     }))}
-                    className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
+                    className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
                     required={formData.apiTrigger}
                   >
                     <option value="GET">GET</option>
@@ -352,7 +348,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                   <button
                     type="button"
                     onClick={addHeader}
-                    className="px-3 py-1.5 text-sm font-medium rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors duration-200"
+                    className="text-blue-600 hover:text-blue-700"
                   >
                     Add Header
                   </button>
@@ -366,7 +362,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                           value={header.headerKey}
                           onChange={e => updateHeader(index, 'headerKey', e.target.value)}
                           placeholder="Key"
-                          className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
+                          className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
                         />
                       </div>
                       <div className="col-span-2">
@@ -375,16 +371,16 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                           value={header.headerValue}
                           onChange={e => updateHeader(index, 'headerValue', e.target.value)}
                           placeholder="Value"
-                          className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
+                          className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
                         />
                       </div>
                       <div>
                         <button
                           type="button"
                           onClick={() => deleteHeader(index)}
-                          className="w-full px-3 py-2.5 text-sm font-medium rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200"
+                          className="text-red-600 hover:text-red-700 p-2"
                         >
-                          Delete
+                          <TrashIcon className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
@@ -412,14 +408,22 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
               {formData.apiDetails?.isJson && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
-                  <div className="mb-4 text-sm text-gray-600">
-                    Extracted parameters can be used to build your JSON. Example:
-                    <pre className="bg-white p-3 mt-2 rounded-lg border border-gray-200">
-                      {`{ 
-  "name": {{ parameters["name"] }}
-}`}
-                    </pre>
+                  <div  className="flex items-center gap-2 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
+                    <Popover
+                      content={
+                        <div className="max-w-sm p-3">
+                          <div className="mb-4 text-sm text-gray-600">
+                            Extracted parameters can be used to build your JSON. Example:
+                            <pre className="bg-white p-3 mt-2 rounded-lg border border-gray-200">
+                              {`{ "order_id": "{{parameters.order_id}}" }`}
+                            </pre>
+                          </div>
+                        </div>
+                      }
+                    >
+                      <QuestionMarkCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500 cursor-help" />
+                    </Popover>
                   </div>
                   <textarea
                     value={formData.apiDetails.jsonData}
@@ -430,7 +434,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                         jsonData: e.target.value
                       }
                     }))}
-                    className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
+                    className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
                     rows={8}
                     required={formData.apiDetails.isJson}
                   />
@@ -440,12 +444,12 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
           )}
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
+        <div className="relative border-t border-gray-200 pt-8 transition-all duration-200 hover:bg-gray-50 rounded-lg p-4 -mx-4">
           <div className="flex items-center gap-2 mb-2">
             <label className="block text-sm font-medium text-gray-700">Speech Response</label>
-            <Popover 
+            <Popover
               content={
-                <div className="max-w-sm space-y-2 p-3 bg-gray-50 rounded-lg">
+                <div className="max-w-sm p-3">
                   <p>
                     You can use Jinja templating to create dynamic responses:
                   </p>
@@ -455,7 +459,7 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
                     <li>Access API response with <code className="bg-gray-100 px-1 rounded">{"{{ result['field_name'] }}"}</code></li>
                   </ul>
                   <p>Example:</p>
-                  <pre className="bg-white p-2 rounded-lg text-sm whitespace-pre-wrap break-words">
+                  <pre className="bg-white p-2 rounded text-sm">
                     {"Hello {{ parameters['name'] }}! ### The weather in {{ parameters['city'] }} is {{ result['temperature'] }}°C"}
                   </pre>
                 </div>
@@ -467,8 +471,9 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
           <textarea
             value={formData.speechResponse}
             onChange={e => setFormData(prev => ({ ...prev, speechResponse: e.target.value }))}
-            className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
+            className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500"
             rows={5}
+            required
           />
         </div>
 
@@ -485,4 +490,4 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
   );
 };
 
-export default IntentPage; 
+export default IntentPage;

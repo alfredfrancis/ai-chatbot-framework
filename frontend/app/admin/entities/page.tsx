@@ -65,12 +65,6 @@ const EntitiesPage: React.FC = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleNewEntity();
-    }
-  };
-
   return (
     <div className="p-6 max-w-4xl">
       <div className="mb-8">
@@ -85,9 +79,10 @@ const EntitiesPage: React.FC = () => {
               type="text"
               value={newEntityName}
               onChange={(e) => setNewEntityName(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={(e) => { if (e.key === 'Enter') {handleNewEntity();}}}
               placeholder="Enter entity name"
               className="w-full p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-green-500 transition-colors duration-200"
+              required
             />
           </div>
           <button
