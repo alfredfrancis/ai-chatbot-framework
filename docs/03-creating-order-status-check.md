@@ -49,7 +49,7 @@ Example API Response:
 ```
 
 Configuration steps:
-1. Enable "Trigger API"
+1. Enable "REST API Calling"
 2. Add the API URL with parameter templating:
    ```
    https://fake-store-api.mock.beeceptor.com/api/orders/status?order_id={{ parameters['name'] }}
