@@ -18,3 +18,6 @@ Welcome to the AI Chatbot Framework documentation. This documentation provides c
    - [Chat Widget](04-integrating-with-channels.md#chat-widget)
    - [REST API](04-integrating-with-channels.md#rest-api)
    - [Facebook Messenger](04-integrating-with-channels.md#facebook-messenger)
+
+5. [Architecture Overview](05-architecture.md)
+   - [High Level Architecture](05-architecture.md#high-level-architecture)
