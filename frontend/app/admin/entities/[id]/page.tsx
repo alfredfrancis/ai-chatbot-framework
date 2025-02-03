@@ -4,6 +4,8 @@ import React, { useState, useEffect, use, KeyboardEvent, useCallback } from 'rea
 import { getEntity, saveEntity } from '../../../services/entities';
 import type { EntityModel, EntityValue } from '../../../services/training';
 import { useSnackbar } from '../../../components/Snackbar/SnackbarContext';
+import { Popover } from 'flowbite-react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
@@ -151,7 +153,36 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
 
         <div className="border-t border-gray-200 pt-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-800">Values</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-medium text-gray-800">Values</h2>
+              <Popover
+                content={
+                  <div className="max-w-sm space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <p>
+                    Entity values and their synonyms help identify different ways users refer to the same entity.
+                    </p>
+                    <p className="mt-2">
+                      Example:
+                    </p>
+                    <div className="bg-white p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium">Value: "credit_card"</p>
+                      <p className="text-sm text-gray-600 mt-1">Synonyms:</p>
+                      <ul className="list-disc pl-5 text-sm text-gray-600">
+                        <li>card</li>
+                        <li>credit</li>
+                        <li>visa</li>
+                        <li>mastercard</li>
+                      </ul>
+                      <p className="mt-2 text-sm text-gray-600">
+                        When users mention any of these synonyms, the intent will receive "credit_card" as the entity value.
+                      </p>
+                    </div>
+                  </div>
+                }
+              >
+                <QuestionMarkCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500 cursor-help" />
+              </Popover>
+            </div>
             <button
               type="button"
               onClick={addValue}
@@ -251,4 +282,4 @@ const EntityPage = ({ params }: { params: Promise<{ id: string }> }) => {
   );
 };
 
-export default EntityPage; 
+export default EntityPage;
