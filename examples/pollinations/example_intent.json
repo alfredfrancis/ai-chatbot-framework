@@ -1,0 +1,18 @@
+{
+  "name": "Generate Image",
+  "intentId": "generate_image",
+  "userDefined": true,
+  "speechResponse": "Here's an image of {{parameters.image_prompt}}. {{pollinations_image:{{parameters.image_prompt}}}}",
+  "apiTrigger": false,
+  "parameters": [
+    {
+      "name": "image_prompt",
+      "required": true,
+      "type": "free_text",
+      "prompt": "What kind of image would you like me to generate?"
+    }
+  ],
+  "metadata": {
+    "use_pollinations": true
+  }
+}

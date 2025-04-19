@@ -37,10 +37,13 @@ class IntentModel:
     api_trigger: bool = False
     api_details: Optional[ApiDetailsModel] = None
     parameters: List[ParameterModel] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         if self.parameters is None:
             self.parameters = []
+        if self.metadata is None:
+            self.metadata = {}
 
     @classmethod
     def from_db(cls, db_intent: Intent):
@@ -67,6 +70,11 @@ class IntentModel:
                 for p in db_intent.parameters
             ]
 
+        # Extract metadata from the database model if it exists
+        metadata = {}
+        if hasattr(db_intent, 'metadata') and db_intent.metadata:
+            metadata = db_intent.metadata
+
         return cls(
             name=db_intent.name,
             intent_id=db_intent.intentId,
@@ -75,6 +83,7 @@ class IntentModel:
             api_trigger=db_intent.apiTrigger,
             api_details=api_details,
             parameters=parameters,
+            metadata=metadata,
         )
 
 

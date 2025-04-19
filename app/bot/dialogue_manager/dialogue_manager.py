@@ -16,6 +16,7 @@ from app.bot.dialogue_manager.models import (
     UserMessage,
 )
 from app.bot.dialogue_manager.http_client import call_api, APICallExcetion
+from app.bot.services.pollinations.pollinations_service import PollinationsService
 from app.config import app_config
 from app.database import client
 
@@ -343,6 +344,17 @@ class DialogueManager:
             current_state.bot_message = [
                 {"text": msg} for msg in split_sentence(rendered_text)
             ]
+
+        # Enhance bot response with Pollinations.AI generated content if needed
+        # Check if the intent has a metadata field indicating to use Pollinations.AI
+        use_pollinations = intent.metadata.get("use_pollinations", False) if hasattr(intent, "metadata") and intent.metadata else False
+
+        if use_pollinations:
+            # Enhance the response with Pollinations.AI generated content
+            current_state.bot_message = await PollinationsService.enhance_bot_response(
+                current_state.bot_message, generate_images=True
+            )
+
         return current_state
 
     async def _call_intent_api(self, intent: IntentModel, current_state: State):

@@ -1,0 +1,25 @@
+{
+  "name": "Generate Creative Text",
+  "intentId": "generate_creative_text",
+  "userDefined": true,
+  "speechResponse": "Here's a creative response to your prompt: {{parameters.text_prompt}}",
+  "apiTrigger": true,
+  "apiDetails": {
+    "url": "https://pollinations.ai/api/text",
+    "requestType": "GET",
+    "headers": [],
+    "isJson": true,
+    "jsonData": "{\"p\": \"{{parameters.text_prompt}}\", \"model\": \"mistral\", \"max_tokens\": 256, \"temperature\": 0.7}"
+  },
+  "parameters": [
+    {
+      "name": "text_prompt",
+      "required": true,
+      "type": "free_text",
+      "prompt": "What would you like me to write about?"
+    }
+  ],
+  "metadata": {
+    "use_pollinations": false
+  }
+}
