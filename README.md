@@ -37,6 +37,13 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 
 Check out our [documentation](docs/README.md) to get started.
 
+**How does `ai-chatbot-framework` work under the hood?**
+
+Check out this interactive walkthrough of the `ai-chatbot-framework` codebase on CodeCanvas [here](https://www.code-canvas.com/?session=unauthenticatedGithub&repo=ai-chatbot-framework&owner=alfredfrancis&branch=master&OnboardingTutorial=true).
+
+<img width="1692" height="891" alt="image" src="https://github.com/user-attachments/assets/7e69567f-8523-49c8-a94d-2108aa38b3b8" />
+
+
 ### Tech Stack
 
  - Python / FastAPI / Pydantic
