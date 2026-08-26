@@ -1,5 +1,5 @@
 from typing import Optional, Dict, List, Any, Text
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from app.bot.dialogue_manager.models import UserMessage
 
 
@@ -29,7 +29,7 @@ class State:
         self.missing_parameters = missing_parameters or []
         self.complete = complete
         self.current_node = current_node
-        self.date = date or datetime.now(UTC)
+        self.date = date or datetime.now(timezone.utc)
 
     def to_dict(self) -> Dict:
         return {
@@ -63,7 +63,7 @@ class State:
 
     def update(self, user_message: UserMessage):
         self.user_message = user_message
-        self.date = datetime.now(UTC)
+        self.date = datetime.now(timezone.utc)
         self.context.update(user_message.context)
 
         if self.complete:

@@ -51,7 +51,7 @@ def train():
         from app.bot.nlu.pipeline_utils import train_pipeline
 
         logger.info("Training models...")
-        await train_pipeline(app)
+        await train_pipeline()
         logger.info("Training models finished.")
 
     asyncio.run(async_train())

@@ -1,5 +1,5 @@
 version: '2'
-name: ai-chatbot-framework
+# name: ai-chatbot-framework
 services:
   frontend:
     image: alfredfrancis/ai-chatbot-framework_frontend:latest

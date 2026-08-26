@@ -45,7 +45,7 @@ mdurl==0.1.2
 motor==3.6.1
 multidict==6.1.0
 murmurhash==1.0.12
-numpy==2.2.2
+numpy~=1.26.0
 openai==1.60.2
 orjson==3.10.15
 packaging==24.2
