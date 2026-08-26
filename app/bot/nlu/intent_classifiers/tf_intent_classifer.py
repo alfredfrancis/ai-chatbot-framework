@@ -7,9 +7,8 @@ import numpy as np
 import spacy
 import tensorflow as tf
 from sklearn.preprocessing import LabelBinarizer
-from tensorflow.python.keras import Sequential
-from tensorflow.python.layers.core import Dense
-from tensorflow.python.layers.core import Dropout
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Dropout
 from app.bot.nlu.pipeline import NLUComponent
 
 np.random.seed(1)
