@@ -1,4 +1,5 @@
-<img src="https://i.ibb.co/vLR1wpG/logo.png" width="280"/>
+<img width="1083" height="188" alt="ai chatbot framework" src="https://github.com/user-attachments/assets/ada25522-bcc4-4ef6-a98a-da1a1ca2917c" />
+
 
 [![Join the chat at https://gitter.im/ai-chatbot-framework/Lobby](https://badges.gitter.im/ai-chatbot-framework/Lobby.svg)](https://gitter.im/ai-chatbot-framework/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-backend.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-backend.yml) [![Build Status](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-frontend.yml/badge.svg)](https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/evaluate-frontend.yml)
 
@@ -9,6 +10,9 @@ The smooth UI makes it effortless to create and train conversations to the bot. 
 You don’t need to be an expert at artificial intelligence to create an awesome chatbot that has AI capabilities. With this project you can create an AI powered chatbot in no time.  Read the [documentation](docs/README.md) to get started.
 
 ![](docs/screenshots/admin_chat_screenshot.png)
+
+## Sponsors
+[<img width="600" height="315" alt="image" src="https://github.com/user-attachments/assets/184e09e9-cb28-4f5f-821d-475f361dfabd" />](https://getfirmament.com)
 
 ## Features
 - Fully Self-Hosted
