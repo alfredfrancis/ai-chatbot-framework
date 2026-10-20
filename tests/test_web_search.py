@@ -359,3 +359,31 @@ async def test_first_call_cancellation_retains_session_for_retry(manager, wire):
     wire[1]["kind"] = "success"
     await converse(manager)
     assert tool_calls(wire)[-1]["arguments"]["session_id"] == session_id
+
+
+@pytest.mark.asyncio
+async def test_new_chat_clears_pending_web_query_without_sending_it(manager, wire):
+    from app.bot.dialogue_manager.models import ParameterModel
+
+    intent = manager.intents["web_search"]
+    intent.parameters = [
+        ParameterModel(
+            name="query", type="free_text", required=True, prompt="Search for what?"
+        )
+    ]
+    intent.web_search.query = "{{ parameters.query }}"
+    waiting = await converse(manager, "/web_search")
+    assert not waiting.complete
+    old_id = waiting.web_session_id
+    reset = await manager.process(UserMessage("one", "/init_conversation", {}))
+    assert reset.intent["id"] == "init_conversation"
+    assert reset.bot_message == [{"text": "Ready"}]
+    assert reset.web_session_id != old_id
+    assert not reset.extracted_parameters
+    assert not wire[0]
+    await converse(manager, "/web_search")
+    searched = await converse(manager, "Python release schedule")
+    assert tool_calls(wire)[0]["arguments"]["search_queries"] == [
+        "Python release schedule"
+    ]
+    assert searched.web_session_id == reset.web_session_id

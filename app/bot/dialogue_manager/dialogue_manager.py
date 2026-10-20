@@ -110,6 +110,9 @@ class DialogueManager:
             # The existing new-chat command starts a new web research session.
             if current_state:
                 current_state.web_session_id = str(uuid4())
+                # Clear pending parameters before routing the welcome command;
+                # it must never be consumed as a web query or page URL.
+                current_state.complete = True
 
         if not current_state:
             logger.debug(
