@@ -1,6 +1,6 @@
 from app.database import ObjectIdField
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from bson import ObjectId
 
 
@@ -45,6 +45,14 @@ class ApiDetails(BaseModel):
         return headers
 
 
+class WebSearchDetails(BaseModel):
+    """Built-in web fulfilment; only explicitly enabled intents access the web."""
+
+    enabled: bool = False
+    tool: Literal["web_search", "web_fetch"] = "web_search"
+    query: str = ""
+
+
 class Intent(BaseModel):
     """Base schema for intent"""
 
@@ -54,6 +62,7 @@ class Intent(BaseModel):
     intentId: str
     apiTrigger: bool = False
     apiDetails: Optional[ApiDetails] = None
+    webSearch: Optional[WebSearchDetails] = None
     speechResponse: str
     parameters: List[Parameter] = []
     labeledSentences: List[LabeledSentences] = []

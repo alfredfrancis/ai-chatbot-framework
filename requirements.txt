@@ -42,6 +42,7 @@ marisa-trie==1.2.1
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
+mcp==1.30.0
 motor==3.6.1
 multidict==6.1.0
 murmurhash==1.0.12
@@ -52,8 +53,8 @@ packaging==24.2
 pluggy==1.5.0
 preshed==3.0.9
 propcache==0.2.1
-pydantic==2.10.6
-pydantic_core==2.27.2
+pydantic==2.11.10
+pydantic_core==2.33.2
 Pygments==2.19.1
 pymongo==4.9.2
 pytest==8.3.4
@@ -85,7 +86,7 @@ threadpoolctl==3.5.0
 tiktoken==0.8.0
 tqdm==4.67.1
 typer==0.15.1
-typing_extensions==4.12.2
+typing_extensions==4.15.0
 urllib3==2.3.0
 uvicorn==0.34.0
 uvloop==0.21.0

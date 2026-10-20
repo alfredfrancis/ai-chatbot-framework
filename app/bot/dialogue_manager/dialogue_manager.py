@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Dict, List, Optional, Tuple
+from uuid import uuid4
 from jinja2 import Template
 from app.admin.bots.store import get_bot
 from app.admin.intents.store import list_intents
@@ -8,7 +9,6 @@ from app.bot.memory import MemorySaver
 from app.bot.memory.memory_saver_mongo import MemorySaverMongo
 from app.bot.memory.models import State
 from app.bot.nlu.pipeline import NLUPipeline
-from app.bot.nlu.pipeline_utils import get_pipeline
 from app.bot.dialogue_manager.utils import SilentUndefined, split_sentence
 from app.bot.dialogue_manager.models import (
     IntentModel,
@@ -16,6 +16,7 @@ from app.bot.dialogue_manager.models import (
     UserMessage,
 )
 from app.bot.dialogue_manager.http_client import call_api, APICallExcetion
+from app.bot.dialogue_manager.web_search import call_web_tool, WebSearchError
 from app.config import app_config
 from app.database import client
 
@@ -52,6 +53,9 @@ class DialogueManager:
         # Load all intents and convert to domain models
         db_intents = await list_intents()
         intents = [IntentModel.from_db(intent) for intent in db_intents]
+
+        # Import the configured ML/LLM components only when loading a bot.
+        from app.bot.nlu.pipeline_utils import get_pipeline
 
         # Initialize pipeline with components
         nlu_pipeline = await get_pipeline()
@@ -101,6 +105,14 @@ class DialogueManager:
 
         # Step 1: Get current state
         current_state = await self.memory_saver.get(message.thread_id)
+
+        if message.text == f"/{app_config.DEFAULT_WELCOME_INTENT_NAME}":
+            # The existing new-chat command starts a new web research session.
+            if current_state:
+                current_state.web_session_id = str(uuid4())
+                # Clear pending parameters before routing the welcome command;
+                # it must never be consumed as a web query or page URL.
+                current_state.complete = True
 
         if not current_state:
             logger.debug(
@@ -307,13 +319,20 @@ class DialogueManager:
         """
         Handle API trigger if the intent requires it.
         """
-        if intent.api_trigger and intent.api_details:
+        web_enabled = bool(intent.web_search and intent.web_search.enabled)
+        if (intent.api_trigger and intent.api_details) or web_enabled:
             try:
-                result = await self._call_intent_api(intent, current_state)
+                if intent.api_trigger and intent.api_details:
+                    result = await self._call_intent_api(intent, current_state)
+                    escape_result = False
+                else:
+                    result = await self._call_web_search(intent, current_state)
+                    escape_result = True
                 template = Template(
                     intent.speech_response,
                     undefined=SilentUndefined,
                     enable_async=True,
+                    autoescape=escape_result,
                 )
                 rendered_text = await template.render_async(
                     context=current_state.context,
@@ -378,3 +397,25 @@ class DialogueManager:
         except APICallExcetion as e:
             logger.warning(f"API call failed: {e}")
             raise DialogueManagerException("API call failed")
+
+    async def _call_web_search(self, intent: IntentModel, current_state: State):
+        if not app_config.WEB_SEARCH_ENABLED:
+            raise DialogueManagerException("Web access is disabled")
+        details = intent.web_search
+        query = (
+            Template(details.query, undefined=SilentUndefined).render(
+                context=current_state.context,
+                parameters=current_state.extracted_parameters,
+            )
+            if details.query
+            else current_state.user_message.text
+        )
+        # Persist the conversation UUID before I/O, even if the first call is
+        # cancelled. A retry must not start a different research session.
+        await self.memory_saver.save(current_state.thread_id, current_state)
+        try:
+            return await call_web_tool(
+                details.tool, query.strip(), current_state.web_session_id
+            )
+        except WebSearchError as exc:
+            raise DialogueManagerException("Web fulfilment failed") from exc

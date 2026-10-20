@@ -12,6 +12,8 @@ class BaseConfig(BaseModel):
     MONGODB_HOST: str = "mongodb://127.0.0.1:27017"
     MONGODB_DATABASE: str = "ai-chatbot-framework"
 
+    WEB_SEARCH_ENABLED: bool = True
+
     MODELS_DIR: str = "model_files/"
     DEFAULT_FALLBACK_INTENT_NAME: str = "fallback"
     DEFAULT_WELCOME_INTENT_NAME: str = "init_conversation"

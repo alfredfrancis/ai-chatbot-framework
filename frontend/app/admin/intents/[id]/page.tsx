@@ -289,6 +289,67 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
         </div>
 
+        <div className="border-t border-gray-200 pt-6 space-y-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={formData.webSearch?.enabled ?? false}
+              onChange={e => setFormData(prev => ({
+                ...prev,
+                webSearch: {
+                  tool: prev.webSearch?.tool ?? 'web_search',
+                  query: prev.webSearch?.query ?? '',
+                  enabled: e.target.checked,
+                },
+              }))}
+            />
+            <span className="text-sm font-medium text-gray-700">Web search / page fetch</span>
+          </label>
+          <p className="text-sm text-gray-600">
+            After saving web settings, restart the backend or run Train Models and wait for completion to reload the bot.
+            Disabling web access also requires a reload.
+          </p>
+          {formData.webSearch?.enabled && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                Parallel provides web search and page excerpts without an account or API key.
+                The query or URL is sent to Parallel when this intent completes.
+                REST API Calling takes precedence when both are enabled.
+              </p>
+              <label className="block text-sm font-medium text-gray-700">
+                Web action
+                <select
+                  className="block w-full mt-1 border rounded p-2"
+                  value={formData.webSearch.tool}
+                  onChange={e => setFormData(prev => ({
+                    ...prev,
+                    webSearch: { ...prev.webSearch!, tool: e.target.value as 'web_search' | 'web_fetch' },
+                  }))}
+                >
+                  <option value="web_search">Search the web</option>
+                  <option value="web_fetch">Fetch a page URL</option>
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                Query or URL template
+                <input
+                  className="block w-full mt-1 border rounded p-2"
+                  value={formData.webSearch.query}
+                  placeholder="Leave empty to use the user message"
+                  onChange={e => setFormData(prev => ({
+                    ...prev,
+                    webSearch: { ...prev.webSearch!, query: e.target.value },
+                  }))}
+                />
+              </label>
+              <p className="text-sm text-gray-600">
+                Templates can use parameters and context. Render returned pages in the response with
+                {' {{ result.results }}'}. See the web search guide for a response template with source links.
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="relative border-t border-gray-200 pt-8 transition-all duration-200 hover:bg-gray-50 rounded-lg p-4 -mx-4">
           <label className="flex items-center mb-4">
             <input
