@@ -1,5 +1,6 @@
 from typing import Optional, Dict, List, Any, Text
 from datetime import datetime, UTC
+from uuid import uuid4
 from app.bot.dialogue_manager.models import UserMessage
 
 
@@ -17,8 +18,10 @@ class State:
         complete: bool = False,
         current_node: Text = "",
         date: Optional[datetime] = None,
+        web_session_id: Optional[str] = None,
     ):
         self.thread_id = thread_id
+        self.web_session_id = web_session_id or str(uuid4())
         self.user_message = user_message
         self.bot_message = bot_message
         self.nlu = {}
@@ -34,6 +37,7 @@ class State:
     def to_dict(self) -> Dict:
         return {
             "thread_id": self.thread_id,
+            "web_session_id": self.web_session_id,
             "user_message": self.user_message.to_dict(),
             "bot_message": self.bot_message,
             "nlu": self.nlu,
@@ -52,6 +56,7 @@ class State:
         # parse all the fields
         return cls(
             thread_id=state_dict["thread_id"],
+            web_session_id=state_dict.get("web_session_id"),
             context=state_dict["context"],
             intent=state_dict["intent"],
             parameters=state_dict["parameters"],

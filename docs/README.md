@@ -21,3 +21,4 @@ Welcome to the AI Chatbot Framework documentation. This documentation provides c
 
 5. [Architecture Overview](05-architecture.md)
    - [High Level Architecture](05-architecture.md#high-level-architecture)
+6. [Web Search and Page Fetching](06-web-search.md)

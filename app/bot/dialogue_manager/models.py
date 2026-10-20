@@ -2,7 +2,7 @@ from typing import Optional, Dict, List, Any, Text
 from datetime import datetime, UTC
 from copy import deepcopy
 from dataclasses import dataclass
-from app.admin.intents.schemas import Intent
+from app.admin.intents.schemas import Intent, WebSearchDetails
 
 
 @dataclass
@@ -37,6 +37,7 @@ class IntentModel:
     api_trigger: bool = False
     api_details: Optional[ApiDetailsModel] = None
     parameters: List[ParameterModel] = None
+    web_search: Optional[WebSearchDetails] = None
 
     def __post_init__(self):
         if self.parameters is None:
@@ -75,6 +76,7 @@ class IntentModel:
             api_trigger=db_intent.apiTrigger,
             api_details=api_details,
             parameters=parameters,
+            web_search=db_intent.webSearch,
         )
 
 

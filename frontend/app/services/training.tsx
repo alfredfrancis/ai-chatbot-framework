@@ -51,6 +51,11 @@ interface IntentModel {
   }>;
   speechResponse: string;
   apiTrigger: boolean;
+  webSearch?: {
+    enabled: boolean;
+    tool: 'web_search' | 'web_fetch';
+    query: string;
+  };
   apiDetails?: {
     isJson: boolean;
     url: string;

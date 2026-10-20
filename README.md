@@ -19,6 +19,7 @@ You don’t need to be an expert at artificial intelligence to create an awesome
 - Low-Code, DIY Admin Dashboard for Bot Development
 - Multi-turn Conversations
 - API request fulfilment (Tool Calling)
+- [Web search and page fetching](docs/06-web-search.md) with Parallel Search MCP
 - Persistent Memory & Context Management
 - Advanced Natural Language Understanding (NLU)
   - Spacy Word Embeddings
