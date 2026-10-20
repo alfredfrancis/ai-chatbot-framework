@@ -6,6 +6,10 @@ needs no account or API key. This is a fulfilment step after intent recognition
 and parameter collection; it does not ask the NLU model to choose tools or write
 an answer.
 
+Start with a working bot and a configured NLU pipeline from the
+[getting started guide](02-getting-started.md). Traditional NLU requires trained
+models even when you use explicit `/intent_id` commands.
+
 ## Create a search intent
 
 1. In the intent editor, create an intent with ID `web_search`.
@@ -25,6 +29,10 @@ an answer.
    {% endfor %}
    ```
 
+5. Reload the bot to activate the saved intent: restart the backend, or use
+   **Train Models** on the Intents page and wait for successful training and
+   reload. Saving an intent alone does not update the running dialogue manager.
+
 In the chat interface, send `/web_search`, then answer the bot's prompt with a
 query such as `Python release schedule`. The bot renders page titles, source
 URLs and relevant excerpts in its reply. You can also add training phrases to
@@ -40,7 +48,8 @@ queries. API keys configured for other services are not sent to Parallel.
 
 Create another intent with ID `web_fetch` and the same parameter and response
 configuration. Select **Fetch a page URL** and use
-`{{ parameters.query }}` as the URL template. Send `/web_fetch`, then provide a
+`{{ parameters.query }}` as the URL template. Save and reload the bot as above.
+Send `/web_fetch`, then provide a
 complete HTTP or HTTPS page URL. The reply uses the same `result.results` list.
 Each entry includes its `url`, optional `title` and `excerpts`.
 
@@ -51,9 +60,9 @@ already answer the question; fetching every search result is unnecessary.
 
 Existing intents keep their current behavior. Web access is off for each intent
 until enabled. When enabled, Parallel is the built-in provider and requires no
-provider selection or credential configuration. Turn the checkbox off to stop
+provider selection or credential configuration. Turn the checkbox off, save, and reload the bot to stop
 web requests for that intent. Set `WEB_SEARCH_ENABLED=false` in the backend
-environment to disable all built-in web fulfilments.
+environment and restart the backend to disable all built-in web fulfilments.
 
 When **REST API Calling** is also enabled with API details, the existing REST
 fulfilment takes precedence, including its URL, headers and credentials. A failed

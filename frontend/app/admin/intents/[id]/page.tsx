@@ -305,6 +305,10 @@ const IntentPage = ({ params }: { params: Promise<{ id: string }> }) => {
             />
             <span className="text-sm font-medium text-gray-700">Web search / page fetch</span>
           </label>
+          <p className="text-sm text-gray-600">
+            After saving web settings, restart the backend or run Train Models and wait for completion to reload the bot.
+            Disabling web access also requires a reload.
+          </p>
           {formData.webSearch?.enabled && (
             <div className="space-y-3">
               <p className="text-sm text-gray-600">
