@@ -22,6 +22,41 @@ from app.database import client
 logger = logging.getLogger("dialogue_manager")
 
 
+def _render_json_value(value, context: dict, parameters: dict):
+    """Render Jinja expressions inside a parsed JSON value tree.
+
+    Rendering string leaves after parsing keeps quotes and other JSON-sensitive
+    characters in user-provided values as data instead of JSON syntax.
+    """
+    if isinstance(value, str):
+        return Template(value, undefined=SilentUndefined).render(
+            context=context, parameters=parameters
+        )
+    if isinstance(value, list):
+        return [_render_json_value(item, context, parameters) for item in value]
+    if isinstance(value, dict):
+        return {
+            _render_json_value(key, context, parameters): _render_json_value(
+                item, context, parameters
+            )
+            for key, item in value.items()
+        }
+    return value
+
+
+def _render_json_template(json_data: str, context: dict, parameters: dict):
+    try:
+        payload = json.loads(json_data)
+    except json.JSONDecodeError:
+        # Keep support for templates that generate JSON structure, rather than
+        # interpolate only within a valid JSON document.
+        rendered = Template(json_data, undefined=SilentUndefined).render(
+            context=context, parameters=parameters
+        )
+        return json.loads(rendered)
+    return _render_json_value(payload, context, parameters)
+
+
 class DialogueManagerException(Exception):
     pass
 
@@ -356,14 +391,11 @@ class DialogueManager:
             context=current_state.context, parameters=current_state.extracted_parameters
         )
         if api_details.is_json:
-            request_template = Template(
-                api_details.json_data, undefined=SilentUndefined
-            )
-            request_json = request_template.render(
+            parameters = _render_json_template(
+                api_details.json_data,
                 context=current_state.context,
                 parameters=current_state.extracted_parameters,
             )
-            parameters = json.loads(request_json)
         else:
             parameters = current_state.extracted_parameters
 

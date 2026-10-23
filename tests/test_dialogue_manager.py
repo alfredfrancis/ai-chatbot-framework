@@ -293,6 +293,35 @@ class TestDialogueManager:
             assert current_state.extracted_parameters["toppings"] == "pepperoni"
 
     @pytest.mark.asyncio
+    async def test_api_trigger_preserves_json_template_values_as_data(
+        self, dialogue_manager, sample_intents
+    ):
+        special_value = 'pepperoni "special"\\nwith \\\\backslash'
+        state = State(
+            thread_id="synthetic-thread",
+            user_message=UserMessage(
+                text="synthetic input", context={}, thread_id="synthetic-thread"
+            ),
+            context={},
+            extracted_parameters={"size": "large", "toppings": special_value},
+        )
+
+        with patch(
+            "app.bot.dialogue_manager.dialogue_manager.call_api", new_callable=AsyncMock
+        ) as mock_call_api:
+            mock_call_api.return_value = {"status": "success"}
+
+            await dialogue_manager._call_intent_api(sample_intents[1], state)
+
+        mock_call_api.assert_awaited_once_with(
+            "http://pizza-api/order",
+            "POST",
+            {"Content-Type": "application/json"},
+            {"size": "large", "toppings": special_value},
+            True,
+        )
+
+    @pytest.mark.asyncio
     async def test_process_intent_with_missing_parameters(
         self, dialogue_manager, mock_nlu_pipeline, mock_memory_saver
     ):
