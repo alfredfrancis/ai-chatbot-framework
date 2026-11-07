@@ -38,6 +38,7 @@ test("a chat's artifacts panel lists the files attached to it and the files the 
   await page.reload();
   await expect(panel.getByRole("list", { name: "Produced files" }).getByRole("listitem")).toHaveCount(2);
   await nav(page).getByRole("link", { name: "New chat" }).click();
+  await expect(page.getByRole("heading", { name: /^Good (morning|afternoon|evening), Maya\.$/ })).toBeVisible();
   await say(page, "hello");
   await expect(lastAssistant(page)).toContainText("Echo: hello");
   await expect(panel).toContainText("Files you attach and files the agent makes in this chat show up here.");
