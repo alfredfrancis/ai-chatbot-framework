@@ -39,6 +39,17 @@ test("failed commands are marked as failed", async ({ page }) => {
   await expect(lastAssistant(page)).toContainText("exit code 7");
 });
 
+test("a follow-up while the model thinks is picked up right away", async ({ page }) => {
+  await signUp(page);
+  await say(page, "slow: 60 first thought");
+  await expect(page.getByLabel("Working").first()).toBeVisible();
+  await say(page, "show messages");
+  await expect(lastAssistant(page)).toHaveText("Messages: slow: 60 first thought | show messages", { timeout: 15_000 });
+  await expect(page.getByTestId("user-msg")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
+  await shot(page, "04b-steering-while-thinking");
+});
+
 test("steer the agent while it works, then stop it", async ({ page }) => {
   await signUp(page);
   await say(page, "run: sleep 3; echo slow-done");
@@ -47,7 +58,7 @@ test("steer the agent while it works, then stop it", async ({ page }) => {
 
   await say(page, "show messages");
   await expect(page.getByTestId("queued-msg")).toHaveText("show messages");
-  await expect(page.getByText("Queued · read at the next step")).toBeVisible();
+  await expect(page.getByText("Queued · read as soon as the current step ends")).toBeVisible();
   await shot(page, "04-steering-queued");
   await expect(lastAssistant(page)).toHaveText("Messages: run: sleep 3; echo slow-done | show messages", { timeout: 20_000 });
   await expect(page.getByTestId("queued-msg")).toHaveCount(0);
