@@ -31,9 +31,9 @@ def docker_sandbox():
 async def test_commands_run_in_isolated_container(client, user, docker_sandbox):
     docker_sandbox.append(user["id"])
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "run: hostname && pwd && id -u && echo hi > made-in-sandbox.txt")
-    tool = next(e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "tool")
-    assert "sandbox\n/workspace" in tool["content"], tool
+    turn = await send(client, chat_id, "run: hostname && pwd && id -u && echo hi > made-in-sandbox.txt")
+    tool = turn.results[0]
+    assert "sandbox\n/workspace" in tool["text"], tool
     # the workspace is shared with the host side
     assert (workspace.workspace_dir(user["id"]) / "made-in-sandbox.txt").read_text() == "hi\n"
     status = (await client.get("/api/sandbox")).json()
@@ -49,9 +49,8 @@ async def test_one_container_per_user(client, user, docker_sandbox):
     other = (await client.post("/api/auth/signup", json={"email": "b@sbx.example", "password": "password123"})).json()
     docker_sandbox.append(other["user"]["id"])
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "run: ls /workspace; cat secret.txt")
-    tool = next(e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "tool")
-    assert "No such file" in tool["content"] and tool["is_error"]
+    tool = (await send(client, chat_id, "run: ls /workspace; cat secret.txt")).results[0]
+    assert "No such file" in tool["text"] and tool["status"] == "failed"
 
 
 async def test_timeout_kills_command(client, user, docker_sandbox):
@@ -67,9 +66,7 @@ async def test_stdio_mcp_runs_inside_sandbox(client, user, docker_sandbox):
     cfg = {"mcpServers": {"echo": {"command": "python3", "args": ["echo_mcp.py"]}}}
     await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "tool: mcp__echo__whereami {}")
-    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
-    assert final["content"] == "Result: host=sandbox cwd=/workspace"
+    assert (await send(client, chat_id, "tool: mcp__echo__whereami {}")).final == "Result: host=sandbox cwd=/workspace"
 
 
 async def test_stale_container_is_replaced(client, user, docker_sandbox):

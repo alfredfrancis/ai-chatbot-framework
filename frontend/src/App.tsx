@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { acp } from "./acp";
 import { api, type ChatSummary, type User } from "./api";
 import {
   IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconPlug, IconPlus, IconSearch, IconSpark, Keys, Lockup,
@@ -132,7 +133,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [cmdOpen, navigate]);
 
-  const signOut = async () => { await api.post("/auth/logout").catch(() => {}); onSignOut(); };
+  const signOut = async () => { await api.post("/auth/logout").catch(() => {}); acp.close(); onSignOut(); };
 
   const commands: Command[] = [
     { id: "new-chat", group: "Actions", label: "New chat", icon: <IconPlus />, keys: ["C"], run: () => navigate("/") },

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import socket
@@ -98,15 +97,31 @@ async def user(client):
     return r.json()["user"]
 
 
-async def send(client, chat_id: int, text: str) -> list[dict]:
-    """Send a chat message and collect the SSE events."""
-    events = []
-    async with client.stream("POST", f"/api/chats/{chat_id}/messages", json={"content": text}) as r:
-        assert r.status_code == 200, await r.aread()
-        async for line in r.aiter_lines():
-            if line.startswith("data: "):
-                events.append(json.loads(line[6:]))
-    return events
+async def prompt(acp, chat_id: int | str, text: str):
+    """Send a prompt over an open ACP connection; returns the Turn it produced."""
+    from tests.acp_client import RpcError, Turn
+
+    sid = str(chat_id)
+    start = len(acp.notifications)
+    stop_reason = error = None
+    try:
+        stop_reason = (
+            await acp.request("session/prompt", {"sessionId": sid, "prompt": [{"type": "text", "text": text}]})
+        )["stopReason"]
+    except RpcError as e:
+        error = e.message
+    mine = [n for n in acp.notifications[start:] if n.get("params", {}).get("sessionId") == sid]
+    updates = [n["params"]["update"] for n in mine if n["method"] == "session/update"]
+    notices = [n["params"]["text"] for n in mine if n["method"] == "_acf/notice"]
+    return Turn(updates, notices, stop_reason, error)
+
+
+async def send(client, chat_id: int, text: str):
+    """Send a chat message over ACP (as the signed-in user) and wait for the run to finish."""
+    from tests.acp_client import acp_connect
+
+    async with acp_connect(client) as acp:
+        return await prompt(acp, chat_id, text)
 
 
 def docker_available() -> bool:

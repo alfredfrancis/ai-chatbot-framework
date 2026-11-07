@@ -1,7 +1,8 @@
 # Architecture
 
 ```
-Browser (React)  ──/api (JSON, SSE)──▶  FastAPI (acf)
+Browser (React) ──/api (JSON) + /api/acp (ACP over WebSocket)──▶  FastAPI (acf)
+Other ACP clients ──/api/acp (Bearer token) or acf.acp_bridge (stdio)──▶
                                          ├── PostgreSQL (SQLite for quick local runs): users, chats, messages, tasks, OAuth tokens
                                          ├── Agent runs (one per chat) ── LangChain chat model
                                          ├── Scheduler loop
@@ -28,7 +29,25 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Prompt caching | The system prompt is a single cached block; it changes only when context files, skills or the date change. |
 | Steering | A message sent while the agent works is queued and injected after the current tool batch (or right after the final answer, which starts another turn). |
 | Stop | Cancels the run; any tool call without a result gets "Stopped by the user", so the history stays valid. |
-| Observable | Every step is an event (`message`, `tool_start`, `queued`, `notice`, `stopped`, `error`, `done`). A reloaded page attaches to the running agent and gets a replay. |
+| Observable | Every step is an event (`message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`). Clients see them through ACP (below). |
+
+## Agent Client Protocol (`backend/acf/acp.py`)
+
+The only way to talk to the agent, for the web chat and for third-party clients: JSON-RPC 2.0 over a
+WebSocket at `/api/acp`. A session is a chat; `session/prompt` calls `agent.start`, so a prompt sent
+while the agent works becomes steering. Run events become `session/update` notifications: a stored
+assistant message → `agent_message_chunk` + one `tool_call` (pending) per call; `tool_start` →
+`tool_call_update` (in_progress); a tool result → `tool_call_update` (completed/failed, with output and
+`_meta.acf.durationMs`). `session/load` registers a listener on the running agent *before* reading the
+history, replays the stored messages, then forwards only newer events, so a reloaded page neither misses
+nor duplicates anything. When a run ends, every connection following it gets `_acf/turn_end`; the
+prompt's response carries the ACP stop reason (`end_turn`, `cancelled`, `max_turn_requests`) or a
+JSON-RPC error for a failed run. A disconnecting client doesn't stop the agent.
+
+Auth: the session cookie (only when the `Origin` matches the host, against cross-site WebSocket hijacking)
+or the user's ACP token as a bearer token. ACP tokens (`acp_tokens`) are random, stored as SHA-256 and
+only accepted on this endpoint. `acf.acp_bridge` relays newline-delimited JSON-RPC on stdio to the
+WebSocket for clients that spawn agents as subprocesses.
 
 ## Model layer (`backend/acf/llm.py`)
 

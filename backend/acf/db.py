@@ -45,6 +45,17 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime)
 
 
+class AcpToken(Base):
+    """The optional access token external ACP clients use (one per user, stored hashed)."""
+
+    __tablename__ = "acp_tokens"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    hint: Mapped[str] = mapped_column(String(16), default="")  # last characters, shown in Settings
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class Chat(Base):
     __tablename__ = "chats"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -21,6 +21,8 @@ backend/acf/
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
   agent/tools.py     read / write / edit / bash + output truncation
   agent/prompt.py    system prompt: instructions + context.md + memory.md + skills index
+  acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
+  acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
   skills.py          skill discovery, upload (zip / SKILL.md), built-in skill-creator
   workspace.py       per-user folder, path safety
   sandbox.py         DockerSandbox (one container per user), LocalSandbox (dev only, not isolated)
@@ -85,4 +87,6 @@ make lint         # ruff + tsc
   (`ACF_TEST_DB_URL=postgresql://… make test`; CI runs both).
 - Thinking blocks are bound to their prefix: only compaction may drop them, and only for messages
   before the cut.
+- All chat traffic is ACP (`acp.py`, `frontend/src/acp.ts`); there are no chat REST/SSE endpoints. Backend
+  tests drive it in-process with `tests/acp_client.py` (`send()` / `prompt()` in conftest).
 - The E2E Playwright version is pinned to the preinstalled browser build (1.63.0).

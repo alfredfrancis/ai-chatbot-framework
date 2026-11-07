@@ -45,11 +45,10 @@ async def test_stdio_server_tools(client, user):
     assert {t["name"] for t in servers[0]["tools"]} == {"echo", "add", "whereami"}
 
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, 'tool: mcp__echo__add {"a": 2, "b": 40}')
-    start = next(e for e in events if e["type"] == "tool_start")
-    assert start["label"] == "echo · add"
-    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
-    assert final["content"] == "Result: 42"
+    turn = await send(client, chat_id, 'tool: mcp__echo__add {"a": 2, "b": 40}')
+    call = turn.of("tool_call")[0]
+    assert call["title"] == "Used echo · add" and call["kind"] == "other"
+    assert turn.final == "Result: 42"
 
 
 async def test_broken_server_reported(client, user):
@@ -59,9 +58,9 @@ async def test_broken_server_reported(client, user):
     assert servers[0]["state"] == "error" and servers[0]["error"]
     # the agent still works and tells the user
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "hello")
-    assert any(e["type"] == "notice" and e["text"].startswith("nope:") for e in events)
-    assert events[-1]["type"] == "done"
+    turn = await send(client, chat_id, "hello")
+    assert any(n.startswith("nope:") for n in turn.notices)
+    assert turn.stop_reason == "end_turn"
 
 
 async def test_oauth_flow(client, user, oauth_mcp_url):
@@ -93,9 +92,7 @@ async def test_oauth_flow(client, user, oauth_mcp_url):
     servers = (await client.get("/api/mcp/servers")).json()["servers"]
     assert servers[0]["state"] == "connected" and servers[0]["signed_in"], servers
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "tool: mcp__notes__get_secret_note {}")
-    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
-    assert "pineapple" in final["content"]
+    assert "pineapple" in (await send(client, chat_id, "tool: mcp__notes__get_secret_note {}")).final
 
     await client.delete("/api/mcp/servers/notes/oauth")
     servers = (await client.get("/api/mcp/servers")).json()["servers"]

@@ -8,7 +8,7 @@ import re
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -17,13 +17,14 @@ from acf.agent import loop as agent
 from acf.auth import (
     COOKIE,
     SESSION_DAYS,
+    create_acp_token,
     create_session,
     current_user,
     delete_session,
     hash_password,
     verify_password,
 )
-from acf.db import Chat, Message, Task, User, get_db, session_scope, utcnow
+from acf.db import AcpToken, Chat, Message, Task, User, get_db, session_scope, utcnow
 from acf.mcp_client import ConfigError, McpHub, parse_config
 from acf.sandbox import get_sandbox
 
@@ -169,50 +170,6 @@ def delete_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depend
     return {"ok": True}
 
 
-class MessageIn(BaseModel):
-    content: str = Field(min_length=1, max_length=100_000)
-
-
-def _stream(run: agent.Run) -> StreamingResponse:
-    async def gen():
-        async for ev in run.subscribe():
-            yield agent.sse(ev)
-
-    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
-
-
-@router.post("/chats/{chat_id}/messages")
-async def send_message(
-    chat_id: int, body: MessageIn, db: Session = Depends(get_db), user: User = Depends(current_user)
-):
-    """Start the agent, or — if it is already working — queue the message as steering."""
-    _own_chat(db, user, chat_id)
-    db.close()
-    run, queued = agent.start(user, chat_id, body.content)
-    if queued:
-        return JSONResponse({"queued": True}, status_code=202)
-    return _stream(run)
-
-
-@router.get("/chats/{chat_id}/stream")
-async def attach(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    """Follow a run that is already in progress (after a page reload, or a scheduled task)."""
-    _own_chat(db, user, chat_id)
-    run = agent.RUNS.get(chat_id)
-    if not run:
-        return JSONResponse({"running": False})
-    return _stream(run)
-
-
-@router.post("/chats/{chat_id}/stop")
-async def stop(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
-    _own_chat(db, user, chat_id)
-    run = agent.RUNS.get(chat_id)
-    if run:
-        run.stop()
-    return {"stopped": bool(run)}
-
-
 # ------------------------------------------------------------------ files (read-only browser + upload)
 
 MAX_UPLOAD = 25 * 1024 * 1024
@@ -349,6 +306,33 @@ def put_settings(body: SettingsIn, db: Session = Depends(get_db), user: User = D
         u.llm_api_key = body.api_key.strip()
     db.flush()
     return get_settings(u)
+
+
+def _acp_token_dict(row: AcpToken | None) -> dict | None:
+    if not row:
+        return None
+    return {"hint": row.hint, "created_at": _iso(row.created_at), "last_used_at": _iso(row.last_used_at)}
+
+
+@router.get("/acp/token")
+def get_acp_token(db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    """The optional access token for external ACP clients (never returned after creation)."""
+    return {"token": _acp_token_dict(db.get(AcpToken, user.id)), "endpoint": "/api/acp"}
+
+
+@router.post("/acp/token")
+def create_acp_token_route(db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    token = create_acp_token(db, user)
+    db.flush()
+    return {"token": _acp_token_dict(db.get(AcpToken, user.id)), "value": token, "endpoint": "/api/acp"}
+
+
+@router.delete("/acp/token")
+def delete_acp_token(db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    row = db.get(AcpToken, user.id)
+    if row:
+        db.delete(row)
+    return {"token": None, "endpoint": "/api/acp"}
 
 
 @router.get("/sandbox")

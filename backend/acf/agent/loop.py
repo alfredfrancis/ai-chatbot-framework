@@ -17,7 +17,6 @@ Design (borrowing from pi, Hermes and Claude Code):
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -159,6 +158,9 @@ class Run:
         self.task: asyncio.Task | None = None
         self.final_text = ""
         self.ok = True
+        # ACP stop reason: end_turn | cancelled | max_turn_requests; `error` is set when the run failed.
+        self.stop_reason = "end_turn"
+        self.error: str | None = None
 
     # -- events
     def emit(self, event: dict[str, Any]) -> None:
@@ -166,11 +168,20 @@ class Run:
         for q in self._listeners:
             q.put_nowait(event)
 
-    async def subscribe(self) -> AsyncIterator[dict[str, Any]]:
+    def listen(self) -> asyncio.Queue:
+        """Register a listener now: it gets every event so far, then live ones."""
         q: asyncio.Queue = asyncio.Queue()
         for e in self.events:
             q.put_nowait(e)
         self._listeners.append(q)
+        return q
+
+    def unlisten(self, q: asyncio.Queue) -> None:
+        if q in self._listeners:
+            self._listeners.remove(q)
+
+    async def subscribe(self) -> AsyncIterator[dict[str, Any]]:
+        q = self.listen()
         try:
             while True:
                 e = await q.get()
@@ -178,7 +189,7 @@ class Run:
                 if e["type"] == "done":
                     return
         finally:
-            self._listeners.remove(q)
+            self.unlisten(q)
 
     @property
     def done(self) -> bool:
@@ -200,11 +211,12 @@ class Run:
                 await self._turn()
         except asyncio.CancelledError:
             repair(self.chat_id)
+            self.stop_reason = "cancelled"
             self.emit({"type": "stopped"})
         except Exception as e:  # noqa: BLE001
             log.exception("run failed")
             self.ok = False
-            self.final_text = f"Something went wrong: {e}"
+            self.final_text = self.error = f"Something went wrong: {e}"
             self.emit({"type": "error", "error": self.final_text})
         finally:
             RUNS.pop(self.chat_id, None)
@@ -263,11 +275,13 @@ class Run:
             first = next((m for m in history if isinstance(m, HumanMessage)), None)
             if chat and chat.title in ("", "New chat") and first:
                 chat.title = (str(first.content).strip().splitlines() or ["New chat"])[0][:60]
+                self.emit({"type": "title", "title": chat.title})
 
         try:
             base_model = make_model(LLMConfig.for_user(self.user))
         except LLMError as e:
             self.ok, self.final_text = False, str(e)
+            self.error = self.final_text
             self.emit({"type": "error", "error": str(e)})
             return
 
@@ -298,6 +312,7 @@ class Run:
                     raise
                 except Exception as e:  # noqa: BLE001
                     self.ok, self.final_text = False, friendly_error(e)
+                    self.error = self.final_text
                     self.emit({"type": "error", "error": self.final_text})
                     return
                 calls = list(ai.tool_calls) + [
@@ -328,7 +343,8 @@ class Run:
                 for msg in await self._execute(calls, tools, hub):
                     history.append(msg)
                 self._inject_user_messages(history)
-            self.emit({"type": "error", "error": "Stopped after too many steps. Say “continue” to keep going."})
+            self.stop_reason = "max_turn_requests"
+            self.emit({"type": "notice", "text": "Stopped after too many steps. Say “continue” to keep going."})
 
     async def _execute(self, calls: list[dict], tools: dict[str, Tool], hub: McpHub) -> list[ToolMessage]:
         ctx = ToolContext(self.user.id)
@@ -397,7 +413,3 @@ async def run_to_completion(user: User, chat_id: int, text: str) -> tuple[str, b
     assert run.task
     await asyncio.shield(run.task)
     return run.final_text, run.ok
-
-
-def sse(event: dict[str, Any]) -> str:
-    return f"data: {json.dumps(event)}\n\n"
