@@ -38,6 +38,8 @@ export const IconPlug = () => <Svg><path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 
 export const IconGear = () => <Svg size={18}><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" /></Svg>;
 export const IconLogout = () => <Svg size={18}><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" /></Svg>;
 export const IconFolder = () => <svg aria-hidden="true" className="folder" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>;
+export const IconPanel = () => <Svg size={18}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></Svg>;
+export const IconDownload = () => <Svg size={18}><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></Svg>;
 export const IconFile = () => <Svg><path d="M6 3h9l4 4v14H6z" /><path d="M9 12h7M9 16h5" /></Svg>;
 export const IconImage = () => <Svg><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M4 16l5-5 4 4 3-3 4 4" /></Svg>;
 export const IconArrowUp = () => <Svg size={18}><path d="M12 19V5M6 11l6-6 6 6" /></Svg>;

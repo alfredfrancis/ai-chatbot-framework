@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import config, mcp_presets, oauth, scheduler, skills, workspace
+from acf import artifacts, config, mcp_presets, oauth, scheduler, skills, workspace
 from acf.agent import loop as agent
 from acf.auth import (
     COOKIE,
@@ -155,6 +155,13 @@ def get_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depends(c
     chat = _own_chat(db, user, chat_id)
     msgs = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id).all()
     return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": chat.id in agent.RUNS}
+
+
+@router.get("/chats/{chat_id}/artifacts")
+def chat_artifacts(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> list[dict]:
+    """Files uploaded to and produced by this chat (see acf.artifacts)."""
+    chat = _own_chat(db, user, chat_id)
+    return artifacts.chat_artifacts(db, chat.id, user.id)
 
 
 @router.patch("/chats/{chat_id}")

@@ -242,6 +242,34 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 .attachment .remove:hover { background: var(--bg-hover); color: var(--text); }
 .composer .bar .attach { margin-left: calc(-1 * var(--space-2)); }
 
+/* ---------- artifacts panel: files attached to and made in a chat ---------- */
+.chat-layout { flex: 1; min-height: 0; display: flex; }
+.chat-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.artifacts-toggle { gap: var(--space-1); }
+.artifacts-toggle.on { background: var(--bg-selected); color: var(--text); }
+.artifacts-toggle .count { font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.artifacts { width: var(--sidebar-width); flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg-raised); overflow-y: auto;
+  padding: var(--space-4) var(--space-3); display: flex; flex-direction: column; gap: var(--space-4); }
+.artifacts-head { display: flex; align-items: center; justify-content: space-between; padding-left: var(--space-2); }
+.artifacts h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+.artifacts .empty { padding: var(--space-6) var(--space-2); font-size: 14px; line-height: 20px; }
+.artifact-group h3 { margin: 0 0 var(--space-1); padding: 0 var(--space-2); font-size: 13px; line-height: 18px; font-weight: 500; color: var(--text-faint); }
+.artifact-group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.artifact { display: flex; align-items: center; gap: var(--space-1); border-radius: var(--radius-md); }
+.artifact:hover { background: var(--bg-hover); }
+.artifact .open { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2); color: var(--text); }
+.artifact .open:hover { text-decoration: none; }
+.artifact .open svg { color: var(--text-muted); flex-shrink: 0; }
+.artifact .text { min-width: 0; display: flex; flex-direction: column; }
+.artifact .name { font-size: 15px; line-height: 22px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.artifact .meta { font-size: 13px; line-height: 18px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.artifact .btn { flex-shrink: 0; }
+.artifacts-scrim { display: none; }
+@media (max-width: 1100px) {
+  .artifacts { position: fixed; inset: 0 0 0 auto; z-index: 40; max-width: 100%; box-shadow: var(--shadow-pop); border-left-color: var(--border-strong); }
+  .artifacts-scrim { display: block; }
+}
+
 /* ---------- command menu ---------- */
 .cmd-wrap { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: 12vh var(--space-4) 0; }
 .cmd { width: 100%; max-width: 640px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); overflow: hidden;
