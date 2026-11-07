@@ -58,7 +58,8 @@ On a server with Docker and a domain pointing at it:
 
 ```sh
 git clone https://github.com/alfredfrancis/ai-chatbot-framework.git && cd ai-chatbot-framework
-cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD and ANTHROPIC_API_KEY (or another model)
+cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD, ACF_SECRET_KEY and a model key
+# prepare the host first: gVisor, user-namespace remapping, sandbox firewall (deploy/README.md)
 docker compose up -d        # or: make up
 ```
 
@@ -71,8 +72,10 @@ instead (needed until the first release publishes images), run `docker compose u
 database is PostgreSQL in its own container (volume `postgres-data`); workspaces live in `./data`, or
 `ACF_DATA_PATH`. Back up both. Logs are rotated and the app has a health check.
 
-The app mounts the Docker socket to start one sandbox container per user. Whoever controls the Docker
-socket controls the host, so run it on a machine dedicated to it.
+Each user gets one sandbox container. The app runs as a non-root user and never touches the Docker
+socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containers with fixed, locked-down
+settings. Sandboxes run under gVisor, as a non-root user, on their own network, behind an egress firewall
+on the host. **Set up the host as described in [deploy/README.md](deploy/README.md) before going public.**
 
 ## Develop in Docker
 
@@ -94,8 +97,10 @@ Environment variables (users can override the model in **Settings**):
 | Variable | Default | Meaning |
 |---|---|---|
 | `ACF_LLM_PROVIDER` | `anthropic` | Any LangChain provider id: `anthropic`, `openai`, `ollama`, `google_genai`, … |
+| `ACF_LLM_PROVIDERS` | providers that take an API key | Providers users may choose (comma-separated, `*` = any). The server's own is always allowed |
 | `ACF_LLM_MODEL` | `claude-opus-5-5` / `gpt-4.1-mini` | Default model |
-| `ACF_LLM_API_KEY` | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Server-wide key |
+| `ACF_LLM_API_KEY` | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Server-wide key, used by every user without their own. Only sent to the server's provider and `ACF_LLM_BASE_URL` |
+| `ACF_SECRET_KEY` | generated in `ACF_DATA_DIR/secret.key` | Encrypts API keys, MCP configs and OAuth tokens in the database. Required by the production stack |
 | `ACF_LLM_BASE_URL` | provider default | e.g. `http://localhost:11434/v1` with `openai` for Ollama |
 | `ACF_MAX_AGENT_STEPS` | `40` | Model calls per message |
 | `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
@@ -107,7 +112,9 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
 | `ACF_SANDBOX` | `docker` | `docker`, or `local` for development (**not isolated**) |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
-| `ACF_SANDBOX_NETWORK` | `bridge` | `none` cuts sandboxes off from the internet |
+| `ACF_SANDBOX_NETWORK` | `acf-sandbox` | Created when missing, with traffic between sandboxes off. `none` cuts sandboxes off from the internet |
+| `ACF_SANDBOX_BRIDGE` | `acf-sbx0` | Interface name of that network (the egress firewall matches it) |
+| `ACF_SANDBOX_RUNTIME` | – (`runsc` in the production stack) | Container runtime, e.g. `runsc` for gVisor |
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
 | `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
@@ -205,10 +212,9 @@ Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architectur
 
 ## Known limitations
 
-- API keys and OAuth tokens are stored unencrypted in the database. Protect it and its backups.
 - No schema migrations yet: tables are created at startup. A future schema change will need Alembic.
-- Sandboxes run as root inside the container (no capabilities, `no-new-privileges`). For stronger
-  isolation use gVisor (`--runtime=runsc`) on the Docker host.
+- Sandboxes refuse to start when the workspace belongs to root: run the app as a normal user.
+- No per-user quotas yet (model spend, disk, number of sandboxes), and no rate limiting on sign-in.
 - One app process: the scheduler and running agents live in it, so don't run several replicas.
 
 ## License

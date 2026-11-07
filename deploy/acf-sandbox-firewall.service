@@ -1,0 +1,20 @@
+# Applies deploy/sandbox-firewall.sh at boot, after Docker.
+#   sudo install -m 755 deploy/sandbox-firewall.sh /usr/local/sbin/acf-sandbox-firewall
+#   sudo install -m 644 deploy/acf-sandbox-firewall.service /etc/systemd/system/
+#   sudo systemctl enable --now acf-sandbox-firewall
+[Unit]
+Description=Egress firewall for AI Chatbot Framework sandboxes
+After=docker.service network-online.target
+Wants=network-online.target
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Environment=ACF_SANDBOX_BRIDGE=acf-sbx0
+# Environment="ACF_SANDBOX_ALLOW=10.1.2.3/32"
+ExecStart=/usr/local/sbin/acf-sandbox-firewall
+ExecStop=/usr/local/sbin/acf-sandbox-firewall --remove
+
+[Install]
+WantedBy=multi-user.target docker.service

@@ -22,6 +22,43 @@ services:
     entrypoint: ["true"]
     restart: "no"
 
+  # As in production: the data folder belongs to the app's non-root user, and only the Docker proxy
+  # has the socket.
+  data-init:
+    image: acf-api:dev
+    pull_policy: never
+    depends_on:
+      api-image:
+        condition: service_completed_successfully
+    user: "0"
+    entrypoint: ["sh", "-c", "find /data ! -user 10001 -exec chown -h 10001:10001 {} +"]
+    volumes:
+      - ${PWD}/data-dev:/data
+    network_mode: none
+    restart: "no"
+
+  docker-proxy:
+    image: acf-api:dev
+    pull_policy: never
+    depends_on:
+      api-image:
+        condition: service_completed_successfully
+    user: "0"
+    userns_mode: host
+    command: ["python", "-m", "acf.docker_proxy", "--listen", "0.0.0.0:2375", "--socket", "/var/run/docker.sock"]
+    environment: &dev-sandbox-env
+      ACF_DATA_DIR: /data
+      ACF_SANDBOX_IMAGE: acf-sandbox:dev
+      ACF_SANDBOX_PREFIX: acf-dev
+      ACF_SANDBOX_NETWORK: acf-dev-sandbox
+      ACF_SANDBOX_BRIDGE: acf-dev0
+      ACF_SANDBOX_RUNTIME: ${ACF_SANDBOX_RUNTIME:-}
+      ACF_SANDBOX_HOST_DATA_DIR: ${PWD}/data-dev
+    volumes:
+      - ./backend:/app/backend
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [docker-api]
+
   postgres:
     image: postgres:17.6-alpine
     environment:
@@ -59,11 +96,19 @@ services:
         condition: service_completed_successfully
       fake-llm:
         condition: service_started
+      data-init:
+        condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
       postgres:
         condition: service_healthy
+    user: "10001:10001"
     ports: ["${ACF_DEV_API_PORT:-8000}:8000"]
+    networks: [default, docker-api]
     environment:
-      ACF_DATA_DIR: /data
+      <<: *dev-sandbox-env
+      DOCKER_HOST: tcp://docker-proxy:2375
+      ACF_SECRET_KEY: ${ACF_SECRET_KEY:-dev-only-secret-key-not-for-production-use}
       ACF_DB_URL: postgresql://acf:acf@postgres:5432/acf
       ACF_LLM_PROVIDER: ${ACF_LLM_PROVIDER:-anthropic}
       ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
@@ -71,14 +116,10 @@ services:
       ACF_LLM_BASE_URL: ${ACF_LLM_BASE_URL-http://fake-llm:9100}
       ACF_LLM_API_KEY: ${ACF_LLM_API_KEY:-${ANTHROPIC_API_KEY:-dev-key}}
       ACF_SANDBOX: docker
-      ACF_SANDBOX_IMAGE: acf-sandbox:dev
-      ACF_SANDBOX_PREFIX: acf-dev
-      ACF_SANDBOX_HOST_DATA_DIR: ${PWD}/data-dev
       ACF_SCHEDULER_INTERVAL: "5"
     volumes:
       - ./backend:/app/backend
       - ${PWD}/data-dev:/data
-      - /var/run/docker.sock:/var/run/docker.sock
 
   web:
     build: { context: ., dockerfile: frontend/Dockerfile.dev }
@@ -94,6 +135,11 @@ services:
       - ./frontend/index.html:/web/frontend/index.html
       - ./frontend/vite.config.ts:/web/frontend/vite.config.ts
       - ./design:/web/design
+
+networks:
+  default:
+  docker-api:
+    internal: true
 
 volumes:
   postgres-dev:

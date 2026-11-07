@@ -20,6 +20,10 @@ DEFAULT_MODELS = {"anthropic": "claude-opus-5-5", "openai": "gpt-4.1-mini"}
 _EFFORT_MODELS = ("claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-5", "claude-opus-4-8")
 
 
+# Sent instead of a key when the user has none for their own provider or server.
+NO_KEY = "not-set"
+
+
 class LLMError(RuntimeError):
     pass
 
@@ -33,17 +37,30 @@ class LLMConfig:
 
     @classmethod
     def for_user(cls, user: Any) -> LLMConfig:
+        """The user's model settings over the server's.
+
+        The server's API key is only ever sent to the server's own provider and address. A user who points
+        at another provider or server must bring a key; without one a placeholder is sent, so provider
+        libraries can't pick up the server's key from the environment either.
+        """
         s = config.settings
         provider = user.llm_provider or s.llm_provider
+        own_server = provider == s.llm_provider and user.llm_base_url.rstrip("/") in ("", s.llm_base_url.rstrip("/"))
+        if own_server:  # empty server key: the provider library's own credentials, as the operator set up
+            api_key, base_url = user.llm_api_key or s.llm_api_key, s.llm_base_url
+        else:
+            api_key, base_url = user.llm_api_key or NO_KEY, user.llm_base_url
         return cls(
             provider=provider,
             model=user.llm_model or s.llm_model or DEFAULT_MODELS.get(provider, ""),
-            api_key=user.llm_api_key or s.llm_api_key,
-            base_url=user.llm_base_url or s.llm_base_url,
+            api_key=api_key,
+            base_url=base_url,
         )
 
 
 def make_model(cfg: LLMConfig) -> BaseChatModel:
+    if not config.settings.provider_allowed(cfg.provider):
+        raise LLMError(f"The provider '{cfg.provider}' is not available on this server. Choose another in Settings.")
     if not cfg.model:
         raise LLMError(f"No model set for provider '{cfg.provider}'. Choose one in Settings.")
     kwargs: dict[str, Any] = {"max_retries": 2}
