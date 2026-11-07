@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import config, oauth, scheduler, skills, workspace
+from acf import config, mcp_presets, oauth, scheduler, skills, workspace
 from acf.agent import loop as agent
 from acf.auth import (
     COOKIE,
@@ -463,6 +463,35 @@ def delete_mcp_server(name: str, db: Session = Depends(get_db), user: User = Dep
     _save_config(db, user, data)
     oauth.forget(user.id, name)
     return {"ok": True}
+
+
+@router.get("/mcp/presets")
+def get_mcp_presets(user: User = Depends(current_user)) -> dict:
+    try:
+        configured = parse_config(user.mcp_config)
+    except ConfigError:
+        configured = {}
+    out = []
+    for p in mcp_presets.presets():
+        cfg = configured.get(p.id)
+        out.append({**p.to_dict(), "added": bool(cfg and cfg.url == p.url)})
+    return {"presets": out}
+
+
+@router.post("/mcp/presets/{preset_id}")
+def add_mcp_preset(preset_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    preset = mcp_presets.get(preset_id)
+    if not preset:
+        raise HTTPException(404, "Unknown app")
+    data = _config_dict(user.mcp_config)
+    servers = data["mcpServers"]
+    existing = servers.get(preset.id)
+    if existing is not None and existing.get("url") != preset.url:
+        raise HTTPException(409, f'A connection named "{preset.id}" already exists. Rename or remove it first.')
+    if existing is None:
+        servers[preset.id] = {"url": preset.url}
+    _save_config(db, user, data)
+    return {"config": db.get(User, user.id).mcp_config}
 
 
 @router.get("/mcp/servers")
