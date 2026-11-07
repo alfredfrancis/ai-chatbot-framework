@@ -50,7 +50,7 @@ test("add a local MCP server with the form and use its tools", async ({ page }) 
   await page.getByRole("button", { name: "Form" }).click();
 
   await nav(page).getByRole("link", { name: "New chat" }).click();
-  await say(page, 'tool: mcp__calculator__add {"a": 1234, "b": 4321}');
+  await say(page, 'tool: mcp_call {"server": "calculator", "tool": "add", "arguments": {"a": 1234, "b": 4321}}');
   await expect(page.getByTestId("tool-step")).toContainText("Used calculator · add");
   await expect(lastAssistant(page)).toHaveText("Result: 5555");
 });
@@ -139,7 +139,7 @@ test("sign in to a remote MCP server with OAuth in a popup", async ({ page }) =>
   await shot(page, "09-connections-connected");
 
   await nav(page).getByRole("link", { name: "New chat" }).click();
-  await say(page, "tool: mcp__notes__get_secret_note {}");
+  await say(page, 'tool: mcp_call {"server": "notes", "tool": "get_secret_note", "arguments": {}}');
   await expect(lastAssistant(page)).toContainText("pineapple");
 
   await openConnections(page);

@@ -67,7 +67,7 @@ async def test_stdio_mcp_runs_inside_sandbox(client, user, docker_sandbox):
     cfg = {"mcpServers": {"echo": {"command": "python3", "args": ["echo_mcp.py"]}}}
     await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "tool: mcp__echo__whereami {}")
+    events = await send(client, chat_id, 'tool: mcp_call {"server": "echo", "tool": "whereami", "arguments": {}}')
     final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
     assert final["content"] == "Result: host=sandbox cwd=/workspace"
 

@@ -1,6 +1,6 @@
 """A dependency-free MCP stdio server (raw JSON-RPC), so it runs in any sandbox image with Python.
 
-Tools: echo(text), add(a, b), whereami() -> hostname and working directory.
+Tools: echo(text) (read-only), add(a, b), whereami() -> hostname and working directory.
 """
 
 import json
@@ -13,6 +13,7 @@ TOOLS = [
         "name": "echo",
         "description": "Echo the given text back",
         "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+        "annotations": {"readOnlyHint": True},
     },
     {
         "name": "add",

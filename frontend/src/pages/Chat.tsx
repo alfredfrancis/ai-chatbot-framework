@@ -26,6 +26,7 @@ function describe(call: ToolCall): { verb: string; detail: string; mono: boolean
       const m = p.match(/^skills\/([^/]+)\/SKILL\.md$/);
       return m ? { verb: "Used skill", detail: m[1], mono: false } : { verb: "Read", detail: p, mono: true };
     }
+    case "mcp_call": return { verb: "Used", detail: `${a.server} · ${a.tool}`, mono: false };
   }
   const m = call.name.match(/^mcp__(.+?)__(.+)$/);
   if (m) return { verb: "Used", detail: `${m[1]} · ${m[2]}`, mono: false };

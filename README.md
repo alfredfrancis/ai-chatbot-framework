@@ -14,7 +14,7 @@ its own private computer, their files, skills, app connections and scheduled job
 
 - **Any model through LangChain** – Claude (default), OpenAI, any OpenAI-compatible server (Ollama,
   OpenRouter, vLLM, LiteLLM) or any other LangChain chat provider.
-- **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus MCP tools; parallel
+- **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus `mcp_call` for MCP tools; parallel
   read-only calls; long outputs truncated and saved to a file; context compaction; **steering** (type
   while the agent works; it picks your message up without stopping — right away while it thinks, after
   the running command otherwise); **Stop** at any time.
@@ -26,7 +26,9 @@ its own private computer, their files, skills, app connections and scheduled job
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
-  Streamable HTTP with **OAuth sign-in** in a browser popup.
+  Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
+  definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
+  slow down every turn.
 - **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat.
 - A calm, keyboard-friendly interface (⌘K command menu, shortcuts), dark and light themes, phone layout,
   built from a documented design system whose tokens live in `design/tokens.json`.
