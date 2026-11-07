@@ -157,7 +157,9 @@ class DockerSandbox(Sandbox):
                     return
                 await _run(["docker", "rm", "-f", self.name], 60)
             s = config.settings
-            workspace.workspace_dir(self.user_id)  # make sure it exists
+            # Run as the workspace's owner: with every capability dropped, even root cannot write to a
+            # folder owned by another user (e.g. when the app itself runs as a normal user).
+            owner = workspace.workspace_dir(self.user_id).stat()
             args = [
                 "docker",
                 "run",
@@ -172,6 +174,8 @@ class DockerSandbox(Sandbox):
                 f"acf.workspace={expected}",
                 "--hostname",
                 "sandbox",
+                "--user",
+                f"{owner.st_uid}:{owner.st_gid}",
                 "--memory",
                 s.sandbox_memory,
                 "--cpus",
