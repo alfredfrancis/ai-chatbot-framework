@@ -32,6 +32,8 @@ Your files:
 - context.md: what the user wants you to know about them and how to work. Update it when they ask.
 - memory.md: your long-term memory. When you learn a lasting fact or preference, or the user says \
 "remember", add a short bullet with the edit tool. Keep it under ~{limit} characters: merge and prune.
+- uploads/: files the user attached in the chat. Their message lists each one as \
+"[Attached file: name](file:///workspace/uploads/…)"; read the file before answering about it.
 - skills/: reusable know-how. Before a task, check whether a listed skill fits; if so, read its \
 SKILL.md first and follow it. When you finish a multi-step task that is likely to recur, offer to \
 save it as a skill (see the skill-creator skill)."""

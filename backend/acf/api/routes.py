@@ -232,10 +232,25 @@ def file_raw(path: str, download: bool = False, user: User = Depends(current_use
 
 
 @router.post("/files")
-async def upload_file(file: UploadFile = File(...), folder: str = Form(""), user: User = Depends(current_user)) -> dict:
-    name = (file.filename or "upload").replace("\\", "/").split("/")[-1]
-    rel = f"{folder.strip('/')}/{name}" if folder.strip("/") else name
+async def upload_file(
+    file: UploadFile = File(...),
+    folder: str = Form(""),
+    keep: bool = Form(False),
+    user: User = Depends(current_user),
+) -> dict:
+    """Save a file in the workspace. `keep` never replaces a file: `a.csv` becomes `a (1).csv` (chat attachments)."""
+    name = (file.filename or "upload").replace("\\", "/").split("/")[-1].strip() or "upload"
+    folder = folder.strip("/")
+    rel = f"{folder}/{name}" if folder else name
     target = _resolve(user, rel)
+    if keep:
+        stem, dot, ext = name.rpartition(".") if "." in name.lstrip(".") else (name, "", "")
+        n = 1
+        while target.exists():
+            name = f"{stem} ({n}){dot}{ext}"
+            rel = f"{folder}/{name}" if folder else name
+            target = _resolve(user, rel)
+            n += 1
     data = await file.read(MAX_UPLOAD + 1)
     if len(data) > MAX_UPLOAD:
         raise HTTPException(413, "File is too large (max 25 MB)")

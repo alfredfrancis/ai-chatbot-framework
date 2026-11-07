@@ -25,3 +25,21 @@ async def test_files_are_private_and_contained(client, user):
     assert bad.status_code == 400
     # there is no endpoint to edit context.md directly: edits go through the agent
     assert (await client.put("/api/memory/context", json={"content": "x"})).status_code in (404, 405)
+
+
+async def test_upload_can_keep_existing_files(client, user):
+    first = await client.post("/api/files", files={"file": ("a.csv", b"1")}, data={"folder": "uploads", "keep": "true"})
+    second = await client.post(
+        "/api/files", files={"file": ("a.csv", b"2")}, data={"folder": "uploads", "keep": "true"}
+    )
+    third = await client.post("/api/files", files={"file": ("a.csv", b"3")}, data={"folder": "uploads", "keep": "true"})
+    assert [r.json()["path"] for r in (first, second, third)] == [
+        "uploads/a.csv",
+        "uploads/a (1).csv",
+        "uploads/a (2).csv",
+    ]
+    c = (await client.get("/api/files/content", params={"path": "uploads/a.csv"})).json()
+    assert c["content"] == "1"
+    # without keep, an upload replaces the file (the Files page behaviour)
+    await client.post("/api/files", files={"file": ("a.csv", b"4")}, data={"folder": "uploads"})
+    assert (await client.get("/api/files/content", params={"path": "uploads/a.csv"})).json()["content"] == "4"

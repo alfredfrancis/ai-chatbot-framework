@@ -23,6 +23,9 @@ its own private computer, their files, skills, app connections and scheduled job
 - **Files, not forms** – `context.md` (about you) and `memory.md` (what the agent remembers) are plain
   files the agent reads every turn and edits itself. The UI is a read-only file browser with preview,
   upload and download; to change anything, you ask the agent.
+- **Attach files in chat** – the paperclip (or drag and drop) saves files to `uploads/` in the workspace
+  (never overwriting: a second `report.csv` becomes `report (1).csv`) and sends them with the message.
+  The agent reads them with its tools; the chat shows each attachment as a link to the file.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
@@ -160,6 +163,8 @@ token is shown once, stored hashed, and can be replaced or revoked at any time.
 
 Supported: `initialize`, `session/new`, `session/load` (replays the history, then follows a running agent),
 `session/list`, `session/prompt` (text, resource links and embedded text resources) and `session/cancel`.
+A resource link to `file:///workspace/<path>` is an attached workspace file: `session/load` replays it as a
+`resource_link` chunk after the message's text (upload the file first with `POST /api/files`, `keep=true`).
 Each session is a chat in the web app. Updates are `user_message_chunk`, `agent_message_chunk` and
 `agent_thought_chunk` (streamed as the model writes; chunks of one message share `_meta.acf.messageId`),
 `tool_call`, `tool_call_update` and `session_info_update`. A `session/prompt` sent while the agent works is

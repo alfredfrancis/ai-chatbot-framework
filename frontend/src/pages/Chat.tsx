@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, type AcpNotification, type SessionUpdate, type ToolStatus } from "../acp";
-import { api, type ChatSummary } from "../api";
+import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus } from "../acp";
+import { api, uploadFile, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
-import { IconArrowUp, IconCheck, IconClock, IconDrawer, IconSpark, IconTrash, IconX, Keys, Mark } from "../components/icons";
+import { IconArrowUp, IconCheck, IconClock, IconDrawer, IconFile, IconPaperclip, IconSpark, IconTrash, IconX, Keys, Mark } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -23,7 +23,7 @@ type ToolCall = {
 };
 const inBackground = (c: ToolCall) => !!c.background && (c.status === "pending" || c.status === "in_progress");
 type Entry =
-  | { kind: "user"; key: string; text: string; messageId?: number | string }
+  | { kind: "user"; key: string; text: string; files: Attachment[]; messageId?: number | string }
   | { kind: "text"; key: string; text: string; messageId?: number | string }
   | { kind: "tool"; key: string; call: ToolCall }
   | { kind: "notice"; key: string; text: string };
@@ -31,6 +31,19 @@ type Entry =
 let keySeq = 0;
 const nextKey = () => `e${keySeq++}`;
 const textOf = (c: unknown) => (c && typeof c === "object" && (c as { type?: string }).type === "text" ? String((c as { text?: unknown }).text ?? "") : "");
+/** A resource_link to a workspace file (an attachment), or null. */
+const fileOf = (c: unknown): Attachment | null => {
+  const b = c as { type?: string; uri?: unknown; name?: unknown } | null;
+  if (!b || b.type !== "resource_link" || typeof b.uri !== "string" || !b.uri.startsWith(WORKSPACE_URI)) return null;
+  return { uri: b.uri, name: String(b.name ?? b.uri.split("/").pop()) };
+};
+/** file:///workspace/<path>, encoded as the agent stores it (brackets too, so the link stays one token). */
+const fileUri = (path: string) =>
+  WORKSPACE_URI + path.split("/").map((p) => encodeURIComponent(p).replace(/\(/g, "%28").replace(/\)/g, "%29")).join("/");
+/** Path of an attachment inside the workspace, for the file links. */
+const pathOf = (f: Attachment) => decodeURIComponent(f.uri.slice(WORKSPACE_URI.length));
+/** One message the user sent: what the queue shows and how its echo is recognised. */
+type Outgoing = { text: string; files: Attachment[] };
 
 /** Apply one ACP session update to the chat's entries. Replays and live updates go through the same path. */
 function reduce(entries: Entry[], u: SessionUpdate): Entry[] {
@@ -38,14 +51,25 @@ function reduce(entries: Entry[], u: SessionUpdate): Entry[] {
   switch (u.sessionUpdate) {
     case "user_message_chunk":
     case "agent_message_chunk": {
-      const kind = u.sessionUpdate === "user_message_chunk" ? "user" : "text";
-      const text = textOf((u as { content: unknown }).content);
-      if (messageId != null && entries.some((e) => (e.kind === "user" || e.kind === "text") && e.messageId === messageId)) {
+      const content = (u as { content: unknown }).content;
+      const text = textOf(content);
+      if (u.sessionUpdate === "user_message_chunk") {
+        // A user message arrives as a text chunk and then one resource_link chunk per attached file.
+        const file = fileOf(content);
+        const i = messageId == null ? -1 : entries.findIndex((e) => e.kind === "user" && e.messageId === messageId);
+        if (i >= 0) {
+          const e = entries[i] as Extract<Entry, { kind: "user" }>;
+          if (!file || e.files.some((f) => f.uri === file.uri)) return entries; // already shown (a repeated replay)
+          return entries.map((x, j) => (j === i ? { ...e, files: [...e.files, file] } : x));
+        }
+        return [...entries, { kind: "user", key: nextKey(), text, files: file ? [file] : [], messageId }];
+      }
+      if (messageId != null && entries.some((e) => e.kind === "text" && e.messageId === messageId)) {
         const last = entries[entries.length - 1];
-        if (kind === "text" && last.kind === "text" && last.messageId === messageId) return [...entries.slice(0, -1), { ...last, text: last.text + text }];
+        if (last.kind === "text" && last.messageId === messageId) return [...entries.slice(0, -1), { ...last, text: last.text + text }];
         return entries; // already shown (a repeated replay)
       }
-      return [...entries, { kind, key: nextKey(), text, messageId }];
+      return [...entries, { kind: "text", key: nextKey(), text, messageId }];
     }
     case "tool_call": {
       const t = u as Extract<SessionUpdate, { sessionUpdate: "tool_call" }>;
@@ -111,13 +135,14 @@ function Step({ call, running }: { call: ToolCall; running: boolean }) {
 }
 
 type Block = { kind: "text"; key: string; text: string } | { kind: "steps"; key: string; calls: ToolCall[] };
-type Item = { kind: "user"; key: string; text: string } | { kind: "notice"; key: string; text: string } | { kind: "turn"; key: string; blocks: Block[] };
+type Item = { kind: "user"; key: string; text: string; files: Attachment[] } | { kind: "notice"; key: string; text: string } | { kind: "turn"; key: string; blocks: Block[] };
 
 /** User messages, notices, and agent turns where consecutive tool calls share one steps card. */
 function group(entries: Entry[]): Item[] {
   const items: Item[] = [];
   for (const e of entries) {
-    if (e.kind === "user" || e.kind === "notice") { items.push({ kind: e.kind, key: e.key, text: e.text }); continue; }
+    if (e.kind === "user") { items.push({ kind: "user", key: e.key, text: e.text, files: e.files }); continue; }
+    if (e.kind === "notice") { items.push({ kind: "notice", key: e.key, text: e.text }); continue; }
     let turn = items[items.length - 1];
     if (!turn || turn.kind !== "turn") { turn = { kind: "turn", key: e.key, blocks: [] }; items.push(turn); }
     const last = turn.blocks[turn.blocks.length - 1];
@@ -128,7 +153,32 @@ function group(entries: Entry[]): Item[] {
   return items;
 }
 
-function Thread({ entries, running, queued }: { entries: Entry[]; running: boolean; queued: string[] }) {
+/** Attached files under a message: each opens the file from the workspace. */
+function Files({ files }: { files: Attachment[] }) {
+  if (!files.length) return null;
+  return (
+    <ul className="attachments" aria-label="Attached files">
+      {files.map((f) => (
+        <li key={f.uri}>
+          <a className="attachment" href={`/api/files/raw?path=${encodeURIComponent(pathOf(f))}`} target="_blank" rel="noreferrer">
+            <IconFile /><span className="name">{f.name}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function UserMsg({ text, files, testId }: Outgoing & { testId: string }) {
+  return (
+    <div className="user-msg" data-testid={testId}>
+      {text}
+      <Files files={files} />
+    </div>
+  );
+}
+
+function Thread({ entries, running, queued }: { entries: Entry[]; running: boolean; queued: Outgoing[] }) {
   const items = group(entries);
   const toolBusy = running && entries.some((e) => e.kind === "tool" && !inBackground(e.call) && (e.call.status === "pending" || e.call.status === "in_progress"));
   const streaming = running && entries[entries.length - 1]?.kind === "text"; // the reply itself shows progress
@@ -137,7 +187,7 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
   return (
     <div className="thread">
       {items.map((it) => {
-        if (it.kind === "user") return <div key={it.key} className="user-msg" data-testid="user-msg">{it.text}</div>;
+        if (it.kind === "user") return <UserMsg key={it.key} text={it.text} files={it.files} testId="user-msg" />;
         if (it.kind === "notice") return <div key={it.key} className="notice">{it.text}</div>;
         const live = running && it === last;
         return (
@@ -159,7 +209,7 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
       {running && last?.kind !== "turn" && <div className="turn"><Mark size={24} live /><div className="body">{working}</div></div>}
       {queued.map((q, i) => (
         <div key={`q${i}`} className="queued">
-          <div className="user-msg" data-testid="queued-msg">{q}</div>
+          <UserMsg text={q.text} files={q.files} testId="queued-msg" />
           <span className="hint">Queued · read as soon as the current step ends</span>
         </div>
       ))}
@@ -167,32 +217,75 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
   );
 }
 
+type Pending = { id: string; name: string; file?: Attachment; error?: string };
+let pendingSeq = 0;
+
 function Composer({ onSend, onStop, running, background = false, placeholder }: {
-  onSend: (t: string) => void; onStop?: () => void; running: boolean; background?: boolean; placeholder?: string;
+  onSend: (text: string, files: Attachment[]) => void; onStop?: () => void; running: boolean; background?: boolean; placeholder?: string;
 }) {
   const [text, setText] = useState("");
+  const [pending, setPending] = useState<Pending[]>([]);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
+  const uploading = pending.some((p) => !p.file && !p.error);
+  const files = pending.flatMap((p) => (p.file ? [p.file] : []));
+  const ready = (!!text.trim() || files.length > 0) && !uploading;
+
+  // Attached files are saved in the workspace's uploads/ folder (never replacing a file), then sent as links.
+  const attach = (list: FileList | File[]) => {
+    for (const f of Array.from(list)) {
+      const id = `p${pendingSeq++}`;
+      setPending((p) => [...p, { id, name: f.name }]);
+      uploadFile("/files", f, { folder: "uploads", keep: "true" })
+        .then((r: { path: string }) => {
+          const file = { name: r.path.split("/").pop() ?? f.name, uri: fileUri(r.path) };
+          setPending((p) => p.map((x) => (x.id === id ? { ...x, file } : x)));
+        })
+        .catch((err: Error) => setPending((p) => p.map((x) => (x.id === id ? { ...x, error: err.message } : x))));
+    }
+  };
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
+    if (!ready) return;
     const t = text.trim();
-    if (!t) return;
     setText("");
+    setPending([]);
     if (ref.current) ref.current.style.height = "auto";
-    onSend(t);
+    onSend(t, files);
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
     if (e.key === "Escape" && (running || background) && onStop) { e.preventDefault(); onStop(); }
   };
-  const showStop = (running || background) && !text.trim() && onStop;
+  const showStop = (running || background) && !text.trim() && !pending.length && onStop;
   return (
-    <form className="composer" onSubmit={submit}>
+    <form className="composer" onSubmit={submit}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
+      onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); attach(e.dataTransfer.files); } }}>
+      {pending.length > 0 && (
+        <ul className="attachments" aria-label="Files to send">
+          {pending.map((p) => (
+            <li key={p.id} className={`attachment${p.error ? " failed" : ""}`} title={p.error}>
+              {p.file || p.error ? <IconFile /> : <span className="spin" aria-label={`Uploading ${p.name}`} />}
+              <span className="name">{p.file?.name ?? p.name}</span>
+              {p.error && <span className="error">{p.error}</span>}
+              <button type="button" className="remove" aria-label={`Remove ${p.file?.name ?? p.name}`}
+                onClick={() => setPending((x) => x.filter((y) => y.id !== p.id))}><IconX /></button>
+            </li>
+          ))}
+        </ul>
+      )}
       <label htmlFor="composer" className="sr-only">Message</label>
       <textarea id="composer" ref={ref} rows={1} value={text} onKeyDown={onKey}
         placeholder={running ? "Add to the conversation…" : placeholder ?? "Ask anything"}
         onChange={(e) => { setText(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${e.target.scrollHeight}px`; }} />
       <div className="bar">
+        <button type="button" className="btn ghost icon attach" aria-label="Attach files" title="Attach files" onClick={() => picker.current?.click()}>
+          <IconPaperclip />
+        </button>
+        <input ref={picker} type="file" multiple hidden data-testid="chat-upload"
+          onChange={(e) => { if (e.target.files) attach(e.target.files); e.target.value = ""; }} />
         <span className="hints row-flex">
           {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
             : background ? <>Commands are running in the background · <Keys keys={["Esc"]} /> stop them</>
@@ -201,7 +294,7 @@ function Composer({ onSend, onStop, running, background = false, placeholder }: 
         {showStop ? (
           <button className="send stop" type="button" aria-label="Stop" onClick={onStop}><span className="square" /></button>
         ) : (
-          <button className="send" type="submit" aria-label="Send" disabled={!text.trim()}><IconArrowUp /></button>
+          <button className="send" type="submit" aria-label="Send" disabled={!ready}><IconArrowUp /></button>
         )}
       </div>
     </form>
@@ -214,7 +307,7 @@ function greeting(name: string) {
   return `${part}, ${name}.`;
 }
 
-function Home({ onStart }: { onStart: (t: string) => void }) {
+function Home({ onStart }: { onStart: (t: string, files?: Attachment[]) => void }) {
   const { user, counts } = useApp();
   const n = (x: number, one: string) => `${x} ${one}${x === 1 ? "" : "s"}`;
   return (
@@ -246,7 +339,7 @@ export default function ChatPage() {
   const { refresh, chats } = useApp();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [running, setRunning] = useState(false);
-  const [queued, setQueued] = useState<string[]>([]);
+  const [queued, setQueued] = useState<Outgoing[]>([]);
   const [error, setError] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(sid);
@@ -284,22 +377,28 @@ export default function ChatPage() {
       const u = n.params.update;
       if (u.sessionUpdate === "session_info_update") { refresh(); return; }
       if (u.sessionUpdate === "user_message_chunk") {
-        const text = textOf((u as { content: unknown }).content);
-        setQueued((q) => { const i = q.indexOf(text); return i < 0 ? q : [...q.slice(0, i), ...q.slice(i + 1)]; });
+        // A queued message was read: its first chunk is its text, or its first file when it has no text.
+        const content = (u as { content: unknown }).content;
+        const text = textOf(content);
+        const file = fileOf(content);
+        setQueued((q) => {
+          const i = q.findIndex((m) => (m.text ? m.text === text : !!file && m.files[0]?.uri === file.uri));
+          return i < 0 ? q : [...q.slice(0, i), ...q.slice(i + 1)];
+        });
       }
       setEntries((e) => reduce(e, u));
     }
   }), [load, refresh]);
 
-  const send = async (content: string, target: string) => {
+  const send = async (content: string, target: string, files: Attachment[] = []) => {
     setError("");
-    if (running) setQueued((q) => [...q, content]);
+    if (running) setQueued((q) => [...q, { text: content, files }]);
     else {
       setRunning(true);
-      setEntries((e) => [...e, { kind: "user", key: nextKey(), text: content }]);
+      setEntries((e) => [...e, { kind: "user", key: nextKey(), text: content, files }]);
     }
     try {
-      await prompt(target, content);
+      await prompt(target, content, files);
     } catch (err) {
       if (current.current === target && (err as Error).message !== "Connection lost") setError((err as Error).message);
     }
@@ -310,11 +409,11 @@ export default function ChatPage() {
   useEffect(() => {
     setEntries([]); setError(""); setQueued([]); setRunning(false);
     if (!sid) return;
-    const pending = (location.state as { pending?: string } | null)?.pending;
+    const pending = (location.state as { pending?: Outgoing } | null)?.pending;
     if (pending && !consumed.has(location.key)) {
       consumed.add(location.key);
       navigate(location.pathname, { replace: true, state: null });
-      send(pending, sid);
+      send(pending.text, sid, pending.files);
     } else if (!pending) {
       load(sid);
     }
@@ -324,10 +423,10 @@ export default function ChatPage() {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [entries, running, queued]);
 
-  const start = async (content: string) => {
+  const start = async (text: string, files: Attachment[] = []) => {
     const s = await newSession();
     refresh();
-    navigate(`/c/${s.sessionId}`, { state: { pending: content } });
+    navigate(`/c/${s.sessionId}`, { state: { pending: { text, files } } });
   };
   const stop = () => { if (sid) cancel(sid); };
   const [confirming, setConfirming] = useState(false);
@@ -341,7 +440,8 @@ export default function ChatPage() {
 
   if (!sid) return <Home onStart={start} />;
   const summary: ChatSummary | undefined = chats.find((c) => c.id === chatId);
-  const firstUser = entries.find((e) => e.kind === "user")?.text.split("\n")[0].slice(0, 60) ?? "";
+  const first = entries.find((e) => e.kind === "user");
+  const firstUser = (first?.text || first?.files[0]?.name || "").split("\n")[0].slice(0, 60);
   const title = summary?.title && summary.title !== "New chat" ? summary.title : firstUser;
 
   return (
@@ -356,7 +456,7 @@ export default function ChatPage() {
         {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
       </div>
       <div className="composer-wrap">
-        <Composer key={sid} onSend={(t) => send(t, sid)} onStop={stop} running={running}
+        <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running}
           background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
       </div>
     </>
