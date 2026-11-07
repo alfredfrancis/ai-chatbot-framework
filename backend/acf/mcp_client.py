@@ -13,6 +13,10 @@ OAuth when the server asks for it (HTTP 401).
 
 Each connection lives in its own asyncio task so that the SDK's task groups and cancel scopes are
 always entered and exited in the same task.
+
+The model never gets one schema per MCP tool. Each tool's definition is a file in the workspace
+(.acf/mcp/<server>/<tool>.json), the system prompt lists only the names, and one `mcp_call` tool runs
+them.
 """
 
 from __future__ import annotations
@@ -29,13 +33,16 @@ import httpx2
 from mcp import Client, StdioServerParameters
 from mcp.client.streamable_http import streamable_http_client
 
-from acf import oauth
+from acf import oauth, workspace
 from acf.agent.tools import Tool, ToolContext, ToolResult
 from acf.sandbox import Sandbox
 
 CONNECT_TIMEOUT = 60
 CALL_TIMEOUT = 300
+DEFINITIONS_DIR = ".acf/mcp"
+CALL_TOOL = "mcp_call"
 _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+_UNSAFE_FILE_CHARS = re.compile(r"[^A-Za-z0-9_.-]")
 
 
 class ConfigError(ValueError):
@@ -101,9 +108,8 @@ def parse_config(text: str) -> dict[str, ServerConfig]:
     return out
 
 
-def tool_name(server: str, tool: str) -> str:
-    name = re.sub(r"[^A-Za-z0-9_-]", "_", f"mcp__{server}__{tool}")
-    return name[:64]
+def _definition_path(server: str, tool: str) -> str:
+    return f"{DEFINITIONS_DIR}/{server}/{_UNSAFE_FILE_CHARS.sub('_', tool)}.json"
 
 
 def _result_text(result: Any) -> str:
@@ -263,48 +269,82 @@ class McpHub:
             self.configs = {}
             self.config_error = str(e)
         self.connections: dict[str, _Connection] = {}
-        self._routes: dict[str, tuple[_Connection, str]] = {}
+        self._tools: dict[str, dict[str, Any]] = {}
 
     async def __aenter__(self) -> McpHub:
         conns = [_Connection(c, self.user_id, self.sandbox) for c in self.configs.values() if c.enabled]
         await asyncio.gather(*(c.start() for c in conns))
         for c in conns:
             self.connections[c.cfg.name] = c
-            for t in c.tools if c.ok else []:
-                self._routes[tool_name(c.cfg.name, t.name)] = (c, t.name)
+            if c.ok and c.tools:
+                self._tools[c.cfg.name] = {t.name: t for t in sorted(c.tools, key=lambda t: t.name)}
+                self._write_definitions(c.cfg.name)
         return self
 
     async def __aexit__(self, *exc) -> None:
         await asyncio.gather(*(c.close() for c in self.connections.values()), return_exceptions=True)
 
-    def tools(self) -> list[Tool]:
-        out = []
-        for name, (conn, tool) in self._routes.items():
-            t = next(x for x in conn.tools if x.name == tool)
-            schema = t.input_schema or {"type": "object", "properties": {}}
-            desc = t.description or t.title or tool
-            hints = t.annotations
-            read_only = bool(hints and getattr(hints, "read_only_hint", False))
-
-            async def run(args: dict, _ctx: ToolContext, _name: str = name) -> ToolResult:
-                text, is_error = await self.call(_name, args)
-                return ToolResult(text, is_error)
-
-            out.append(
-                Tool(
-                    name=name,
-                    description=f"[{conn.cfg.name}] {desc}"[:1024],
-                    parameters=schema,
-                    run=run,
-                    read_only=read_only,
-                    label=lambda _a, _c=conn.cfg.name, _t=tool: f"{_c} · {_t}",
-                )
+    def _write_definitions(self, server: str) -> None:
+        # Rewrite only what changed: another chat of the same user may be reading these files right now.
+        folder = f"{DEFINITIONS_DIR}/{server}"
+        wanted = {
+            _definition_path(server, name): json.dumps(
+                {
+                    "description": t.description or t.title or name,
+                    "input_schema": t.input_schema or {"type": "object", "properties": {}},
+                },
+                indent=2,
             )
-        return out
+            for name, t in self._tools[server].items()
+        }
+        for old in workspace.resolve(self.user_id, folder).glob("*.json"):
+            if f"{folder}/{old.name}" not in wanted:
+                old.unlink()
+        for rel, text in wanted.items():
+            if workspace.read_file(self.user_id, rel) != text:
+                workspace.write_file(self.user_id, rel, text)
 
-    async def call(self, name: str, args: dict) -> tuple[str, bool]:
-        conn, tool = self._routes[name]
-        return await conn.call(tool, args)
+    def catalog(self) -> dict[str, list[str]]:
+        return {server: list(tools) for server, tools in self._tools.items()}
+
+    def tool(self) -> Tool | None:
+        if not self._tools:
+            return None
+        return Tool(
+            CALL_TOOL,
+            "Call a tool of a connected app. Read its definition file first for the arguments.",
+            {
+                "type": "object",
+                "properties": {
+                    "server": {"type": "string"},
+                    "tool": {"type": "string"},
+                    "arguments": {"type": "object"},
+                },
+                "required": ["server", "tool"],
+            },
+            self._call,
+            read_only=self._read_only,
+            label=lambda a: f"{a.get('server', '')} · {a.get('tool', '')}",
+        )
+
+    def _lookup(self, args: dict) -> Any:
+        return self._tools.get(str(args.get("server", "")), {}).get(str(args.get("tool", "")))
+
+    def _read_only(self, args: dict) -> bool:
+        t = self._lookup(args)
+        return bool(t and t.annotations and getattr(t.annotations, "read_only_hint", False))
+
+    async def _call(self, args: dict, _ctx: ToolContext) -> ToolResult:
+        server, name = str(args.get("server", "")), str(args.get("tool", ""))
+        if server not in self._tools:
+            return ToolResult(f"No connected app named {server!r}. Connected: {', '.join(self._tools)}", True)
+        if self._lookup(args) is None:
+            return ToolResult(f"{server} has no tool {name!r}. Its tools: {', '.join(self._tools[server])}", True)
+        arguments = args.get("arguments") or {}
+        if not isinstance(arguments, dict):
+            return ToolResult("arguments must be a JSON object", True)
+        text, is_error = await self.connections[server].call(name, arguments)
+        return ToolResult(text, is_error)
 
     def status(self) -> list[dict]:
         out = []

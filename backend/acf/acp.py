@@ -84,6 +84,8 @@ def tool_title(name: str, args: dict[str, Any]) -> str:
         return f"Read {path}"
     if name in ("write", "edit"):
         return f"{'Wrote' if name == 'write' else 'Edited'} {path}"
+    if name == "mcp_call":
+        return f"Used {args.get('server', '')} · {args.get('tool', '')}"
     if name.startswith("mcp__") and "__" in name[5:]:
         server, tool = name[5:].split("__", 1)
         return f"Used {server} · {tool}"

@@ -45,10 +45,68 @@ async def test_stdio_server_tools(client, user):
     assert {t["name"] for t in servers[0]["tools"]} == {"echo", "add", "whereami"}
 
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    turn = await send(client, chat_id, 'tool: mcp__echo__add {"a": 2, "b": 40}')
-    call = turn.of("tool_call")[0]
-    assert call["title"] == "Used echo · add" and call["kind"] == "other"
+    call = {"server": "echo", "tool": "add", "arguments": {"a": 2, "b": 40}}
+    turn = await send(client, chat_id, f"tool: mcp_call {json.dumps(call)}")
+    acp_call = turn.of("tool_call")[0]
+    assert acp_call["title"] == "Used echo · add" and acp_call["kind"] == "other"
     assert turn.final == "Result: 42"
+
+
+def _reply(turn) -> str:
+    return turn.final
+
+
+async def test_app_tools_are_names_in_the_prompt_and_files_in_the_workspace(client, user):
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    assert _reply(await send(client, chat_id, "list tools")) == "Tools: read, write, edit, bash"
+    assert "mcp_call" not in _reply(await send(client, chat_id, "show system"))
+
+    await setup_echo(client, user["id"])
+    stale = workspace.workspace_dir(user["id"]) / ".acf/mcp/echo/removed_tool.json"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text("{}")
+    assert _reply(await send(client, chat_id, "list tools")) == "Tools: read, write, edit, bash, mcp_call"
+    system = _reply(await send(client, chat_id, "show system"))
+    assert "echo: add, echo, whereami" in system.splitlines()
+    assert "mcp_call" in system and ".acf/mcp/" in system
+
+    definition = json.loads(workspace.read_file(user["id"], ".acf/mcp/echo/add.json"))
+    assert definition == {
+        "description": "Add two numbers",
+        "input_schema": {
+            "type": "object",
+            "properties": {"a": {"type": "number"}, "b": {"type": "number"}},
+            "required": ["a", "b"],
+        },
+    }
+    assert not stale.exists()
+
+    result = (await send(client, chat_id, "read: .acf/mcp/echo/echo.json")).results[0]
+    assert result["status"] == "completed" and "Echo the given text back" in result["text"]
+
+
+async def test_unknown_app_tool_lists_the_valid_ones(client, user):
+    await setup_echo(client, user["id"])
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    turn = await send(client, chat_id, 'tool: mcp_call {"server": "echo", "tool": "teleport", "arguments": {}}')
+    result = turn.results[0]
+    assert result["status"] == "failed"
+    assert all(name in result["text"] for name in ("add", "echo", "whereami"))
+
+
+async def test_read_only_app_tools_run_together(client, user):
+    await setup_echo(client, user["id"])
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+
+    def order(turn) -> list[str]:
+        return ["start" if u["status"] == "in_progress" else "result" for u in turn.of("tool_call_update")]
+
+    echo = 'tool: mcp_call {"server": "echo", "tool": "echo", "arguments": {"text": "%s"}}'
+    add = 'tool: mcp_call {"server": "echo", "tool": "add", "arguments": {"a": 1, "b": 2}}'
+    turn = await send(client, chat_id, f"{echo % 'one'}\n{echo % 'two'}")
+    assert order(turn) == ["start", "start", "result", "result"]
+    turn = await send(client, chat_id, f"{echo % 'one'}\n{add}")
+    assert order(turn) == ["start", "result", "start", "result"]
 
 
 async def test_broken_server_reported(client, user):
@@ -92,7 +150,8 @@ async def test_oauth_flow(client, user, oauth_mcp_url):
     servers = (await client.get("/api/mcp/servers")).json()["servers"]
     assert servers[0]["state"] == "connected" and servers[0]["signed_in"], servers
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    assert "pineapple" in (await send(client, chat_id, "tool: mcp__notes__get_secret_note {}")).final
+    turn = await send(client, chat_id, 'tool: mcp_call {"server": "notes", "tool": "get_secret_note"}')
+    assert "pineapple" in turn.final
 
     await client.delete("/api/mcp/servers/notes/oauth")
     servers = (await client.get("/api/mcp/servers")).json()["servers"]
