@@ -108,4 +108,9 @@ jobs:
       - name: Build the dev stack with compose (as developers run it)
         run: docker compose -f docker-compose.dev.yml build
       - name: Smoke test the sandbox image
-        run: docker run --rm acf-sandbox:latest sh -c 'python3 --version && node --version && npx --version && uvx --version'
+        run: |
+          docker run --rm acf-sandbox:latest sh -c 'python3 --version && node --version && npx --version && uvx --version'
+          # agent-browser + Chromium under the same restrictions as a real user sandbox
+          docker run --rm --user 1000:1000 --cap-drop ALL --security-opt no-new-privileges \
+            -e HOME=/tmp/home acf-sandbox:latest sh -c \
+            'agent-browser open "data:text/html,<title>acf-ok</title>" && agent-browser eval document.title | grep acf-ok && agent-browser close'
