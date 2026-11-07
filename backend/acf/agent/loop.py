@@ -10,6 +10,9 @@ Design (borrowing from pi, Hermes and Claude Code):
   when the stream ends. A stop mid-answer keeps the text shown so far.
 - Model -> tool calls -> results -> model … until the model answers without tools. Independent
   read-only calls run concurrently; anything that writes runs in order.
+- MCP tools are not bound one by one: the prompt lists their names, their definitions are files in
+  .acf/mcp/, and one `mcp_call` tool runs them (see mcp_client). Binding every schema costs tens of
+  thousands of prompt tokens per step.
 - Tool errors, bad arguments and unknown tools become error results the model can recover from.
 - Outputs are truncated with the full text spilled to a file (see tools.truncate).
 - History is append-only. Provider messages are stored verbatim (thinking blocks survive). Before a
@@ -265,7 +268,7 @@ class Run:
             got = True
         return got
 
-    async def _compact(self, history: list[BaseMessage], model) -> list[BaseMessage]:
+    async def _compact(self, history: list[BaseMessage], model, apps: dict[str, list[str]]) -> list[BaseMessage]:
         s = config.settings
         if estimate_tokens(history) < s.compact_tokens:
             return history
@@ -279,7 +282,9 @@ class Run:
         if keep_from is None or keep_from < 2:
             return history  # nothing worth summarising
         older = [_strip_thinking(m) if isinstance(m, AIMessage) else m for m in history[:keep_from]]
-        reply = await model.ainvoke([SystemMessage(prompt.build(self.user.id)), *older, HumanMessage(SUMMARY_PROMPT)])
+        reply = await model.ainvoke(
+            [SystemMessage(prompt.build(self.user.id, apps)), *older, HumanMessage(SUMMARY_PROMPT)]
+        )
         with session_scope() as db:
             ids = [
                 m.id
@@ -323,10 +328,11 @@ class Run:
             for st in hub.status():
                 if st["state"] in ("error", "needs_auth"):
                     self.emit({"type": "notice", "text": f"{st['name']}: {st['error'] or 'sign-in required'}"})
-            tools: dict[str, Tool] = {t.name: t for t in BUILTIN_TOOLS + hub.tools()}
+            tools: dict[str, Tool] = {t.name: t for t in [*BUILTIN_TOOLS, hub.tool()] if t}
+            apps = hub.catalog()
             model = base_model.bind_tools([t.schema() for t in tools.values()])
             try:
-                history = await self._compact(history, base_model)
+                history = await self._compact(history, base_model, apps)
             except Exception as e:  # noqa: BLE001 - compaction is best effort
                 log.warning("compaction failed: %s", e)
 
@@ -335,7 +341,7 @@ class Run:
                     content=[
                         {
                             "type": "text",
-                            "text": prompt.build(self.user.id),
+                            "text": prompt.build(self.user.id, apps),
                             "cache_control": {"type": "ephemeral"},
                         }
                     ]
@@ -468,7 +474,7 @@ class Run:
                 status="error" if result.is_error else "success",
             )
 
-        parallel = all(tools.get(c["name"]) is not None and tools[c["name"]].read_only for c in calls)
+        parallel = all(c["name"] in tools and tools[c["name"]].read_only(c["args"]) for c in calls)
         if parallel and len(calls) > 1:
             return list(await asyncio.gather(*(one(c) for c in calls)))
         return [await one(c) for c in calls]

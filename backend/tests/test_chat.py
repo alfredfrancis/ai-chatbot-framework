@@ -84,7 +84,7 @@ async def test_read_only_tools_run_concurrently_writes_in_order(user):
         await asyncio.sleep(0.3)
         return ToolResult(args["x"])
 
-    ro = Tool("ro", "", {}, slow, read_only=True)
+    ro = Tool("ro", "", {}, slow, read_only=lambda a: True)
     rw = Tool("rw", "", {}, slow)
     run = Run(u, chat_id)
     calls = [{"id": f"c{i}", "name": "ro", "args": {"x": str(i)}} for i in range(3)]

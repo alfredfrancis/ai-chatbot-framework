@@ -20,13 +20,13 @@ backend/acf/
   llm.py             LangChain init_chat_model, friendly errors, token estimate
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
   agent/tools.py     read / write / edit / bash + output truncation
-  agent/prompt.py    system prompt: instructions + context.md + memory.md + skills index
+  agent/prompt.py    system prompt: instructions + context.md + memory.md + skills index + connected apps
   acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
   acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
   skills.py          skill discovery, upload (zip / SKILL.md), built-in skill-creator
   workspace.py       per-user folder, path safety
   sandbox.py         DockerSandbox (one container per user), LocalSandbox (dev only, not isolated)
-  mcp_client.py      config parsing, McpHub (one asyncio task per server connection)
+  mcp_client.py      config parsing, McpHub (one asyncio task per server connection), mcp_call + .acf/mcp/ files
   oauth.py           OAuth client for remote MCP servers
   scheduler.py       cron tasks
   api/routes.py      every HTTP endpoint

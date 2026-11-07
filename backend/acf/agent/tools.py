@@ -36,8 +36,8 @@ class Tool:
     description: str
     parameters: dict[str, Any]
     run: Callable[[dict[str, Any], ToolContext], Awaitable[ToolResult]]
-    # Tools that only read can run concurrently when the model calls several at once.
-    read_only: bool = False
+    # Calls that only read can run concurrently when the model makes several at once.
+    read_only: Callable[[dict[str, Any]], bool] = field(default=lambda a: False)
     label: Callable[[dict[str, Any]], str] = field(default=lambda a: "")
 
     def schema(self) -> dict[str, Any]:
@@ -136,7 +136,7 @@ BUILTIN_TOOLS: list[Tool] = [
             "required": ["path"],
         },
         _read,
-        read_only=True,
+        read_only=lambda a: True,
         label=lambda a: str(a.get("path", "")),
     ),
     Tool(
