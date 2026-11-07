@@ -151,7 +151,7 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
       {queued.map((q, i) => (
         <div key={`q${i}`} className="queued">
           <div className="user-msg" data-testid="queued-msg">{q}</div>
-          <span className="hint">Queued · read at the next step</span>
+          <span className="hint">Queued · read as soon as the current step ends</span>
         </div>
       ))}
     </div>
@@ -185,7 +185,7 @@ function Composer({ onSend, onStop, running, placeholder }: {
         onChange={(e) => { setText(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${e.target.scrollHeight}px`; }} />
       <div className="bar">
         <span className="hints row-flex">
-          {running ? <>Messages you send now are read at the next step · <Keys keys={["Esc"]} /> stop</>
+          {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
             : <><Keys keys={["↵"]} /> send <Keys keys={["⇧", "↵"]} /> new line</>}
         </span>
         {showStop ? (

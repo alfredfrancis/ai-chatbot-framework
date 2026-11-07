@@ -23,6 +23,13 @@ export type McpServer = {
   tools: { name: string; description: string }[];
   signed_in: boolean;
 };
+export type McpPreset = {
+  id: string;
+  name: string;
+  description: string;
+  url: string;
+  added: boolean;
+};
 export type Settings = {
   provider: string;
   model: string;

@@ -146,3 +146,28 @@ test("sign in to a remote MCP server with OAuth in a popup", async ({ page }) =>
   await page.getByTestId("server-notes").getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByTestId("server-notes").getByRole("button", { name: "Sign in" })).toBeVisible();
 });
+
+test("add a popular app in one click and sign in", async ({ page }) => {
+  await signUp(page);
+  await nav(page).getByRole("link", { name: "Connections" }).click();
+  const apps = page.getByRole("region", { name: "Popular apps" });
+  await expect(apps.getByRole("button", { name: "Add Linear" })).toBeVisible();
+  await expect(apps.getByRole("button", { name: "Add Notion" })).toBeVisible();
+  await shot(page, "09b-connections-popular-apps");
+
+  await apps.getByRole("button", { name: "Add Notes" }).click();
+  await expect(apps.getByTestId("preset-notes")).toContainText("Added");
+  await expect(apps.getByRole("button", { name: "Add Notes" })).toHaveCount(0);
+
+  const row = page.getByTestId("server-notes");
+  const popupPromise = page.waitForEvent("popup");
+  await row.getByRole("button", { name: "Sign in" }).click();
+  const popup = await popupPromise;
+  await popup.getByRole("link", { name: "Allow access" }).click();
+  await popup.waitForEvent("close");
+  await expect(row).toContainText("Connected");
+
+  await page.getByRole("button", { name: "JSON", exact: true }).click();
+  const json = JSON.parse(await page.getByLabel("Configuration (JSON)").inputValue());
+  expect(json.mcpServers.notes).toEqual({ url: "http://127.0.0.1:9200/mcp" });
+});

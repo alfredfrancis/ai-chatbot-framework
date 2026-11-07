@@ -49,6 +49,9 @@ class Settings:
     sandbox_cpus: str = field(default_factory=lambda: _env("SANDBOX_CPUS", "1"))
     command_timeout: int = field(default_factory=lambda: int(_env("COMMAND_TIMEOUT", "120")))
 
+    # Extra one-click MCP servers for the Connections page (JSON list; see acf/mcp_presets.py).
+    mcp_presets_file: str = field(default_factory=lambda: _env("MCP_PRESETS_FILE"))
+
     # Scheduler
     scheduler_enabled: bool = field(default_factory=lambda: _env("SCHEDULER", "true").lower() == "true")
     scheduler_interval: float = field(default_factory=lambda: float(_env("SCHEDULER_INTERVAL", "20")))

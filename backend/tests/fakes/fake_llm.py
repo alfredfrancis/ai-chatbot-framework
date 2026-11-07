@@ -10,6 +10,7 @@ Rules (applied to the latest user text):
   show messages               -> lists every user message it received (steering/compaction checks)
   summarise the conversation… -> compaction summary
   tool: <name> <json args>    -> calls any tool by name
+  slow: <seconds> <text>      -> waits, then "Echo: <text>" (a model that is still thinking)
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
   anything else               -> "Echo: <text>"
@@ -21,6 +22,7 @@ Run standalone: python -m tests.fakes.fake_llm --port 9100
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import uuid
 from typing import Any
@@ -63,6 +65,9 @@ def decide(
         rest = text[5:].strip()
         name, _, args = rest.partition(" ")
         return {"calls": [(name, json.loads(args or "{}"))], "text": ""}
+    if low.startswith("slow:"):
+        secs, _, rest = text[5:].strip().partition(" ")
+        return {"text": f"Echo: {rest}", "delay": float(secs)}
     if low == "show system":
         return {"text": system}
     if low == "list tools":
@@ -100,6 +105,7 @@ async def messages(request: Request):
     if isinstance(system, list):
         system = " ".join(b.get("text", "") for b in system)
     d = decide(last_user, tool_result, system, [t["name"] for t in body.get("tools", [])], users)
+    await asyncio.sleep(d.get("delay", 0))
     content: list[dict] = [{"type": "thinking", "thinking": "", "signature": "sig-" + uuid.uuid4().hex[:8]}]
     if d.get("text"):
         content.append({"type": "text", "text": d["text"]})
@@ -133,6 +139,7 @@ async def chat_completions(request: Request):
     last_user = " ".join(_texts(last["content"])) if last["role"] == "user" else None
     users = [" ".join(_texts(m["content"])) for m in msgs if m["role"] == "user"]
     d = decide(last_user, tool_result, system, [t["function"]["name"] for t in body.get("tools", [])], users)
+    await asyncio.sleep(d.get("delay", 0))
     message: dict[str, Any] = {"role": "assistant", "content": d.get("text") or None}
     if d.get("calls"):
         message["tool_calls"] = [

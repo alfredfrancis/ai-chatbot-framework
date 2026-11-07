@@ -201,3 +201,70 @@ async def test_delete_server_forgets_oauth_tokens(client, user):
     assert (await client.delete("/api/mcp/servers/notes")).status_code == 200
     with session_scope() as db:
         assert oauth._row(db, user["id"], "notes") is None
+
+
+async def test_presets_catalog_and_add(client, user):
+    presets = (await client.get("/api/mcp/presets")).json()["presets"]
+    by_id = {p["id"]: p for p in presets}
+    assert {"linear", "notion"} <= set(by_id)
+    assert by_id["linear"]["url"] == "https://mcp.linear.app/mcp" and not by_id["linear"]["added"]
+    assert all(p["url"].startswith("https://") and p["name"] and p["description"] for p in presets)
+
+    # keeps whatever the user already configured
+    cfg = {"mcpServers": {"files": {"command": "npx", "args": ["x"]}}}
+    await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})
+    r = await client.post("/api/mcp/presets/notion")
+    assert r.status_code == 200, r.text
+    servers = parse_config(r.json()["config"])
+    assert servers["notion"].url == "https://mcp.notion.com/mcp" and "files" in servers
+    assert (await client.get("/api/mcp/config")).json()["config"] == r.json()["config"]
+    by_id = {p["id"]: p for p in (await client.get("/api/mcp/presets")).json()["presets"]}
+    assert by_id["notion"]["added"] and not by_id["linear"]["added"]
+
+    # adding twice is a no-op; a different server under the same name is a conflict
+    assert (await client.post("/api/mcp/presets/notion")).status_code == 200
+    cfg = {"mcpServers": {"linear": {"url": "https://example.com/other"}}}
+    await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})
+    r = await client.post("/api/mcp/presets/linear")
+    assert r.status_code == 409 and "already" in r.json()["detail"]
+    assert (await client.post("/api/mcp/presets/nope")).status_code == 404
+
+
+async def test_preset_from_file_signs_in(client, user, oauth_mcp_url, tmp_path, monkeypatch):
+    from acf import config
+
+    extra = tmp_path / "presets.json"
+    notes = {"id": "notes", "name": "Notes", "description": "Test notes", "url": f"{oauth_mcp_url}/mcp"}
+    extra.write_text(json.dumps([notes]))
+    monkeypatch.setenv("ACF_MCP_PRESETS_FILE", str(extra))
+    config.reload_settings()
+    try:
+        ids = [p["id"] for p in (await client.get("/api/mcp/presets")).json()["presets"]]
+        assert "notes" in ids and "linear" in ids
+        assert (await client.post("/api/mcp/presets/notes")).status_code == 200
+        servers = (await client.get("/api/mcp/servers")).json()["servers"]
+        assert servers[0]["name"] == "notes" and servers[0]["state"] == "needs_auth"
+        r = await client.post("/api/mcp/servers/notes/oauth/start", json={"redirect_uri": "http://app.local/cb"})
+        assert r.status_code == 200 and "code_challenge" in r.json()["authorize_url"]
+    finally:
+        monkeypatch.delenv("ACF_MCP_PRESETS_FILE")
+        config.reload_settings()
+
+
+def test_bad_presets_file_is_reported(tmp_path, monkeypatch):
+    from acf import config, mcp_presets
+
+    bad = tmp_path / "p.json"
+    bad.write_text('[{"id": "x y", "name": "X", "url": "ftp://x"}]')
+    monkeypatch.setenv("ACF_MCP_PRESETS_FILE", str(bad))
+    config.reload_settings()
+    try:
+        try:
+            mcp_presets.presets()
+        except ValueError as e:
+            assert "x y" in str(e)
+        else:
+            raise AssertionError("expected ValueError")
+    finally:
+        monkeypatch.delenv("ACF_MCP_PRESETS_FILE")
+        config.reload_settings()

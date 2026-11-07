@@ -16,7 +16,8 @@ its own private computer, their files, skills, app connections and scheduled job
   OpenRouter, vLLM, LiteLLM) or any other LangChain chat provider.
 - **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus MCP tools; parallel
   read-only calls; long outputs truncated and saved to a file; context compaction; **steering** (type
-  while the agent works and it picks your message up at the next step); **Stop** at any time.
+  while the agent works; it picks your message up without stopping — right away while it thinks, after
+  the running command otherwise); **Stop** at any time.
 - **One private sandbox per user** – a Docker container with a persistent `/workspace`, resource limits
   and no Linux capabilities. Commands and local MCP servers run there.
 - **Files, not forms** – `context.md` (about you) and `memory.md` (what the agent remembers) are plain
@@ -95,6 +96,7 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_SANDBOX_NETWORK` | `bridge` | `none` cuts sandboxes off from the internet |
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
+| `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
 
 Other LangChain providers need their package installed (`pip install langchain-ollama`, …).
 
@@ -114,6 +116,15 @@ which the form keeps but doesn't edit). The API equivalents are `PUT`/`DELETE /a
     "github":     { "url": "https://api.example.com/mcp", "oauth": { "client_id": "…", "scopes": ["repo"] } }
   }
 }
+```
+
+**Popular apps.** The Connections page lists remote MCP servers that support OAuth dynamic client
+registration — Linear, Notion, Jira & Confluence, Sentry, monday.com, Canva, Intercom, Stripe, Vercel and
+Hugging Face. **Add** writes the entry into your configuration; **Sign in** does the rest, no API key needed.
+To add your own (or override a built-in one by `id`), point `ACF_MCP_PRESETS_FILE` at a JSON file:
+
+```json
+[{ "id": "acme", "name": "Acme", "description": "Tickets and docs", "url": "https://mcp.acme.com/mcp" }]
 ```
 
 ### Skills

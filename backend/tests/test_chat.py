@@ -139,6 +139,22 @@ async def test_steering_message_is_injected(client, user):
     assert roles == ["user", "assistant", "tool", "user", "assistant"]
 
 
+async def test_steering_while_the_model_thinks_restarts_the_call(client, user):
+    chat_id = await new_chat(client)
+    async with acp_connect(client) as acp:
+        started = asyncio.get_running_loop().time()
+        first = asyncio.create_task(prompt(acp, chat_id, "slow: 30 first thought"))
+        await asyncio.sleep(0.5)
+        await prompt(acp, chat_id, "show messages")
+        turn = await first
+    # The 30 s call was dropped; the model answered with both messages, without waiting it out.
+    assert asyncio.get_running_loop().time() - started < 10
+    assert turn.error is None and turn.stop_reason == "end_turn", turn.error
+    assert turn.texts == ["Messages: slow: 30 first thought | show messages"]
+    roles = [m["role"] for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"]]
+    assert roles == ["user", "user", "assistant"]
+
+
 async def test_cancel_stops_and_keeps_history_valid(client, user):
     chat_id = await new_chat(client)
     async with acp_connect(client) as acp:

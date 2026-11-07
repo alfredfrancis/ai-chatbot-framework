@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { api, type McpServer } from "../api";
+import { api, type McpPreset, type McpServer } from "../api";
 import { Topbar, useApp } from "../App";
 import { Toggle } from "../components/Toggle";
 
@@ -231,6 +231,26 @@ function ServerRow({ s, editable, onChange, onEdit, onDelete }: {
   );
 }
 
+function PresetRow({ p, onAdd }: { p: McpPreset; onAdd: (p: McpPreset) => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const add = async () => {
+    setBusy(true);
+    try { await onAdd(p); } finally { setBusy(false); }
+  };
+  return (
+    <div className="lrow" data-testid={`preset-${p.id}`}>
+      <div className="tile" aria-hidden="true">{p.name[0]}</div>
+      <div className="grow">
+        <div className="title">{p.name}</div>
+        <div className="meta">{p.description}</div>
+      </div>
+      {p.added
+        ? <span className="badge success">Added</span>
+        : <button className="btn ghost sm" onClick={add} disabled={busy} aria-label={`Add ${p.name}`}>{busy ? "Adding…" : "Add"}</button>}
+    </div>
+  );
+}
+
 export default function ConnectionsPage() {
   const { refresh: refreshApp } = useApp();
   const [servers, setServers] = useState<McpServer[] | null>(null);
@@ -241,13 +261,17 @@ export default function ConnectionsPage() {
   const [msg, setMsg] = useState("");
   const [view, setView] = useState<"form" | "json">("form");
   const [editing, setEditing] = useState<{ name: string | null; draft: Draft } | null>(null);
+  const [presets, setPresets] = useState<McpPreset[]>([]);
+  const [presetError, setPresetError] = useState("");
 
   const refresh = useCallback(async () => {
     setServers(null);
-    const [c, r] = await Promise.all([
+    const [c, r, p] = await Promise.all([
       api.get<{ config: string }>("/mcp/config"),
       api.get<{ error: string | null; servers: McpServer[] }>("/mcp/servers"),
+      api.get<{ presets: McpPreset[] }>("/mcp/presets"),
     ]);
+    setPresets(p.presets);
     setConfig(c.config);
     setSaved(c.config);
     setListError(r.error ?? "");
@@ -268,6 +292,15 @@ export default function ConnectionsPage() {
       changed();
     } catch (e) {
       setError((e as Error).message);
+    }
+  };
+  const addPreset = async (p: McpPreset) => {
+    setPresetError("");
+    try {
+      await api.post(`/mcp/presets/${encodeURIComponent(p.id)}`, {});
+      changed();
+    } catch (e) {
+      setPresetError((e as Error).message);
     }
   };
   const remove = async (name: string) => {
@@ -330,6 +363,17 @@ export default function ConnectionsPage() {
                 </div>
               )}
             </section>
+
+            {presets.length > 0 && (
+              <section className="stack" aria-labelledby="popular-apps">
+                <div className="row-flex between">
+                  <h2 id="popular-apps">Popular apps</h2>
+                  <span className="hint">Sign in with your account — no API key needed</span>
+                </div>
+                {presetError && <div className="banner" role="alert">{presetError}</div>}
+                <div className="list">{presets.map((p) => <PresetRow key={p.id} p={p} onAdd={addPreset} />)}</div>
+              </section>
+            )}
           </>
         ) : (
           <section className="stack">
