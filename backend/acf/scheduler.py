@@ -46,7 +46,7 @@ async def run_task(task_id: int) -> int | None:
                 return None
             user = db.get(User, task.user_id)
             stamp = datetime.now(ZoneInfo(task.timezone)).strftime("%d %b %H:%M")
-            chat = Chat(user_id=task.user_id, title=f"{task.name} · {stamp}", task_id=task.id)
+            chat = Chat(user_id=task.user_id, title=f"{task.name[:180]} · {stamp}", task_id=task.id)
             db.add(chat)
             task.last_status = "running"
             task.last_run_at = utcnow()

@@ -1,6 +1,6 @@
 # Production: AI Chatbot Framework behind Caddy (automatic HTTPS).
 #
-#   cp .env.example .env      # set ACF_DOMAIN and a model API key
+#   cp .env.example .env      # set ACF_DOMAIN, POSTGRES_PASSWORD and a model API key
 #   docker compose up -d      # pulls published images; add --build to build from source
 #
 # Open https://$ACF_DOMAIN. With ACF_DOMAIN=localhost, Caddy uses its own local certificate.
@@ -18,13 +18,32 @@ services:
     entrypoint: ["true"]
     restart: "no"
 
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: acf
+      POSTGRES_USER: acf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acf -d acf"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    logging: *logging
+
   app:
     image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
     build: .
     depends_on:
       sandbox-image:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
+      ACF_DB_URL: postgresql://acf:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/acf
       ACF_PUBLIC_URL: https://${ACF_DOMAIN:-localhost}
       ACF_COOKIE_SECURE: "true"
       ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-true}
@@ -35,6 +54,7 @@ services:
       ACF_SANDBOX: docker
       ACF_SANDBOX_IMAGE: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
       ACF_SANDBOX_NETWORK: ${ACF_SANDBOX_NETWORK:-bridge}
+      # Workspaces (files) live in the data folder; everything else is in PostgreSQL.
       # Sandboxes are started by the host's Docker, so bind mounts need the data folder's host path.
       ACF_SANDBOX_HOST_DATA_DIR: ${ACF_DATA_PATH:-${PWD}/data}
     volumes:
@@ -69,5 +89,6 @@ services:
     logging: *logging
 
 volumes:
+  postgres-data:
   caddy-data:
   caddy-config:

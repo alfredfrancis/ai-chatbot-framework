@@ -64,10 +64,16 @@ def acf_env(fake_llm_url):
             "ACF_SCHEDULER": "false",
         }
     )
+    # ACF_TEST_DB_URL runs the suite against another database, e.g. PostgreSQL in CI.
+    if os.environ.get("ACF_TEST_DB_URL"):
+        os.environ["ACF_DB_URL"] = os.environ["ACF_TEST_DB_URL"]
     from acf import config, db
 
     config.reload_settings()
     db.init_db()
+    if not config.settings.db_url.startswith("sqlite"):
+        db.Base.metadata.drop_all(db._engine)  # start every run from an empty schema
+        db.Base.metadata.create_all(db._engine)
     yield data
     shutil.rmtree(data, ignore_errors=True)
 

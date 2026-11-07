@@ -7,6 +7,11 @@ PY="${PYTHON:-$ROOT/.venv/bin/python}"
 DATA="${E2E_DATA_DIR:-$ROOT/frontend/test-results/acf-data}"
 rm -rf "$DATA" && mkdir -p "$DATA"
 export ACF_DATA_DIR="$DATA"
+# E2E_DB_URL (e.g. PostgreSQL in CI) is emptied first so every run starts clean; default is SQLite in $DATA.
+if [ -n "${E2E_DB_URL:-}" ]; then
+  export ACF_DB_URL="$E2E_DB_URL"
+  (cd "$ROOT/backend" && "$PY" -c "from acf import db, config; db.init_db(); db.Base.metadata.drop_all(db._engine); db.Base.metadata.create_all(db._engine)")
+fi
 export ACF_FRONTEND_DIST="$ROOT/frontend/dist"
 export ACF_SANDBOX="${E2E_SANDBOX:-local}"
 export ACF_SANDBOX_IMAGE="${E2E_SANDBOX_IMAGE:-python:3.12-alpine}"

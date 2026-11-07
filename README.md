@@ -44,15 +44,16 @@ On a server with Docker and a domain pointing at it:
 
 ```sh
 git clone https://github.com/alfredfrancis/ai-chatbot-framework.git && cd ai-chatbot-framework
-cp .env.example .env        # set ACF_DOMAIN and ANTHROPIC_API_KEY (or another model)
+cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD and ANTHROPIC_API_KEY (or another model)
 docker compose up -d        # or: make up
 ```
 
 Open `https://<ACF_DOMAIN>` and create the first account, then set `ACF_ALLOW_SIGNUP=false`.
 [Caddy](https://caddyserver.com) gets and renews the HTTPS certificate; ports 80 and 443 must be open.
 The stack pulls the published images (`ACF_REGISTRY`/`ACF_VERSION` in `.env`); to build from source
-instead (needed until the first release publishes images), run `docker compose up -d --build`. Data (database and workspaces) lives in `./data`, or
-`ACF_DATA_PATH`. Logs are rotated and the app has a health check.
+instead (needed until the first release publishes images), run `docker compose up -d --build`. The
+database is PostgreSQL in its own container (volume `postgres-data`); workspaces live in `./data`, or
+`ACF_DATA_PATH`. Back up both. Logs are rotated and the app has a health check.
 
 The app mounts the Docker socket to start one sandbox container per user. Whoever controls the Docker
 socket controls the host, so run it on a machine dedicated to it.
@@ -63,7 +64,8 @@ socket controls the host, so run it on a machine dedicated to it.
 docker compose -f docker-compose.dev.yml up --build   # or: make up-dev
 ```
 
-Web app on http://localhost:5173, API on :8000, both reloading when you save. Agents run in real
+Web app on http://localhost:5173, API on :8000, both reloading when you save. PostgreSQL is on
+:5432 (`postgresql://acf:acf@localhost:5432/acf`). Agents run in real
 sandboxes, and a scripted fake model answers so no API key is needed (try `run: ls`, `show system`).
 To use a real model: `ACF_LLM_BASE_URL= ANTHROPIC_API_KEY=sk-ant-... make up-dev`.
 Without Docker, `make setup && make dev` runs the same thing on your machine.
@@ -80,7 +82,8 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_LLM_BASE_URL` | provider default | e.g. `http://localhost:11434/v1` with `openai` for Ollama |
 | `ACF_MAX_AGENT_STEPS` | `40` | Model calls per message |
 | `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
-| `ACF_DATA_DIR` | `./data` | Database and workspaces |
+| `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
+| `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |
 | `ACF_ALLOW_SIGNUP` | `true` | Set `false` after creating accounts |
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
 | `ACF_SANDBOX` | `docker` | `docker`, or `local` for development (**not isolated**) |
@@ -144,10 +147,11 @@ Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architectur
 ## Known limitations
 
 - Replies arrive per step, not token by token.
-- API keys and OAuth tokens are stored unencrypted in SQLite. Protect the data folder.
+- API keys and OAuth tokens are stored unencrypted in the database. Protect it and its backups.
+- No schema migrations yet: tables are created at startup. A future schema change will need Alembic.
 - Sandboxes run as root inside the container (no capabilities, `no-new-privileges`). For stronger
   isolation use gVisor (`--runtime=runsc`) on the Docker host.
-- One process: the scheduler and running agents live in it, so don't run replicas against one database.
+- One app process: the scheduler and running agents live in it, so don't run several replicas.
 
 ## License
 

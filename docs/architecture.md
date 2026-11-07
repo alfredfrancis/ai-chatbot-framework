@@ -2,7 +2,7 @@
 
 ```
 Browser (React)  ──/api (JSON, SSE)──▶  FastAPI (acf)
-                                         ├── SQLite: users, chats, messages, tasks, OAuth tokens
+                                         ├── PostgreSQL (SQLite for quick local runs): users, chats, messages, tasks, OAuth tokens
                                          ├── Agent runs (one per chat) ── LangChain chat model
                                          ├── Scheduler loop
                                          ├── Remote MCP servers (Streamable HTTP + OAuth)

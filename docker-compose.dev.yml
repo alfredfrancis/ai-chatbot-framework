@@ -14,6 +14,21 @@ services:
     entrypoint: ["true"]
     restart: "no"
 
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: acf
+      POSTGRES_USER: acf
+      POSTGRES_PASSWORD: acf
+    ports: ["5432:5432"] # for psql or a GUI: postgresql://acf:acf@localhost:5432/acf
+    volumes:
+      - postgres-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acf -d acf"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   fake-llm:
     build: { context: ., dockerfile: backend/Dockerfile.dev }
     image: acf-api:dev
@@ -29,9 +44,12 @@ services:
         condition: service_completed_successfully
       fake-llm:
         condition: service_started
+      postgres:
+        condition: service_healthy
     ports: ["8000:8000"]
     environment:
       ACF_DATA_DIR: /data
+      ACF_DB_URL: postgresql://acf:acf@postgres:5432/acf
       ACF_LLM_PROVIDER: ${ACF_LLM_PROVIDER:-anthropic}
       ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
       # Unset = the fake model. Set it to empty (ACF_LLM_BASE_URL=) to use the provider's real API.
@@ -61,3 +79,6 @@ services:
       - ./frontend/index.html:/web/frontend/index.html
       - ./frontend/vite.config.ts:/web/frontend/vite.config.ts
       - ./design:/web/design
+
+volumes:
+  postgres-dev:

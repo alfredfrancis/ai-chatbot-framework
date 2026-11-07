@@ -15,7 +15,7 @@ recurring tasks. Design of the agent loop: [docs/architecture.md](docs/architect
 backend/acf/
   main.py            FastAPI app; serves /api and the built web app
   config.py          ACF_* settings — always read as `config.settings` (tests reload it)
-  db.py              SQLAlchemy models (SQLite) + session helpers
+  db.py              SQLAlchemy models + session helpers (PostgreSQL in Docker, SQLite by default)
   auth.py            email/password (scrypt), cookie sessions
   llm.py             LangChain init_chat_model, friendly errors, token estimate
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
@@ -80,7 +80,9 @@ make lint         # ruff + tsc
 ## Gotchas
 
 - Docker deployments need `ACF_SANDBOX_HOST_DATA_DIR` (bind mounts use host paths).
-- SQLite (WAL): keep DB sessions short; never hold one across an `await` on the model.
+- Keep DB sessions short; never hold one across an `await` on the model. PostgreSQL enforces column
+  lengths (SQLite doesn't): bound user input in the API models and run tests on both
+  (`ACF_TEST_DB_URL=postgresql://… make test`; CI runs both).
 - Thinking blocks are bound to their prefix: only compaction may drop them, and only for messages
   before the cut.
 - The E2E Playwright version is pinned to the preinstalled browser build (1.63.0).

@@ -236,3 +236,10 @@ async def test_llm_error_is_friendly(client, user):
     chat_id = await new_chat(client)
     err = next(e for e in await send(client, chat_id, "hi") if e["type"] == "error")
     assert "Could not reach the model" in err["error"]
+
+
+async def test_long_unknown_tool_name_is_stored(client, user):
+    chat_id = await new_chat(client)
+    events = await send(client, chat_id, "tool: " + "t" * 300 + " {}")
+    tool = msgs(events, "tool")[0]
+    assert tool["is_error"] and "Unknown tool" in tool["content"]

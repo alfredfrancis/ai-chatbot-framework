@@ -30,10 +30,10 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     # Per-user LLM settings; empty values fall back to server defaults.
-    llm_provider: Mapped[str] = mapped_column(String(40), default="")
-    llm_model: Mapped[str] = mapped_column(String(200), default="")
-    llm_base_url: Mapped[str] = mapped_column(String(500), default="")
-    llm_api_key: Mapped[str] = mapped_column(String(500), default="")
+    llm_provider: Mapped[str] = mapped_column(String(64), default="")
+    llm_model: Mapped[str] = mapped_column(Text, default="")
+    llm_base_url: Mapped[str] = mapped_column(Text, default="")
+    llm_api_key: Mapped[str] = mapped_column(Text, default="")
     mcp_config: Mapped[str] = mapped_column(Text, default='{\n  "mcpServers": {}\n}\n')
 
 
@@ -69,8 +69,8 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(20))  # user | assistant | tool | summary
     content: Mapped[str] = mapped_column(Text, default="")
     tool_calls: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
-    tool_call_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    tool_call_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    name: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_error: Mapped[bool] = mapped_column(Boolean, default=False)
     raw: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -112,7 +112,7 @@ class OAuthToken(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     server_name: Mapped[str] = mapped_column(String(200))
-    server_url: Mapped[str] = mapped_column(String(1000))
+    server_url: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")  # authorization server metadata
     client_json: Mapped[str] = mapped_column(Text, default="{}")  # registered client info
     tokens_json: Mapped[str] = mapped_column(Text, default="{}")
@@ -131,12 +131,25 @@ _engine = None
 _SessionLocal: sessionmaker[Session] | None = None
 
 
+def normalize_url(url: str) -> str:
+    """Accept plain postgres:// / postgresql:// URLs and use the psycopg 3 driver for them."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix) :]
+    return url
+
+
 def init_db() -> None:
+    """Connect and create missing tables. PostgreSQL in Docker deployments; SQLite for quick local runs."""
     global _engine, _SessionLocal
-    url = config.settings.db_url
+    url = normalize_url(config.settings.db_url)
     kwargs: dict[str, Any] = {}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
+    else:
+        kwargs.update(pool_pre_ping=True, pool_size=10, max_overflow=20)
+    if _engine is not None:
+        _engine.dispose()
     _engine = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
 

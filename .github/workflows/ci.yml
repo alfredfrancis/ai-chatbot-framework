@@ -8,6 +8,21 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [postgres, sqlite]
+    name: backend (${{ matrix.db }})
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: acf
+          POSTGRES_USER: acf
+          POSTGRES_PASSWORD: acf
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U acf -d acf" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,16 +33,29 @@ jobs:
       - name: Install
         run: pip install -e "backend[dev]"
       - name: Lint
+        if: matrix.db == 'sqlite'
         working-directory: backend
         run: |
           ruff check --output-format=github .
           ruff format --check .
       - name: Test (includes Docker sandbox tests)
         working-directory: backend
+        env:
+          ACF_TEST_DB_URL: ${{ matrix.db == 'postgres' && 'postgresql://acf:acf@127.0.0.1:5432/acf' || '' }}
         run: pytest -q
 
   e2e:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: acf
+          POSTGRES_USER: acf
+          POSTGRES_PASSWORD: acf
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U acf -d acf" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -57,6 +85,7 @@ jobs:
           CI: "true"
           PYTHON: python
           E2E_SANDBOX: docker
+          E2E_DB_URL: postgresql://acf:acf@127.0.0.1:5432/acf
         run: npm run e2e
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -70,7 +99,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate compose files
         run: |
-          docker compose config -q
+          POSTGRES_PASSWORD=ci docker compose config -q
           docker compose -f docker-compose.dev.yml config -q
       - name: Build sandbox image
         run: docker build -t acf-sandbox:latest sandbox

@@ -87,3 +87,15 @@ async def test_task_chat_reports_running_while_in_progress(client, user):
             break
         await asyncio.sleep(0.1)
     assert chat["messages"][-1]["content"].startswith("Result: slow-done")
+
+
+async def test_long_task_name_fits_the_chat_title(client, user):
+    """Chat titles are limited in the database (PostgreSQL enforces it); long task names are cut."""
+    name = "N" * 200
+    task = (await client.post("/api/tasks", json={"name": name, "prompt": "hi", "schedule": "0 * * * *"})).json()
+    r = await client.post(f"/api/tasks/{task['id']}/run")
+    assert r.status_code == 200
+    chat = (await client.get(f"/api/chats/{r.json()['chat_id']}")).json()
+    assert chat["title"].startswith("N" * 180 + " · ") and len(chat["title"]) <= 200
+    too_long = await client.post("/api/tasks", json={"name": "x" * 201, "prompt": "hi", "schedule": "0 * * * *"})
+    assert too_long.status_code == 422

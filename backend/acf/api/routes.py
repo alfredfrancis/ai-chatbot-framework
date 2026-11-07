@@ -39,7 +39,7 @@ def _iso(dt) -> str | None:
 class Credentials(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=8, max_length=200)
-    name: str = ""
+    name: str = Field("", max_length=200)
 
 
 def _user_dict(u: User) -> dict[str, Any]:
@@ -437,16 +437,16 @@ async def oauth_callback(body: OAuthCallbackIn, user: User = Depends(current_use
 class TaskIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     prompt: str = Field(min_length=1, max_length=20_000)
-    schedule: str
-    timezone: str = "UTC"
+    schedule: str = Field(max_length=100)
+    timezone: str = Field("UTC", max_length=64)
     enabled: bool = True
 
 
 class TaskPatch(BaseModel):
-    name: str | None = None
-    prompt: str | None = None
-    schedule: str | None = None
-    timezone: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=200)
+    prompt: str | None = Field(None, min_length=1, max_length=20_000)
+    schedule: str | None = Field(None, max_length=100)
+    timezone: str | None = Field(None, max_length=64)
     enabled: bool | None = None
 
 
