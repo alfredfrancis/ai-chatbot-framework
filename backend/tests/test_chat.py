@@ -1,25 +1,22 @@
 import asyncio
-import json
 
 import httpx
 
 from acf import config, workspace
-from tests.conftest import send
+from tests.acp_client import acp_connect
+from tests.conftest import prompt, send
 
 
 async def new_chat(client) -> int:
     return (await client.post("/api/chats", json={})).json()["id"]
 
 
-def msgs(events, role):
-    return [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == role]
-
-
 async def test_plain_reply_and_history(client, user):
     chat_id = await new_chat(client)
-    events = await send(client, chat_id, "hello there")
-    assert events[-1]["type"] == "done"
-    assert msgs(events, "assistant")[-1]["content"] == "Echo: hello there"
+    turn = await send(client, chat_id, "hello there")
+    assert turn.stop_reason == "end_turn"
+    assert turn.final == "Echo: hello there"
+    assert turn.of("session_info_update")[0]["title"] == "hello there"
     chat = (await client.get(f"/api/chats/{chat_id}")).json()
     assert chat["title"] == "hello there" and not chat["running"]
     assert [m["role"] for m in chat["messages"]] == ["user", "assistant"]
@@ -27,18 +24,21 @@ async def test_plain_reply_and_history(client, user):
 
 async def test_bash_tool_and_duration(client, user):
     chat_id = await new_chat(client)
-    events = await send(client, chat_id, "run: echo $((6*7))")
-    start = next(e for e in events if e["type"] == "tool_start")
-    assert start["name"] == "bash" and start["label"] == "echo $((6*7))"
-    tool = msgs(events, "tool")[0]
-    assert "42" in tool["content"] and not tool["is_error"] and tool["duration_ms"] is not None
-    assert msgs(events, "assistant")[-1]["content"].startswith("Result: 42")
+    turn = await send(client, chat_id, "run: echo $((6*7))")
+    call = turn.of("tool_call")[0]
+    assert call["title"] == "Ran echo $((6*7))" and call["kind"] == "execute" and call["status"] == "pending"
+    assert call["rawInput"] == {"command": "echo $((6*7))"} and call["_meta"]["acf"]["tool"] == "bash"
+    statuses = [u["status"] for u in turn.of("tool_call_update") if u["toolCallId"] == call["toolCallId"]]
+    assert statuses == ["in_progress", "completed"]
+    tool = turn.results[0]
+    assert "42" in tool["text"] and tool["status"] == "completed" and tool["durationMs"] is not None
+    assert turn.final.startswith("Result: 42")
 
 
 async def test_failed_command_is_an_error_result(client, user):
     chat_id = await new_chat(client)
-    tool = msgs(await send(client, chat_id, "run: exit 3"), "tool")[0]
-    assert tool["is_error"] and "exit code 3" in tool["content"]
+    tool = (await send(client, chat_id, "run: exit 3")).results[0]
+    assert tool["status"] == "failed" and "exit code 3" in tool["text"]
 
 
 async def test_write_read_edit(client, user):
@@ -48,12 +48,13 @@ async def test_write_read_edit(client, user):
     assert (ws / "notes/todo.md").read_text() == "buy flour"
     await send(client, chat_id, "edit: notes/todo.md | flour | butter")
     assert (ws / "notes/todo.md").read_text() == "buy butter"
-    tool = msgs(await send(client, chat_id, "edit: notes/todo.md | sugar | salt"), "tool")[0]
-    assert tool["is_error"] and "not found" in tool["content"]
-    tool = msgs(await send(client, chat_id, "read: notes/todo.md"), "tool")[0]
-    assert tool["content"].strip() == "1\tbuy butter"
-    tool = msgs(await send(client, chat_id, "read: ../../etc/passwd"), "tool")[0]
-    assert tool["is_error"] and "outside the workspace" in tool["content"]
+    tool = (await send(client, chat_id, "edit: notes/todo.md | sugar | salt")).results[0]
+    assert tool["status"] == "failed" and "not found" in tool["text"]
+    turn = await send(client, chat_id, "read: notes/todo.md")
+    assert turn.of("tool_call")[0]["locations"] == [{"path": "/workspace/notes/todo.md"}]
+    assert turn.results[0]["text"].strip() == "1\tbuy butter"
+    tool = (await send(client, chat_id, "read: ../../etc/passwd")).results[0]
+    assert tool["status"] == "failed" and "outside the workspace" in tool["text"]
 
 
 async def test_parallel_read_only_calls(client, user):
@@ -61,8 +62,8 @@ async def test_parallel_read_only_calls(client, user):
     (ws / "a.md").write_text("alpha")
     (ws / "b.md").write_text("beta")
     chat_id = await new_chat(client)
-    events = await send(client, chat_id, "read: a.md b.md")
-    assert {m["content"].split("\t")[1] for m in msgs(events, "tool")} == {"alpha", "beta"}
+    turn = await send(client, chat_id, "read: a.md b.md")
+    assert {r["text"].split("\t")[1] for r in turn.results} == {"alpha", "beta"}
 
 
 async def test_read_only_tools_run_concurrently_writes_in_order(user):
@@ -98,18 +99,18 @@ async def test_read_only_tools_run_concurrently_writes_in_order(user):
 
 async def test_large_output_is_truncated_and_spilled(client, user):
     chat_id = await new_chat(client)
-    tool = msgs(await send(client, chat_id, "run: python3 -c \"print('x' * 100000)\""), "tool")[0]
-    assert "characters omitted" in tool["content"] and len(tool["content"]) < 35_000
-    spill = tool["content"].split("saved to ")[1].split(";")[0]
+    tool = (await send(client, chat_id, "run: python3 -c \"print('x' * 100000)\"")).results[0]
+    assert "characters omitted" in tool["text"] and len(tool["text"]) < 35_000
+    spill = tool["text"].split("saved to ")[1].split(";")[0]
     assert len(workspace.read_file(user["id"], spill)) > 100_000
 
 
 async def test_unknown_tool_is_recoverable(client, user):
     chat_id = await new_chat(client)
-    events = await send(client, chat_id, "tool: teleport {}")
-    tool = msgs(events, "tool")[0]
-    assert tool["is_error"] and "Unknown tool teleport" in tool["content"]
-    assert events[-1]["type"] == "done"
+    turn = await send(client, chat_id, "tool: teleport {}")
+    tool = turn.results[0]
+    assert tool["status"] == "failed" and "Unknown tool teleport" in tool["text"]
+    assert turn.stop_reason == "end_turn"
 
 
 async def test_memory_and_context_reach_the_prompt(client, user):
@@ -117,90 +118,80 @@ async def test_memory_and_context_reach_the_prompt(client, user):
     await send(client, chat_id, "remember: my cat is called Miso")
     assert "- my cat is called Miso" in workspace.read_file(user["id"], "memory.md")
     await send(client, chat_id, "write: context.md | I run a bakery in Porto.")
-    system = msgs(await send(client, chat_id, "show system"), "assistant")[-1]["content"]
+    system = (await send(client, chat_id, "show system")).final
     assert "I run a bakery in Porto." in system and "my cat is called Miso" in system
     assert "skill-creator:" in system  # skills index
 
 
 async def test_steering_message_is_injected(client, user):
     chat_id = await new_chat(client)
-
-    async def later():
-        # Wait until the tool is running (the model has answered with the call), then steer.
-        for _ in range(200):
-            chat = (await client.get(f"/api/chats/{chat_id}")).json()
-            if any(m["role"] == "assistant" for m in chat["messages"]):
-                break
-            await asyncio.sleep(0.05)
-        r = await client.post(f"/api/chats/{chat_id}/messages", json={"content": "show messages"})
-        assert r.status_code == 202 and r.json() == {"queued": True}
-
-    task = asyncio.create_task(later())
-    events = await send(client, chat_id, "run: sleep 1.5; echo slow")
-    await task
-    assert any(e["type"] == "queued" and e["text"] == "show messages" for e in events)
-    final = msgs(events, "assistant")[-1]["content"]
+    async with acp_connect(client) as acp:
+        first = asyncio.create_task(prompt(acp, chat_id, "run: sleep 1.5; echo slow"))
+        await acp.wait_for(lambda n: n.get("params", {}).get("update", {}).get("status") == "in_progress")
+        steer = await prompt(acp, chat_id, "show messages")  # returns when the whole run ends
+        turn = await first
+    assert turn.stop_reason == steer.stop_reason == "end_turn"
+    # The steering message is echoed when the agent reads it; the starting prompt is not echoed to its sender.
+    assert [u["content"]["text"] for u in turn.of("user_message_chunk")] == ["show messages"]
     # The model saw both messages in one run, the steering one after the tool result.
-    assert final == "Messages: run: sleep 1.5; echo slow | show messages"
+    assert turn.final == "Messages: run: sleep 1.5; echo slow | show messages"
     roles = [m["role"] for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"]]
     assert roles == ["user", "assistant", "tool", "user", "assistant"]
 
 
 async def test_steering_while_the_model_thinks_restarts_the_call(client, user):
     chat_id = await new_chat(client)
-
-    async def later():
+    async with acp_connect(client) as acp:
+        started = asyncio.get_running_loop().time()
+        first = asyncio.create_task(prompt(acp, chat_id, "slow: 30 first thought"))
         await asyncio.sleep(0.5)
-        r = await client.post(f"/api/chats/{chat_id}/messages", json={"content": "show messages"})
-        assert r.status_code == 202
-
-    task = asyncio.create_task(later())
-    started = asyncio.get_running_loop().time()
-    events = await send(client, chat_id, "slow: 30 first thought")
-    await task
+        await prompt(acp, chat_id, "show messages")
+        turn = await first
     # The 30 s call was dropped; the model answered with both messages, without waiting it out.
     assert asyncio.get_running_loop().time() - started < 10
-    assert [m["content"] for m in msgs(events, "assistant")] == ["Messages: slow: 30 first thought | show messages"]
+    assert turn.error is None and turn.stop_reason == "end_turn", turn.error
+    assert turn.texts == ["Messages: slow: 30 first thought | show messages"]
     roles = [m["role"] for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"]]
     assert roles == ["user", "user", "assistant"]
 
 
-async def test_stop_cancels_and_keeps_history_valid(client, user):
+async def test_cancel_stops_and_keeps_history_valid(client, user):
     chat_id = await new_chat(client)
-
-    async def stop_soon():
-        await asyncio.sleep(0.8)
-        assert (await client.post(f"/api/chats/{chat_id}/stop")).json() == {"stopped": True}
-
-    task = asyncio.create_task(stop_soon())
-    events = await send(client, chat_id, "run: sleep 20")
-    await task
-    assert any(e["type"] == "stopped" for e in events)
+    async with acp_connect(client) as acp:
+        task = asyncio.create_task(prompt(acp, chat_id, "run: sleep 20"))
+        await acp.wait_for(lambda n: n.get("params", {}).get("update", {}).get("status") == "in_progress")
+        await acp.notify("session/cancel", {"sessionId": str(chat_id)})
+        turn = await asyncio.wait_for(task, 10)
+    assert turn.stop_reason == "cancelled"
     chat = (await client.get(f"/api/chats/{chat_id}")).json()
     tool = [m for m in chat["messages"] if m["role"] == "tool"][0]
     assert tool["is_error"] and "Stopped" in tool["content"]
     # the chat keeps working afterwards
-    assert msgs(await send(client, chat_id, "hi again"), "assistant")[-1]["content"] == "Echo: hi again"
+    assert (await send(client, chat_id, "hi again")).final == "Echo: hi again"
 
 
-async def test_attach_to_running_chat(client, user):
+async def test_load_replays_history_then_follows_a_running_agent(client, user):
     chat_id = await new_chat(client)
-    collected = []
-
-    async def sender():
-        collected.extend(await send(client, chat_id, "run: sleep 1; echo attached"))
-
-    t = asyncio.create_task(sender())
-    await asyncio.sleep(0.4)
-    events = []
-    async with client.stream("GET", f"/api/chats/{chat_id}/stream") as r:
-        async for line in r.aiter_lines():
-            if line.startswith("data: "):
-                events.append(json.loads(line[6:]))
-    await t
-    assert events[0]["type"] == "message" and events[0]["message"]["role"] == "user"  # replayed
-    assert msgs(events, "assistant")[-1]["content"].startswith("Result: attached")
-    assert (await client.get(f"/api/chats/{chat_id}/stream")).json() == {"running": False}
+    sid = str(chat_id)
+    await send(client, chat_id, "run: echo first")
+    async with acp_connect(client) as sender:
+        running = asyncio.create_task(prompt(sender, chat_id, "run: sleep 1; echo attached"))
+        await sender.wait_for(lambda n: n.get("params", {}).get("update", {}).get("status") == "in_progress")
+        async with acp_connect(client) as watcher:
+            loaded = await watcher.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+            assert loaded["_meta"]["acf"]["running"] is True
+            end = await watcher.wait_for(lambda n: n["method"] == "_acf/turn_end")
+            assert end["params"] == {"sessionId": sid, "stopReason": "end_turn"}
+            kinds = [u["sessionUpdate"] for u in watcher.updates(sid)]
+            texts = [u["content"]["text"] for u in watcher.updates(sid) if "content" in u and "text" in u["content"]]
+        await running
+    # replayed: the first exchange and the running prompt; then live: the tool result and the answer
+    assert texts[0] == "run: echo first" and texts.count("run: sleep 1; echo attached") == 1
+    assert texts[-1].startswith("Result: attached")
+    assert kinds.count("tool_call") == 2  # no duplicates between the replay and the live updates
+    async with acp_connect(client) as acp:
+        loaded = await acp.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+    assert loaded["_meta"]["acf"]["running"] is False
 
 
 async def test_compaction_summarises_old_messages(client, user, fake_llm_url):
@@ -210,9 +201,9 @@ async def test_compaction_summarises_old_messages(client, user, fake_llm_url):
         chat_id = await new_chat(client)
         for i in range(3):
             await send(client, chat_id, f"message number {i} " + "padding " * 60)
-        events = await send(client, chat_id, "show messages")
-        assert any(e["type"] == "notice" and "Summarised" in e["text"] for e in events)
-        final = msgs(events, "assistant")[-1]["content"]
+        turn = await send(client, chat_id, "show messages")
+        assert any("Summarised" in n for n in turn.notices)
+        final = turn.final
         assert final.startswith("Messages: <summary of the earlier conversation>\nSUMMARY of")
         assert "message number 0" in final  # carried by the summary
     finally:
@@ -251,19 +242,17 @@ async def test_openai_compatible_provider(client, user, fake_llm_url):
     )
     assert r.status_code == 200 and r.json()["has_api_key"]
     chat_id = await new_chat(client)
-    final = msgs(await send(client, chat_id, "run: echo openai-ok"), "assistant")[-1]
-    assert "openai-ok" in final["content"]
+    assert "openai-ok" in (await send(client, chat_id, "run: echo openai-ok")).final
 
 
 async def test_llm_error_is_friendly(client, user):
     await client.put("/api/settings", json={"provider": "openai", "model": "m", "base_url": "http://127.0.0.1:1/v1"})
     chat_id = await new_chat(client)
-    err = next(e for e in await send(client, chat_id, "hi") if e["type"] == "error")
-    assert "Could not reach the model" in err["error"]
+    turn = await send(client, chat_id, "hi")
+    assert turn.stop_reason is None and "Could not reach the model" in turn.error
 
 
 async def test_long_unknown_tool_name_is_stored(client, user):
     chat_id = await new_chat(client)
-    events = await send(client, chat_id, "tool: " + "t" * 300 + " {}")
-    tool = msgs(events, "tool")[0]
-    assert tool["is_error"] and "Unknown tool" in tool["content"]
+    tool = (await send(client, chat_id, "tool: " + "t" * 300 + " {}")).results[0]
+    assert tool["status"] == "failed" and "Unknown tool" in tool["text"]

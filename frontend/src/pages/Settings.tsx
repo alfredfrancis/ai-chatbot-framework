@@ -3,6 +3,69 @@ import { api, type Settings } from "../api";
 import { Topbar } from "../App";
 
 type SandboxStatus = { kind: string; state: string; name?: string; image?: string };
+type AcpToken = { hint: string; created_at: string; last_used_at: string | null };
+type AcpTokenState = { token: AcpToken | null; endpoint: string; value?: string };
+
+const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+/** The optional access token that lets other apps use this agent over the Agent Client Protocol. */
+function ExternalApps() {
+  const [state, setState] = useState<AcpTokenState | null>(null);
+  const [value, setValue] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { api.get<AcpTokenState>("/acp/token").then(setState).catch(() => {}); }, []);
+  if (!state) return null;
+  const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${state.endpoint}`;
+  const create = async () => {
+    if (state.token && !confirm("Replace the access token? Apps using the current one are disconnected.")) return;
+    const r = await api.post<AcpTokenState>("/acp/token");
+    setState(r);
+    setValue(r.value ?? "");
+    setCopied(false);
+  };
+  const revoke = async () => {
+    if (!confirm("Turn off access for other apps? Apps using the token are disconnected.")) return;
+    setState(await api.del<AcpTokenState>("/acp/token"));
+    setValue("");
+  };
+  const copy = async () => { await navigator.clipboard?.writeText(value).catch(() => {}); setCopied(true); };
+  return (
+    <section className="stack" aria-labelledby="external-apps">
+      <div>
+        <h2 id="external-apps">External apps</h2>
+        <p className="lead">Use your agent from other apps, such as code editors, that speak the Agent Client Protocol (ACP). Off until you create a token.</p>
+      </div>
+      <div className="card">
+        <div className="field">
+          <label htmlFor="acp-url">ACP address</label>
+          <input id="acp-url" className="input mono" readOnly value={url} onFocus={(e) => e.target.select()} />
+          <span className="hint">Apps send the token as <code>Authorization: Bearer …</code>. Apps that start an agent as a program can run <code>python -m acf.acp_bridge --url {url}</code> with the token in <code>ACF_ACP_TOKEN</code>.</span>
+        </div>
+        {value && (
+          <div className="field">
+            <label htmlFor="acp-token">New access token</label>
+            <div className="row-flex">
+              <input id="acp-token" className="input mono" readOnly value={value} onFocus={(e) => e.target.select()} />
+              <button type="button" className="btn" onClick={copy}>{copied ? "Copied" : "Copy"}</button>
+            </div>
+            <span className="hint" role="status">Copy it now. It won't be shown again.</span>
+          </div>
+        )}
+        <div className="row-flex between wrap">
+          <span className="hint" data-testid="acp-token-status">
+            {state.token
+              ? `Token ending in ${state.token.hint} · created ${when(state.token.created_at)} · ${state.token.last_used_at ? `last used ${when(state.token.last_used_at)}` : "not used yet"}`
+              : "No token. Other apps can't connect."}
+          </span>
+          <span className="row-flex">
+            {state.token && <button type="button" className="btn danger sm" onClick={revoke}>Revoke token</button>}
+            <button type="button" className={`btn ${state.token ? "sm" : "primary"}`} onClick={create}>{state.token ? "Replace token" : "Create access token"}</button>
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 const PROVIDERS = [
   { value: "", label: "Server default" },
@@ -107,6 +170,8 @@ export default function SettingsPage() {
             <button className="btn primary" type="submit">Save</button>
           </div>
         </form>
+
+        <ExternalApps />
 
         <section className="stack">
           <h2>Sandbox</h2>

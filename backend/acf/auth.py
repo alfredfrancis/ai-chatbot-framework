@@ -10,7 +10,7 @@ from datetime import timedelta
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from acf.db import AuthSession, User, get_db, utcnow
+from acf.db import AcpToken, AuthSession, User, get_db, utcnow
 
 COOKIE = "acf_session"
 SESSION_DAYS = 30
@@ -53,6 +53,37 @@ def delete_session(db: Session, token: str) -> None:
         db.delete(row)
 
 
+def user_for_session(db: Session, token: str) -> User | None:
+    row = db.get(AuthSession, _token_hash(token))
+    if not row or row.expires_at < utcnow():
+        return None
+    return db.get(User, row.user_id)
+
+
+ACP_PREFIX = "acp_"
+
+
+def create_acp_token(db: Session, user: User) -> str:
+    """(Re)issue the user's ACP access token. The previous one stops working."""
+    token = ACP_PREFIX + secrets.token_urlsafe(32)
+    row = db.get(AcpToken, user.id)
+    if row:
+        db.delete(row)
+        db.flush()
+    db.add(AcpToken(user_id=user.id, token_hash=_token_hash(token), hint=token[-4:]))
+    return token
+
+
+def user_for_acp_token(db: Session, token: str) -> User | None:
+    if not token.startswith(ACP_PREFIX):
+        return None
+    row = db.query(AcpToken).filter_by(token_hash=_token_hash(token)).first()
+    if not row:
+        return None
+    row.last_used_at = utcnow()
+    return db.get(User, row.user_id)
+
+
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     token = request.cookies.get(COOKIE)
     if not token:
@@ -61,10 +92,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
             token = auth[7:]
     if not token:
         raise HTTPException(401, "Not signed in")
-    row = db.get(AuthSession, _token_hash(token))
-    if not row or row.expires_at < utcnow():
-        raise HTTPException(401, "Session expired")
-    user = db.get(User, row.user_id)
+    user = user_for_session(db, token)
     if not user:
-        raise HTTPException(401, "Not signed in")
+        raise HTTPException(401, "Session expired")
     return user

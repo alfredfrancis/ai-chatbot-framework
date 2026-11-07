@@ -41,10 +41,7 @@ async def test_upload_zip_skill_and_agent_sees_it(client, user):
     assert not (ws / "skills/charts/__MACOSX").exists()
 
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "show system")
-    system = [
-        e["message"]["content"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"
-    ][-1]
+    system = (await send(client, chat_id, "show system")).final
     assert "- charts: Make bar charts from CSV files. Use when asked for a chart. (skills/charts/SKILL.md)" in system
 
     assert (await client.delete("/api/skills/charts")).status_code == 200

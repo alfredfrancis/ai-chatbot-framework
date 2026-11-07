@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { api, attachStream, sendMessage, type AgentEvent, type Chat, type Message, type ToolCall } from "../api";
+import { acp, cancel, loadSession, newSession, prompt, type AcpNotification, type SessionUpdate, type ToolStatus } from "../acp";
+import { api, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
 import { IconArrowUp, IconCheck, IconClock, IconDrawer, IconSpark, IconTrash, IconX, Keys, Mark } from "../components/icons";
 
@@ -15,9 +16,55 @@ const TRY: { icon: ReactNode; text: string; prompt: string }[] = [
   { icon: <IconSpark />, text: "Turn how I write my weekly update into a skill", prompt: "Make a skill for writing my weekly status update." },
 ];
 
+/** A tool call as the chat knows it from ACP tool_call / tool_call_update notifications. */
+type ToolCall = { id: string; title: string; tool?: string; input: Record<string, unknown>; status: ToolStatus; output?: string; durationMs?: number | null };
+type Entry =
+  | { kind: "user"; key: string; text: string; messageId?: number }
+  | { kind: "text"; key: string; text: string; messageId?: number }
+  | { kind: "tool"; key: string; call: ToolCall }
+  | { kind: "notice"; key: string; text: string };
+
+let keySeq = 0;
+const nextKey = () => `e${keySeq++}`;
+const textOf = (c: unknown) => (c && typeof c === "object" && (c as { type?: string }).type === "text" ? String((c as { text?: unknown }).text ?? "") : "");
+
+/** Apply one ACP session update to the chat's entries. Replays and live updates go through the same path. */
+function reduce(entries: Entry[], u: SessionUpdate): Entry[] {
+  const messageId = u._meta?.acf?.messageId;
+  switch (u.sessionUpdate) {
+    case "user_message_chunk":
+    case "agent_message_chunk": {
+      const kind = u.sessionUpdate === "user_message_chunk" ? "user" : "text";
+      const text = textOf((u as { content: unknown }).content);
+      if (messageId != null && entries.some((e) => (e.kind === "user" || e.kind === "text") && e.messageId === messageId)) {
+        const last = entries[entries.length - 1];
+        if (kind === "text" && last.kind === "text" && last.messageId === messageId) return [...entries.slice(0, -1), { ...last, text: last.text + text }];
+        return entries; // already shown (a repeated replay)
+      }
+      return [...entries, { kind, key: nextKey(), text, messageId }];
+    }
+    case "tool_call": {
+      const t = u as Extract<SessionUpdate, { sessionUpdate: "tool_call" }>;
+      if (entries.some((e) => e.kind === "tool" && e.call.id === t.toolCallId)) return entries;
+      const call: ToolCall = { id: t.toolCallId, title: t.title, tool: t._meta?.acf?.tool, input: t.rawInput ?? {}, status: t.status ?? "pending" };
+      return [...entries, { kind: "tool", key: nextKey(), call }];
+    }
+    case "tool_call_update": {
+      const t = u as Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>;
+      return entries.map((e) => {
+        if (e.kind !== "tool" || e.call.id !== t.toolCallId) return e;
+        const output = t.content ? t.content.map((c) => textOf(c.content)).join("\n") : e.call.output;
+        const durationMs = t._meta?.acf?.durationMs ?? e.call.durationMs;
+        return { ...e, call: { ...e.call, status: t.status ?? e.call.status, title: t.title ?? e.call.title, output, durationMs } };
+      });
+    }
+  }
+  return entries;
+}
+
 function describe(call: ToolCall): { verb: string; detail: string; mono: boolean } {
-  const a = call.arguments as Record<string, string>;
-  switch (call.name) {
+  const a = call.input as Record<string, string>;
+  switch (call.tool) {
     case "bash": return { verb: "Ran", detail: a.command ?? "", mono: true };
     case "write": return { verb: "Wrote", detail: a.path ?? "", mono: true };
     case "edit": return { verb: "Edited", detail: a.path ?? "", mono: true };
@@ -28,74 +75,72 @@ function describe(call: ToolCall): { verb: string; detail: string; mono: boolean
     }
     case "mcp_call": return { verb: "Used", detail: `${a.server} · ${a.tool}`, mono: false };
   }
-  const m = call.name.match(/^mcp__(.+?)__(.+)$/);
+  const m = call.tool?.match(/^mcp__(.+?)__(.+)$/);
   if (m) return { verb: "Used", detail: `${m[1]} · ${m[2]}`, mono: false };
-  return { verb: "Used", detail: call.name, mono: false };
+  const [verb, ...rest] = call.title.split(" ");
+  return { verb, detail: rest.join(" "), mono: false };
 }
 
 const secs = (ms: number | null | undefined) => (ms == null ? "" : `${(ms / 1000).toFixed(1)}s`);
 
-function Step({ call, result, running }: { call: ToolCall; result?: Message; running: boolean }) {
+function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const [open, setOpen] = useState(false);
   const d = describe(call);
+  const finished = call.status === "completed" || call.status === "failed";
+  const failed = call.status === "failed" || (!finished && !running);
   return (
     <>
-      <button className="step" onClick={() => result && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
-        <span className={`state${result ? (result.is_error ? " fail" : " ok") : running ? "" : " fail"}`}>
-          {result ? (result.is_error ? <IconX /> : <IconCheck />) : running ? <span className="spin" aria-label="Working" /> : <IconX />}
+      <button className="step" onClick={() => finished && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
+        <span className={`state${finished ? (failed ? " fail" : " ok") : running ? "" : " fail"}`}>
+          {finished ? (failed ? <IconX /> : <IconCheck />) : running ? <span className="spin" aria-label="Working" /> : <IconX />}
         </span>
         <span className="verb">{d.verb}</span>{" "}
         <span className={`detail${d.mono ? "" : " name"}`}>{d.detail}</span>
-        {" "}<span className="time">{result ? secs(result.duration_ms) : ""}</span>
+        {" "}<span className="time">{finished ? secs(call.durationMs) : ""}</span>
       </button>
-      {open && result && <pre className="step-output">{result.content}</pre>}
+      {open && finished && <pre className="step-output">{call.output}</pre>}
     </>
   );
 }
 
-type Block = { kind: "text"; id: number; text: string } | { kind: "steps"; id: number; calls: ToolCall[] };
-type Item = { kind: "user"; msg: Message } | { kind: "turn"; id: number; blocks: Block[] } | { kind: "summary"; id: number };
+type Block = { kind: "text"; key: string; text: string } | { kind: "steps"; key: string; calls: ToolCall[] };
+type Item = { kind: "user"; key: string; text: string } | { kind: "notice"; key: string; text: string } | { kind: "turn"; key: string; blocks: Block[] };
 
-/** User messages, and agent turns where consecutive tool calls share one steps card. */
-function group(messages: Message[]): Item[] {
+/** User messages, notices, and agent turns where consecutive tool calls share one steps card. */
+function group(entries: Entry[]): Item[] {
   const items: Item[] = [];
-  for (const m of messages) {
-    if (m.role === "user") { items.push({ kind: "user", msg: m }); continue; }
-    if ((m.role as string) === "summary") { items.push({ kind: "summary", id: m.id }); continue; }
-    if (m.role !== "assistant") continue;
+  for (const e of entries) {
+    if (e.kind === "user" || e.kind === "notice") { items.push({ kind: e.kind, key: e.key, text: e.text }); continue; }
     let turn = items[items.length - 1];
-    if (!turn || turn.kind !== "turn") { turn = { kind: "turn", id: m.id, blocks: [] }; items.push(turn); }
-    if (m.content) turn.blocks.push({ kind: "text", id: m.id, text: m.content });
-    if (m.tool_calls.length) {
-      const last = turn.blocks[turn.blocks.length - 1];
-      if (last && last.kind === "steps") last.calls.push(...m.tool_calls);
-      else turn.blocks.push({ kind: "steps", id: m.id, calls: [...m.tool_calls] });
-    }
+    if (!turn || turn.kind !== "turn") { turn = { kind: "turn", key: e.key, blocks: [] }; items.push(turn); }
+    const last = turn.blocks[turn.blocks.length - 1];
+    if (e.kind === "text") { if (e.text) turn.blocks.push({ kind: "text", key: e.key, text: e.text }); }
+    else if (last && last.kind === "steps") last.calls.push(e.call);
+    else turn.blocks.push({ kind: "steps", key: e.key, calls: [e.call] });
   }
   return items;
 }
 
-function Thread({ messages, running, queued, notices }: { messages: Message[]; running: boolean; queued: string[]; notices: string[] }) {
-  const results = new Map(messages.filter((m) => m.role === "tool").map((m) => [m.tool_call_id, m]));
-  const items = group(messages);
-  const toolBusy = running && messages.some((m) => m.role === "assistant" && m.tool_calls.some((c) => !results.has(c.id)));
+function Thread({ entries, running, queued }: { entries: Entry[]; running: boolean; queued: string[] }) {
+  const items = group(entries);
+  const toolBusy = running && entries.some((e) => e.kind === "tool" && (e.call.status === "pending" || e.call.status === "in_progress"));
   const last = items[items.length - 1];
   const working = <div className="working" aria-label="Working">Working…</div>;
   return (
     <div className="thread">
       {items.map((it) => {
-        if (it.kind === "user") return <div key={it.msg.id} className="user-msg" data-testid="user-msg">{it.msg.content}</div>;
-        if (it.kind === "summary") return <div key={it.id} className="notice">Earlier messages were summarised to keep things fast.</div>;
+        if (it.kind === "user") return <div key={it.key} className="user-msg" data-testid="user-msg">{it.text}</div>;
+        if (it.kind === "notice") return <div key={it.key} className="notice">{it.text}</div>;
         const live = running && it === last;
         return (
-          <div key={it.id} className="turn">
+          <div key={it.key} className="turn">
             <Mark size={24} live={live} />
             <div className="body">
               {it.blocks.map((b) => b.kind === "text" ? (
-                <div key={`t${b.id}`} className="answer" data-testid="assistant-msg"><Markdown remarkPlugins={[remarkGfm]}>{b.text}</Markdown></div>
+                <div key={b.key} className="answer" data-testid="assistant-msg"><Markdown remarkPlugins={[remarkGfm]}>{b.text}</Markdown></div>
               ) : (
-                <div key={`s${b.id}`} className="steps" data-testid="activity">
-                  {b.calls.map((c) => <Step key={c.id} call={c} result={results.get(c.id)} running={running} />)}
+                <div key={b.key} className="steps" data-testid="activity">
+                  {b.calls.map((c) => <Step key={c.id} call={c} running={running} />)}
                 </div>
               ))}
               {live && !toolBusy && working}
@@ -110,7 +155,6 @@ function Thread({ messages, running, queued, notices }: { messages: Message[]; r
           <span className="hint">Queued · read as soon as the current step ends</span>
         </div>
       ))}
-      {notices.map((n, i) => <div key={`n${i}`} className="notice">{n}</div>)}
     </div>
   );
 }
@@ -187,77 +231,95 @@ function Home({ onStart }: { onStart: (t: string) => void }) {
 export default function ChatPage() {
   const { id } = useParams();
   const chatId = id ? Number(id) : null;
+  const sid = chatId ? String(chatId) : null;
   const navigate = useNavigate();
   const location = useLocation();
-  const { refresh } = useApp();
-  const [chat, setChat] = useState<Chat | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { refresh, chats } = useApp();
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [running, setRunning] = useState(false);
   const [queued, setQueued] = useState<string[]>([]);
-  const [notices, setNotices] = useState<string[]>([]);
   const [error, setError] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
+  const current = useRef<string | null>(sid);
+  current.current = sid;
 
-  const apply = useCallback((e: AgentEvent) => {
-    if (e.type === "done") { setRunning(false); return; }
-    setRunning(true);
-    if (e.type === "message") {
-      setMessages((prev) => (prev.some((m) => m.id === e.message.id) ? prev : [...prev, e.message]));
-      if (e.message.role === "user") {
-        refresh(); // the chat's title is set from its first message
-        setQueued((q) => { const i = q.indexOf(e.message.content); return i < 0 ? q : [...q.slice(0, i), ...q.slice(i + 1)]; });
-      }
-    } else if (e.type === "notice") setNotices((n) => [...n, e.text]);
-    else if (e.type === "error") setError(e.error);
-    else if (e.type === "stopped") setNotices((n) => [...n, "Stopped."]);
-  }, [refresh]);
+  const push = (text: string) => setEntries((e) => [...e, { kind: "notice", key: nextKey(), text }]);
 
-  const load = useCallback(async () => {
-    if (!chatId) return null;
+  const load = useCallback(async (target: string) => {
+    setEntries([]);
     try {
-      const c = await api.get<Chat>(`/chats/${chatId}`);
-      setChat(c);
-      setMessages(c.messages);
-      return c;
+      const r = await loadSession(target);
+      if (current.current === target) setRunning(!!r?._meta?.acf?.running);
     } catch {
-      navigate("/", { replace: true });
-      return null;
+      if (current.current === target) navigate("/", { replace: true });
     }
-  }, [chatId, navigate]);
+  }, [navigate]);
 
-  const finish = useCallback(() => { setRunning(false); setQueued([]); refresh(); load(); }, [refresh, load]);
+  // Everything the agent does arrives as ACP notifications on the shared connection.
+  useEffect(() => acp.on((n: AcpNotification) => {
+    if (n.method === "_acf/disconnected") {
+      const target = current.current;
+      if (target) setTimeout(() => { if (current.current === target) load(target); }, 1000);
+      return;
+    }
+    if (n.params.sessionId !== current.current) return;
+    if (n.method === "_acf/notice") push(n.params.text);
+    else if (n.method === "_acf/turn_end") {
+      setRunning(false);
+      setQueued([]);
+      if (n.params.stopReason === "cancelled") push("Stopped.");
+      if (n.params.error) setError(n.params.error);
+      refresh();
+    } else if (n.method === "session/update") {
+      const u = n.params.update;
+      if (u.sessionUpdate === "session_info_update") { refresh(); return; }
+      if (u.sessionUpdate === "user_message_chunk") {
+        const text = textOf((u as { content: unknown }).content);
+        setQueued((q) => { const i = q.indexOf(text); return i < 0 ? q : [...q.slice(0, i), ...q.slice(i + 1)]; });
+      }
+      setEntries((e) => reduce(e, u));
+    }
+  }), [load, refresh]);
 
-  const send = async (content: string, target: number) => {
+  const send = async (content: string, target: string) => {
     setError("");
     if (running) setQueued((q) => [...q, content]);
-    else { setRunning(true); setNotices([]); }
-    const how = await sendMessage(target, content, apply).catch((err) => { setError(String(err)); return "streamed" as const; });
-    if (how === "streamed") finish();
+    else {
+      setRunning(true);
+      setEntries((e) => [...e, { kind: "user", key: nextKey(), text: content }]);
+    }
+    try {
+      await prompt(target, content);
+    } catch (err) {
+      if (current.current === target && (err as Error).message !== "Connection lost") setError((err as Error).message);
+    }
+    if (current.current === target) { setRunning(false); setQueued([]); }
+    refresh();
   };
 
   useEffect(() => {
-    setChat(null); setMessages([]); setError(""); setNotices([]); setQueued([]); setRunning(false);
-    if (!chatId) return;
+    setEntries([]); setError(""); setQueued([]); setRunning(false);
+    if (!sid) return;
     const pending = (location.state as { pending?: string } | null)?.pending;
     if (pending && !consumed.has(location.key)) {
       consumed.add(location.key);
       navigate(location.pathname, { replace: true, state: null });
-      load().then(() => send(pending, chatId));
+      send(pending, sid);
     } else if (!pending) {
-      load().then((c) => { if (c?.running) { setRunning(true); attachStream(chatId, apply).then(finish); } });
+      load(sid);
     }
-  }, [chatId]); // eslint-disable-line
+  }, [sid]); // eslint-disable-line
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
-  }, [messages, running, queued]);
+  }, [entries, running, queued]);
 
   const start = async (content: string) => {
-    const c = await api.post<{ id: number }>("/chats", {});
+    const s = await newSession();
     refresh();
-    navigate(`/c/${c.id}`, { state: { pending: content } });
+    navigate(`/c/${s.sessionId}`, { state: { pending: content } });
   };
-  const stop = () => { if (chatId) api.post(`/chats/${chatId}/stop`); };
+  const stop = () => { if (sid) cancel(sid); };
   const [confirming, setConfirming] = useState(false);
   const remove = async () => {
     if (!chatId) return;
@@ -267,8 +329,10 @@ export default function ChatPage() {
     navigate("/");
   };
 
-  if (!chatId) return <Home onStart={start} />;
-  const title = chat?.title && chat.title !== "New chat" ? chat.title : (messages.find((m) => m.role === "user")?.content.split("\n")[0].slice(0, 60) ?? "");
+  if (!sid) return <Home onStart={start} />;
+  const summary: ChatSummary | undefined = chats.find((c) => c.id === chatId);
+  const firstUser = entries.find((e) => e.kind === "user")?.text.split("\n")[0].slice(0, 60) ?? "";
+  const title = summary?.title && summary.title !== "New chat" ? summary.title : firstUser;
 
   return (
     <>
@@ -278,11 +342,11 @@ export default function ChatPage() {
           title="Delete chat" onClick={remove}>{confirming ? "Delete chat?" : <IconTrash />}</button>
       </Topbar>
       <div className="chat-scroll" ref={scroller}>
-        <Thread messages={messages} running={running} queued={queued} notices={notices} />
+        <Thread entries={entries} running={running} queued={queued} />
         {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
       </div>
       <div className="composer-wrap">
-        <Composer key={chatId} onSend={(t) => send(t, chatId)} onStop={stop} running={running} />
+        <Composer key={sid} onSend={(t) => send(t, sid)} onStop={stop} running={running} />
       </div>
     </>
   );

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from acf import config, db, scheduler
+from acf import acp, config, db, scheduler
 from acf.api.routes import router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="AI Chatbot Framework", lifespan=lifespan)
     app.include_router(router)
+    app.include_router(acp.router)
 
     dist = config.settings.frontend_dist
     if (dist / "index.html").exists():

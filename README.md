@@ -30,6 +30,9 @@ its own private computer, their files, skills, app connections and scheduled job
   definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
   slow down every turn.
 - **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat.
+- **Agent Client Protocol (ACP)** – the chat speaks [ACP](https://agentclientprotocol.com) over a
+  WebSocket, and so can your own apps and editors. Create an optional access token in
+  **Settings → External apps** to let them in.
 - A calm, keyboard-friendly interface (⌘K command menu, shortcuts), dark and light themes, phone layout,
   built from a documented design system whose tokens live in `design/tokens.json`.
 
@@ -142,6 +145,28 @@ description: Write the weekly sales report. Use when asked for the weekly report
 
 Upload it as a `.zip` (or just the `SKILL.md`) on the Skills page, or ask the agent to create one —
 every workspace starts with a `skill-creator` skill that teaches it how.
+
+### External apps (ACP)
+
+The agent is reachable over the [Agent Client Protocol](https://agentclientprotocol.com): JSON-RPC 2.0, one
+message per WebSocket text frame, at `ws(s)://<host>/api/acp`. The web chat uses the same endpoint (with its
+session cookie, same origin only). Other clients authenticate with `Authorization: Bearer <token>`, using
+the access token from **Settings → External apps**. External access is off until a token is created; the
+token is shown once, stored hashed, and can be replaced or revoked at any time.
+
+Supported: `initialize`, `session/new`, `session/load` (replays the history, then follows a running agent),
+`session/list`, `session/prompt` (text, resource links and embedded text resources) and `session/cancel`.
+Each session is a chat in the web app. Updates are `user_message_chunk`, `agent_message_chunk`,
+`tool_call`, `tool_call_update` and `session_info_update`. A `session/prompt` sent while the agent works is
+a steering message; its response arrives when the run ends. Extras live under `_acf/` (`_acf/notice`,
+`_acf/turn_end`) and `_meta.acf`, which other clients can ignore. The agent uses its own sandbox and
+connections, so `cwd` and `mcpServers` from the client are ignored.
+
+Clients that start agents as a subprocess over stdio (most editors) can use the bridge:
+
+```sh
+ACF_ACP_TOKEN=acp_… python -m acf.acp_bridge --url wss://agent.example.com/api/acp
+```
 
 ## Development
 

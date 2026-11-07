@@ -7,6 +7,6 @@ export default defineConfig({
   server: {
     port: 5173,
     watch: process.env.ACF_WATCH_POLL ? { usePolling: true, interval: 300 } : undefined,
-    proxy: { "/api": { target: process.env.ACF_API ?? "http://127.0.0.1:8000", changeOrigin: false } },
+    proxy: { "/api": { target: process.env.ACF_API ?? "http://127.0.0.1:8000", changeOrigin: false, ws: true } },
   },
 });
