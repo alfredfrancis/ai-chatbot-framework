@@ -45,11 +45,76 @@ async def test_stdio_server_tools(client, user):
     assert {t["name"] for t in servers[0]["tools"]} == {"echo", "add", "whereami"}
 
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, 'tool: mcp__echo__add {"a": 2, "b": 40}')
+    call = {"server": "echo", "tool": "add", "arguments": {"a": 2, "b": 40}}
+    events = await send(client, chat_id, f"tool: mcp_call {json.dumps(call)}")
     start = next(e for e in events if e["type"] == "tool_start")
     assert start["label"] == "echo · add"
     final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
     assert final["content"] == "Result: 42"
+
+
+def _reply(events) -> str:
+    return [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1][
+        "content"
+    ]
+
+
+async def test_app_tools_are_names_in_the_prompt_and_files_in_the_workspace(client, user):
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    assert _reply(await send(client, chat_id, "list tools")) == "Tools: read, write, edit, bash"
+    assert "mcp_call" not in _reply(await send(client, chat_id, "show system"))
+
+    await setup_echo(client, user["id"])
+    stale = workspace.workspace_dir(user["id"]) / ".acf/mcp/echo/removed_tool.json"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text("{}")
+    assert _reply(await send(client, chat_id, "list tools")) == "Tools: read, write, edit, bash, mcp_call"
+    system = _reply(await send(client, chat_id, "show system"))
+    assert "echo: add, echo, whereami" in system.splitlines()
+    assert "mcp_call" in system and ".acf/mcp/" in system
+
+    definition = json.loads(workspace.read_file(user["id"], ".acf/mcp/echo/add.json"))
+    assert definition == {
+        "description": "Add two numbers",
+        "input_schema": {
+            "type": "object",
+            "properties": {"a": {"type": "number"}, "b": {"type": "number"}},
+            "required": ["a", "b"],
+        },
+    }
+    assert not stale.exists()
+
+    events = await send(client, chat_id, "read: .acf/mcp/echo/echo.json")
+    result = next(e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "tool")
+    assert not result["is_error"] and "Echo the given text back" in result["content"]
+
+
+async def test_unknown_app_tool_lists_the_valid_ones(client, user):
+    await setup_echo(client, user["id"])
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    events = await send(client, chat_id, 'tool: mcp_call {"server": "echo", "tool": "teleport", "arguments": {}}')
+    result = next(e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "tool")
+    assert result["is_error"]
+    assert all(name in result["content"] for name in ("add", "echo", "whereami"))
+
+
+async def test_read_only_app_tools_run_together(client, user):
+    await setup_echo(client, user["id"])
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+
+    def order(events) -> list[str]:
+        return [
+            "start" if e["type"] == "tool_start" else "result"
+            for e in events
+            if e["type"] == "tool_start" or (e["type"] == "message" and e["message"]["role"] == "tool")
+        ]
+
+    echo = 'tool: mcp_call {"server": "echo", "tool": "echo", "arguments": {"text": "%s"}}'
+    add = 'tool: mcp_call {"server": "echo", "tool": "add", "arguments": {"a": 1, "b": 2}}'
+    events = await send(client, chat_id, f"{echo % 'one'}\n{echo % 'two'}")
+    assert order(events) == ["start", "start", "result", "result"]
+    events = await send(client, chat_id, f"{echo % 'one'}\n{add}")
+    assert order(events) == ["start", "result", "start", "result"]
 
 
 async def test_broken_server_reported(client, user):
@@ -93,7 +158,7 @@ async def test_oauth_flow(client, user, oauth_mcp_url):
     servers = (await client.get("/api/mcp/servers")).json()["servers"]
     assert servers[0]["state"] == "connected" and servers[0]["signed_in"], servers
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    events = await send(client, chat_id, "tool: mcp__notes__get_secret_note {}")
+    events = await send(client, chat_id, 'tool: mcp_call {"server": "notes", "tool": "get_secret_note"}')
     final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
     assert "pineapple" in final["content"]
 

@@ -1,7 +1,7 @@
-"""System prompt: short instructions + the user's context files + the skills index.
+"""System prompt: short instructions + the user's context files + the skills index + connected apps.
 
-Kept stable between turns so providers can cache it; it only changes when a context file or the set
-of skills changes (and once a day, with the date).
+Kept stable between turns so providers can cache it; it only changes when a context file, the set
+of skills or the connected apps change (and once a day, with the date).
 """
 
 from __future__ import annotations
@@ -36,17 +36,26 @@ SKILL.md first and follow it. When you finish a multi-step task that is likely t
 save it as a skill (see the skill-creator skill)."""
 
 
-def build(user_id: int) -> str:
+APPS = """<connected apps>
+Use these tools of the user's connected apps with the mcp_call tool. Before the first call to a tool, \
+read .acf/mcp/<server>/<tool>.json with read for its arguments.
+{lines}
+</connected apps>"""
+
+
+def build(user_id: int, apps: dict[str, list[str]]) -> str:
     ctx = workspace.read_file(user_id, workspace.CONTEXT_FILE).strip()
     mem = workspace.read_file(user_id, workspace.MEMORY_FILE).strip()
     if len(mem) > MEMORY_LIMIT_CHARS * 2:
         mem = mem[: MEMORY_LIMIT_CHARS * 2] + "\n… (memory.md is too long; tidy it up)"
     skill_lines = "\n".join(f"- {s.name}: {s.description} ({s.path})" for s in skills.list_skills(user_id))
+    app_lines = "\n".join(f"{server}: {', '.join(tools)}" for server, tools in apps.items())
     today = datetime.now(UTC).strftime("%A %d %B %Y")
     return (
         BASE.format(limit=MEMORY_LIMIT_CHARS)
         + f'\n\n<context file="context.md">\n{ctx or "(empty)"}\n</context>'
         + f'\n\n<memory file="memory.md">\n{mem or "(empty)"}\n</memory>'
         + f"\n\n<skills>\n{skill_lines or '(none yet)'}\n</skills>"
+        + (f"\n\n{APPS.format(lines=app_lines)}" if apps else "")
         + f"\n\nToday is {today} (UTC)."
     )

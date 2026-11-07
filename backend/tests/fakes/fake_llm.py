@@ -9,7 +9,7 @@ Rules (applied to the latest user text):
   read: <path> [<path> …]     -> calls read (several paths = parallel calls)
   show messages               -> lists every user message it received (steering/compaction checks)
   summarise the conversation… -> compaction summary
-  tool: <name> <json args>    -> calls any tool by name
+  tool: <name> <json args>    -> calls any tool by name (one per line = several calls at once)
   slow: <seconds> <text>      -> waits, then "Echo: <text>" (a model that is still thinking)
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
@@ -62,9 +62,11 @@ def decide(
         paths = text[5:].split()
         return {"calls": [("read", {"path": p}) for p in paths], "text": ""}
     if low.startswith("tool:"):
-        rest = text[5:].strip()
-        name, _, args = rest.partition(" ")
-        return {"calls": [(name, json.loads(args or "{}"))], "text": ""}
+        calls = []
+        for line in text.splitlines():
+            name, _, args = line.strip()[5:].strip().partition(" ")
+            calls.append((name, json.loads(args or "{}")))
+        return {"calls": calls, "text": ""}
     if low.startswith("slow:"):
         secs, _, rest = text[5:].strip().partition(" ")
         return {"text": f"Echo: {rest}", "delay": float(secs)}
