@@ -68,6 +68,8 @@ then closed unless `ACF_ALLOW_SIGNUP=true`). Without them, open `https://<ACF_DO
 account, then set `ACF_ALLOW_SIGNUP=false`.
 [Caddy](https://caddyserver.com) gets and renews the HTTPS certificate; ports 80 and 443 must be open.
 Other host ports: `ACF_HTTP_PORT` / `ACF_HTTPS_PORT` (e.g. `127.0.0.1:8088` behind a tunnel or another proxy).
+When that tunnel or proxy terminates HTTPS (e.g. Cloudflare Tunnel), also set `ACF_CADDY_ADDRESS=:80` so Caddy
+serves plain HTTP.
 The stack pulls the published images (`ACF_REGISTRY`/`ACF_VERSION` in `.env`); to build from source
 instead (needed until the first release publishes images), run `docker compose up -d --build`. The
 database is PostgreSQL in its own container (volume `postgres-data`); workspaces live in `./data`, or
