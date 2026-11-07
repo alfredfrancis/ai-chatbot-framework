@@ -54,7 +54,9 @@ cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD and ANTHROPIC_AP
 docker compose up -d        # or: make up
 ```
 
-Open `https://<ACF_DOMAIN>` and create the first account, then set `ACF_ALLOW_SIGNUP=false`.
+Set `ACF_ADMIN_EMAIL` and `ACF_ADMIN_PASSWORD` in `.env` to create your account at startup (sign-ups are
+then closed unless `ACF_ALLOW_SIGNUP=true`). Without them, open `https://<ACF_DOMAIN>` and create the first
+account, then set `ACF_ALLOW_SIGNUP=false`.
 [Caddy](https://caddyserver.com) gets and renews the HTTPS certificate; ports 80 and 443 must be open.
 The stack pulls the published images (`ACF_REGISTRY`/`ACF_VERSION` in `.env`); to build from source
 instead (needed until the first release publishes images), run `docker compose up -d --build`. The
@@ -91,7 +93,9 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
 | `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
 | `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |
-| `ACF_ALLOW_SIGNUP` | `true` | Set `false` after creating accounts |
+| `ACF_ADMIN_EMAIL` / `ACF_ADMIN_PASSWORD` | – | Main account, created at startup; its password is reset to this value (and its sessions signed out) when it changes |
+| `ACF_ADMIN_NAME` | email name | Display name for the main account |
+| `ACF_ALLOW_SIGNUP` | `true`, `false` if `ACF_ADMIN_EMAIL` is set | Open sign-ups. When `false`, the first account can still be created on an empty server |
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
 | `ACF_SANDBOX` | `docker` | `docker`, or `local` for development (**not isolated**) |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
