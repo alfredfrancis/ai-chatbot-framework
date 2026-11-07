@@ -3,8 +3,11 @@
 Design (borrowing from pi, Hermes and Claude Code):
 - One `Run` per chat at a time. Messages sent while it works are *steering* messages. While the model
   is thinking, its call is restarted with the message added (nothing has happened yet, so nothing is
-  lost but tokens). While tools run, the message waits for the batch to finish: tools have side
-  effects and are never cut off. Either way the user redirects the agent without stopping it.
+  lost but tokens). Once it has started answering (text or a tool call), the answer finishes and the
+  message is read next — text the user has seen is never thrown away. While tools run, the message
+  waits for the batch to finish: tools have side effects and are never cut off.
+- Replies stream: text and thinking deltas are events as they arrive; the complete message is stored
+  when the stream ends. A stop mid-answer keeps the text shown so far.
 - Model -> tool calls -> results -> model … until the model answers without tools. Independent
   read-only calls run concurrently; anything that writes runs in order.
 - Tool errors, bad arguments and unknown tools become error results the model can recover from.
@@ -18,8 +21,10 @@ Design (borrowing from pi, Hermes and Claude Code):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
+import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -29,6 +34,7 @@ from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
     ToolMessage,
+    message_chunk_to_message,
     message_to_dict,
     messages_from_dict,
 )
@@ -79,6 +85,30 @@ def _strip_thinking(ai: AIMessage) -> AIMessage:
             b for b in ai.content if not (isinstance(b, dict) and b.get("type") in ("thinking", "redacted_thinking"))
         ]
     return ai
+
+
+def _deltas(chunk: BaseMessage) -> list[tuple[str, str]]:
+    """Visible pieces of a streamed chunk: ("text" | "thought", text)."""
+    if isinstance(chunk.content, str):
+        return [("text", chunk.content)] if chunk.content else []
+    out = []
+    for b in chunk.content:
+        if not isinstance(b, dict):
+            continue
+        if b.get("type") == "text" and b.get("text"):
+            out.append(("text", b["text"]))
+        elif b.get("type") == "thinking" and b.get("thinking"):
+            out.append(("thought", b["thinking"]))
+    return out
+
+
+class _Stream:
+    """One streamed model call: its id (the message id clients group deltas by) and what was shown."""
+
+    def __init__(self) -> None:
+        self.id = "s" + uuid.uuid4().hex[:12]
+        self.text = ""
+        self.answering = False  # visible text or a tool call has started
 
 
 def repair(chat_id: int) -> None:
@@ -311,7 +341,7 @@ class Run:
                     ]
                 )
                 try:
-                    ai = await self._think(model, system, history)
+                    ai, stream_id = await self._think(model, system, history)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001
@@ -337,7 +367,7 @@ class Run:
                     raw={"lc": message_to_dict(ai)},
                 )
                 history.append(ai)
-                self.emit({"type": "message", "message": saved})
+                self.emit({"type": "message", "message": saved, "stream": stream_id})
                 if text:
                     self.final_text = text
                 if not calls:
@@ -350,25 +380,53 @@ class Run:
             self.stop_reason = "max_turn_requests"
             self.emit({"type": "notice", "text": "Stopped after too many steps. Say “continue” to keep going."})
 
-    async def _think(self, model, system: SystemMessage, history: list[BaseMessage]) -> AIMessage:
-        """Call the model; if the user steers before it answers, restart the call with their message."""
+    async def _think(self, model, system: SystemMessage, history: list[BaseMessage]) -> tuple[AIMessage, str]:
+        """Stream the model's answer. If the user steers before it starts answering, restart the call with
+        their message; once it is answering, let it finish (the message is read at the next step)."""
         while True:
             self._inject_user_messages(history)
             self._nudged.clear()
-            call = asyncio.ensure_future(model.ainvoke([system, *history]))
+            stream = _Stream()
+            call = asyncio.ensure_future(self._stream(model, [system, *history], stream))
             nudge = asyncio.ensure_future(self._nudged.wait())
             try:
-                await asyncio.wait({call, nudge}, return_when=asyncio.FIRST_COMPLETED)
+                done, _ = await asyncio.wait({call, nudge}, return_when=asyncio.FIRST_COMPLETED)
+                if call not in done and stream.answering:
+                    return await call, stream.id
+            except asyncio.CancelledError:
+                self._keep_partial(stream)
+                raise
             finally:
                 nudge.cancel()
                 if not call.done():
                     call.cancel()
             if call.done() and not call.cancelled():
-                return call.result()  # an answer that raced the nudge wins; the message goes in next step
-            try:
+                return call.result(), stream.id  # an answer that raced the nudge wins
+            with contextlib.suppress(asyncio.CancelledError):
                 await call
-            except asyncio.CancelledError:
-                pass
+
+    async def _stream(self, model, messages: list[BaseMessage], stream: _Stream) -> AIMessage:
+        acc = None
+        async for chunk in model.astream(messages):
+            acc = chunk if acc is None else acc + chunk
+            for kind, text in _deltas(chunk):
+                if kind == "text":
+                    stream.text += text
+                    stream.answering = True
+                self.emit({"type": "delta", "stream": stream.id, "kind": kind, "text": text})
+            if getattr(chunk, "tool_call_chunks", None):
+                stream.answering = True
+        return message_chunk_to_message(acc) if acc is not None else AIMessage(content="")
+
+    def _keep_partial(self, stream: _Stream) -> None:
+        """Stopped mid-answer: store the text the user already saw (without thinking or tool calls)."""
+        text = stream.text.strip()
+        if not text:
+            return
+        ai = AIMessage(content=text)
+        saved = _save(self.chat_id, role="assistant", content=text, raw={"lc": message_to_dict(ai)})
+        self.final_text = text
+        self.emit({"type": "message", "message": saved, "stream": stream.id})
 
     async def _execute(self, calls: list[dict], tools: dict[str, Tool], hub: McpHub) -> list[ToolMessage]:
         ctx = ToolContext(self.user.id)

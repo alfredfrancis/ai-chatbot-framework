@@ -3,7 +3,7 @@ import asyncio
 import httpx
 
 from acf import config, workspace
-from tests.acp_client import acp_connect
+from tests.acp_client import acp_connect, joined
 from tests.conftest import prompt, send
 
 
@@ -155,6 +155,64 @@ async def test_steering_while_the_model_thinks_restarts_the_call(client, user):
     assert roles == ["user", "user", "assistant"]
 
 
+async def test_reply_streams_word_by_word(client, user):
+    turn = await send(client, await new_chat(client), "typing: one two three")
+    chunks = turn.of("agent_message_chunk")
+    assert len(chunks) > 3 and len({c["_meta"]["acf"]["messageId"] for c in chunks}) == 1
+    assert turn.texts == ["Echo: one two three"]
+
+
+async def test_thinking_streams_as_thought_chunks(client, user):
+    turn = await send(client, await new_chat(client), "think: the plan")
+    assert turn.thoughts == ["Considering: the plan"] and turn.texts == ["Echo: the plan"]
+
+
+async def test_steering_while_the_answer_streams_waits_for_it(client, user):
+    chat_id = await new_chat(client)
+    async with acp_connect(client) as acp:
+        first = asyncio.create_task(prompt(acp, chat_id, "typing: a b c d e"))
+        await acp.wait_for(
+            lambda n: n.get("params", {}).get("update", {}).get("sessionUpdate") == "agent_message_chunk"
+        )
+        await prompt(acp, chat_id, "show messages")
+        turn = await first
+    # Text already shown is never thrown away: the answer finishes, then the steering message is read.
+    assert turn.texts == ["Echo: a b c d e", "Messages: typing: a b c d e | show messages"]
+    roles = [m["role"] for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"]]
+    assert roles == ["user", "assistant", "user", "assistant"]
+
+
+async def test_stop_mid_answer_keeps_the_text_shown(client, user):
+    chat_id = await new_chat(client)
+    async with acp_connect(client) as acp:
+        task = asyncio.create_task(prompt(acp, chat_id, "typing: one two three four five six seven eight"))
+        await acp.wait_for(lambda n: len(acp.updates(str(chat_id))) >= 3)
+        await acp.notify("session/cancel", {"sessionId": str(chat_id)})
+        turn = await asyncio.wait_for(task, 10)
+    assert turn.stop_reason == "cancelled"
+    shown = turn.texts[0]
+    assert "Echo: one two three four five six seven eight".startswith(shown) and len(shown) < 40
+    stored = [m for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"] if m["role"] == "assistant"]
+    assert [m["content"] for m in stored] == [shown]
+    assert (await send(client, chat_id, "hi again")).final == "Echo: hi again"  # the history stays valid
+
+
+async def test_load_while_streaming_replays_the_partial_answer_once(client, user):
+    chat_id = await new_chat(client)
+    sid = str(chat_id)
+    async with acp_connect(client) as sender:
+        running = asyncio.create_task(prompt(sender, chat_id, "typing: alpha beta gamma delta epsilon"))
+        await sender.wait_for(lambda n: len(sender.updates(sid)) >= 3)
+        async with acp_connect(client) as watcher:
+            await watcher.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+            await watcher.wait_for(lambda n: n["method"] == "_acf/turn_end")
+            watched = list(
+                joined([u for u in watcher.updates(sid) if u["sessionUpdate"] == "agent_message_chunk"]).values()
+            )
+        await running
+    assert watched == ["Echo: alpha beta gamma delta epsilon"]
+
+
 async def test_cancel_stops_and_keeps_history_valid(client, user):
     chat_id = await new_chat(client)
     async with acp_connect(client) as acp:
@@ -183,11 +241,13 @@ async def test_load_replays_history_then_follows_a_running_agent(client, user):
             end = await watcher.wait_for(lambda n: n["method"] == "_acf/turn_end")
             assert end["params"] == {"sessionId": sid, "stopReason": "end_turn"}
             kinds = [u["sessionUpdate"] for u in watcher.updates(sid)]
-            texts = [u["content"]["text"] for u in watcher.updates(sid) if "content" in u and "text" in u["content"]]
+            ups = watcher.updates(sid)
+            users = [u["content"]["text"] for u in ups if u["sessionUpdate"] == "user_message_chunk"]
+            agent = list(joined([u for u in ups if u["sessionUpdate"] == "agent_message_chunk"]).values())
         await running
     # replayed: the first exchange and the running prompt; then live: the tool result and the answer
-    assert texts[0] == "run: echo first" and texts.count("run: sleep 1; echo attached") == 1
-    assert texts[-1].startswith("Result: attached")
+    assert users == ["run: echo first", "run: sleep 1; echo attached"]
+    assert agent[-1].startswith("Result: attached") and agent.count(agent[-1]) == 1
     assert kinds.count("tool_call") == 2  # no duplicates between the replay and the live updates
     async with acp_connect(client) as acp:
         loaded = await acp.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
@@ -229,8 +289,19 @@ async def test_anthropic_request_shape(client, user, fake_llm_url):
     assert second["model"] == "claude-opus-5-5"
     assert second["output_config"] == {"effort": "medium"}
     assert second["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert second["stream"] is True
     assistant = second["messages"][-2]
     assert assistant["role"] == "assistant" and assistant["content"][0]["type"] == "thinking"
+    assert assistant["content"][0]["signature"].startswith("sig-")  # the streamed thinking block replays intact
+    # Merged stream chunks are sent back as clean blocks (the real API rejects unknown keys).
+    allowed = {
+        "thinking": {"type", "thinking", "signature"},
+        "text": {"type", "text"},
+        "tool_use": {"type", "id", "name", "input"},
+    }
+    for block in assistant["content"]:
+        assert set(block) <= allowed[block["type"]] | {"cache_control"}, block
+    assert assistant["content"][-1]["input"] == {"command": "echo hi"}
     assert second["messages"][-1]["content"][0]["type"] == "tool_result"
     assert {t["name"] for t in second["tools"]} == {"read", "write", "edit", "bash"}
 

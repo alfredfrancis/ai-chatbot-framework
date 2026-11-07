@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.acp_client import Rejected, RpcError, acp_connect
+from tests.acp_client import Rejected, RpcError, acp_connect, joined
 from tests.conftest import free_port, prompt, serve
 
 
@@ -59,7 +59,7 @@ async def test_prompt_content_blocks(client, user):
             {"type": "resource", "resource": {"uri": "file:///notes.md", "text": "buy flour"}},
         ]
         await acp.request("session/prompt", {"sessionId": sid, "prompt": blocks})
-        final = acp.updates(sid)[-1]["content"]["text"]
+        final = list(joined([u for u in acp.updates(sid) if u["sessionUpdate"] == "agent_message_chunk"]).values())[-1]
         assert final == 'Echo: Look at this\n\n<file uri="file:///notes.md">\nbuy flour\n</file>'
 
         with pytest.raises(RpcError) as e:
@@ -181,12 +181,17 @@ async def test_stdio_bridge_end_to_end(client, user):
             3, "session/prompt", {"sessionId": sid, "prompt": [{"type": "text", "text": "run: echo bridged"}]}
         )
         assert res["result"] == {"stopReason": "end_turn"}
-        texts = [
-            m["params"]["update"]["content"]["text"]
-            for m in seen
-            if m.get("method") == "session/update" and m["params"]["update"]["sessionUpdate"] == "agent_message_chunk"
-        ]
-        assert texts[-1].startswith("Result: bridged")
+        texts = list(
+            joined(
+                [
+                    m["params"]["update"]
+                    for m in seen
+                    if m.get("method") == "session/update"
+                    and m["params"]["update"]["sessionUpdate"] == "agent_message_chunk"
+                ]
+            ).values()
+        )
+        assert texts[-1].startswith("Result: bridged")  # streamed, joined per message
         bad = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",

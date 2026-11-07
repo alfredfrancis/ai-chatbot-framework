@@ -27,9 +27,10 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Compaction | Before a new turn, if the history is over `ACF_COMPACT_TOKENS`, older messages are summarised into one record. The cut is at a user message so tool calls stay paired; thinking blocks from before the cut are dropped. |
 | Append-only history | Assistant messages are stored as LangChain message dicts and replayed verbatim (Claude thinking blocks survive). |
 | Prompt caching | The system prompt is a single cached block; it changes only when context files, skills or the date change. |
-| Steering | A message sent while the agent works is never an interruption. If the model is thinking, the call is restarted with the message added (only tokens are lost). If tools are running, it is injected when the batch ends — tools are never cut off. |
+| Streaming | The model is called with `astream`; text and thinking deltas are `delta` events as they arrive. When the stream ends the merged chunk becomes one stored message (`message_to_dict`), so history is unchanged. A stop mid-answer stores the text shown so far (no thinking, no tool calls). |
+| Steering | A message sent while the agent works is never an interruption. If the model is still thinking (no text or tool call yet), the call is restarted with the message added (only tokens are lost). Once it is answering, the answer finishes and the message is read next — streamed text is never retracted. If tools are running, it is injected when the batch ends — tools are never cut off. |
 | Stop | Cancels the run; any tool call without a result gets "Stopped by the user", so the history stays valid. |
-| Observable | Every step is an event (`message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`). Clients see them through ACP (below). |
+| Observable | Every step is an event (`delta`, `message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`). Clients see them through ACP (below). |
 
 ## Agent Client Protocol (`backend/acf/acp.py`)
 
@@ -38,9 +39,10 @@ WebSocket at `/api/acp`. A session is a chat; `session/prompt` calls `agent.star
 while the agent works becomes steering. Run events become `session/update` notifications: a stored
 assistant message → `agent_message_chunk` + one `tool_call` (pending) per call; `tool_start` →
 `tool_call_update` (in_progress); a tool result → `tool_call_update` (completed/failed, with output and
-`_meta.acf.durationMs`). `session/load` registers a listener on the running agent *before* reading the
-history, replays the stored messages, then forwards only newer events, so a reloaded page neither misses
-nor duplicates anything. When a run ends, every connection following it gets `_acf/turn_end`; the
+`_meta.acf.durationMs`); a `delta` → `agent_message_chunk` / `agent_thought_chunk` with the stream's id
+as `_meta.acf.messageId` (the stored message then sends only its tool calls, since its text was streamed). `session/load` registers a listener on the running agent *before* reading the
+history, replays the stored messages, then forwards only newer events — including the deltas of an answer
+still being written — so a reloaded page neither misses nor duplicates anything. When a run ends, every connection following it gets `_acf/turn_end`; the
 prompt's response carries the ACP stop reason (`end_turn`, `cancelled`, `max_turn_requests`) or a
 JSON-RPC error for a failed run. A disconnecting client doesn't stop the agent.
 
