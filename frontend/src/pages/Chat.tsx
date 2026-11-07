@@ -17,7 +17,11 @@ const TRY: { icon: ReactNode; text: string; prompt: string }[] = [
 ];
 
 /** A tool call as the chat knows it from ACP tool_call / tool_call_update notifications. */
-type ToolCall = { id: string; title: string; tool?: string; input: Record<string, unknown>; status: ToolStatus; output?: string; durationMs?: number | null };
+type ToolCall = {
+  id: string; title: string; tool?: string; input: Record<string, unknown>; status: ToolStatus; output?: string; durationMs?: number | null;
+  background?: string; // job id of a command that runs in the background
+};
+const inBackground = (c: ToolCall) => !!c.background && (c.status === "pending" || c.status === "in_progress");
 type Entry =
   | { kind: "user"; key: string; text: string; messageId?: number | string }
   | { kind: "text"; key: string; text: string; messageId?: number | string }
@@ -55,7 +59,8 @@ function reduce(entries: Entry[], u: SessionUpdate): Entry[] {
         if (e.kind !== "tool" || e.call.id !== t.toolCallId) return e;
         const output = t.content ? t.content.map((c) => textOf(c.content)).join("\n") : e.call.output;
         const durationMs = t._meta?.acf?.durationMs ?? e.call.durationMs;
-        return { ...e, call: { ...e.call, status: t.status ?? e.call.status, title: t.title ?? e.call.title, output, durationMs } };
+        const background = t._meta?.acf?.background ?? e.call.background;
+        return { ...e, call: { ...e.call, status: t.status ?? e.call.status, title: t.title ?? e.call.title, output, durationMs, background } };
       });
     }
   }
@@ -87,16 +92,18 @@ function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const [open, setOpen] = useState(false);
   const d = describe(call);
   const finished = call.status === "completed" || call.status === "failed";
-  const failed = call.status === "failed" || (!finished && !running);
+  const bg = inBackground(call);
+  const busy = bg || (!finished && running);
+  const failed = call.status === "failed" || (!finished && !busy);
   return (
     <>
       <button className="step" onClick={() => finished && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
-        <span className={`state${finished ? (failed ? " fail" : " ok") : running ? "" : " fail"}`}>
-          {finished ? (failed ? <IconX /> : <IconCheck />) : running ? <span className="spin" aria-label="Working" /> : <IconX />}
+        <span className={`state${finished ? (failed ? " fail" : " ok") : busy ? "" : " fail"}`}>
+          {finished ? (failed ? <IconX /> : <IconCheck />) : busy ? <span className="spin" aria-label={bg ? "Running in background" : "Working"} /> : <IconX />}
         </span>
         <span className="verb">{d.verb}</span>{" "}
         <span className={`detail${d.mono ? "" : " name"}`}>{d.detail}</span>
-        {" "}<span className="time">{finished ? secs(call.durationMs) : ""}</span>
+        {" "}<span className="time">{finished ? secs(call.durationMs) : bg ? "In background" : ""}</span>
       </button>
       {open && finished && <pre className="step-output">{call.output}</pre>}
     </>
@@ -123,7 +130,7 @@ function group(entries: Entry[]): Item[] {
 
 function Thread({ entries, running, queued }: { entries: Entry[]; running: boolean; queued: string[] }) {
   const items = group(entries);
-  const toolBusy = running && entries.some((e) => e.kind === "tool" && (e.call.status === "pending" || e.call.status === "in_progress"));
+  const toolBusy = running && entries.some((e) => e.kind === "tool" && !inBackground(e.call) && (e.call.status === "pending" || e.call.status === "in_progress"));
   const streaming = running && entries[entries.length - 1]?.kind === "text"; // the reply itself shows progress
   const last = items[items.length - 1];
   const working = <div className="working" aria-label="Working">Working…</div>;
@@ -160,8 +167,8 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
   );
 }
 
-function Composer({ onSend, onStop, running, placeholder }: {
-  onSend: (t: string) => void; onStop?: () => void; running: boolean; placeholder?: string;
+function Composer({ onSend, onStop, running, background = false, placeholder }: {
+  onSend: (t: string) => void; onStop?: () => void; running: boolean; background?: boolean; placeholder?: string;
 }) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -176,9 +183,9 @@ function Composer({ onSend, onStop, running, placeholder }: {
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
-    if (e.key === "Escape" && running && onStop) { e.preventDefault(); onStop(); }
+    if (e.key === "Escape" && (running || background) && onStop) { e.preventDefault(); onStop(); }
   };
-  const showStop = running && !text.trim() && onStop;
+  const showStop = (running || background) && !text.trim() && onStop;
   return (
     <form className="composer" onSubmit={submit}>
       <label htmlFor="composer" className="sr-only">Message</label>
@@ -188,6 +195,7 @@ function Composer({ onSend, onStop, running, placeholder }: {
       <div className="bar">
         <span className="hints row-flex">
           {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
+            : background ? <>Commands are running in the background · <Keys keys={["Esc"]} /> stop them</>
             : <><Keys keys={["↵"]} /> send <Keys keys={["⇧", "↵"]} /> new line</>}
         </span>
         {showStop ? (
@@ -265,6 +273,7 @@ export default function ChatPage() {
     }
     if (n.params.sessionId !== current.current) return;
     if (n.method === "_acf/notice") push(n.params.text);
+    else if (n.method === "_acf/turn_start") setRunning(true); // a background command finished and woke the agent
     else if (n.method === "_acf/turn_end") {
       setRunning(false);
       setQueued([]);
@@ -347,7 +356,8 @@ export default function ChatPage() {
         {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
       </div>
       <div className="composer-wrap">
-        <Composer key={sid} onSend={(t) => send(t, sid)} onStop={stop} running={running} />
+        <Composer key={sid} onSend={(t) => send(t, sid)} onStop={stop} running={running}
+          background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
       </div>
     </>
   );

@@ -66,37 +66,6 @@ async def test_parallel_read_only_calls(client, user):
     assert {r["text"].split("\t")[1] for r in turn.results} == {"alpha", "beta"}
 
 
-async def test_read_only_tools_run_concurrently_writes_in_order(user):
-    import time
-
-    from acf.agent.loop import Run
-    from acf.agent.tools import Tool, ToolResult
-    from acf.db import Chat, User, session_scope
-
-    with session_scope() as db:
-        u = db.get(User, user["id"])
-        chat = Chat(user_id=u.id)
-        db.add(chat)
-        db.flush()
-        chat_id = chat.id
-
-    async def slow(args, ctx):
-        await asyncio.sleep(0.3)
-        return ToolResult(args["x"])
-
-    ro = Tool("ro", "", {}, slow, read_only=lambda a: True)
-    rw = Tool("rw", "", {}, slow)
-    run = Run(u, chat_id)
-    calls = [{"id": f"c{i}", "name": "ro", "args": {"x": str(i)}} for i in range(3)]
-    t0 = time.monotonic()
-    out = await run._execute(calls, {"ro": ro, "rw": rw}, None)
-    assert time.monotonic() - t0 < 0.6 and [m.content for m in out] == ["0", "1", "2"]
-    calls = [{"id": f"w{i}", "name": n, "args": {"x": n}} for i, n in enumerate(["ro", "rw"])]
-    t0 = time.monotonic()
-    await run._execute(calls, {"ro": ro, "rw": rw}, None)
-    assert time.monotonic() - t0 >= 0.6  # a writer in the batch -> sequential
-
-
 async def test_large_output_is_truncated_and_spilled(client, user):
     chat_id = await new_chat(client)
     tool = (await send(client, chat_id, "run: python3 -c \"print('x' * 100000)\"")).results[0]

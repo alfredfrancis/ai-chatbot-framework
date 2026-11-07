@@ -21,7 +21,8 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Few, sharp tools | `read` (numbered lines, offset/limit), `write`, `edit` (exact, unique replacement), `bash` (sandbox). Everything else is bash. |
 | Files over special tools | Memory and context are `memory.md` and `context.md`; the agent edits them like any file. |
 | Progressive disclosure | Skills appear as one line each (`name: description (path)`); the agent reads `SKILL.md` when needed. MCP tools appear as names per connected app; each tool's definition (description and input schema) is written to `.acf/mcp/<server>/<tool>.json` when the run connects, and one `mcp_call` tool (`server`, `tool`, `arguments`) runs them. Binding every MCP schema instead costs tens of thousands of prompt tokens per step. |
-| Parallel tools | If every call in a batch is read-only (`read`, `mcp_call` to an MCP tool with `readOnlyHint`), they run concurrently; otherwise in order. |
+| Parallel tools | All calls in one model answer run at the same time; results keep the call order. A call waits only for earlier calls on the same resource (a file path for `read`/`write`/`edit`, the app for `mcp_call`) when one of them writes. The prompt tells the model to batch only independent steps. |
+| Background commands | `bash` with `background: true` returns at once ("Started in the background as job bg-…") and runs as a job of the chat (up to 8 per chat, 1 hour max). Its output is saved as a user-role note (`raw.background` = job id, `tool_call_id` = the call that started it): a run that is still working reads it at its next step; otherwise it starts a new run. Stop ends jobs too (the note says so; it doesn't wake the agent). A job lost in a server restart gets a closing note. |
 | Recoverable errors | Failed commands, bad arguments and unknown tools come back as error results, never crashes. |
 | Small context | Tool output above 30k characters keeps head and tail; the full text is saved to `.acf/outputs/` for the agent to read. |
 | Compaction | Before a new turn, if the history is over `ACF_COMPACT_TOKENS`, older messages are summarised into one record. The cut is at a user message so tool calls stay paired; thinking blocks from before the cut are dropped. |
@@ -40,7 +41,7 @@ while the agent works becomes steering. Run events become `session/update` notif
 assistant message → `agent_message_chunk` + one `tool_call` (pending) per call; `tool_start` →
 `tool_call_update` (in_progress); a tool result → `tool_call_update` (completed/failed, with output and
 `_meta.acf.durationMs`); a `delta` → `agent_message_chunk` / `agent_thought_chunk` with the stream's id
-as `_meta.acf.messageId` (the stored message then sends only its tool calls, since its text was streamed). `session/load` registers a listener on the running agent *before* reading the
+as `_meta.acf.messageId` (the stored message then sends only its tool calls, since its text was streamed). A background command's tool call stays `in_progress` (`_meta.acf.background`) until its note arrives as a `tool_call_update` (completed/failed, with output). Connections that loaded or prompted a session hear about runs a finished job starts there through `_acf/turn_start`, then follow them. `session/load` registers a listener on the running agent *before* reading the
 history, replays the stored messages, then forwards only newer events — including the deltas of an answer
 still being written — so a reloaded page neither misses nor duplicates anything. When a run ends, every connection following it gets `_acf/turn_end`; the
 prompt's response carries the ACP stop reason (`end_turn`, `cancelled`, `max_turn_requests`) or a

@@ -69,7 +69,9 @@ class Chat(Base):
 class Message(Base):
     """One message in provider-neutral form.
 
-    role: user | assistant | tool
+    role: user | assistant | tool | summary
+    A background command's output is a user-role note (the model reads it as a message) that carries the
+    job id in raw.background and the tool call that started it in tool_call_id.
     assistant messages may carry tool_calls [{id, name, arguments}] and the provider's raw content
     blocks (kept verbatim so they can be replayed unchanged on the next request).
     """
@@ -86,6 +88,11 @@ class Message(Base):
     raw: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
+    @property
+    def background(self) -> str | None:
+        """Background job id: on the tool result that started it, and on the user-role note with its output."""
+        return (self.raw or {}).get("background") if self.role in ("tool", "user") else None
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
@@ -95,7 +102,8 @@ class Message(Base):
             "tool_call_id": self.tool_call_id,
             "name": self.name,
             "is_error": self.is_error,
-            "duration_ms": (self.raw or {}).get("duration_ms") if self.role == "tool" else None,
+            "duration_ms": (self.raw or {}).get("duration_ms") if self.role == "tool" or self.background else None,
+            "background": self.background,
             "created_at": self.created_at.isoformat() + "Z",
         }
 

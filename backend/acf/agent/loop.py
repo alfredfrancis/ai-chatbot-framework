@@ -8,8 +8,12 @@ Design (borrowing from pi, Hermes and Claude Code):
   waits for the batch to finish: tools have side effects and are never cut off.
 - Replies stream: text and thinking deltas are events as they arrive; the complete message is stored
   when the stream ends. A stop mid-answer keeps the text shown so far.
-- Model -> tool calls -> results -> model … until the model answers without tools. Independent
-  read-only calls run concurrently; anything that writes runs in order.
+- Model -> tool calls -> results -> model … until the model answers without tools. The calls of one
+  answer run at the same time; a call waits only for earlier calls on the same file when one of them
+  writes it.
+- Background commands (`bash` with background: true) return at once and live on as jobs of the chat.
+  Their output becomes a message: read at the next step of a run that is still working, or it starts a
+  new run. Stop ends them too.
 - MCP tools are not bound one by one: the prompt lists their names, their definitions are files in
   .acf/mcp/, and one `mcp_call` tool runs them (see mcp_client). Binding every schema costs tens of
   thousands of prompt tokens per step.
@@ -28,7 +32,7 @@ import contextlib
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 from langchain_core.messages import (
@@ -52,6 +56,9 @@ from acf.sandbox import get_sandbox
 
 log = logging.getLogger("acf.agent")
 STOPPED = "Stopped by the user before this ran."
+JOB_STOPPED = "Stopped by the user."
+JOB_LOST = "This background command ended when the server restarted; its output is lost."
+MAX_JOBS = 8  # running background commands per chat
 
 SUMMARY_PROMPT = """Summarise the conversation above so you can continue the work without it. Write:
 ## Goal
@@ -134,6 +141,11 @@ def repair(chat_id: int) -> None:
                             )
                         )
                         answered.add(tc["id"])
+        reported = {m.background for m in rows if m.role == "user" and m.background}
+        for m in rows:
+            job = m.background if m.role == "tool" else None
+            if job and job not in reported and job not in JOBS:
+                db.add(_job_note_row(chat_id, job, m.tool_call_id or "", m.name or "", JOB_LOST, True, None))
 
 
 def load_history(chat_id: int) -> list[BaseMessage]:
@@ -186,7 +198,7 @@ class Run:
     def __init__(self, user: User, chat_id: int):
         self.user = user
         self.chat_id = chat_id
-        self.inbox: asyncio.Queue[str] = asyncio.Queue()
+        self.inbox: asyncio.Queue[str | dict[str, Any]] = asyncio.Queue()  # user text, or a job's note row
         self._nudged = asyncio.Event()
         self.events: list[dict[str, Any]] = []
         self._listeners: list[asyncio.Queue] = []
@@ -246,6 +258,10 @@ class Run:
             while not self.inbox.empty():
                 await self._turn()
         except asyncio.CancelledError:
+            while not self.inbox.empty():  # keep the output of jobs that finished just before the stop
+                item = self.inbox.get_nowait()
+                if isinstance(item, dict):
+                    self.emit({"type": "message", "message": _save(self.chat_id, **item)})
             repair(self.chat_id)
             self.stop_reason = "cancelled"
             self.emit({"type": "stopped"})
@@ -261,9 +277,10 @@ class Run:
     def _inject_user_messages(self, history: list[BaseMessage]) -> bool:
         got = False
         while not self.inbox.empty():
-            text = self.inbox.get_nowait()
-            msg = _save(self.chat_id, role="user", content=text)
-            history.append(HumanMessage(text))
+            item = self.inbox.get_nowait()
+            fields = item if isinstance(item, dict) else {"role": "user", "content": item}
+            msg = _save(self.chat_id, **fields)
+            history.append(HumanMessage(fields["content"]))
             self.emit({"type": "message", "message": msg})
             got = True
         return got
@@ -434,10 +451,14 @@ class Run:
         self.final_text = text
         self.emit({"type": "message", "message": saved, "stream": stream.id})
 
-    async def _execute(self, calls: list[dict], tools: dict[str, Tool], hub: McpHub) -> list[ToolMessage]:
-        ctx = ToolContext(self.user.id)
-
-        async def one(call: dict) -> ToolMessage:
+    async def _execute(self, calls: list[dict], tools: dict[str, Tool], hub: McpHub | None) -> list[ToolMessage]:
+        async def one(call: dict, wait: list[asyncio.Future]) -> ToolMessage:
+            if wait:
+                await asyncio.gather(*wait, return_exceptions=True)
+            ctx = ToolContext(
+                self.user.id,
+                start_job=lambda label, work: start_job(self.user, self.chat_id, call, label, work),
+            )
             tool = tools.get(call["name"])
             label = tool.label(call["args"]) if tool else call["name"]
             self.emit({"type": "tool_start", "id": call["id"], "name": call["name"], "label": label})
@@ -465,7 +486,7 @@ class Run:
                 tool_call_id=call["id"],
                 name=call["name"],
                 is_error=result.is_error,
-                raw={"duration_ms": ms},
+                raw={"duration_ms": ms, **({"background": result.background} if result.background else {})},
             )
             self.emit({"type": "message", "message": saved})
             return ToolMessage(
@@ -474,13 +495,32 @@ class Run:
                 status="error" if result.is_error else "success",
             )
 
-        parallel = all(c["name"] in tools and tools[c["name"]].read_only(c["args"]) for c in calls)
-        if parallel and len(calls) > 1:
-            return list(await asyncio.gather(*(one(c) for c in calls)))
-        return [await one(c) for c in calls]
+        # Everything runs at once, except that a call waits for earlier calls on the same resource when
+        # either one writes (read then edit the same file, two edits of one file).
+        started: list[tuple[str | None, bool, asyncio.Future]] = []
+        for c in calls:
+            tool = tools.get(c["name"])
+            res = tool.resource(c["args"]) if tool and "error" not in c else None
+            ro = bool(tool and tool.read_only(c["args"]))
+            wait = [f for r, r_ro, f in started if res is not None and r == res and not (ro and r_ro)]
+            started.append((res, ro, asyncio.ensure_future(one(c, wait))))
+        try:
+            return list(await asyncio.gather(*(f for _, _, f in started)))
+        except BaseException:
+            for _, _, f in started:
+                f.cancel()
+            raise
 
 
 RUNS: dict[int, Run] = {}
+
+
+def _new_run(user: User, chat_id: int, item: str | dict[str, Any]) -> Run:
+    run = Run(user, chat_id)
+    RUNS[chat_id] = run
+    run.inbox.put_nowait(item)
+    run.task = asyncio.create_task(run.main())
+    return run
 
 
 def start(user: User, chat_id: int, text: str) -> tuple[Run, bool]:
@@ -489,11 +529,110 @@ def start(user: User, chat_id: int, text: str) -> tuple[Run, bool]:
     if run and not run.done:
         run.steer(text)
         return run, True
-    run = Run(user, chat_id)
-    RUNS[chat_id] = run
-    run.inbox.put_nowait(text)
-    run.task = asyncio.create_task(run.main())
-    return run, False
+    return _new_run(user, chat_id, text), False
+
+
+def stop(chat_id: int) -> None:
+    """Stop the chat's run and its background commands."""
+    run = RUNS.get(chat_id)
+    if run:
+        run.stop()
+    for job in [j for j in JOBS.values() if j.chat_id == chat_id]:
+        job.task.cancel()
+
+
+# ------------------------------------------------------------------ chat watchers
+
+# Clients that show a chat hear about what happens outside a run they follow: a run started by a finished
+# background command ({"type": "run", "run": Run}) and a note saved while no run reads it ({"type": "message"}).
+_watchers: dict[int, list[Callable[[dict[str, Any]], None]]] = {}
+
+
+def watch_chat(chat_id: int, callback: Callable[[dict[str, Any]], None]) -> Callable[[], None]:
+    _watchers.setdefault(chat_id, []).append(callback)
+
+    def unwatch() -> None:
+        cbs = _watchers.get(chat_id, [])
+        if callback in cbs:
+            cbs.remove(callback)
+        if not cbs:
+            _watchers.pop(chat_id, None)
+
+    return unwatch
+
+
+def _broadcast(chat_id: int, event: dict[str, Any]) -> None:
+    for cb in list(_watchers.get(chat_id, [])):
+        try:
+            cb(event)
+        except Exception:  # noqa: BLE001 - one broken client must not break the others
+            log.exception("chat watcher failed")
+
+
+# ------------------------------------------------------------------ background jobs
+
+
+class Job:
+    def __init__(self, job_id: str, user: User, chat_id: int, call: dict, label: str):
+        self.id, self.user, self.chat_id, self.call, self.label = job_id, user, chat_id, call, label
+        self.task: asyncio.Task
+
+
+JOBS: dict[str, Job] = {}
+
+
+def _job_note_row(
+    chat_id: int, job: str, call_id: str, tool: str, text: str, is_error: bool, ms: int | None, command: str = ""
+) -> Message:
+    return Message(chat_id=chat_id, **_job_note(job, call_id, tool, text, is_error, ms, command))
+
+
+def _job_note(
+    job: str, call_id: str, tool: str, text: str, is_error: bool, ms: int | None, command: str = ""
+) -> dict[str, Any]:
+    head = f"[background job {job} {'failed' if is_error else 'finished'}" + (f" after {ms / 1000:.1f}s" if ms else "")
+    body = f"{head}]\n" + (f"$ {command}\n" if command else "") + text
+    return {
+        "role": "user",
+        "content": body,
+        "tool_call_id": call_id,
+        "name": tool,
+        "is_error": is_error,
+        "raw": {"background": job, "duration_ms": ms},
+    }
+
+
+def start_job(user: User, chat_id: int, call: dict, label: str, work: Callable[[], Awaitable[ToolResult]]) -> str:
+    """Run `work` in the background for this chat; its result is reported as a note (see _finish)."""
+    if sum(1 for j in JOBS.values() if j.chat_id == chat_id) >= MAX_JOBS:
+        raise ValueError(f"{MAX_JOBS} background commands are already running. Wait for one to finish.")
+    job = Job("bg-" + uuid.uuid4().hex[:6], user, chat_id, call, label)
+    JOBS[job.id] = job
+    job.task = asyncio.create_task(_job_main(job, work))
+    return job.id
+
+
+async def _job_main(job: Job, work: Callable[[], Awaitable[ToolResult]]) -> None:
+    started = time.monotonic()
+    stopped = False
+    try:
+        result = await work()
+    except asyncio.CancelledError:
+        result, stopped = ToolResult(JOB_STOPPED, True), True
+    except Exception as e:  # noqa: BLE001
+        log.exception("background job failed")
+        result = ToolResult(f"The command could not run: {e}", True)
+    finally:
+        JOBS.pop(job.id, None)
+    ms = int((time.monotonic() - started) * 1000)
+    note = _job_note(job.id, job.call["id"], job.call["name"], result.content, result.is_error, ms, job.label)
+    run = RUNS.get(job.chat_id)
+    if stopped:  # a stop doesn't wake the agent: save it for the next turn and tell who is watching
+        _broadcast(job.chat_id, {"type": "message", "message": _save(job.chat_id, **note)})
+    elif run and not run.done:
+        run.inbox.put_nowait(note)  # read at the run's next step
+    else:
+        _broadcast(job.chat_id, {"type": "run", "run": _new_run(job.user, job.chat_id, note)})
 
 
 async def run_to_completion(user: User, chat_id: int, text: str) -> tuple[str, bool]:
