@@ -1,5 +1,6 @@
 export type User = { id: number; email: string; name: string };
 export type FileEntry = { name: string; path: string; type: "dir" | "file"; size?: number; items?: number };
+export type Artifact = { path: string; name: string; kind: "uploaded" | "produced"; size: number; modified_at: string };
 export type Skill = { name: string; description: string; path: string; files: number };
 export type ChatSummary = { id: number; title: string; task_id: number | null; updated_at: string };
 export type Task = {
@@ -38,6 +39,12 @@ export type Settings = {
   providers: string[];
   defaults: { provider: string; model: string; base_url: string; has_api_key: boolean };
 };
+/** A file size people can read: 812 B, 4.2 KB, 1.3 MB. */
+export const formatSize = (n?: number) =>
+  n == null ? "" : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+/** URL of a workspace file: opened in the browser, or downloaded. */
+export const rawUrl = (path: string, download = false) => `/api/files/raw?path=${encodeURIComponent(path)}${download ? "&download=true" : ""}`;
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);

@@ -210,3 +210,61 @@ async def test_stdio_bridge_end_to_end(client, user):
         proc.stdin.close()
         await asyncio.wait_for(proc.wait(), 10)
         server.should_exit = True
+
+
+async def test_attached_files_reach_the_agent_and_replay_as_links(client, user):
+    await client.post("/api/files", files={"file": ("sales.csv", b"day,eur\nmon,120\n")}, data={"folder": "uploads"})
+    link = {"type": "resource_link", "uri": "file:///workspace/uploads/sales.csv", "name": "sales.csv", "size": 16}
+    async with acp_connect(client) as acp:
+        sid = (await acp.request("session/new", {"cwd": "/", "mcpServers": []}))["sessionId"]
+        await acp.request(
+            "session/prompt", {"sessionId": sid, "prompt": [{"type": "text", "text": "read: uploads/sales.csv"}, link]}
+        )
+        steps = [u for u in acp.updates(sid) if u["sessionUpdate"] == "tool_call_update" and u.get("content")]
+        assert "mon,120" in steps[-1]["content"][0]["content"]["text"]
+
+        # an attachment alone is a valid prompt; the agent reads where the file is
+        await acp.request("session/prompt", {"sessionId": sid, "prompt": [link]})
+        final = list(joined([u for u in acp.updates(sid) if u["sessionUpdate"] == "agent_message_chunk"]).values())[-1]
+        assert final == "Echo: [Attached file: sales.csv](file:///workspace/uploads/sales.csv)"
+        sid2 = (await acp.request("session/new", {"cwd": "/", "mcpServers": []}))["sessionId"]
+        await acp.request("session/prompt", {"sessionId": sid2, "prompt": [link]})
+    chats = {c["id"]: c["title"] for c in (await client.get("/api/chats")).json()}
+    assert chats[int(sid)] == "read: uploads/sales.csv" and chats[int(sid2)] == "sales.csv"
+
+    async with acp_connect(client) as acp:
+        await acp.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+        users = [u for u in acp.updates(sid) if u["sessionUpdate"] == "user_message_chunk"]
+    first, second = users[0]["_meta"]["acf"]["messageId"], users[-1]["_meta"]["acf"]["messageId"]
+    assert [(u["content"]["type"], u["_meta"]["acf"]["messageId"]) for u in users] == [
+        ("text", first),
+        ("resource_link", first),
+        ("resource_link", second),
+    ]
+    assert users[0]["content"]["text"] == "read: uploads/sales.csv"
+    assert users[1]["content"] == {
+        "type": "resource_link",
+        "uri": "file:///workspace/uploads/sales.csv",
+        "name": "sales.csv",
+    }
+
+
+async def test_only_workspace_links_count_as_attachments(client, user):
+    async with acp_connect(client) as acp:
+        sid = (await acp.request("session/new", {"cwd": "/", "mcpServers": []}))["sessionId"]
+        # a name with spaces and brackets (a kept upload) is still one attachment
+        odd = {"type": "resource_link", "uri": "file:///workspace/uploads/a (1).csv", "name": "a (1).csv"}
+        await acp.request("session/prompt", {"sessionId": sid, "prompt": [odd]})
+        link = {"type": "resource_link", "uri": "https://example.com/a.pdf", "name": "a.pdf"}
+        await acp.request("session/prompt", {"sessionId": sid, "prompt": [{"type": "text", "text": "see"}, link]})
+        final = list(joined([u for u in acp.updates(sid) if u["sessionUpdate"] == "agent_message_chunk"]).values())[-1]
+        assert final == "Echo: see\n\n[a.pdf](https://example.com/a.pdf)"
+    async with acp_connect(client) as acp:
+        await acp.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+        users = [u["content"] for u in acp.updates(sid) if u["sessionUpdate"] == "user_message_chunk"]
+    assert users[0] == {
+        "type": "resource_link",
+        "uri": "file:///workspace/uploads/a%20%281%29.csv",
+        "name": "a (1).csv",
+    }
+    assert users[1] == {"type": "text", "text": "see\n\n[a.pdf](https://example.com/a.pdf)"}

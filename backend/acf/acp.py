@@ -36,7 +36,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from acf import config
+from acf import config, workspace
 from acf.agent import loop as agent
 from acf.auth import COOKIE, user_for_acp_token, user_for_session
 from acf.db import Chat, Message, User, session_scope, utcnow
@@ -96,14 +96,16 @@ def tool_title(name: str, args: dict[str, Any]) -> str:
     return f"Used {name}"
 
 
+def user_blocks(text: str) -> list[dict[str, Any]]:
+    """A stored user message as ACP content blocks: its text, then a resource_link per attached file."""
+    links = [{"type": "resource_link", "uri": uri, "name": name} for name, uri in workspace.ATTACHED_RE.findall(text)]
+    rest = workspace.ATTACHED_RE.sub("", text).strip()
+    return ([_text(rest)] if rest or not links else []) + links
+
+
 def user_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        {
-            "sessionUpdate": "user_message_chunk",
-            "content": _text(m["content"]),
-            "_meta": {"acf": {"messageId": m["id"]}},
-        }
-    ]
+    meta = {"acf": {"messageId": m["id"]}}
+    return [{"sessionUpdate": "user_message_chunk", "content": b, "_meta": meta} for b in user_blocks(m["content"])]
 
 
 def assistant_updates(m: dict[str, Any], with_text: bool = True) -> list[dict[str, Any]]:
@@ -168,7 +170,11 @@ def message_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def prompt_text(blocks: Any) -> str:
-    """ACP content blocks -> the text the agent reads. Text, resource links and embedded text resources."""
+    """ACP content blocks -> the text the agent reads. Text, resource links and embedded text resources.
+
+    Links to files in the workspace (file:///workspace/…, e.g. files attached in the web chat) become
+    `[Attached file: name](uri)` lines, which the agent opens with its read tool.
+    """
     if not isinstance(blocks, list) or not blocks:
         raise RpcError(INVALID_PARAMS, "prompt must be a non-empty list of content blocks")
     parts: list[str] = []
@@ -177,7 +183,12 @@ def prompt_text(blocks: Any) -> str:
         if kind == "text":
             parts.append(str(b.get("text", "")))
         elif kind == "resource_link":
-            parts.append(f"[{b.get('name') or b.get('uri')}]({b.get('uri')})")
+            uri, name = str(b.get("uri", "")), str(b.get("name") or b.get("uri", "")).replace("]", ")")
+            if uri.startswith(f"file://{WORKSPACE}/") and "\n" not in uri + name:
+                uri = uri.replace(" ", "%20").replace("(", "%28").replace(")", "%29")  # keep the link one token
+                parts.append(workspace.ATTACHED.format(name=name, uri=uri))
+            else:
+                parts.append(f"[{name}]({uri})")
         elif kind == "resource" and isinstance(b.get("resource"), dict) and "text" in b["resource"]:
             r = b["resource"]
             parts.append(f'<file uri="{r.get("uri", "")}">\n{r["text"]}\n</file>')

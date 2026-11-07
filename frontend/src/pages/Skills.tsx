@@ -62,8 +62,7 @@ export default function SkillsPage() {
           {msg && <div className="hint" role="status">{msg}</div>}
           {skills && (
             <div className="list">
-              <div className="list-head"><span style={{ flex: 1 }}>Skill</span><span>Files</span></div>
-              {skills.map((s) => (
+                            {skills.map((s) => (
                 <div className="lrow" key={s.name} data-testid={`skill-${s.name}`}>
                   <div className="tile" aria-hidden="true">{s.name[0]}</div>
                   <div className="grow">

@@ -23,6 +23,7 @@ backend/acf/
   agent/prompt.py    system prompt: instructions + context.md + memory.md + skills index + connected apps
   acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
   acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
+  artifacts.py       a chat's artifacts: files attached to it and files the agent made in it
   skills.py          skill discovery, upload (zip / SKILL.md), built-in skill-creator
   workspace.py       per-user folder, path safety
   sandbox.py         DockerSandbox (one container per user), LocalSandbox (dev only, not isolated)
