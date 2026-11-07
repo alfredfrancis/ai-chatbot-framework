@@ -20,6 +20,9 @@ export ACF_LLM_BASE_URL="http://127.0.0.1:${FAKE_LLM_PORT:-9100}"
 export ACF_LLM_API_KEY=test-key
 export ACF_SCHEDULER_INTERVAL=2
 export ACF_SANDBOX_PREFIX=acf-e2e
+# Main account from the environment; sign-ups stay open so every spec can make its own user.
+export ACF_ADMIN_EMAIL=owner@example.com ACF_ADMIN_PASSWORD="owner password" ACF_ADMIN_NAME=Olivia
+export ACF_ALLOW_SIGNUP=true
 export ACF_MCP_PRESETS_FILE="$ROOT/frontend/e2e/presets.json"
 if [ "$ACF_SANDBOX" = docker ]; then docker ps -aq --filter name=acf-e2e- | xargs -r docker rm -f >/dev/null; fi
 cd "$ROOT/backend"

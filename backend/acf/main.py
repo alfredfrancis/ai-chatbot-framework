@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from acf import acp, config, db, scheduler
+from acf import acp, auth, config, db, scheduler
 from acf.api.routes import router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -20,6 +20,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    with db.session_scope() as s:
+        auth.ensure_admin(s)
     task = asyncio.create_task(scheduler.loop()) if config.settings.scheduler_enabled else None
     yield
     if task:
