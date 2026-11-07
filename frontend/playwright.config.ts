@@ -17,7 +17,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     deviceScaleFactor: 2,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 } }],
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, colorScheme: "dark" } }],
   webServer: [
     {
       command: `${py} -m tests.fakes.fake_llm --port 9100`,

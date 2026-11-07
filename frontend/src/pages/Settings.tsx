@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type Settings } from "../api";
+import { Topbar } from "../App";
 
 type SandboxStatus = { kind: string; state: string; name?: string; image?: string };
 
@@ -59,6 +60,8 @@ export default function SettingsPage() {
 
   const effective = provider || s.defaults.provider;
   return (
+    <>
+    <Topbar title="Settings" />
     <div className="page">
       <div className="page-inner">
         <div>
@@ -68,7 +71,7 @@ export default function SettingsPage() {
         <form className="card" onSubmit={save} aria-label="Model settings">
           <div className="field">
             <label htmlFor="provider">Model provider</label>
-            <select id="provider" className="select" value={provider} onChange={(e) => setProvider(e.target.value)}>
+            <select id="provider" className="input" value={provider} onChange={(e) => setProvider(e.target.value)}>
               {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
@@ -96,30 +99,31 @@ export default function SettingsPage() {
             <input id="api-key" className="input" type="password" autoComplete="off" value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={s.has_api_key ? "•••••••• (saved)" : s.defaults.has_api_key ? "Using the server's key" : "Paste your API key"} />
-            {s.has_api_key && <button type="button" className="btn ghost small" style={{ alignSelf: "flex-start" }} onClick={clearKey}>Remove saved key</button>}
+            {s.has_api_key && <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={clearKey}>Remove saved key</button>}
           </div>
           {error && <div className="banner" role="alert">{error}</div>}
-          <div className="row end">
+          <div className="row-flex end">
             {msg && <span className="hint" role="status">{msg}</span>}
-            <button className="btn" type="submit">Save</button>
+            <button className="btn primary" type="submit">Save</button>
           </div>
         </form>
 
         <section className="stack">
           <h2>Sandbox</h2>
           <div className="list">
-            <div className="list-item">
+            <div className="lrow">
               <div className="grow">
                 <div className="title">{sandbox?.kind === "docker" ? "Private container" : "Local folder (development mode)"}</div>
-                <div className="sub">
+                <div className="meta">
                   {sandbox ? (sandbox.kind === "docker" ? `${sandbox.state === "running" ? "Running" : sandbox.state === "missing" ? "Starts on first use" : sandbox.state} · ${sandbox.image}` : "Commands run directly on the server. Not isolated.") : "Checking…"}
                 </div>
               </div>
-              {sandbox?.kind === "docker" && <button className="btn secondary small" onClick={resetSandbox}>Restart</button>}
+              {sandbox?.kind === "docker" && <button className="btn sm" onClick={resetSandbox}>Restart</button>}
             </div>
           </div>
         </section>
       </div>
     </div>
+    </>
   );
 }

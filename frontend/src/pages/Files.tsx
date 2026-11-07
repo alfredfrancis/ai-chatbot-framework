@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, uploadFile, type FileEntry } from "../api";
+import { Topbar, useApp } from "../App";
 import { IconFile, IconFolder, IconImage } from "../components/icons";
 
 type Preview = { path: string; size: number; binary: boolean; truncated: boolean; content: string };
@@ -17,6 +18,7 @@ export default function FilesPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const { refresh } = useApp();
 
   const open = useCallback(async (dir: string) => {
     setError("");
@@ -41,27 +43,29 @@ export default function FilesPage() {
       setError((e as Error).message);
     }
     open(path);
+    refresh();
   };
 
   const parts = path ? path.split("/") : [];
   const name = preview?.path.split("/").pop() ?? "";
 
   return (
+    <>
+    <Topbar title="Files">
+      <button className="btn primary" onClick={() => input.current?.click()}>Upload</button>
+      <input ref={input} type="file" multiple className="sr-only" data-testid="upload" aria-label="Upload files"
+        onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
+    </Topbar>
     <div className="page">
       <div className="page-inner wide">
-        <div className="page-head">
-          <div>
-            <h1>Files</h1>
-            <p className="lead">Your agent's workspace. To change something, just ask in chat.</p>
-          </div>
-          <button className="btn" onClick={() => input.current?.click()}>Upload</button>
-          <input ref={input} type="file" multiple className="sr-only" data-testid="upload" aria-label="Upload files"
-            onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
+        <div>
+          <h1>Files</h1>
+          <p className="lead">Your agent's workspace. To change something, ask in chat.</p>
         </div>
         <nav className="crumbs" aria-label="Folder">
           {parts.length ? <button onClick={() => open("")}>workspace</button> : <span className="here">workspace</span>}
           {parts.map((p, i) => (
-            <span key={i} className="row" style={{ gap: 6 }}>
+            <span key={i} className="row-flex" style={{ gap: 6 }}>
               <span>/</span>
               {i === parts.length - 1 ? <span className="here">{p}</span> : <button onClick={() => open(parts.slice(0, i + 1).join("/"))}>{p}</button>}
             </span>
@@ -83,13 +87,13 @@ export default function FilesPage() {
             {preview ? (
               <>
                 <div className="preview-head">
-                  <span className="title">{name}</span>
+                  <span style={{ fontWeight: 600 }}>{name}</span>
                   <a href={raw(preview.path, true)}>Download</a>
                 </div>
                 <div className="preview-body" data-testid="preview">
                   {IMAGE.test(name) ? <img src={raw(preview.path)} alt={name} />
                     : preview.binary ? <p className="hint">This file can't be previewed. Download it to open it.</p>
-                    : /\.md$/i.test(name) ? <div className="assistant"><Markdown remarkPlugins={[remarkGfm]}>{preview.content}</Markdown></div>
+                    : /\.md$/i.test(name) ? <div className="answer"><Markdown remarkPlugins={[remarkGfm]}>{preview.content}</Markdown></div>
                     : <pre className="text">{preview.content}</pre>}
                   {preview.truncated && <p className="hint">Showing the first 500 KB.</p>}
                 </div>
@@ -101,5 +105,6 @@ export default function FilesPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

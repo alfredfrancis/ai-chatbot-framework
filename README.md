@@ -1,4 +1,4 @@
-<p align="center"><img src="frontend/public/favicon.svg" width="72" alt=""></p>
+<p align="center"><img src="frontend/public/favicon.svg" width="72" alt="AI Chatbot Framework logo"></p>
 
 <h1 align="center">AI Chatbot Framework</h1>
 
@@ -27,13 +27,14 @@ its own private computer, their files, skills, app connections and scheduled job
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
   Streamable HTTP with **OAuth sign-in** in a browser popup.
 - **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat.
-- A calm, Apple-like interface with a living brand mark, light and dark mode, and phone layout.
+- A calm, keyboard-friendly interface (⌘K command menu, shortcuts), dark and light themes, phone layout,
+  built from a documented design system whose tokens live in `design/tokens.json`.
 
 | Steering while it works | Skills | Connections (OAuth) |
 |---|---|---|
 | ![](docs/screenshots/e2e/04-steering-queued.png) | ![](docs/screenshots/e2e/07-skills.png) | ![](docs/screenshots/e2e/09-connections-connected.png) |
-| **Files** | **Tasks** | **Phone, dark** |
-| ![](docs/screenshots/e2e/06-files.png) | ![](docs/screenshots/e2e/11-tasks.png) | ![](docs/screenshots/e2e/14-phone-dark-chat.png) |
+| **Files** | **Command menu (⌘K)** | **Phone, light** |
+| ![](docs/screenshots/e2e/06-files.png) | ![](docs/screenshots/e2e/15-command-menu.png) | ![](docs/screenshots/e2e/14-phone-light-chat.png) |
 
 All screenshots are taken by the end-to-end tests (`docs/screenshots/e2e/`).
 
@@ -114,6 +115,9 @@ make e2e            # Playwright end-to-end tests (writes docs/screenshots/e2e)
 make e2e-docker     # the same with real Docker sandboxes (what CI runs)
 make lint
 ```
+
+Design tokens: edit `design/tokens.json` (mirrors the design system in Claude Design), then
+`cd frontend && npm run tokens` regenerates `src/tokens.css`.
 
 Tests never call a real model: `backend/tests/fakes/` has a scripted model server (Anthropic and
 OpenAI APIs), a dependency-free stdio MCP server and an OAuth-protected HTTP MCP server.

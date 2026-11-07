@@ -4,6 +4,7 @@ WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+COPY design/ /design/
 RUN npm run build
 
 FROM docker:29-cli AS dockercli

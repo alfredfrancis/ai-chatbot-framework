@@ -4,12 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "node scripts/build-tokens.mjs && vite",
+    "build": "node scripts/build-tokens.mjs && tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "e2e": "playwright test --trace off"
+    "e2e": "playwright test --trace off",
+    "tokens": "node scripts/build-tokens.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-markdown": "10.1.0",

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type Task } from "../api";
-import { useApp } from "../App";
+import { Topbar, useApp } from "../App";
 
 type Freq = "hourly" | "daily" | "weekdays" | "weekly" | "custom";
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -70,13 +70,13 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
       </div>
       <div className="field">
         <label htmlFor="task-prompt">What should the agent do?</label>
-        <textarea id="task-prompt" className="textarea" rows={3} required value={prompt} onChange={(e) => setPrompt(e.target.value)}
+        <textarea id="task-prompt" className="input" rows={3} required value={prompt} onChange={(e) => setPrompt(e.target.value)}
           placeholder="Check the weather in Lisbon and write a short summary to notes/today.md" />
       </div>
       <div className="grid-2">
         <div className="field">
           <label htmlFor="task-freq">Repeat</label>
-          <select id="task-freq" className="select" value={freq} onChange={(e) => setFreq(e.target.value as Freq)}>
+          <select id="task-freq" className="input" value={freq} onChange={(e) => setFreq(e.target.value as Freq)}>
             <option value="hourly">Every hour</option>
             <option value="daily">Every day</option>
             <option value="weekdays">Every weekday</option>
@@ -87,7 +87,7 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
         {freq === "custom" ? (
           <div className="field">
             <label htmlFor="task-cron">Cron expression</label>
-            <input id="task-cron" className="input" value={custom} onChange={(e) => setCustom(e.target.value)} style={{ fontFamily: "var(--mono)" }} />
+            <input id="task-cron" className="input mono" value={custom} onChange={(e) => setCustom(e.target.value)}  />
           </div>
         ) : freq === "hourly" ? (
           <div className="field">
@@ -104,7 +104,7 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
         {freq === "weekly" && (
           <div className="field">
             <label htmlFor="task-day">On</label>
-            <select id="task-day" className="select" value={day} onChange={(e) => setDay(Number(e.target.value))}>
+            <select id="task-day" className="input" value={day} onChange={(e) => setDay(Number(e.target.value))}>
               {DAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
             </select>
           </div>
@@ -112,9 +112,9 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
       </div>
       <span className="hint">Times are in your time zone ({localTz}). Each run appears as a new chat.</span>
       {error && <div className="banner" role="alert">{error}</div>}
-      <div className="row end">
+      <div className="row-flex end">
         <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn">Create task</button>
+        <button type="submit" className="btn primary">Create task</button>
       </div>
     </form>
   );
@@ -131,12 +131,15 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [creating, setCreating] = useState(params.get("new") === "1");
+  const [confirm, setConfirm] = useState<number | null>(null);
   const navigate = useNavigate();
-  const { refreshChats } = useApp();
+  const { refresh } = useApp();
 
   const load = () => api.get<Task[]>("/tasks").then(setTasks);
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (params.get("new") === "1") { setCreating(true); setParams({}, { replace: true }); } }, [params, setParams]);
 
   const toggle = async (t: Task, enabled: boolean) => {
     await api.patch(`/tasks/${t.id}`, { enabled });
@@ -144,56 +147,68 @@ export default function TasksPage() {
   };
   const runNow = async (t: Task) => {
     const r = await api.post<{ chat_id: number }>(`/tasks/${t.id}/run`);
-    refreshChats();
+    refresh();
     if (r.chat_id) navigate(`/c/${r.chat_id}`);
   };
   const remove = async (t: Task) => {
-    if (!confirm(`Delete “${t.name}”?`)) return;
+    if (confirm !== t.id) { setConfirm(t.id); return; }
     await api.del(`/tasks/${t.id}`);
+    setConfirm(null);
     load();
+    refresh();
   };
+  const badge = (t: Task) =>
+    !t.enabled ? <span className="badge">Paused</span>
+      : t.last_status === "error" ? <span className="badge danger">Failed</span>
+      : t.last_status === "running" ? <span className="badge warning">Running</span>
+      : <span className="badge success">On</span>;
 
   return (
-    <div className="page">
-      <div className="page-inner">
-        <div className="page-head">
+    <>
+      <Topbar title="Tasks">
+        {!creating && <button className="btn primary" onClick={() => setCreating(true)}>New task</button>}
+      </Topbar>
+      <div className="page">
+        <div className="page-inner">
           <div>
             <h1>Tasks</h1>
-            <p className="lead">Jobs your agent does on a schedule. Each run shows up as a chat.</p>
+            <p className="lead">Jobs your agent runs on a schedule. Each run opens as a chat.</p>
           </div>
-          {!creating && <button className="btn" onClick={() => setCreating(true)}>New task</button>}
-        </div>
-        {creating && <TaskForm onCancel={() => setCreating(false)} onDone={() => { setCreating(false); load(); }} />}
-        {tasks && tasks.length === 0 && !creating && (
-          <div className="list"><div className="empty">No tasks yet. Create one to have the agent check, summarise or tidy things up for you regularly.</div></div>
-        )}
-        {tasks && tasks.length > 0 && (
-          <div className="list">
-            {tasks.map((t) => (
-              <div className="list-item" key={t.id} data-testid={`task-${t.name}`}>
-                <div className="grow">
-                  <div className="title">{t.name}</div>
-                  <div className="sub">
-                    {describe(t.schedule)}
-                    {t.enabled ? (t.next_run_at ? ` · Next ${when(t.next_run_at)}` : "") : " · Paused"}
+          {creating && <TaskForm onCancel={() => setCreating(false)} onDone={() => { setCreating(false); load(); refresh(); }} />}
+          {tasks && tasks.length === 0 && !creating && (
+            <div className="list"><div className="empty">No tasks yet. Create one to have the agent check, summarise or tidy things up for you regularly.</div></div>
+          )}
+          {tasks && tasks.length > 0 && (
+            <div className="list">
+              <div className="list-head"><span style={{ flex: 1 }}>Task</span><span>Status</span></div>
+              {tasks.map((t) => (
+                <div className="lrow" key={t.id} data-testid={`task-${t.name}`}>
+                  <div className="grow">
+                    <span className="title">{t.name}</span>
+                    <span className="meta">
+                      {describe(t.schedule)}
+                      {t.enabled ? (t.next_run_at ? ` · Next ${when(t.next_run_at)}` : "") : " · Paused"}
+                    </span>
+                    {t.last_run_at && (
+                      <span className="meta">
+                        Last run {when(t.last_run_at)}
+                        {t.last_chat_id && <> · <Link to={`/c/${t.last_chat_id}`}>View result</Link></>}
+                      </span>
+                    )}
                   </div>
-                  {t.last_run_at && (
-                    <div className="sub">
-                      Last run {when(t.last_run_at)}
-                      {t.last_status === "error" && <span className="error-text"> · failed</span>}
-                      {t.last_status === "running" && " · running…"}
-                      {t.last_chat_id && <> · <Link to={`/c/${t.last_chat_id}`}>View result</Link></>}
-                    </div>
-                  )}
+                  <div className="side">
+                    {badge(t)}
+                    <button className="btn sm" onClick={() => runNow(t)}>Run now</button>
+                    <Toggle checked={t.enabled} onChange={(v) => toggle(t, v)} label={`${t.name} enabled`} />
+                    <button className={`btn ${confirm === t.id ? "danger" : "ghost"} sm`} onClick={() => remove(t)}
+                      aria-label={confirm === t.id ? `Confirm delete ${t.name}` : `Delete ${t.name}`}>{confirm === t.id ? "Delete?" : "Delete"}</button>
+                  </div>
                 </div>
-                <button className="btn secondary small" onClick={() => runNow(t)}>Run now</button>
-                <Toggle checked={t.enabled} onChange={(v) => toggle(t, v)} label={`${t.name} enabled`} />
-                <button className="btn danger small" onClick={() => remove(t)} aria-label={`Delete ${t.name}`}>Delete</button>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

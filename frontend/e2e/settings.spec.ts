@@ -45,15 +45,15 @@ test("model errors are shown to the user", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("Could not reach the model");
 });
 
-test.describe("phone and dark mode", () => {
-  test.use({ viewport: { width: 390, height: 844 }, colorScheme: "dark" });
-  test("works on a phone in dark mode", async ({ page }) => {
+test.describe("phone and light mode", () => {
+  test.use({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
+  test("works on a phone in light mode", async ({ page }) => {
     await signUp(page);
-    await shot(page, "13-phone-dark-home");
+    await shot(page, "13-phone-light-home");
     await expect(nav(page)).not.toBeInViewport();
     await say(page, "run: echo phone");
     await expect(lastAssistant(page)).toContainText("Result: phone");
-    await shot(page, "14-phone-dark-chat");
+    await shot(page, "14-phone-light-chat");
     await page.getByRole("button", { name: "Open menu" }).click();
     await nav(page).getByRole("link", { name: "Skills" }).click();
     await expect(page.getByRole("heading", { name: "Skills" })).toBeVisible();

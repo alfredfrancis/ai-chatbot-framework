@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type McpServer } from "../api";
+import { Topbar, useApp } from "../App";
 
 const EXAMPLE = `{
   "mcpServers": {
@@ -12,15 +13,6 @@ const EXAMPLE = `{
 }
 `;
 
-const TINTS = [
-  ["#E8F1FC", "#0058B0"], ["#F2EEFC", "#5B32B4"], ["#EEF6EF", "#1A7F37"], ["#FDF1E7", "#A04A00"],
-];
-
-function tint(name: string) {
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return TINTS[h % TINTS.length];
-}
 
 /** Open the provider's sign-in page in a popup; resolves when the callback page reports back. */
 function signInPopup(url: string): Promise<boolean> {
@@ -46,7 +38,6 @@ function signInPopup(url: string): Promise<boolean> {
 function ServerRow({ s, onChange }: { s: McpServer; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [bg, fg] = tint(s.name);
 
   const signIn = async () => {
     setBusy(true);
@@ -70,11 +61,11 @@ function ServerRow({ s, onChange }: { s: McpServer; onChange: () => void }) {
 
   const where = s.transport === "stdio" ? "Runs in your sandbox" : "Remote";
   return (
-    <div className="list-item" data-testid={`server-${s.name}`}>
-      <div className="avatar" style={{ background: bg, color: fg }} aria-hidden="true">{s.name[0]}</div>
+    <div className="lrow" data-testid={`server-${s.name}`}>
+      <div className="tile" aria-hidden="true">{s.name[0]}</div>
       <div className="grow">
         <div className="title">{s.name}</div>
-        <div className="sub">
+        <div className="meta">
           {where}
           {s.state === "connected" && ` · ${s.tools.length} tool${s.tools.length === 1 ? "" : "s"}`}
         </div>
@@ -87,16 +78,18 @@ function ServerRow({ s, onChange }: { s: McpServer; onChange: () => void }) {
           </details>
         )}
       </div>
-      {s.state === "connected" && <span className="status ok"><span className="dot" />Connected</span>}
-      {s.state === "error" && <span className="status bad"><span className="dot" />Not working</span>}
-      {s.state === "disabled" && <span className="status"><span className="dot" />Off</span>}
-      {s.state === "needs_auth" && <button className="btn small" onClick={signIn} disabled={busy}>{busy ? "Waiting…" : "Sign in"}</button>}
-      {s.state === "connected" && s.signed_in && <button className="btn ghost small" onClick={signOut}>Sign out</button>}
+      {s.state === "connected" && <span className="badge success">Connected</span>}
+      {s.state === "error" && <span className="badge danger">Not working</span>}
+      {s.state === "disabled" && <span className="badge">Off</span>}
+      {s.state === "needs_auth" && <span className="badge warning">Needs sign-in</span>}
+      {s.state === "needs_auth" && <button className="btn primary sm" onClick={signIn} disabled={busy}>{busy ? "Waiting…" : "Sign in"}</button>}
+      {s.state === "connected" && s.signed_in && <button className="btn ghost sm" onClick={signOut}>Sign out</button>}
     </div>
   );
 }
 
 export default function ConnectionsPage() {
+  const { refresh: refreshApp } = useApp();
   const [servers, setServers] = useState<McpServer[] | null>(null);
   const [config, setConfig] = useState("");
   const [saved, setSaved] = useState("");
@@ -121,6 +114,7 @@ export default function ConnectionsPage() {
       await api.put("/mcp/config", { config });
       setSaved(config);
       setMsg("Saved");
+      refreshApp();
       refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -128,6 +122,8 @@ export default function ConnectionsPage() {
   };
 
   return (
+    <>
+    <Topbar title="Connections" />
     <div className="page">
       <div className="page-inner">
         <div>
@@ -146,18 +142,18 @@ export default function ConnectionsPage() {
         </section>
 
         <section className="stack">
-          <div className="row between">
+          <div className="row-flex between">
             <h2><label htmlFor="mcp-config">Configuration</label></h2>
             <span className="hint">Same format as Claude Desktop</span>
           </div>
-          <textarea id="mcp-config" className="textarea code" rows={12} spellCheck={false} value={config}
+          <textarea id="mcp-config" className="input mono" rows={12} spellCheck={false} value={config}
             onChange={(e) => setConfig(e.target.value)} />
           {error && <div className="banner" role="alert">{error}</div>}
-          <div className="row between">
-            <button className="btn ghost small" onClick={() => setConfig(EXAMPLE)}>Insert example</button>
-            <div className="row">
+          <div className="row-flex between">
+            <button className="btn ghost sm" onClick={() => setConfig(EXAMPLE)}>Insert example</button>
+            <div className="row-flex">
               {msg && <span className="hint" role="status">{msg}</span>}
-              <button className="btn" onClick={save} disabled={config === saved}>Save</button>
+              <button className="btn primary" onClick={save} disabled={config === saved}>Save</button>
             </div>
           </div>
           <p className="hint">
@@ -167,5 +163,6 @@ export default function ConnectionsPage() {
         </section>
       </div>
     </div>
+    </>
   );
 }

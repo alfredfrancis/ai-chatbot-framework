@@ -19,7 +19,7 @@ test("create, run, pause and delete a recurring task", async ({ page }) => {
 
   await row.getByRole("button", { name: "Run now" }).click();
   await expect(page).toHaveURL(/\/c\/\d+$/);
-  await expect(page.locator(".chat-header")).toContainText("Morning check ·");
+  await expect(page.locator(".topbar .here")).toContainText("Morning check ·");
   await expect(lastAssistant(page)).toContainText("Result: task-ran");
 
   await nav(page).getByRole("link", { name: "Tasks" }).click();
@@ -28,8 +28,8 @@ test("create, run, pause and delete a recurring task", async ({ page }) => {
   await row.getByRole("switch", { name: "Morning check enabled" }).click();
   await expect(row).toContainText("Paused");
 
-  page.once("dialog", (d) => d.accept());
   await row.getByRole("button", { name: "Delete Morning check" }).click();
+  await row.getByRole("button", { name: "Confirm delete Morning check" }).click();
   await expect(row).toHaveCount(0);
 });
 

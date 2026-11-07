@@ -3,7 +3,7 @@ import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 
 test("home, chat, sandbox commands and history", async ({ page }) => {
   await signUp(page);
-  await expect(page.getByTestId("status-pill")).toHaveText(/^(Sandbox ready|Local sandbox) · 1 skill · 0 connections$/);
+  await expect(page.getByTestId("status-line")).toHaveText("Your agent has a private computer, 3 files, 1 skill and 0 connections.");
   await shot(page, "02-home");
 
   await say(page, "hello there");
@@ -25,8 +25,8 @@ test("home, chat, sandbox commands and history", async ({ page }) => {
   await expect(page.getByTestId("user-msg")).toHaveCount(2);
   await expect(lastAssistant(page)).toHaveText(/Result: computed-42/);
 
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Delete chat" }).click();
+  await page.getByRole("button", { name: "Confirm delete" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(nav(page).getByRole("link", { name: "hello there" })).toHaveCount(0);
 });
@@ -47,7 +47,7 @@ test("steer the agent while it works, then stop it", async ({ page }) => {
 
   await say(page, "show messages");
   await expect(page.getByTestId("queued-msg")).toHaveText("show messages");
-  await expect(page.getByText("Queued — I'll read this next")).toBeVisible();
+  await expect(page.getByText("Queued · read at the next step")).toBeVisible();
   await shot(page, "04-steering-queued");
   await expect(lastAssistant(page)).toHaveText("Messages: run: sleep 3; echo slow-done | show messages", { timeout: 20_000 });
   await expect(page.getByTestId("queued-msg")).toHaveCount(0);

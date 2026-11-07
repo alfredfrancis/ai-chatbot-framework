@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type User } from "../api";
-import { Mark } from "../components/icons";
+import { Lockup } from "../components/icons";
 
 export default function AuthPage({ onAuthed }: { onAuthed: (u: User) => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -36,9 +36,9 @@ export default function AuthPage({ onAuthed }: { onAuthed: (u: User) => void }) 
   return (
     <div className="auth">
       <form className="auth-card" onSubmit={submit}>
-        <Mark size="lg" />
+        <div className="brand-row"><Lockup size={32} /></div>
         <h1>{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
-        <p>{mode === "signup" ? "AI Chatbot Framework — your agent, your computer, your skills." : "Sign in to AI Chatbot Framework."}</p>
+        <p>{mode === "signup" ? "Your own agent, with a private computer, your files and your skills." : "Sign in to continue."}</p>
         {mode === "signup" && (
           <div className="field">
             <label htmlFor="name">Name</label>
@@ -58,7 +58,7 @@ export default function AuthPage({ onAuthed }: { onAuthed: (u: User) => void }) 
           {mode === "signup" && <span className="hint">At least 8 characters.</span>}
         </div>
         {error && <div className="banner" role="alert">{error}</div>}
-        <button className="btn" type="submit" disabled={busy} style={{ height: 44, borderRadius: 12 }}>
+        <button className="btn primary lg" type="submit" disabled={busy}>
           {mode === "signup" ? "Create account" : "Sign in"}
         </button>
         {signupAllowed && (

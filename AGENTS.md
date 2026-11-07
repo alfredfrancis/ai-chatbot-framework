@@ -29,7 +29,8 @@ backend/acf/
   scheduler.py       cron tasks
   api/routes.py      every HTTP endpoint
 backend/tests/       pytest; fakes/ = scripted model server + stdio MCP + OAuth MCP servers
-frontend/src/        React + Vite; pages/ per screen; styles.css holds all design tokens
+frontend/src/        React + Vite; pages/ per screen; styles.css (components) + tokens.css (generated)
+design/              tokens.json (source of truth), README.md (brand book), components.css
 frontend/e2e/        Playwright specs; they also write docs/screenshots/e2e/*.png
 sandbox/Dockerfile   the sandbox image
 ```
@@ -61,11 +62,14 @@ make lint         # ruff + tsc
    through `workspace.resolve`. Every query is scoped to `current_user`.
 6. **MCP connections live in their own task** (`_Connection._run`); never enter SDK contexts in one task
    and exit them in another.
-7. **Design** (canvas "AI Chatbot Framework — UI", round 3): ink `#111114` pill buttons, signal green
-   `#4BE3B0` for the brand mark/glow/success only (text uses `#0B7A5A`), mist surfaces, glass sidebar,
-   12–28px radii, system font. Use the tokens in `styles.css`; no new colours, no emoji, inline stroke
-   SVG icons in `components/icons.tsx`. Light + dark + 390px wide must all work. Real buttons/labels:
-   tests select by role and label.
+7. **Design** follows the "AI Chatbot Framework" design system (Claude Design). Its tokens are committed as
+   `design/tokens.json` — the single source; `npm run tokens` (also run by `build`/`dev`) generates
+   `frontend/src/tokens.css`, which must never be edited by hand (CI checks it). `design/README.md` is the
+   brand book and `design/components.css` the reference component styles. Dark first, light via the OS;
+   the logo green (`brand-signal`) is for the mark only, `accent` for the one primary action, focus and
+   live state. Text ≥ 16px (caption 13px floor), controls 40px. No new colours or one-off values in
+   components; inline 1.75px stroke SVG icons in `components/icons.tsx`. Light + dark + 390px wide must
+   all work; real buttons/labels (tests select by role and label). Keyboard: ⌘K menu, `C`, `G`+letter.
 8. **Style**: Python 3.12, ruff (line length 120), type hints on public functions; TypeScript strict.
 
 ## Workflow

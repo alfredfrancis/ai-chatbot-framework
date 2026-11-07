@@ -14,5 +14,5 @@ test("sign up, sign out and sign back in", async ({ page }) => {
 
   await page.getByLabel("Password").fill("correct horse battery");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: /What can I take off/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Good (morning|afternoon|evening), Maya\.$/ })).toBeVisible();
 });

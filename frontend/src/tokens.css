@@ -1,0 +1,73 @@
+/* Generated from design/tokens.json by scripts/build-tokens.mjs. Do not edit. */
+:root {
+  --bg: #0e0f12;
+  --bg-raised: #15161a;
+  --bg-elevated: #1c1d22;
+  --bg-hover: #23252b;
+  --bg-selected: #2b2d34;
+  --border: #26282e;
+  --border-strong: #696c77;
+  --text: #edeef0;
+  --text-muted: #a0a3ab;
+  --text-faint: #8b8e97;
+  --accent: #5fb383;
+  --accent-fg: #08200f;
+  --accent-text: #74c597;
+  --accent-subtle: #15271c;
+  --danger: #ff7a70;
+  --danger-subtle: #3a1716;
+  --warning: #f5b04b;
+  --warning-subtle: #3a2a10;
+  --brand-ink: #edeef0;
+  --brand-signal: #4a946a;
+  --scrim: rgba(0,0,0,0.6);
+  --shadow-pop: 0 16px 48px rgba(0,0,0,0.55);
+  --shadow-composer: 0 8px 24px rgba(0,0,0,0.35);
+  --font-sans: "Geist Variable", Geist, "SF Pro Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+  --control-sm: 32px;
+  --control-md: 40px;
+  --control-lg: 48px;
+  --sidebar-width: 288px;
+  --content-width: 880px;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f7f7f8;
+    --bg-raised: #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-hover: #efeff2;
+    --bg-selected: #e6e7ec;
+    --border: #e3e3e8;
+    --border-strong: #8c8e98;
+    --text: #16171b;
+    --text-muted: #5c5e68;
+    --text-faint: #6a6c75;
+    --accent: #2e7a50;
+    --accent-fg: #ffffff;
+    --accent-text: #2a7049;
+    --accent-subtle: #e7f2eb;
+    --danger: #c4161c;
+    --danger-subtle: #fdecec;
+    --warning: #995800;
+    --warning-subtle: #fdf3e3;
+    --brand-ink: #111114;
+    --scrim: rgba(17,17,20,0.35);
+    --shadow-pop: 0 16px 48px rgba(17,17,20,0.14);
+    --shadow-composer: 0 8px 24px rgba(17,17,20,0.08);
+    color-scheme: light;
+  }
+}

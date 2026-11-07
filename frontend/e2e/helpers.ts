@@ -23,7 +23,7 @@ export async function signUp(page: Page, name = "Maya") {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct horse battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("heading", { name: "What can I take off your plate today?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: new RegExp(`^Good (morning|afternoon|evening), ${name}\\.$`) })).toBeVisible();
   return email;
 }
 
