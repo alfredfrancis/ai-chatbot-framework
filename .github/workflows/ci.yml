@@ -113,7 +113,7 @@ jobs:
         run: docker compose -f docker-compose.dev.yml build
       - name: Smoke test the sandbox image
         run: |
-          docker run --rm acf-sandbox:latest sh -c 'python3 --version && node --version && npx --version && uvx --version'
+          docker run --rm acf-sandbox:latest sh -c 'python3 --version && curl --version && node --version && npx --version && uvx --version'
           # agent-browser + Chromium under the same restrictions as a real user sandbox
           docker run --rm --user 1000:1000 --cap-drop ALL --security-opt no-new-privileges \
             -e HOME=/tmp/home acf-sandbox:latest sh -c \
