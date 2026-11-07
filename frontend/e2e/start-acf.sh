@@ -24,6 +24,18 @@ export ACF_SANDBOX_PREFIX=acf-e2e
 export ACF_ADMIN_EMAIL=owner@example.com ACF_ADMIN_PASSWORD="owner password" ACF_ADMIN_NAME=Olivia
 export ACF_ALLOW_SIGNUP=true
 export ACF_MCP_PRESETS_FILE="$ROOT/frontend/e2e/presets.json"
-if [ "$ACF_SANDBOX" = docker ]; then docker ps -aq --filter name=acf-e2e- | xargs -r docker rm -f >/dev/null; fi
+export ACF_SECRET_KEY="${ACF_SECRET_KEY:-e2e-secret-key-that-is-long-enough-0000}"
 cd "$ROOT/backend"
+if [ "$ACF_SANDBOX" = docker ]; then
+  docker ps -aq --filter name=acf-e2e- | xargs -r docker rm -f >/dev/null
+  # As in production: the app reaches Docker only through the narrow proxy, on its own sandbox network.
+  export ACF_SANDBOX_NETWORK="${E2E_SANDBOX_NETWORK:-acf-e2e-sandbox}" ACF_SANDBOX_BRIDGE="${E2E_SANDBOX_BRIDGE:-acf-e2e0}"
+  PROXY_PORT="${E2E_DOCKER_PROXY_PORT:-2399}"
+  "$PY" -m acf.docker_proxy --listen "127.0.0.1:$PROXY_PORT" --socket "${E2E_DOCKER_SOCKET:-/var/run/docker.sock}" &
+  PROXY=$!
+  trap 'kill $PROXY 2>/dev/null' EXIT INT TERM
+  export DOCKER_HOST="tcp://127.0.0.1:$PROXY_PORT"
+  "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "${ACF_PORT:-8765}" --log-level warning
+  exit
+fi
 exec "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "${ACF_PORT:-8765}" --log-level warning

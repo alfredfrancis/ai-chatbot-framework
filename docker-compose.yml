@@ -4,11 +4,27 @@
 #   docker compose up -d      # pulls published images; add --build to build from source
 #
 # Open https://$ACF_DOMAIN. With ACF_DOMAIN=localhost, Caddy uses its own local certificate.
+# Before going public, set up the Docker host as in deploy/README.md: gVisor (runsc), user-namespace
+# remapping and the sandbox egress firewall.
 name: ai-chatbot-framework
 
 x-logging: &logging
   driver: json-file
   options: { max-size: "10m", max-file: "3" }
+
+# Sandbox settings, shared by the app and the Docker proxy (which enforces them).
+x-sandbox-env: &sandbox-env
+  ACF_DATA_DIR: /data
+  ACF_SANDBOX_IMAGE: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
+  ACF_SANDBOX_NETWORK: ${ACF_SANDBOX_NETWORK:-acf-sandbox}
+  ACF_SANDBOX_BRIDGE: ${ACF_SANDBOX_BRIDGE:-acf-sbx0}
+  # gVisor. Install it on the host first (deploy/README.md); ACF_SANDBOX_RUNTIME=runc opts out.
+  ACF_SANDBOX_RUNTIME: ${ACF_SANDBOX_RUNTIME:-runsc}
+  ACF_SANDBOX_MEMORY: ${ACF_SANDBOX_MEMORY:-1g}
+  ACF_SANDBOX_CPUS: ${ACF_SANDBOX_CPUS:-1}
+  # Workspaces (files) live in the data folder; everything else is in PostgreSQL.
+  # Sandboxes are started by the host's Docker, so bind mounts need the data folder's host path.
+  ACF_SANDBOX_HOST_DATA_DIR: ${ACF_DATA_PATH:-${PWD}/data}
 
 services:
   # Makes sure the sandbox image is present before the app starts sandboxes, then exits.
@@ -17,6 +33,41 @@ services:
     build: ./sandbox
     entrypoint: ["true"]
     restart: "no"
+
+  # Gives the data folder to the app's non-root user, then exits. That user is uid 10001 in the
+  # containers; on the host it is ACF_DATA_UID: 10001, or the remap base + 10001 (e.g. 110001) when the
+  # Docker daemon remaps user namespaces (deploy/README.md).
+  data-init:
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
+    build: .
+    user: "0"
+    userns_mode: host
+    environment:
+      ACF_DATA_UID: ${ACF_DATA_UID:-10001}
+    entrypoint: ["sh", "-c", "find /data ! -user $$ACF_DATA_UID -exec chown -h $$ACF_DATA_UID:$$ACF_DATA_UID {} +"]
+    volumes:
+      - ${ACF_DATA_PATH:-${PWD}/data}:/data
+    network_mode: none
+    restart: "no"
+
+  # The only service with the Docker socket. It lets the app manage sandboxes and nothing else
+  # (acf/docker_proxy.py), so taking over the app doesn't mean root on the host.
+  docker-proxy:
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
+    build: .
+    user: "0"
+    userns_mode: host # reaches the host's socket when the daemon remaps user namespaces
+    command: ["python", "-m", "acf.docker_proxy", "--listen", "0.0.0.0:2375", "--socket", "/var/run/docker.sock"]
+    environment:
+      <<: *sandbox-env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [docker-api]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
+    restart: unless-stopped
+    logging: *logging
 
   postgres:
     image: postgres:17.6-alpine
@@ -40,9 +91,18 @@ services:
     depends_on:
       sandbox-image:
         condition: service_completed_successfully
+      data-init:
+        condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
       postgres:
         condition: service_healthy
     environment:
+      <<: *sandbox-env
+      DOCKER_HOST: tcp://docker-proxy:2375
+      # Encrypts model API keys, MCP configurations and OAuth tokens in the database. Keep it out of
+      # database backups; changing it makes stored secrets unreadable. `openssl rand -base64 48`
+      ACF_SECRET_KEY: ${ACF_SECRET_KEY:?Set ACF_SECRET_KEY in .env}
       ACF_DB_URL: postgresql://acf:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/acf
       ACF_PUBLIC_URL: https://${ACF_DOMAIN:-localhost}
       ACF_COOKIE_SECURE: "true"
@@ -54,15 +114,13 @@ services:
       ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
       ACF_LLM_BASE_URL: ${ACF_LLM_BASE_URL:-}
       ACF_LLM_API_KEY: ${ACF_LLM_API_KEY:-${ANTHROPIC_API_KEY:-}}
+      ACF_LLM_PROVIDERS: ${ACF_LLM_PROVIDERS:-}
       ACF_SANDBOX: docker
-      ACF_SANDBOX_IMAGE: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
-      ACF_SANDBOX_NETWORK: ${ACF_SANDBOX_NETWORK:-bridge}
-      # Workspaces (files) live in the data folder; everything else is in PostgreSQL.
-      # Sandboxes are started by the host's Docker, so bind mounts need the data folder's host path.
-      ACF_SANDBOX_HOST_DATA_DIR: ${ACF_DATA_PATH:-${PWD}/data}
     volumes:
       - ${ACF_DATA_PATH:-${PWD}/data}:/data
-      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [default, docker-api]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
     expose: ["8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
@@ -90,6 +148,12 @@ services:
       - caddy-config:/config
     restart: unless-stopped
     logging: *logging
+
+networks:
+  default:
+  # App <-> Docker proxy only; nothing else can reach the proxy.
+  docker-api:
+    internal: true
 
 volumes:
   postgres-data:

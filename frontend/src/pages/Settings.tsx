@@ -122,6 +122,9 @@ export default function SettingsPage() {
   };
 
   const effective = provider || s.defaults.provider;
+  // The server's key only goes to the server's own provider and address.
+  const trim = (u: string) => u.trim().replace(/\/+$/, "");
+  const serverKey = s.defaults.has_api_key && effective === s.defaults.provider && ["", trim(s.defaults.base_url)].includes(trim(baseUrl));
   return (
     <>
     <Topbar title="Settings" />
@@ -161,7 +164,8 @@ export default function SettingsPage() {
             <label htmlFor="api-key">API key</label>
             <input id="api-key" className="input" type="password" autoComplete="off" value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={s.has_api_key ? "•••••••• (saved)" : s.defaults.has_api_key ? "Using the server's key" : "Paste your API key"} />
+              placeholder={s.has_api_key ? "•••••••• (saved)" : serverKey ? "Using the server's key" : "Paste your API key"} />
+            {!s.has_api_key && !serverKey && s.defaults.has_api_key && <span className="hint">The server's key only works with its own model provider and address. Add your own key for this one.</span>}
             {s.has_api_key && <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={clearKey}>Remove saved key</button>}
           </div>
           {error && <div className="banner" role="alert">{error}</div>}

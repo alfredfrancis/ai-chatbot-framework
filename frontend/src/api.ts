@@ -35,7 +35,8 @@ export type Settings = {
   model: string;
   base_url: string;
   has_api_key: boolean;
-  defaults: { provider: string; model: string; has_api_key: boolean };
+  providers: string[];
+  defaults: { provider: string; model: string; base_url: string; has_api_key: boolean };
 };
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
