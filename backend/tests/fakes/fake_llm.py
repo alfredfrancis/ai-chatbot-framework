@@ -13,6 +13,7 @@ Rules (applied to the latest user text):
   slow: <seconds> <text>      -> waits, then "Echo: <text>" (a model that is still thinking)
   typing: <text>              -> "Echo: <text>", streamed one word every 0.3 s
   think: <text>               -> thinks "Considering: <text>", then "Echo: <text>"
+  [background job …          -> "Background done: <the note>" (a background command finished)
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
   anything else               -> "Echo: <text>"
@@ -81,6 +82,8 @@ def decide(
     if low.startswith("slow:"):
         secs, _, rest = text[5:].strip().partition(" ")
         return {"text": f"Echo: {rest}", "delay": float(secs)}
+    if low.startswith("[background job"):
+        return {"text": f"Background done: {text[:2000]}"}
     if low == "show system":
         return {"text": system}
     if low == "list tools":

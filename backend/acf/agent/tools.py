@@ -19,15 +19,24 @@ MAX_OUTPUT_CHARS = 30_000
 SPILL_DIR = ".acf/outputs"
 
 
+BACKGROUND_TIMEOUT = 3600  # seconds; default and limit for background commands
+
+
 @dataclass
 class ToolResult:
     content: str
     is_error: bool = False
+    background: str | None = None  # the job id, when the call started a background job
+
+
+# start_job(label, work) -> job id: runs `work()` after the call returns and reports its result later.
+StartJob = Callable[[str, Callable[[], Awaitable[ToolResult]]], str]
 
 
 @dataclass
 class ToolContext:
     user_id: int
+    start_job: StartJob | None = None
 
 
 @dataclass
@@ -38,6 +47,9 @@ class Tool:
     run: Callable[[dict[str, Any], ToolContext], Awaitable[ToolResult]]
     # Calls that only read can run concurrently when the model makes several at once.
     read_only: Callable[[dict[str, Any]], bool] = field(default=lambda a: False)
+    # What a call touches (a file path). Calls in one batch run at the same time, except that a call
+    # waits for earlier calls on the same resource when either of them writes.
+    resource: Callable[[dict[str, Any]], str | None] = field(default=lambda a: None)
     label: Callable[[dict[str, Any]], str] = field(default=lambda a: "")
 
     def schema(self) -> dict[str, Any]:
@@ -114,12 +126,32 @@ async def _edit(args: dict, ctx: ToolContext) -> ToolResult:
 
 
 async def _bash(args: dict, ctx: ToolContext) -> ToolResult:
-    timeout = min(int(args.get("timeout") or config.settings.command_timeout), 900)
+    command = str(args["command"])
+    if args.get("background") and ctx.start_job:
+        timeout = min(int(args.get("timeout") or BACKGROUND_TIMEOUT), BACKGROUND_TIMEOUT)
+
+        async def work() -> ToolResult:
+            return await _exec(command, timeout, ctx)
+
+        job = ctx.start_job(command, work)
+        return ToolResult(
+            f"Started in the background as job {job}. Its output arrives as a message when it finishes; "
+            "carry on meanwhile, or end your turn if there is nothing else to do.",
+            background=job,
+        )
+    return await _exec(command, min(int(args.get("timeout") or config.settings.command_timeout), 900), ctx)
+
+
+async def _exec(command: str, timeout: int, ctx: ToolContext) -> ToolResult:
     try:
-        res = await get_sandbox(ctx.user_id).exec(str(args["command"]), timeout)
+        res = await get_sandbox(ctx.user_id).exec(command, timeout)
     except SandboxError as e:
         return ToolResult(str(e), True)
     return ToolResult(truncate(res.as_text(), ctx), res.exit_code != 0)
+
+
+def _path(a: dict[str, Any]) -> str | None:
+    return str(a["path"]).strip("/") if a.get("path") else None
 
 
 BUILTIN_TOOLS: list[Tool] = [
@@ -137,6 +169,7 @@ BUILTIN_TOOLS: list[Tool] = [
         },
         _read,
         read_only=lambda a: True,
+        resource=_path,
         label=lambda a: str(a.get("path", "")),
     ),
     Tool(
@@ -148,6 +181,7 @@ BUILTIN_TOOLS: list[Tool] = [
             "required": ["path", "content"],
         },
         _write,
+        resource=_path,
         label=lambda a: str(a.get("path", "")),
     ),
     Tool(
@@ -165,17 +199,24 @@ BUILTIN_TOOLS: list[Tool] = [
             "required": ["path", "old_string", "new_string"],
         },
         _edit,
+        resource=_path,
         label=lambda a: str(a.get("path", "")),
     ),
     Tool(
         "bash",
         "Run a shell command in the user's private Linux sandbox (cwd /workspace; Python, Node, uv available). "
-        "Use it to list and search files (ls, find, grep), run scripts, and install packages.",
+        "Use it to list and search files (ls, find, grep), run scripts, and install packages. "
+        "Set background to true for long jobs (builds, downloads, data processing): the call returns at once "
+        "and the output arrives as a message when the command finishes.",
         {
             "type": "object",
             "properties": {
                 "command": {"type": "string"},
-                "timeout": {"type": "integer", "description": "Seconds, default 120, max 900"},
+                "timeout": {
+                    "type": "integer",
+                    "description": f"Seconds, default 120, max 900 (background: default and max {BACKGROUND_TIMEOUT})",
+                },
+                "background": {"type": "boolean", "description": "Run without waiting; get the output later"},
             },
             "required": ["command"],
         },

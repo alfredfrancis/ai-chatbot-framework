@@ -14,8 +14,8 @@ its own private computer, their files, skills, app connections and scheduled job
 
 - **Any model through LangChain** – Claude (default), OpenAI, any OpenAI-compatible server (Ollama,
   OpenRouter, vLLM, LiteLLM) or any other LangChain chat provider.
-- **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus `mcp_call` for MCP tools; parallel
-  read-only calls; long outputs truncated and saved to a file; context compaction; **steering** (type
+- **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus `mcp_call` for MCP tools; the calls
+  of one answer run in parallel; long commands run in the background and report back when done; long outputs truncated and saved to a file; context compaction; **steering** (type
   while the agent works; it picks your message up without stopping — right away while it thinks, after
   the running command otherwise); **Stop** at any time.
 - **One private sandbox per user** – a Docker container with a persistent `/workspace`, resource limits
@@ -160,7 +160,7 @@ Each session is a chat in the web app. Updates are `user_message_chunk`, `agent_
 `agent_thought_chunk` (streamed as the model writes; chunks of one message share `_meta.acf.messageId`),
 `tool_call`, `tool_call_update` and `session_info_update`. A `session/prompt` sent while the agent works is
 a steering message; its response arrives when the run ends. Extras live under `_acf/` (`_acf/notice`,
-`_acf/turn_end`) and `_meta.acf`, which other clients can ignore. The agent uses its own sandbox and
+`_acf/turn_end`, `_acf/turn_start` when a finished background command wakes the agent) and `_meta.acf`, which other clients can ignore. The agent uses its own sandbox and
 connections, so `cwd` and `mcpServers` from the client are ignored.
 
 Clients that start agents as a subprocess over stdio (most editors) can use the bridge:

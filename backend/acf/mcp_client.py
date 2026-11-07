@@ -324,6 +324,8 @@ class McpHub:
             },
             self._call,
             read_only=self._read_only,
+            # Tools of one app may share state: a tool that writes waits for earlier calls to the same app.
+            resource=lambda a: f"mcp:{a.get('server', '')}",
             label=lambda a: f"{a.get('server', '')} · {a.get('tool', '')}",
         )
 

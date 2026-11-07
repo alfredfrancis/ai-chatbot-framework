@@ -6,7 +6,7 @@
 
 export type ContentBlock = { type: "text"; text: string } | { type: string; [k: string]: unknown };
 export type ToolStatus = "pending" | "in_progress" | "completed" | "failed";
-type Meta = { _meta?: { acf?: { messageId?: number | string; tool?: string; durationMs?: number | null } } };
+type Meta = { _meta?: { acf?: { messageId?: number | string; tool?: string; durationMs?: number | null; background?: string } } };
 export type SessionUpdate = Meta & (
   | { sessionUpdate: "user_message_chunk" | "agent_message_chunk" | "agent_thought_chunk"; content: ContentBlock }
   | { sessionUpdate: "tool_call"; toolCallId: string; title: string; kind?: string; status?: ToolStatus; rawInput?: Record<string, unknown> }
@@ -21,6 +21,7 @@ export type AcpNotification =
   | { method: "session/update"; params: { sessionId: string; update: SessionUpdate } }
   | { method: "_acf/notice"; params: { sessionId: string; text: string } }
   | { method: "_acf/turn_end"; params: { sessionId: string; stopReason: string; error?: string } }
+  | { method: "_acf/turn_start"; params: { sessionId: string } }
   | { method: "_acf/disconnected"; params: Record<string, never> };
 export type StopReason = "end_turn" | "cancelled" | "max_turn_requests" | "max_tokens" | "refusal";
 
