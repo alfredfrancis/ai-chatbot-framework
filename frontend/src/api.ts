@@ -8,8 +8,11 @@ export type Message = {
   tool_call_id: string | null;
   name: string | null;
   is_error: boolean;
+  duration_ms: number | null;
   created_at: string;
 };
+export type FileEntry = { name: string; path: string; type: "dir" | "file"; size?: number; items?: number };
+export type Skill = { name: string; description: string; path: string; files: number };
 export type ChatSummary = { id: number; title: string; task_id: number | null; updated_at: string };
 export type Chat = ChatSummary & { messages: Message[]; running: boolean };
 export type Task = {
@@ -44,6 +47,8 @@ export type AgentEvent =
   | { type: "message"; message: Message }
   | { type: "tool_start"; id: string; name: string; label: string }
   | { type: "notice"; text: string }
+  | { type: "queued"; text: string }
+  | { type: "stopped" }
   | { type: "error"; error: string }
   | { type: "done" };
 
@@ -81,26 +86,8 @@ export const api = {
   del: <T>(p: string) => request<T>("DELETE", p),
 };
 
-/** POST a chat message and call onEvent for each server-sent event. */
-export async function streamMessage(chatId: number, content: string, onEvent: (e: AgentEvent) => void) {
-  const res = await fetch(`/api/chats/${chatId}/messages`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  });
-  if (!res.ok || !res.body) {
-    let detail = res.statusText;
-    try {
-      detail = (await res.json()).detail ?? detail;
-    } catch {
-      /* ignore */
-    }
-    onEvent({ type: "error", error: detail });
-    onEvent({ type: "done" });
-    return;
-  }
-  const reader = res.body.getReader();
+async function readSse(res: Response, onEvent: (e: AgentEvent) => void) {
+  const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   for (;;) {
@@ -116,4 +103,44 @@ export async function streamMessage(chatId: number, content: string, onEvent: (e
       }
     }
   }
+}
+
+/**
+ * Send a chat message. If the agent is idle this starts a run and streams its events.
+ * If it is already working, the message is queued (steering) and "queued" is returned.
+ */
+export async function sendMessage(chatId: number, content: string, onEvent: (e: AgentEvent) => void): Promise<"streamed" | "queued"> {
+  const res = await fetch(`/api/chats/${chatId}/messages`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (res.status === 202) return "queued";
+  if (!res.ok || !res.body) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail ?? detail; } catch { /* ignore */ }
+    onEvent({ type: "error", error: detail });
+    onEvent({ type: "done" });
+    return "streamed";
+  }
+  await readSse(res, onEvent);
+  return "streamed";
+}
+
+/** Follow a run that is already in progress. Resolves false if nothing is running. */
+export async function attachStream(chatId: number, onEvent: (e: AgentEvent) => void): Promise<boolean> {
+  const res = await fetch(`/api/chats/${chatId}/stream`, { credentials: "same-origin" });
+  if (!res.ok || !res.headers.get("content-type")?.includes("text/event-stream")) return false;
+  await readSse(res, onEvent);
+  return true;
+}
+
+export async function uploadFile(path: string, file: File, field: Record<string, string> = {}) {
+  const body = new FormData();
+  body.append("file", file);
+  for (const [k, v] of Object.entries(field)) body.append(k, v);
+  const res = await fetch(`/api${path}`, { method: "POST", body, credentials: "same-origin" });
+  if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => ({}))).detail ?? "Upload failed");
+  return res.json();
 }

@@ -12,8 +12,8 @@ setup: ## Install backend (venv) and frontend dependencies
 	$(PIP) install -e "backend[dev]"
 	cd frontend && npm install
 
-api: ## Run the API on :8000 with reload (sandbox=docker unless HARBOR_SANDBOX=local)
-	cd backend && ../$(PY) -m uvicorn harbor.main:app --reload --port 8000
+api: ## Run the API on :8000 with reload (sandbox=docker unless ACF_SANDBOX=local)
+	cd backend && ../$(PY) -m uvicorn acf.main:app --reload --port 8000
 
 web: ## Run the web app on :5173 (proxies /api to :8000)
 	cd frontend && npm run dev
@@ -41,10 +41,10 @@ format: ## Auto-format Python
 	cd backend && ../.venv/bin/ruff format . && ../.venv/bin/ruff check --fix .
 
 sandbox-image: ## Build the per-user sandbox image
-	docker build -t harbor-sandbox:latest sandbox
+	docker build -t acf-sandbox:latest sandbox
 
 build: sandbox-image ## Build the app image
-	docker build -t harbor:latest .
+	docker build -t ai-chatbot-framework:latest .
 
 up: ## Start everything with docker compose
 	docker compose up --build

@@ -69,7 +69,7 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
         <input id="task-name" className="input" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Morning briefing" />
       </div>
       <div className="field">
-        <label htmlFor="task-prompt">What should Harbor do?</label>
+        <label htmlFor="task-prompt">What should the agent do?</label>
         <textarea id="task-prompt" className="textarea" rows={3} required value={prompt} onChange={(e) => setPrompt(e.target.value)}
           placeholder="Check the weather in Lisbon and write a short summary to notes/today.md" />
       </div>
@@ -159,13 +159,13 @@ export default function TasksPage() {
         <div className="page-head">
           <div>
             <h1>Tasks</h1>
-            <p className="lead">Things Harbor does for you on a schedule.</p>
+            <p className="lead">Jobs your agent does on a schedule. Each run shows up as a chat.</p>
           </div>
           {!creating && <button className="btn" onClick={() => setCreating(true)}>New task</button>}
         </div>
         {creating && <TaskForm onCancel={() => setCreating(false)} onDone={() => { setCreating(false); load(); }} />}
         {tasks && tasks.length === 0 && !creating && (
-          <div className="list"><div className="empty">No tasks yet. Create one to have Harbor check, summarise or tidy things up for you regularly.</div></div>
+          <div className="list"><div className="empty">No tasks yet. Create one to have the agent check, summarise or tidy things up for you regularly.</div></div>
         )}
         {tasks && tasks.length > 0 && (
           <div className="list">

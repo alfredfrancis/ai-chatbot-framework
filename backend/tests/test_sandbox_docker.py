@@ -6,13 +6,13 @@ import shutil
 
 import pytest
 
-from harbor import config, workspace
-from harbor.sandbox import DockerSandbox
+from acf import config, workspace
+from acf.sandbox import DockerSandbox
 from tests.conftest import FAKES, docker_available, send
 
 pytestmark = [pytest.mark.docker, pytest.mark.skipif(not docker_available(), reason="Docker not available")]
 
-IMAGE = os.environ.get("HARBOR_TEST_SANDBOX_IMAGE", "python:3.12-alpine")
+IMAGE = os.environ.get("ACF_TEST_SANDBOX_IMAGE", "python:3.12-alpine")
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ async def test_commands_run_in_isolated_container(client, user, docker_sandbox):
     # the workspace is shared with the host side
     assert (workspace.workspace_dir(user["id"]) / "made-in-sandbox.txt").read_text() == "hi\n"
     status = (await client.get("/api/sandbox")).json()
-    assert status["state"] == "running" and status["name"] == f"harbor-sbx-{user['id']}"
+    assert status["state"] == "running" and status["name"] == f"acf-sbx-{user['id']}"
 
 
 async def test_one_container_per_user(client, user, docker_sandbox):
@@ -46,9 +46,7 @@ async def test_one_container_per_user(client, user, docker_sandbox):
     await send(client, chat_id, "run: echo private > secret.txt")
 
     await client.post("/api/auth/logout")
-    other = (
-        await client.post("/api/auth/signup", json={"email": "b@sbx.example", "password": "password123"})
-    ).json()
+    other = (await client.post("/api/auth/signup", json={"email": "b@sbx.example", "password": "password123"})).json()
     docker_sandbox.append(other["user"]["id"])
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
     events = await send(client, chat_id, "run: ls /workspace; cat secret.txt")
@@ -70,9 +68,7 @@ async def test_stdio_mcp_runs_inside_sandbox(client, user, docker_sandbox):
     await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
     events = await send(client, chat_id, "tool: mcp__echo__whereami {}")
-    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][
-        -1
-    ]
+    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
     assert final["content"] == "Result: host=sandbox cwd=/workspace"
 
 

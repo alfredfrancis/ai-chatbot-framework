@@ -25,13 +25,13 @@ function tint(name: string) {
 /** Open the provider's sign-in page in a popup; resolves when the callback page reports back. */
 function signInPopup(url: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const popup = window.open(url, "harbor-oauth", "width=520,height=700");
+    const popup = window.open(url, "acf-oauth", "width=520,height=700");
     if (!popup) {
       window.location.href = url; // popup blocked: do the redirect in this tab
       return;
     }
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin || e.data?.type !== "harbor-oauth") return;
+      if (e.origin !== window.location.origin || e.data?.type !== "acf-oauth") return;
       cleanup();
       resolve(!!e.data.ok);
     };
@@ -132,7 +132,7 @@ export default function ConnectionsPage() {
       <div className="page-inner">
         <div>
           <h1>Connections</h1>
-          <p className="lead">Give Harbor access to apps and tools. Local tools run inside your private sandbox.</p>
+          <p className="lead">Give your agent access to apps and tools. Local tools run inside your private sandbox.</p>
         </div>
 
         <section aria-label="Connected servers">

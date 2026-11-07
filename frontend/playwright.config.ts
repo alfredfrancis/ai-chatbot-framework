@@ -15,8 +15,9 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:8765",
     trace: "off",
     screenshot: "only-on-failure",
+    deviceScaleFactor: 2,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 } }],
   webServer: [
     {
       command: `${py} -m tests.fakes.fake_llm --port 9100`,
@@ -31,7 +32,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "bash e2e/start-harbor.sh",
+      command: "bash e2e/start-acf.sh",
       url: "http://127.0.0.1:8765/api/health",
       reuseExistingServer: false,
       timeout: 60_000,

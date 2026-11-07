@@ -1,33 +1,33 @@
 # One-command setup:  ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
 # Then open http://localhost:8000
-name: harbor
+name: ai-chatbot-framework
 services:
   # Builds the sandbox image used for every user's private container, then exits.
   sandbox-image:
     build: ./sandbox
-    image: harbor-sandbox:latest
+    image: acf-sandbox:latest
     entrypoint: ["true"]
     restart: "no"
 
-  harbor:
+  app:
     build: .
-    image: harbor:latest
+    image: ai-chatbot-framework:latest
     depends_on:
       sandbox-image:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
     environment:
-      HARBOR_LLM_PROVIDER: ${HARBOR_LLM_PROVIDER:-anthropic}
-      HARBOR_LLM_MODEL: ${HARBOR_LLM_MODEL:-}
-      HARBOR_LLM_BASE_URL: ${HARBOR_LLM_BASE_URL:-}
-      HARBOR_LLM_API_KEY: ${HARBOR_LLM_API_KEY:-${ANTHROPIC_API_KEY:-}}
-      HARBOR_PUBLIC_URL: ${HARBOR_PUBLIC_URL:-http://localhost:8000}
-      HARBOR_ALLOW_SIGNUP: ${HARBOR_ALLOW_SIGNUP:-true}
-      HARBOR_SANDBOX: docker
-      HARBOR_SANDBOX_IMAGE: harbor-sandbox:latest
+      ACF_LLM_PROVIDER: ${ACF_LLM_PROVIDER:-anthropic}
+      ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
+      ACF_LLM_BASE_URL: ${ACF_LLM_BASE_URL:-}
+      ACF_LLM_API_KEY: ${ACF_LLM_API_KEY:-${ANTHROPIC_API_KEY:-}}
+      ACF_PUBLIC_URL: ${ACF_PUBLIC_URL:-http://localhost:8000}
+      ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-true}
+      ACF_SANDBOX: docker
+      ACF_SANDBOX_IMAGE: acf-sandbox:latest
       # Sandboxes are started by the host's Docker, so it needs the host path of the data folder.
-      HARBOR_SANDBOX_HOST_DATA_DIR: ${PWD}/data
+      ACF_SANDBOX_HOST_DATA_DIR: ${PWD}/data
     volumes:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock

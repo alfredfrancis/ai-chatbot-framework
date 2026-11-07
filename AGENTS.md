@@ -1,90 +1,82 @@
 # AGENTS.md
 
-Guide for coding agents (and humans) working on Harbor. Read this before changing code.
+Guide for coding agents (and humans) working on AI Chatbot Framework. Read this before changing code.
 
-## What Harbor is
+## What it is
 
-A simple personal AI agent for non-technical people. Each user gets:
-
-- a chat with an LLM that can call tools (Claude via the Anthropic SDK, or any OpenAI-compatible server)
-- one private Docker sandbox (`harbor-sbx-<user id>`) with a persistent `/workspace`
-- two Markdown files that steer the agent: `context.md` (user-written) and `memory.md` (agent-written)
-- MCP servers from a Claude-Desktop-style JSON config: local servers run inside the sandbox, remote
-  servers use Streamable HTTP with OAuth 2.1 (PKCE + dynamic client registration)
-- recurring tasks (cron + prompt); each run creates a chat
+A lean, self-hosted agent for non-technical people. Each user gets a chat with an LLM (via LangChain),
+one private Docker sandbox with a persistent `/workspace`, plain-file memory (`context.md`, `memory.md`),
+skills (`skills/<name>/SKILL.md`), MCP connections (stdio in the sandbox, HTTP with OAuth) and
+recurring tasks. Design of the agent loop: [docs/architecture.md](docs/architecture.md).
 
 ## Layout
 
 ```
-backend/harbor/
-  main.py          FastAPI app; serves /api and the built web app
-  config.py        HARBOR_* environment settings (always read via `config.settings`)
-  db.py            SQLAlchemy models (SQLite by default) + session helpers
-  auth.py          email/password, scrypt hashes, cookie sessions
-  llm.py           provider-neutral messages; AnthropicLLM (SDK) and OpenAICompatLLM (httpx)
-  agent.py         system prompt, built-in tools, the agent loop, SSE events
-  sandbox.py       DockerSandbox (one container per user) and LocalSandbox (dev only, not isolated)
-  workspace.py     per-user folder, path safety, context.md / memory.md
-  mcp_client.py    config parsing, McpHub (one asyncio task per server connection)
-  oauth.py         OAuth client for remote MCP servers
-  scheduler.py     cron tasks; `tick()` starts due tasks, `loop()` runs in the app lifespan
-  api/routes.py    every HTTP endpoint
-backend/tests/     pytest; fakes/ has a scripted model server and two MCP servers
-frontend/src/      React + Vite; pages/ per screen, styles.css holds all design tokens
-frontend/e2e/      Playwright end-to-end tests (start real backend + fakes)
-sandbox/Dockerfile the sandbox image (Python, Node/npx, uv/uvx)
+backend/acf/
+  main.py            FastAPI app; serves /api and the built web app
+  config.py          ACF_* settings — always read as `config.settings` (tests reload it)
+  db.py              SQLAlchemy models (SQLite) + session helpers
+  auth.py            email/password (scrypt), cookie sessions
+  llm.py             LangChain init_chat_model, friendly errors, token estimate
+  agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
+  agent/tools.py     read / write / edit / bash + output truncation
+  agent/prompt.py    system prompt: instructions + context.md + memory.md + skills index
+  skills.py          skill discovery, upload (zip / SKILL.md), built-in skill-creator
+  workspace.py       per-user folder, path safety
+  sandbox.py         DockerSandbox (one container per user), LocalSandbox (dev only, not isolated)
+  mcp_client.py      config parsing, McpHub (one asyncio task per server connection)
+  oauth.py           OAuth client for remote MCP servers
+  scheduler.py       cron tasks
+  api/routes.py      every HTTP endpoint
+backend/tests/       pytest; fakes/ = scripted model server + stdio MCP + OAuth MCP servers
+frontend/src/        React + Vite; pages/ per screen; styles.css holds all design tokens
+frontend/e2e/        Playwright specs; they also write docs/screenshots/e2e/*.png
+sandbox/Dockerfile   the sandbox image
 ```
 
 ## Commands
 
 ```
 make setup        # venv + npm install
-make dev          # API on :8000 + web on :5173 (set HARBOR_SANDBOX=local if no Docker)
+make dev          # API :8000 + web :5173 (ACF_SANDBOX=local if no Docker)
 make test         # backend tests (Docker tests auto-skip without a daemon)
-make e2e          # build web app + Playwright tests with the local sandbox
-make e2e-docker   # same, with real Docker sandboxes (what CI runs)
+make e2e          # build web app + Playwright (local sandbox)
+make e2e-docker   # same with real Docker sandboxes (CI)
 make lint         # ruff + tsc
 ```
 
 ## Rules
 
-1. **Every feature is tested end to end, including the UI.** A change that users can see needs a
-   Playwright test in `frontend/e2e/` that drives the real UI against the real backend. Backend logic
-   also gets a pytest. Never mark work done with failing or skipped tests; never weaken a test to pass.
-2. **No real model or network calls in tests.** Use `tests/fakes/fake_llm.py` (scripted: `run: …`,
-   `remember: …`, `tool: <name> <json>`, `show system`, …). Extend its rules when you need new behaviour.
-3. **Keep it simple.** This product is for non-technical people. Prefer fewer options, plain words in
-   the UI ("Sign in", "Runs in your sandbox"), and errors that say what to do next.
-4. **Isolation is a feature.** Anything the agent executes goes through `Sandbox` — never `subprocess`
-   on the host outside `sandbox.py`. File paths from users or the model go through `workspace.resolve`.
-   Every API query is scoped to `current_user`.
-5. **Anthropic code uses the official SDK** (`anthropic`), default model `claude-opus-5-5`. Assistant
-   turns are stored with their raw content blocks and replayed verbatim (thinking blocks must survive).
-   Don't add OpenAI-specific features to the Anthropic path or vice versa.
-6. **MCP connections live in their own task** (`_Connection._run`). Don't enter SDK contexts in one task
+1. **Every feature is tested end to end, including the UI.** User-visible changes need a Playwright spec
+   in `frontend/e2e/` driving the real UI against the real backend, plus a `shot()` at the key moment.
+   Backend logic also gets a pytest. Never weaken or skip a test to make it pass.
+2. **No real model or network calls in tests.** Extend `backend/tests/fakes/fake_llm.py` (rules like
+   `run: …`, `read: a b`, `edit: p | old | new`, `tool: <name> <json>`, `show system`, `show messages`).
+3. **Keep the harness lean.** Prefer a file + the four tools over a new tool. A new built-in tool needs a
+   strong reason; MCP and skills are the extension points. No custom UI editors for context files — the
+   agent edits files; the UI browses them.
+4. **Model access goes through LangChain** (`acf.llm.make_model`). Don't import provider SDKs elsewhere.
+   History is append-only: store `message_to_dict(ai)` and replay it verbatim.
+5. **Isolation is a feature.** Anything the agent executes goes through `Sandbox`. User/model paths go
+   through `workspace.resolve`. Every query is scoped to `current_user`.
+6. **MCP connections live in their own task** (`_Connection._run`); never enter SDK contexts in one task
    and exit them in another.
-7. **Design**: minimal, Apple-like. Use the tokens in `frontend/src/styles.css` (`--accent #0071e3`,
-   `--surface #f5f5f7`, 8–16px radii, system font). No new colours, gradients, emoji or icon fonts;
-   icons are inline stroke SVGs in `components/icons.tsx`. Light and dark mode both work. Layouts must
-   work at 390px wide. Real `<button>`/`<label>`; tests select by role/label, so accessible names matter.
-   Reference designs: the "Harbor Agent UI" canvas (Claude Design).
-8. **Style**: Python 3.12, ruff (line length 110), type hints on public functions. TypeScript strict.
-   Comments explain why, not what.
+7. **Design** (canvas "AI Chatbot Framework — UI", round 3): ink `#111114` pill buttons, signal green
+   `#4BE3B0` for the brand mark/glow/success only (text uses `#0B7A5A`), mist surfaces, glass sidebar,
+   12–28px radii, system font. Use the tokens in `styles.css`; no new colours, no emoji, inline stroke
+   SVG icons in `components/icons.tsx`. Light + dark + 390px wide must all work. Real buttons/labels:
+   tests select by role and label.
+8. **Style**: Python 3.12, ruff (line length 120), type hints on public functions; TypeScript strict.
 
-## Workflow for a change
+## Workflow
 
-1. Read the relevant module(s) and their tests.
-2. Write or extend the failing test first (pytest and/or Playwright).
-3. Implement. Keep diffs focused.
-4. Run `make lint test e2e` (and `make e2e-docker` if you touched the sandbox or MCP stdio).
-5. Update `README.md` / `docs/` when behaviour or configuration changes.
+1. Read the relevant modules and tests. 2. Write the failing test(s). 3. Implement. 4. `make lint test e2e`
+(and `make e2e-docker` for sandbox/MCP changes). 5. Update README/docs when behaviour or config changes.
 
 ## Gotchas
 
-- `config.settings` is replaced by `reload_settings()` in tests: import the module (`from harbor import
-  config`), not the object.
-- In Docker deployments Harbor talks to the host's Docker daemon, so bind mounts need the *host* path:
-  `HARBOR_SANDBOX_HOST_DATA_DIR`.
-- A sandbox container is labelled with its workspace id; if the data folder is recreated the old
-  container is replaced automatically (see `DockerSandbox.ensure`).
-- SQLite runs in WAL mode; keep DB sessions short and never hold one across an `await` on the model.
+- Docker deployments need `ACF_SANDBOX_HOST_DATA_DIR` (bind mounts use host paths).
+- SQLite (WAL): keep DB sessions short; never hold one across an `await` on the model.
+- Thinking blocks are bound to their prefix: only compaction may drop them, and only for messages
+  before the cut.
+- The E2E Playwright version is pinned to the preinstalled browser build (1.63.0).

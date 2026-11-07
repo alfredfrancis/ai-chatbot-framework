@@ -7,11 +7,14 @@ const PROVIDERS = [
   { value: "", label: "Server default" },
   { value: "anthropic", label: "Claude (Anthropic)" },
   { value: "openai", label: "OpenAI-compatible (OpenAI, Ollama, OpenRouter…)" },
+  { value: "other", label: "Another LangChain provider…" },
 ];
+const KNOWN = ["", "anthropic", "openai"];
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
   const [provider, setProvider] = useState("");
+  const [custom, setCustom] = useState("");
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -22,7 +25,8 @@ export default function SettingsPage() {
   useEffect(() => {
     api.get<Settings>("/settings").then((r) => {
       setS(r);
-      setProvider(r.provider);
+      setProvider(KNOWN.includes(r.provider) ? r.provider : "other");
+      setCustom(KNOWN.includes(r.provider) ? "" : r.provider);
       setModel(r.model);
       setBaseUrl(r.base_url);
     });
@@ -35,7 +39,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setError("");
     try {
-      const r = await api.put<Settings>("/settings", { provider, model, base_url: baseUrl, api_key: apiKey || null });
+      const r = await api.put<Settings>("/settings", { provider: provider === "other" ? custom.trim() : provider, model, base_url: baseUrl, api_key: apiKey || null });
       setS(r);
       setApiKey("");
       setMsg("Saved");
@@ -45,7 +49,7 @@ export default function SettingsPage() {
     }
   };
   const clearKey = async () => {
-    setS(await api.put<Settings>("/settings", { provider, model, base_url: baseUrl, api_key: "" }));
+    setS(await api.put<Settings>("/settings", { provider: provider === "other" ? custom.trim() : provider, model, base_url: baseUrl, api_key: "" }));
   };
   const resetSandbox = async () => {
     if (!confirm("Restart your sandbox? Running programs stop. Your files are kept.")) return;
@@ -59,7 +63,7 @@ export default function SettingsPage() {
       <div className="page-inner">
         <div>
           <h1>Settings</h1>
-          <p className="lead">Choose the AI model Harbor uses. Leave fields empty to use the server's defaults.</p>
+          <p className="lead">Choose the model your agent uses. Leave fields empty to use the server's defaults.</p>
         </div>
         <form className="card" onSubmit={save} aria-label="Model settings">
           <div className="field">
@@ -68,6 +72,13 @@ export default function SettingsPage() {
               {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
+          {provider === "other" && (
+            <div className="field">
+              <label htmlFor="custom-provider">LangChain provider id</label>
+              <input id="custom-provider" className="input" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="ollama, google_genai, bedrock_converse…" />
+              <span className="hint">The matching langchain-&lt;provider&gt; package must be installed on the server.</span>
+            </div>
+          )}
           <div className="grid-2">
             <div className="field">
               <label htmlFor="model">Model</label>

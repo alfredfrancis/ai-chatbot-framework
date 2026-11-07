@@ -1,5 +1,5 @@
 [project]
-name = "harbor"
+name = "ai-chatbot-framework"
 version = "0.1.0"
 description = "A simple, friendly personal AI agent with a private sandbox, memory, MCP tools and scheduled tasks."
 requires-python = ">=3.12"
@@ -8,7 +8,11 @@ dependencies = [
   "uvicorn[standard]>=0.30",
   "sqlalchemy>=2.0",
   "httpx>=0.27",
-  "anthropic>=2.6",
+  "langchain>=1.4",
+  "langchain-core>=1.7",
+  "langchain-anthropic>=1.7",
+  "langchain-openai>=1.7",
+  "pyyaml>=6",
   "mcp>=2.3",
   "croniter>=6.0",
   "python-multipart>=0.0.20",
@@ -22,7 +26,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["harbor*"]
+include = ["acf*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -32,9 +36,12 @@ testpaths = ["tests"]
 markers = ["docker: needs a running Docker daemon"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC"]
 ignore = ["B008", "ASYNC109"]  # explicit timeouts on subprocess helpers are intended
+
+[tool.ruff.lint.per-file-ignores]
+"acf/skills.py" = ["E501"]  # the bundled SKILL.md text keeps its long YAML description line

@@ -1,15 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, signUp } from "./helpers";
+import { lastAssistant, nav, shot, signUp } from "./helpers";
 
 test("create, run, pause and delete a recurring task", async ({ page }) => {
   await signUp(page);
-  await page.getByRole("link", { name: "Tasks" }).click();
+  await nav(page).getByRole("link", { name: "Tasks" }).click();
   await expect(page.getByText(/No tasks yet/)).toBeVisible();
   await page.getByRole("button", { name: "New task" }).click();
   await page.getByLabel("Name").fill("Morning check");
-  await page.getByLabel("What should Harbor do?").fill("run: echo task-ran");
+  await page.getByLabel("What should the agent do?").fill("run: echo task-ran");
   await page.getByLabel("Repeat").selectOption("weekdays");
   await page.getByLabel("At", { exact: true }).fill("07:30");
+  await shot(page, "10-task-form");
   await page.getByRole("button", { name: "Create task" }).click();
 
   const row = page.getByTestId("task-Morning check");
@@ -21,8 +22,9 @@ test("create, run, pause and delete a recurring task", async ({ page }) => {
   await expect(page.locator(".chat-header")).toContainText("Morning check ·");
   await expect(lastAssistant(page)).toContainText("Result: task-ran");
 
-  await page.getByRole("link", { name: "Tasks" }).click();
+  await nav(page).getByRole("link", { name: "Tasks" }).click();
   await expect(row).toContainText("View result");
+  await shot(page, "11-tasks");
   await row.getByRole("switch", { name: "Morning check enabled" }).click();
   await expect(row).toContainText("Paused");
 
@@ -34,16 +36,15 @@ test("create, run, pause and delete a recurring task", async ({ page }) => {
 test("a task runs on its schedule", async ({ page }) => {
   test.setTimeout(150_000); // the next "* * * * *" run can be up to a minute away
   await signUp(page);
-  await page.getByRole("link", { name: "Tasks" }).click();
+  await nav(page).getByRole("link", { name: "Tasks" }).click();
   await page.getByRole("button", { name: "New task" }).click();
   await page.getByLabel("Name").fill("Every minute");
-  await page.getByLabel("What should Harbor do?").fill("scheduled hello");
+  await page.getByLabel("What should the agent do?").fill("scheduled hello");
   await page.getByLabel("Repeat").selectOption("custom");
   await page.getByLabel("Cron expression").fill("* * * * *");
   await page.getByRole("button", { name: "Create task" }).click();
   const row = page.getByTestId("task-Every minute");
   await expect(row).toContainText("Custom (* * * * *)");
-  // The scheduler checks every 2s in tests; the first run is at most a minute away.
   await expect(async () => {
     await page.reload();
     await expect(row.getByRole("link", { name: "View result" })).toBeVisible({ timeout: 1000 });

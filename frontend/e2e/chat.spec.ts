@@ -1,37 +1,62 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, say, signUp } from "./helpers";
+import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 
-test("chat with the agent, run a command in the sandbox, and keep history", async ({ page }) => {
+test("home, chat, sandbox commands and history", async ({ page }) => {
   await signUp(page);
-  await say(page, "hello harbor");
-  await expect(page.getByTestId("user-msg")).toHaveText("hello harbor");
-  await expect(lastAssistant(page)).toHaveText("Echo: hello harbor");
+  await expect(page.getByTestId("status-pill")).toHaveText(/^(Sandbox ready|Local sandbox) · 1 skill · 0 connections$/);
+  await shot(page, "02-home");
+
+  await say(page, "hello there");
+  await expect(page.getByTestId("user-msg")).toHaveText("hello there");
+  await expect(lastAssistant(page)).toHaveText("Echo: hello there");
   await expect(page).toHaveURL(/\/c\/\d+$/);
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "hello harbor" })).toBeVisible();
+  await expect(nav(page).getByRole("link", { name: "hello there" })).toBeVisible();
 
   await say(page, "run: echo computed-$((6*7))");
-  const chip = page.getByTestId("tool-chip").last();
-  await expect(chip).toContainText("Ran echo computed-$((6*7))");
+  const step = page.getByTestId("tool-step").last();
+  await expect(step).toContainText("Ran echo computed-$((6*7))");
+  await expect(step).toContainText(/\d\.\ds/);
   await expect(lastAssistant(page)).toHaveText(/Result: computed-42/);
-  await chip.click();
-  await expect(page.locator(".chip-output").last()).toContainText("[exit code 0]");
+  await step.click();
+  await expect(page.locator(".step-output").last()).toContainText("[exit code 0]");
+  await shot(page, "03-chat-with-activity");
 
-  // history survives a reload
   await page.reload();
   await expect(page.getByTestId("user-msg")).toHaveCount(2);
   await expect(lastAssistant(page)).toHaveText(/Result: computed-42/);
 
-  // delete the chat
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Delete chat" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("link", { name: "hello harbor" })).toHaveCount(0);
+  await expect(nav(page).getByRole("link", { name: "hello there" })).toHaveCount(0);
 });
 
-test("failed commands are shown as failed", async ({ page }) => {
+test("failed commands are marked as failed", async ({ page }) => {
   await signUp(page);
   await say(page, "run: exit 7");
-  await expect(page.getByTestId("tool-chip")).toContainText("Ran exit 7");
+  await expect(page.getByTestId("tool-step")).toContainText("Ran exit 7");
+  await expect(page.getByTestId("tool-step").locator(".fail")).toBeVisible();
   await expect(lastAssistant(page)).toContainText("exit code 7");
-  await expect(page.getByTestId("tool-chip").locator("svg")).toBeVisible();
+});
+
+test("steer the agent while it works, then stop it", async ({ page }) => {
+  await signUp(page);
+  await say(page, "run: sleep 3; echo slow-done");
+  await expect(page.getByTestId("tool-step")).toContainText("Ran sleep 3; echo slow-done");
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
+
+  await say(page, "show messages");
+  await expect(page.getByTestId("queued-msg")).toHaveText("show messages");
+  await expect(page.getByText("Queued — I'll read this next")).toBeVisible();
+  await shot(page, "04-steering-queued");
+  await expect(lastAssistant(page)).toHaveText("Messages: run: sleep 3; echo slow-done | show messages", { timeout: 20_000 });
+  await expect(page.getByTestId("queued-msg")).toHaveCount(0);
+
+  await say(page, "run: sleep 30");
+  await expect(page.getByTestId("tool-step").last()).toContainText("Ran sleep 30");
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.getByText("Stopped.")).toBeVisible();
+  await expect(page.getByTestId("tool-step").last().locator(".fail")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
+  await shot(page, "05-stopped");
 });

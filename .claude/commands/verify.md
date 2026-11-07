@@ -1,5 +1,5 @@
 ---
-description: Run every check Harbor's CI runs and report results honestly
+description: Run every check AI Chatbot Framework's CI runs and report results honestly
 ---
 Run, in order, and report each as pass/fail with the relevant output for failures:
 1. `make lint`

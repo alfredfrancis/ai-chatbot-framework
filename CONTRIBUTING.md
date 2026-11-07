@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. Start with [AGENTS.md](AGENTS.md): it explains the layout, the rules and the
+Thanks for helping AI Chatbot Framework. Start with [AGENTS.md](AGENTS.md): it explains the layout, the rules and the
 design tokens, for people and coding agents alike.
 
 1. Fork and clone, then `make setup`.

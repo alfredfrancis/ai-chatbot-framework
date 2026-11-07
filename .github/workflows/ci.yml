@@ -67,8 +67,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build sandbox image
-        run: docker build -t harbor-sandbox:latest sandbox
+        run: docker build -t acf-sandbox:latest sandbox
       - name: Build app image
-        run: docker build -t harbor:latest .
+        run: docker build -t ai-chatbot-framework:latest .
       - name: Smoke test the sandbox image
-        run: docker run --rm harbor-sandbox:latest sh -c 'python3 --version && node --version && npx --version && uvx --version'
+        run: docker run --rm acf-sandbox:latest sh -c 'python3 --version && node --version && npx --version && uvx --version'

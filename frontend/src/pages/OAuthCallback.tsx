@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 
-/** The OAuth redirect lands here; we hand the code to Harbor and report back to the opener. */
+/** The OAuth redirect lands here; we hand the code to the agent and report back to the opener. */
 export default function OAuthCallback() {
   const [state, setState] = useState<"working" | "ok" | "error">("working");
   const [message, setMessage] = useState("");
@@ -15,7 +15,7 @@ export default function OAuthCallback() {
       setState(ok ? "ok" : "error");
       setMessage(text);
       if (window.opener) {
-        window.opener.postMessage({ type: "harbor-oauth", ok }, window.location.origin);
+        window.opener.postMessage({ type: "acf-oauth", ok }, window.location.origin);
         if (ok) setTimeout(() => window.close(), 400);
       } else if (ok) {
         setTimeout(() => window.location.replace("/connections"), 800);

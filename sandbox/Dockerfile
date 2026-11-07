@@ -1,6 +1,6 @@
 # The per-user sandbox image. Commands the agent runs and local (stdio) MCP servers run here.
 # Includes Python, Node.js (npx) and uv (uvx) so most MCP servers start without extra setup.
-# Extend it (FROM harbor-sandbox) to add system packages your users need.
+# Extend it (FROM acf-sandbox) to add system packages your users need.
 FROM node:22-slim AS node
 
 FROM python:3.12-slim

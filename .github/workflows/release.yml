@@ -20,9 +20,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/harbor:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/harbor:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:latest
       - uses: docker/build-push-action@v6
         with:
           context: sandbox
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/harbor-sandbox:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/harbor-sandbox:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/acf-sandbox:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/acf-sandbox:latest

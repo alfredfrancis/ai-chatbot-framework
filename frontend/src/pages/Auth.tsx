@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type User } from "../api";
-import { IconAnchor } from "../components/icons";
+import { Mark } from "../components/icons";
 
 export default function AuthPage({ onAuthed }: { onAuthed: (u: User) => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -36,9 +36,9 @@ export default function AuthPage({ onAuthed }: { onAuthed: (u: User) => void }) 
   return (
     <div className="auth">
       <form className="auth-card" onSubmit={submit}>
-        <div className="logo"><IconAnchor /></div>
+        <Mark size="lg" />
         <h1>{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
-        <p>{mode === "signup" ? "Your own assistant, with a private workspace." : "Sign in to Harbor."}</p>
+        <p>{mode === "signup" ? "AI Chatbot Framework — your agent, your computer, your skills." : "Sign in to AI Chatbot Framework."}</p>
         {mode === "signup" && (
           <div className="field">
             <label htmlFor="name">Name</label>
@@ -58,7 +58,7 @@ export default function AuthPage({ onAuthed }: { onAuthed: (u: User) => void }) 
           {mode === "signup" && <span className="hint">At least 8 characters.</span>}
         </div>
         {error && <div className="banner" role="alert">{error}</div>}
-        <button className="btn" type="submit" disabled={busy} style={{ height: 44 }}>
+        <button className="btn" type="submit" disabled={busy} style={{ height: 44, borderRadius: 12 }}>
           {mode === "signup" ? "Create account" : "Sign in"}
         </button>
         {signupAllowed && (

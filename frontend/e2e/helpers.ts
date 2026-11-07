@@ -1,6 +1,15 @@
+import { mkdirSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 
 let n = 0;
+const SHOTS = new URL("../../docs/screenshots/e2e/", import.meta.url).pathname;
+mkdirSync(SHOTS, { recursive: true });
+
+/** Save a screenshot of the current state into docs/screenshots/e2e/<name>.png. */
+export async function shot(page: Page, name: string) {
+  await page.waitForTimeout(250); // let transitions settle
+  await page.screenshot({ path: `${SHOTS}${name}.png` });
+}
 
 export async function signUp(page: Page, name = "Maya") {
   const email = `e2e-${Date.now()}-${n++}@example.com`;
@@ -14,7 +23,7 @@ export async function signUp(page: Page, name = "Maya") {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct horse battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByRole("heading", { name: `Hi ${name}. What can I do for you?` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What can I take off your plate today?" })).toBeVisible();
   return email;
 }
 
@@ -25,3 +34,4 @@ export async function say(page: Page, text: string) {
 }
 
 export const lastAssistant = (page: Page) => page.getByTestId("assistant-msg").last();
+export const nav = (page: Page) => page.getByRole("navigation", { name: "Main" });

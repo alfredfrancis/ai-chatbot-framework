@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from harbor import scheduler
-from harbor.db import Task, session_scope, utcnow
+from acf import scheduler
+from acf.db import Task, session_scope, utcnow
 
 
 async def test_create_validate_update_delete(client, user):
@@ -30,9 +30,7 @@ async def test_create_validate_update_delete(client, user):
 
 async def test_run_now_creates_chat(client, user):
     task = (
-        await client.post(
-            "/api/tasks", json={"name": "Calc", "prompt": "run: echo $((2+3))", "schedule": "0 * * * *"}
-        )
+        await client.post("/api/tasks", json={"name": "Calc", "prompt": "run: echo $((2+3))", "schedule": "0 * * * *"})
     ).json()
     r = await client.post(f"/api/tasks/{task['id']}/run")
     assert r.status_code == 200
@@ -54,9 +52,7 @@ async def test_run_now_creates_chat(client, user):
 async def test_scheduler_tick_runs_due_tasks(client, user):
     import asyncio
 
-    task = (
-        await client.post("/api/tasks", json={"name": "Due", "prompt": "hi", "schedule": "*/5 * * * *"})
-    ).json()
+    task = (await client.post("/api/tasks", json={"name": "Due", "prompt": "hi", "schedule": "*/5 * * * *"})).json()
     with session_scope() as db:
         db.get(Task, task["id"]).next_run_at = utcnow() - timedelta(minutes=1)
     started = await scheduler.tick()

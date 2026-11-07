@@ -5,15 +5,13 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-from harbor import workspace
-from harbor.mcp_client import ConfigError, parse_config
+from acf import workspace
+from acf.mcp_client import ConfigError, parse_config
 from tests.conftest import FAKES, send
 
 
 def test_parse_config_validation():
-    ok = parse_config(
-        '{"mcpServers": {"a": {"command": "npx", "args": ["x"]}, "b": {"url": "https://x/mcp"}}}'
-    )
+    ok = parse_config('{"mcpServers": {"a": {"command": "npx", "args": ["x"]}, "b": {"url": "https://x/mcp"}}}')
     assert ok["a"].transport == "stdio" and ok["b"].transport == "http"
     for bad, msg in [
         ("{", "Invalid JSON"),
@@ -50,9 +48,7 @@ async def test_stdio_server_tools(client, user):
     events = await send(client, chat_id, 'tool: mcp__echo__add {"a": 2, "b": 40}')
     start = next(e for e in events if e["type"] == "tool_start")
     assert start["label"] == "echo · add"
-    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][
-        -1
-    ]
+    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
     assert final["content"] == "Result: 42"
 
 
@@ -88,21 +84,17 @@ async def test_oauth_flow(client, user, oauth_mcp_url):
     allow = re.search(r'id="allow" href="([^"]+)"', page).group(1).replace("&amp;", "&")
     back = parse_qs(urlparse(allow).query)
 
-    # The frontend callback page posts code + state to Harbor
+    # The frontend callback page posts code + state to AI Chatbot Framework
     r = await client.post("/api/oauth/callback", json={"code": back["code"][0], "state": back["state"][0]})
     assert r.status_code == 200 and r.json()["server"] == "notes"
-    replay = await client.post(
-        "/api/oauth/callback", json={"code": back["code"][0], "state": back["state"][0]}
-    )
+    replay = await client.post("/api/oauth/callback", json={"code": back["code"][0], "state": back["state"][0]})
     assert replay.status_code == 400
 
     servers = (await client.get("/api/mcp/servers")).json()["servers"]
     assert servers[0]["state"] == "connected" and servers[0]["signed_in"], servers
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
     events = await send(client, chat_id, "tool: mcp__notes__get_secret_note {}")
-    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][
-        -1
-    ]
+    final = [e["message"] for e in events if e["type"] == "message" and e["message"]["role"] == "assistant"][-1]
     assert "pineapple" in final["content"]
 
     await client.delete("/api/mcp/servers/notes/oauth")
@@ -114,8 +106,8 @@ async def test_token_refresh(client, user, oauth_mcp_url):
     """An expired access token is refreshed transparently."""
     import time
 
-    from harbor import oauth
-    from harbor.db import OAuthToken, session_scope
+    from acf import oauth
+    from acf.db import OAuthToken, session_scope
 
     cfg = {"mcpServers": {"notes": {"url": f"{oauth_mcp_url}/mcp"}}}
     await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})

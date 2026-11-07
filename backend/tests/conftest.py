@@ -52,19 +52,19 @@ def oauth_mcp_url() -> str:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def harbor_env(fake_llm_url):
-    data = tempfile.mkdtemp(prefix="harbor-test-")
+def acf_env(fake_llm_url):
+    data = tempfile.mkdtemp(prefix="acf-test-")
     os.environ.update(
         {
-            "HARBOR_DATA_DIR": data,
-            "HARBOR_SANDBOX": "local",
-            "HARBOR_LLM_PROVIDER": "anthropic",
-            "HARBOR_LLM_BASE_URL": fake_llm_url,
-            "HARBOR_LLM_API_KEY": "test-key",
-            "HARBOR_SCHEDULER": "false",
+            "ACF_DATA_DIR": data,
+            "ACF_SANDBOX": "local",
+            "ACF_LLM_PROVIDER": "anthropic",
+            "ACF_LLM_BASE_URL": fake_llm_url,
+            "ACF_LLM_API_KEY": "test-key",
+            "ACF_SCHEDULER": "false",
         }
     )
-    from harbor import config, db
+    from acf import config, db
 
     config.reload_settings()
     db.init_db()
@@ -74,7 +74,7 @@ def harbor_env(fake_llm_url):
 
 @pytest.fixture
 async def client():
-    from harbor.main import create_app
+    from acf.main import create_app
 
     transport = httpx.ASGITransport(app=create_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://test", timeout=120) as c:
@@ -87,9 +87,7 @@ _counter = iter(range(10**6))
 @pytest.fixture
 async def user(client):
     email = f"user{next(_counter)}-{time.time_ns()}@example.com"
-    r = await client.post(
-        "/api/auth/signup", json={"email": email, "password": "correct horse", "name": "Maya"}
-    )
+    r = await client.post("/api/auth/signup", json={"email": email, "password": "correct horse", "name": "Maya"})
     assert r.status_code == 200, r.text
     return r.json()["user"]
 

@@ -2,7 +2,7 @@
 description: Build a feature end to end (tests first, UI included) following AGENTS.md
 argument-hint: <what to build>
 ---
-Build this feature in Harbor: $ARGUMENTS
+Build this feature in AI Chatbot Framework: $ARGUMENTS
 
 Follow AGENTS.md. In order:
 1. Read the modules and tests this touches. State the plan in 3–6 bullets.

@@ -2,10 +2,13 @@
 OpenAI Chat Completions API. Used by backend tests and the end-to-end UI tests.
 
 Rules (applied to the latest user text):
-  run: <cmd>                  -> calls run_command
-  remember: <fact>            -> calls remember
-  write: <path> | <content>   -> calls write_file
-  read: <path>                -> calls read_file
+  run: <cmd>                  -> calls bash
+  remember: <fact>            -> appends a bullet to memory.md via bash
+  write: <path> | <content>   -> calls write
+  edit: <path> | <old> | <new>-> calls edit
+  read: <path> [<path> …]     -> calls read (several paths = parallel calls)
+  show messages               -> lists every user message it received (steering/compaction checks)
+  summarise the conversation… -> compaction summary
   tool: <name> <json args>    -> calls any tool by name
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
@@ -28,30 +31,51 @@ app = FastAPI()
 REQUESTS: list[dict[str, Any]] = []
 
 
-def decide(last_user: str | None, tool_result: str | None, system: str, tool_names: list[str]) -> dict:
-    """Return {"text": str} or {"tool": name, "args": {...}, "text": str}."""
-    if tool_result is not None:
+def decide(
+    last_user: str | None,
+    tool_result: str | None,
+    system: str,
+    tool_names: list[str],
+    history_users: list[str] | None = None,
+) -> dict:
+    """Return {"text": str} and optionally {"calls": [(name, args), ...]}."""
+    if last_user is None and tool_result is not None:
         return {"text": f"Result: {tool_result[:2000]}"}
     text = (last_user or "").strip()
     low = text.lower()
+    if low.startswith("summarise the conversation"):
+        return {"text": f"SUMMARY of {len(history_users or [])} user messages: " + " | ".join(history_users or [])}
     if low.startswith("run:"):
-        return {"tool": "run_command", "args": {"command": text[4:].strip()}, "text": "Running that now."}
+        return {"calls": [("bash", {"command": text[4:].strip()})], "text": "Running that now."}
     if low.startswith("remember:"):
-        return {"tool": "remember", "args": {"fact": text[9:].strip()}, "text": ""}
+        fact = text[9:].strip().replace("'", "")
+        return {"calls": [("bash", {"command": f"printf -- '- %s\\n' '{fact}' >> memory.md"})], "text": ""}
     if low.startswith("write:"):
         path, _, content = text[6:].partition("|")
-        return {"tool": "write_file", "args": {"path": path.strip(), "content": content.strip()}, "text": ""}
+        return {"calls": [("write", {"path": path.strip(), "content": content.strip()})], "text": ""}
+    if low.startswith("edit:"):
+        path, old, new = (x.strip() for x in text[5:].split("|"))
+        return {"calls": [("edit", {"path": path, "old_string": old, "new_string": new})], "text": ""}
     if low.startswith("read:"):
-        return {"tool": "read_file", "args": {"path": text[5:].strip()}, "text": ""}
+        paths = text[5:].split()
+        return {"calls": [("read", {"path": p}) for p in paths], "text": ""}
     if low.startswith("tool:"):
         rest = text[5:].strip()
         name, _, args = rest.partition(" ")
-        return {"tool": name, "args": json.loads(args or "{}"), "text": ""}
+        return {"calls": [(name, json.loads(args or "{}"))], "text": ""}
     if low == "show system":
         return {"text": system}
     if low == "list tools":
         return {"text": "Tools: " + ", ".join(tool_names)}
+    if low == "show messages":
+        return {"text": "Messages: " + " | ".join(history_users or [])}
     return {"text": f"Echo: {text}"}
+
+
+def _texts(content) -> list[str]:
+    if isinstance(content, str):
+        return [content]
+    return [b.get("text", "") for b in content if b.get("type") == "text"]
 
 
 # ------------------------------------------------------------- Anthropic
@@ -63,41 +87,31 @@ async def messages(request: Request):
     REQUESTS.append({"api": "anthropic", "headers": dict(request.headers), "body": body})
     msgs = body["messages"]
     last = msgs[-1]
-    tool_result = last_user = None
-    blocks = (
-        last["content"] if isinstance(last["content"], list) else [{"type": "text", "text": last["content"]}]
-    )
+    blocks = last["content"] if isinstance(last["content"], list) else [{"type": "text", "text": last["content"]}]
     results = [b for b in blocks if b.get("type") == "tool_result"]
+    texts = [b.get("text", "") for b in blocks if b.get("type") == "text" and b.get("text", "").strip()]
+    tool_result = None
     if results:
         c = results[-1]["content"]
         tool_result = c if isinstance(c, str) else " ".join(x.get("text", "") for x in c)
-    else:
-        last_user = " ".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    last_user = texts[-1] if texts else None
+    users = [t for m in msgs if m["role"] == "user" for t in _texts(m["content"]) if t.strip()]
     system = body.get("system") or ""
     if isinstance(system, list):
         system = " ".join(b.get("text", "") for b in system)
-    d = decide(last_user, tool_result, system, [t["name"] for t in body.get("tools", [])])
+    d = decide(last_user, tool_result, system, [t["name"] for t in body.get("tools", [])], users)
     content: list[dict] = [{"type": "thinking", "thinking": "", "signature": "sig-" + uuid.uuid4().hex[:8]}]
     if d.get("text"):
         content.append({"type": "text", "text": d["text"]})
-    stop = "end_turn"
-    if d.get("tool"):
-        content.append(
-            {
-                "type": "tool_use",
-                "id": "toolu_" + uuid.uuid4().hex[:12],
-                "name": d["tool"],
-                "input": d["args"],
-            }
-        )
-        stop = "tool_use"
+    for name, args in d.get("calls", []):
+        content.append({"type": "tool_use", "id": "toolu_" + uuid.uuid4().hex[:12], "name": name, "input": args})
     return {
         "id": "msg_" + uuid.uuid4().hex[:12],
         "type": "message",
         "role": "assistant",
         "model": body["model"],
         "content": content,
-        "stop_reason": stop,
+        "stop_reason": "tool_use" if d.get("calls") else "end_turn",
         "stop_sequence": None,
         "usage": {"input_tokens": 10, "output_tokens": 10},
     }
@@ -113,20 +127,23 @@ async def chat_completions(request: Request):
     msgs = body["messages"]
     last = msgs[-1]
     system = next((m["content"] for m in msgs if m["role"] == "system"), "")
+    if isinstance(system, list):
+        system = " ".join(_texts(system))
     tool_result = last["content"] if last["role"] == "tool" else None
-    last_user = last["content"] if last["role"] == "user" else None
-    d = decide(last_user, tool_result, system, [t["function"]["name"] for t in body.get("tools", [])])
+    last_user = " ".join(_texts(last["content"])) if last["role"] == "user" else None
+    users = [" ".join(_texts(m["content"])) for m in msgs if m["role"] == "user"]
+    d = decide(last_user, tool_result, system, [t["function"]["name"] for t in body.get("tools", [])], users)
     message: dict[str, Any] = {"role": "assistant", "content": d.get("text") or None}
-    finish = "stop"
-    if d.get("tool"):
+    if d.get("calls"):
         message["tool_calls"] = [
             {
                 "id": "call_" + uuid.uuid4().hex[:12],
                 "type": "function",
-                "function": {"name": d["tool"], "arguments": json.dumps(d["args"])},
+                "function": {"name": name, "arguments": json.dumps(args)},
             }
+            for name, args in d["calls"]
         ]
-        finish = "tool_calls"
+    finish = "tool_calls" if d.get("calls") else "stop"
     return {
         "id": "chatcmpl-x",
         "object": "chat.completion",
