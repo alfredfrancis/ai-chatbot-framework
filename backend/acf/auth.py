@@ -10,6 +10,7 @@ from datetime import timedelta
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from acf import config
 from acf.db import AcpToken, AuthSession, User, get_db, utcnow
 
 COOKIE = "acf_session"
@@ -29,6 +30,30 @@ def verify_password(password: str, stored: str) -> bool:
         return False
     digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt_hex), n=2**14, r=8, p=1)
     return hmac.compare_digest(digest.hex(), digest_hex)
+
+
+def ensure_admin(db: Session) -> User | None:
+    """Create the main account from ACF_ADMIN_* (if set), or reset its password to match."""
+    s = config.settings
+    if not s.admin_email:
+        return None
+    from acf import skills, workspace
+
+    user = db.query(User).filter_by(email=s.admin_email).first()
+    if user is None:
+        user = User(
+            email=s.admin_email,
+            name=s.admin_name or s.admin_email.split("@")[0],
+            password_hash=hash_password(s.admin_password),
+        )
+        db.add(user)
+        db.flush()
+        workspace.workspace_dir(user.id)
+        skills.seed(user.id)
+    elif not verify_password(s.admin_password, user.password_hash):
+        user.password_hash = hash_password(s.admin_password)
+        db.query(AuthSession).filter_by(user_id=user.id).delete()  # sign out sessions made with the old password
+    return user
 
 
 def _token_hash(token: str) -> str:

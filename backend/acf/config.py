@@ -22,7 +22,18 @@ class Settings:
             _env("FRONTEND_DIST", str(Path(__file__).resolve().parents[2] / "frontend" / "dist"))
         )
     )
-    allow_signup: bool = field(default_factory=lambda: _env("ALLOW_SIGNUP", "true").lower() == "true")
+    # Main account, created (and its password kept in sync) at startup when both are set.
+    admin_email: str = field(default_factory=lambda: _env("ADMIN_EMAIL").strip().lower())
+    admin_password: str = field(default_factory=lambda: _env("ADMIN_PASSWORD"))
+    admin_name: str = field(default_factory=lambda: _env("ADMIN_NAME").strip())
+    # Open sign-ups. Unset: open, unless a main account is configured.
+    allow_signup: bool = field(
+        default_factory=lambda: (
+            _env("ALLOW_SIGNUP").strip().lower() == "true"
+            if _env("ALLOW_SIGNUP").strip()
+            else not _env("ADMIN_EMAIL").strip()
+        )
+    )
     cookie_secure: bool = field(default_factory=lambda: _env("COOKIE_SECURE", "false").lower() == "true")
 
     # LLM defaults (each user can override in Settings).
@@ -57,6 +68,12 @@ class Settings:
     scheduler_interval: float = field(default_factory=lambda: float(_env("SCHEDULER_INTERVAL", "20")))
 
     def __post_init__(self) -> None:
+        if bool(self.admin_email) != bool(self.admin_password):
+            raise ValueError("Set both ACF_ADMIN_EMAIL and ACF_ADMIN_PASSWORD, or neither")
+        if self.admin_email and "@" not in self.admin_email:
+            raise ValueError("ACF_ADMIN_EMAIL must be an email address")
+        if self.admin_password and len(self.admin_password) < 8:
+            raise ValueError("ACF_ADMIN_PASSWORD must be at least 8 characters")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if not self.db_url:
             self.db_url = f"sqlite:///{self.data_dir / 'acf.db'}"
