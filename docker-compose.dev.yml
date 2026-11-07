@@ -3,7 +3,8 @@
 #
 #   docker compose -f docker-compose.dev.yml up --build
 #
-# Web app: http://localhost:5173 (proxies /api to the API on :8000).
+# Web app: http://localhost:5173 (proxies /api to the API on :8000). Ports taken? Set ACF_DEV_WEB_PORT,
+# ACF_DEV_API_PORT or ACF_DEV_DB_PORT (Postgres, default 55432).
 # Real model instead of the fake: ACF_LLM_BASE_URL= ANTHROPIC_API_KEY=sk-ant-... docker compose -f docker-compose.dev.yml up
 name: ai-chatbot-framework-dev
 
@@ -14,13 +15,21 @@ services:
     entrypoint: ["true"]
     restart: "no"
 
+  # Builds acf-api:dev once for the api and fake-llm services, then exits.
+  api-image:
+    build: { context: ., dockerfile: backend/Dockerfile.dev }
+    image: acf-api:dev
+    entrypoint: ["true"]
+    restart: "no"
+
   postgres:
     image: postgres:17.6-alpine
     environment:
       POSTGRES_DB: acf
       POSTGRES_USER: acf
       POSTGRES_PASSWORD: acf
-    ports: ["5432:5432"] # for psql or a GUI: postgresql://acf:acf@localhost:5432/acf
+    # Host port 55432 so it doesn't clash with a local Postgres: postgresql://acf:acf@localhost:55432/acf
+    ports: ["${ACF_DEV_DB_PORT:-55432}:5432"]
     volumes:
       - postgres-dev:/var/lib/postgresql/data
     healthcheck:
@@ -30,23 +39,29 @@ services:
       retries: 20
 
   fake-llm:
-    build: { context: ., dockerfile: backend/Dockerfile.dev }
+    # Reuses the image the api service builds (two services building one image name race each other).
     image: acf-api:dev
+    pull_policy: never
+    depends_on:
+      api-image:
+        condition: service_completed_successfully
     command: ["python", "-m", "tests.fakes.fake_llm", "--host", "0.0.0.0", "--port", "9100"]
     volumes:
       - ./backend:/app/backend
 
   api:
-    build: { context: ., dockerfile: backend/Dockerfile.dev }
     image: acf-api:dev
+    pull_policy: never
     depends_on:
+      api-image:
+        condition: service_completed_successfully
       sandbox-image:
         condition: service_completed_successfully
       fake-llm:
         condition: service_started
       postgres:
         condition: service_healthy
-    ports: ["8000:8000"]
+    ports: ["${ACF_DEV_API_PORT:-8000}:8000"]
     environment:
       ACF_DATA_DIR: /data
       ACF_DB_URL: postgresql://acf:acf@postgres:5432/acf
@@ -69,7 +84,7 @@ services:
     build: { context: ., dockerfile: frontend/Dockerfile.dev }
     image: acf-web:dev
     depends_on: [api]
-    ports: ["5173:5173"]
+    ports: ["${ACF_DEV_WEB_PORT:-5173}:5173"]
     environment:
       ACF_API: http://api:8000
       ACF_WATCH_POLL: "1" # file events don't always cross bind mounts (Docker Desktop)

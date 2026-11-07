@@ -105,9 +105,7 @@ jobs:
         run: docker build -t acf-sandbox:latest sandbox
       - name: Build app image
         run: docker build -t ai-chatbot-framework:latest .
-      - name: Build dev images
-        run: |
-          docker build -f backend/Dockerfile.dev -t acf-api:dev .
-          docker build -f frontend/Dockerfile.dev -t acf-web:dev .
+      - name: Build the dev stack with compose (as developers run it)
+        run: docker compose -f docker-compose.dev.yml build
       - name: Smoke test the sandbox image
         run: docker run --rm acf-sandbox:latest sh -c 'python3 --version && node --version && npx --version && uvx --version'

@@ -65,7 +65,8 @@ docker compose -f docker-compose.dev.yml up --build   # or: make up-dev
 ```
 
 Web app on http://localhost:5173, API on :8000, both reloading when you save. PostgreSQL is on
-:5432 (`postgresql://acf:acf@localhost:5432/acf`). Agents run in real
+host port 55432 (`postgresql://acf:acf@localhost:55432/acf`). If a port is taken, set
+`ACF_DEV_WEB_PORT`, `ACF_DEV_API_PORT` or `ACF_DEV_DB_PORT`. Port 8000 is only the API; use 5173. Agents run in real
 sandboxes, and a scripted fake model answers so no API key is needed (try `run: ls`, `show system`).
 To use a real model: `ACF_LLM_BASE_URL= ANTHROPIC_API_KEY=sk-ant-... make up-dev`.
 Without Docker, `make setup && make dev` runs the same thing on your machine.
