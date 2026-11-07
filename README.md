@@ -98,6 +98,11 @@ Other LangChain providers need their package installed (`pip install langchain-o
 
 ### MCP configuration
 
+Add, edit, turn off or delete connections from the form on the **Connections** page. Switch to **JSON** there
+to edit the whole configuration directly (same format as Claude Desktop; needed for extra keys like `oauth`,
+which the form keeps but doesn't edit). The API equivalents are `PUT`/`DELETE /api/mcp/servers/{name}` and
+`PUT /api/mcp/config`.
+
 ```json
 {
   "mcpServers": {
