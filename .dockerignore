@@ -7,3 +7,5 @@ frontend/test-results
 frontend/playwright-report
 data
 backend/tests
+data-dev
+.env

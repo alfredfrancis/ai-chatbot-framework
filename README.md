@@ -38,18 +38,35 @@ its own private computer, their files, skills, app connections and scheduled job
 
 All screenshots are taken by the end-to-end tests (`docs/screenshots/e2e/`).
 
-## Quick start (Docker)
+## Run it in production (Docker)
+
+On a server with Docker and a domain pointing at it:
 
 ```sh
 git clone https://github.com/alfredfrancis/ai-chatbot-framework.git && cd ai-chatbot-framework
-ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
+cp .env.example .env        # set ACF_DOMAIN and ANTHROPIC_API_KEY (or another model)
+docker compose up -d        # or: make up
 ```
 
-Open http://localhost:8000 and create an account. The first build also builds the sandbox image
-(`acf-sandbox:latest`: Python, Node/npx, uv/uvx, pandas, matplotlib).
+Open `https://<ACF_DOMAIN>` and create the first account, then set `ACF_ALLOW_SIGNUP=false`.
+[Caddy](https://caddyserver.com) gets and renews the HTTPS certificate; ports 80 and 443 must be open.
+The stack pulls the published images (`ACF_REGISTRY`/`ACF_VERSION` in `.env`); to build from source
+instead (needed until the first release publishes images), run `docker compose up -d --build`. Data (database and workspaces) lives in `./data`, or
+`ACF_DATA_PATH`. Logs are rotated and the app has a health check.
 
 The app mounts the Docker socket to start one sandbox container per user. Whoever controls the Docker
 socket controls the host, so run it on a machine dedicated to it.
+
+## Develop in Docker
+
+```sh
+docker compose -f docker-compose.dev.yml up --build   # or: make up-dev
+```
+
+Web app on http://localhost:5173, API on :8000, both reloading when you save. Agents run in real
+sandboxes, and a scripted fake model answers so no API key is needed (try `run: ls`, `show system`).
+To use a real model: `ACF_LLM_BASE_URL= ANTHROPIC_API_KEY=sk-ant-... make up-dev`.
+Without Docker, `make setup && make dev` runs the same thing on your machine.
 
 ## Configuration
 

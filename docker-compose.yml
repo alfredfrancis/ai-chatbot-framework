@@ -1,34 +1,73 @@
-# One-command setup:  ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
-# Then open http://localhost:8000
+# Production: AI Chatbot Framework behind Caddy (automatic HTTPS).
+#
+#   cp .env.example .env      # set ACF_DOMAIN and a model API key
+#   docker compose up -d      # pulls published images; add --build to build from source
+#
+# Open https://$ACF_DOMAIN. With ACF_DOMAIN=localhost, Caddy uses its own local certificate.
 name: ai-chatbot-framework
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
 services:
-  # Builds the sandbox image used for every user's private container, then exits.
+  # Makes sure the sandbox image is present before the app starts sandboxes, then exits.
   sandbox-image:
+    image: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
     build: ./sandbox
-    image: acf-sandbox:latest
     entrypoint: ["true"]
     restart: "no"
 
   app:
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
     build: .
-    image: ai-chatbot-framework:latest
     depends_on:
       sandbox-image:
         condition: service_completed_successfully
-    ports:
-      - "8000:8000"
     environment:
+      ACF_PUBLIC_URL: https://${ACF_DOMAIN:-localhost}
+      ACF_COOKIE_SECURE: "true"
+      ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-true}
       ACF_LLM_PROVIDER: ${ACF_LLM_PROVIDER:-anthropic}
       ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
       ACF_LLM_BASE_URL: ${ACF_LLM_BASE_URL:-}
       ACF_LLM_API_KEY: ${ACF_LLM_API_KEY:-${ANTHROPIC_API_KEY:-}}
-      ACF_PUBLIC_URL: ${ACF_PUBLIC_URL:-http://localhost:8000}
-      ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-true}
       ACF_SANDBOX: docker
-      ACF_SANDBOX_IMAGE: acf-sandbox:latest
-      # Sandboxes are started by the host's Docker, so it needs the host path of the data folder.
-      ACF_SANDBOX_HOST_DATA_DIR: ${PWD}/data
+      ACF_SANDBOX_IMAGE: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
+      ACF_SANDBOX_NETWORK: ${ACF_SANDBOX_NETWORK:-bridge}
+      # Sandboxes are started by the host's Docker, so bind mounts need the data folder's host path.
+      ACF_SANDBOX_HOST_DATA_DIR: ${ACF_DATA_PATH:-${PWD}/data}
     volumes:
-      - ./data:/data
+      - ${ACF_DATA_PATH:-${PWD}/data}:/data
       - /var/run/docker.sock:/var/run/docker.sock
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10.2
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ACF_DOMAIN: ${ACF_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:

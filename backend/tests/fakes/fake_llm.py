@@ -166,5 +166,7 @@ if __name__ == "__main__":
     import uvicorn
 
     p = argparse.ArgumentParser()
+    p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=9100)
-    uvicorn.run(app, host="127.0.0.1", port=p.parse_args().port, log_level="warning")
+    args = p.parse_args()
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")

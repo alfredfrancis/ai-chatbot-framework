@@ -1,0 +1,9 @@
+# Development image for the web app (Vite). Source is bind-mounted; node_modules stay in the image.
+FROM node:22-slim
+WORKDIR /web/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+COPY design/ /web/design/
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

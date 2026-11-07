@@ -9,3 +9,5 @@ data/
 .DS_Store
 .idea/
 .vscode/
+data-dev/
+.env

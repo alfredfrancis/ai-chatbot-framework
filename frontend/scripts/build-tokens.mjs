@@ -2,8 +2,8 @@
 // Dark is the first theme and the default; light applies when the OS prefers light.
 import { readFileSync, writeFileSync } from "node:fs";
 
-const root = new URL("../../", import.meta.url);
-const tokens = JSON.parse(readFileSync(new URL("design/tokens.json", root), "utf8"));
+// Paths are relative to this script, so it works in the repo and in Docker builds.
+const tokens = JSON.parse(readFileSync(new URL("../../design/tokens.json", import.meta.url), "utf8"));
 const [first, ...others] = tokens.color.themes.map((t) => t.id);
 
 const value = (t, theme) => (typeof t.value === "string" ? t.value : t.value[theme] ?? t.value[first]);
@@ -19,5 +19,5 @@ for (const theme of others) {
   const changed = themed.filter((t) => value(t, theme) !== value(t, first));
   css += `\n@media (prefers-color-scheme: ${theme}) {\n  :root {\n${changed.map((t) => `    --${t.name}: ${ref(value(t, theme))};`).join("\n")}\n    color-scheme: ${theme};\n  }\n}\n`;
 }
-writeFileSync(new URL("frontend/src/tokens.css", root), css);
+writeFileSync(new URL("../src/tokens.css", import.meta.url), css);
 console.log(`tokens.css: ${themed.length} themed + ${flat.length} scale tokens, themes ${[first, ...others].join(", ")}`);

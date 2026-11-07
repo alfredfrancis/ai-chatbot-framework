@@ -2,7 +2,7 @@
 PY ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
-.PHONY: help setup dev api web test test-fast e2e e2e-docker lint format build sandbox-image up
+.PHONY: help setup dev api web test test-fast e2e e2e-docker lint format build sandbox-image up up-dev down down-dev
 
 help:
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -46,5 +46,14 @@ sandbox-image: ## Build the per-user sandbox image
 build: sandbox-image ## Build the app image
 	docker build -t ai-chatbot-framework:latest .
 
-up: ## Start everything with docker compose
-	docker compose up --build
+up: ## Production: Caddy + HTTPS on ACF_DOMAIN (see .env.example); pulls published images
+	docker compose up -d
+
+down: ## Stop the production stack
+	docker compose down
+
+up-dev: ## Development in Docker: hot reload, real sandboxes, fake model (web on :5173)
+	docker compose -f docker-compose.dev.yml up --build
+
+down-dev: ## Stop the development stack
+	docker compose -f docker-compose.dev.yml down
