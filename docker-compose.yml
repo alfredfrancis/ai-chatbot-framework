@@ -136,10 +136,11 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    # Host ports. Behind a tunnel or another proxy, e.g. ACF_HTTP_PORT=127.0.0.1:8088 (.env.example).
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "${ACF_HTTP_PORT:-80}:80"
+      - "${ACF_HTTPS_PORT:-443}:443"
+      - "${ACF_HTTPS_PORT:-443}:443/udp"
     environment:
       ACF_DOMAIN: ${ACF_DOMAIN:-localhost}
     volumes:
