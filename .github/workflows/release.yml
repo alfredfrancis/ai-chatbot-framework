@@ -1,0 +1,28 @@
+name: Release images
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: sandbox
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/acf-sandbox:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/acf-sandbox:latest

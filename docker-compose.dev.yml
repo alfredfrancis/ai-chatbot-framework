@@ -1,43 +1,99 @@
-version: '2'
+# Development: hot reload for the API and the web app, real Docker sandboxes, and a scripted fake
+# model so no API key is needed.
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Web app: http://localhost:5173 (proxies /api to the API on :8000). Ports taken? Set ACF_DEV_WEB_PORT,
+# ACF_DEV_API_PORT or ACF_DEV_DB_PORT (Postgres, default 55432).
+# Real model instead of the fake: ACF_LLM_BASE_URL= ANTHROPIC_API_KEY=sk-ant-... docker compose -f docker-compose.dev.yml up
 name: ai-chatbot-framework-dev
+
 services:
-  mongodb:
-    image: mongo:4.2.20
-    hostname: mongodb
-    volumes:
-      - mongodbdata:/data
+  sandbox-image:
+    build: ./sandbox
+    image: acf-sandbox:dev
+    entrypoint: ["true"]
+    restart: "no"
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command:
-      - /bin/bash
-      - -c
-      - |
-        python manage.py migrate
-        fastapi run --host=0.0.0.0 --reload --port=8080
+  # Builds acf-api:dev once for the api and fake-llm services, then exits.
+  api-image:
+    build: { context: ., dockerfile: backend/Dockerfile.dev }
+    image: acf-api:dev
+    entrypoint: ["true"]
+    restart: "no"
+
+  postgres:
+    image: postgres:17.6-alpine
     environment:
-      APPLICATION_ENV: Development
-      MONGODB_HOST: mongodb://mongodb:27017
-    ports:
-      - 8080:8080
+      POSTGRES_DB: acf
+      POSTGRES_USER: acf
+      POSTGRES_PASSWORD: acf
+    # Host port 55432 so it doesn't clash with a local Postgres: postgresql://acf:acf@localhost:55432/acf
+    ports: ["${ACF_DEV_DB_PORT:-55432}:5432"]
     volumes:
-      - ./app:/usr/src/app/app
-    depends_on:
-      - migrate
-      - mongodb
+      - postgres-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acf -d acf"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: dev.Dockerfile
+  fake-llm:
+    # Reuses the image the api service builds (two services building one image name race each other).
+    image: acf-api:dev
+    pull_policy: never
+    depends_on:
+      api-image:
+        condition: service_completed_successfully
+    command: ["python", "-m", "tests.fakes.fake_llm", "--host", "0.0.0.0", "--port", "9100"]
     volumes:
-      - ./frontend/app:/app/app
-      - ./frontend/public:/app/public
-    restart: always
-    ports:
-      - 3000:3000
+      - ./backend:/app/backend
+
+  api:
+    image: acf-api:dev
+    pull_policy: never
+    depends_on:
+      api-image:
+        condition: service_completed_successfully
+      sandbox-image:
+        condition: service_completed_successfully
+      fake-llm:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    ports: ["${ACF_DEV_API_PORT:-8000}:8000"]
+    environment:
+      ACF_DATA_DIR: /data
+      ACF_DB_URL: postgresql://acf:acf@postgres:5432/acf
+      ACF_LLM_PROVIDER: ${ACF_LLM_PROVIDER:-anthropic}
+      ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
+      # Unset = the fake model. Set it to empty (ACF_LLM_BASE_URL=) to use the provider's real API.
+      ACF_LLM_BASE_URL: ${ACF_LLM_BASE_URL-http://fake-llm:9100}
+      ACF_LLM_API_KEY: ${ACF_LLM_API_KEY:-${ANTHROPIC_API_KEY:-dev-key}}
+      ACF_SANDBOX: docker
+      ACF_SANDBOX_IMAGE: acf-sandbox:dev
+      ACF_SANDBOX_PREFIX: acf-dev
+      ACF_SANDBOX_HOST_DATA_DIR: ${PWD}/data-dev
+      ACF_SCHEDULER_INTERVAL: "5"
+    volumes:
+      - ./backend:/app/backend
+      - ${PWD}/data-dev:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  web:
+    build: { context: ., dockerfile: frontend/Dockerfile.dev }
+    image: acf-web:dev
+    depends_on: [api]
+    ports: ["${ACF_DEV_WEB_PORT:-5173}:5173"]
+    environment:
+      ACF_API: http://api:8000
+      ACF_WATCH_POLL: "1" # file events don't always cross bind mounts (Docker Desktop)
+    volumes:
+      - ./frontend/src:/web/frontend/src
+      - ./frontend/public:/web/frontend/public
+      - ./frontend/index.html:/web/frontend/index.html
+      - ./frontend/vite.config.ts:/web/frontend/vite.config.ts
+      - ./design:/web/design
 
 volumes:
-  mongodbdata:
+  postgres-dev:

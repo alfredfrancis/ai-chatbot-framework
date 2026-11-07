@@ -1,47 +1,94 @@
-version: '2'
+# Production: AI Chatbot Framework behind Caddy (automatic HTTPS).
+#
+#   cp .env.example .env      # set ACF_DOMAIN, POSTGRES_PASSWORD and a model API key
+#   docker compose up -d      # pulls published images; add --build to build from source
+#
+# Open https://$ACF_DOMAIN. With ACF_DOMAIN=localhost, Caddy uses its own local certificate.
 name: ai-chatbot-framework
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
 services:
-  frontend:
-    image: alfredfrancis/ai-chatbot-framework_frontend:latest
-    hostname: frontend
-    restart: always
-    depends_on:
-      - backend
+  # Makes sure the sandbox image is present before the app starts sandboxes, then exits.
+  sandbox-image:
+    image: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
+    build: ./sandbox
+    entrypoint: ["true"]
+    restart: "no"
 
-  backend:
-    image: alfredfrancis/ai-chatbot-framework_backend:latest
-    hostname: backend
-    restart: always
-    command:
-      - /bin/bash
-      - -c
-      - |
-        python manage.py migrate
-        fastapi run --host 0.0.0.0 --port 80 --root-path /api
+  postgres:
+    image: postgres:17.6-alpine
     environment:
-      MONGODB_HOST: mongodb://mongodb:27017
-      APPLICATION_ENV: Production
-    depends_on:
-      - mongodb
-
-  mongodb:
-    image: mongo:4.2.20
-    hostname: mongodb
-    ports:
-      - "27017:27017"
+      POSTGRES_DB: acf
+      POSTGRES_USER: acf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - mongodbdata:/data
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acf -d acf"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    logging: *logging
 
-  gateway:
-    image: nginx:1.13.3-alpine
-    hostname: gateway
-    volumes:
-      - ./scripts/nginx/default.conf:/etc/nginx/conf.d/default.conf
-    ports:
-        - "8080:80"
+  app:
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
+    build: .
     depends_on:
-      - backend
-      - frontend
+      sandbox-image:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    environment:
+      ACF_DB_URL: postgresql://acf:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/acf
+      ACF_PUBLIC_URL: https://${ACF_DOMAIN:-localhost}
+      ACF_COOKIE_SECURE: "true"
+      ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-true}
+      ACF_LLM_PROVIDER: ${ACF_LLM_PROVIDER:-anthropic}
+      ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
+      ACF_LLM_BASE_URL: ${ACF_LLM_BASE_URL:-}
+      ACF_LLM_API_KEY: ${ACF_LLM_API_KEY:-${ANTHROPIC_API_KEY:-}}
+      ACF_SANDBOX: docker
+      ACF_SANDBOX_IMAGE: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
+      ACF_SANDBOX_NETWORK: ${ACF_SANDBOX_NETWORK:-bridge}
+      # Workspaces (files) live in the data folder; everything else is in PostgreSQL.
+      # Sandboxes are started by the host's Docker, so bind mounts need the data folder's host path.
+      ACF_SANDBOX_HOST_DATA_DIR: ${ACF_DATA_PATH:-${PWD}/data}
+    volumes:
+      - ${ACF_DATA_PATH:-${PWD}/data}:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10.2
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ACF_DOMAIN: ${ACF_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    logging: *logging
 
 volumes:
-  mongodbdata:
+  postgres-data:
+  caddy-data:
+  caddy-config:

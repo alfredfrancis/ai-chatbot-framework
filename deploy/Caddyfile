@@ -1,0 +1,8 @@
+# Serves AI Chatbot Framework on $ACF_DOMAIN with an automatic certificate.
+{$ACF_DOMAIN:localhost} {
+	encode zstd gzip
+	reverse_proxy app:8000 {
+		# Stream agent events (server-sent events) without buffering.
+		flush_interval -1
+	}
+}
