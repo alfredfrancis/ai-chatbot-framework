@@ -46,7 +46,10 @@ services:
       ACF_DB_URL: postgresql://acf:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/acf
       ACF_PUBLIC_URL: https://${ACF_DOMAIN:-localhost}
       ACF_COOKIE_SECURE: "true"
-      ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-true}
+      ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-}
+      ACF_ADMIN_EMAIL: ${ACF_ADMIN_EMAIL:-}
+      ACF_ADMIN_PASSWORD: ${ACF_ADMIN_PASSWORD:-}
+      ACF_ADMIN_NAME: ${ACF_ADMIN_NAME:-}
       ACF_LLM_PROVIDER: ${ACF_LLM_PROVIDER:-anthropic}
       ACF_LLM_MODEL: ${ACF_LLM_MODEL:-}
       ACF_LLM_BASE_URL: ${ACF_LLM_BASE_URL:-}

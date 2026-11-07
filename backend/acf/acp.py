@@ -18,6 +18,10 @@ is working is a steering message: it is read at the next step and its response a
 Extensions (`_acf/…` notifications and `_meta.acf`; other clients ignore them):
   _acf/notice    {sessionId, text}                connection problems, summaries, step limit
   _acf/turn_end  {sessionId, stopReason, error?}  a run this connection follows has ended
+  _acf/turn_start {sessionId}                     a finished background command started a run on a
+                                                  session this connection loaded or prompted
+A background command's tool call stays `in_progress` (`_meta.acf.background` = job id) after its turn;
+when the command ends, a `tool_call_update` completes it with the output.
 """
 
 from __future__ import annotations
@@ -131,13 +135,20 @@ def assistant_updates(m: dict[str, Any], with_text: bool = True) -> list[dict[st
 
 
 def tool_result_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
+    """A tool result, or a background command's note (it finishes the tool call that started it)."""
+    meta: dict[str, Any] = {"durationMs": m["duration_ms"]}
+    status = "failed" if m["is_error"] else "completed"
+    if m["background"]:
+        meta["background"] = m["background"]
+        if m["role"] == "tool":
+            status = "in_progress"  # started; the note with its output completes it
     return [
         {
             "sessionUpdate": "tool_call_update",
             "toolCallId": m["tool_call_id"],
-            "status": "failed" if m["is_error"] else "completed",
+            "status": status,
             "content": [{"type": "content", "content": _text(m["content"])}],
-            "_meta": {"acf": {"durationMs": m["duration_ms"]}},
+            "_meta": {"acf": meta},
         }
     ]
 
@@ -145,6 +156,8 @@ def tool_result_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
 def message_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
     """One stored message as ACP updates; a summary becomes an `_acf/notice` (marked with `notice`)."""
     role = m["role"]
+    if role == "user" and m["background"] and m["tool_call_id"]:
+        return tool_result_updates(m)
     if role == "user":
         return user_updates(m)
     if role == "assistant":
@@ -206,6 +219,7 @@ class Connection:
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task] = set()
         self._watchers: dict[int, tuple[agent.Run, asyncio.Task]] = {}
+        self._chats: dict[int, Any] = {}  # chat id -> unwatch, for sessions this connection shows
 
     # -- io
     async def send(self, msg: dict[str, Any]) -> None:
@@ -256,6 +270,8 @@ class Connection:
             pass
         finally:
             # The agent keeps working when a client goes away; only this connection's listeners stop.
+            for unwatch in self._chats.values():
+                unwatch()
             for task in list(self._tasks):
                 task.cancel()
 
@@ -290,11 +306,26 @@ class Connection:
     async def _notification(self, method: str, params: dict[str, Any]) -> None:
         if method == "session/cancel":
             with contextlib.suppress(RpcError):
-                run = agent.RUNS.get(self._own_chat(params))
-                if run:
-                    run.stop()
+                agent.stop(self._own_chat(params))
 
     # -- helpers
+    def _watch(self, chat_id: int) -> None:
+        """Hear about runs a background command starts in this chat, and notes saved outside a run."""
+        if chat_id in self._chats:
+            return
+        sid = str(chat_id)
+
+        def on_event(e: dict[str, Any]) -> None:
+            if e["type"] == "run":
+                current = self._watchers.get(chat_id)
+                if not (current and current[0] is e["run"]):
+                    self._spawn(self.notify("_acf/turn_start", {"sessionId": sid}))
+                    self._follow(e["run"], chat_id)
+            elif e["type"] == "message":
+                self._spawn(self._emit(sid, message_updates(e["message"])))
+
+        self._chats[chat_id] = agent.watch_chat(chat_id, on_event)
+
     def _user(self) -> User:
         with session_scope() as db:
             user = db.get(User, self.user_id)
@@ -444,6 +475,7 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
     with session_scope() as db:
         rows = [m.to_dict() for m in db.query(Message).filter_by(chat_id=chat_id).order_by(Message.id).all()]
     answered = {m["tool_call_id"] for m in rows if m["role"] == "tool"}
+    conn._watch(chat_id)
     if run:  # listen before replaying, so events emitted meanwhile are queued, not lost
         conn._follow(run, chat_id, after_id=rows[-1]["id"] if rows else 0, answered=answered, gate=gate)
     for m in rows:
@@ -454,6 +486,7 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
 async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
     chat_id = conn._own_chat(params)
     text = prompt_text(params.get("prompt"))
+    conn._watch(chat_id)
     run, queued = agent.start(conn._user(), chat_id, text)
     task = conn._follow(run, chat_id, skip_user=None if queued else text)
     await asyncio.wait({task})

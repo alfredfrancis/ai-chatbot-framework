@@ -14,8 +14,8 @@ its own private computer, their files, skills, app connections and scheduled job
 
 - **Any model through LangChain** – Claude (default), OpenAI, any OpenAI-compatible server (Ollama,
   OpenRouter, vLLM, LiteLLM) or any other LangChain chat provider.
-- **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus `mcp_call` for MCP tools; parallel
-  read-only calls; long outputs truncated and saved to a file; context compaction; **steering** (type
+- **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus `mcp_call` for MCP tools; the calls
+  of one answer run in parallel; long commands run in the background and report back when done; long outputs truncated and saved to a file; context compaction; **steering** (type
   while the agent works; it picks your message up without stopping — right away while it thinks, after
   the running command otherwise); **Stop** at any time.
 - **One private sandbox per user** – a Docker container with a persistent `/workspace`, resource limits
@@ -57,7 +57,9 @@ cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD and ANTHROPIC_AP
 docker compose up -d        # or: make up
 ```
 
-Open `https://<ACF_DOMAIN>` and create the first account, then set `ACF_ALLOW_SIGNUP=false`.
+Set `ACF_ADMIN_EMAIL` and `ACF_ADMIN_PASSWORD` in `.env` to create your account at startup (sign-ups are
+then closed unless `ACF_ALLOW_SIGNUP=true`). Without them, open `https://<ACF_DOMAIN>` and create the first
+account, then set `ACF_ALLOW_SIGNUP=false`.
 [Caddy](https://caddyserver.com) gets and renews the HTTPS certificate; ports 80 and 443 must be open.
 The stack pulls the published images (`ACF_REGISTRY`/`ACF_VERSION` in `.env`); to build from source
 instead (needed until the first release publishes images), run `docker compose up -d --build`. The
@@ -94,7 +96,9 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
 | `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
 | `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |
-| `ACF_ALLOW_SIGNUP` | `true` | Set `false` after creating accounts |
+| `ACF_ADMIN_EMAIL` / `ACF_ADMIN_PASSWORD` | – | Main account, created at startup; its password is reset to this value (and its sessions signed out) when it changes |
+| `ACF_ADMIN_NAME` | email name | Display name for the main account |
+| `ACF_ALLOW_SIGNUP` | `true`, `false` if `ACF_ADMIN_EMAIL` is set | Open sign-ups. When `false`, the first account can still be created on an empty server |
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
 | `ACF_SANDBOX` | `docker` | `docker`, or `local` for development (**not isolated**) |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
@@ -165,7 +169,7 @@ Each session is a chat in the web app. Updates are `user_message_chunk`, `agent_
 `agent_thought_chunk` (streamed as the model writes; chunks of one message share `_meta.acf.messageId`),
 `tool_call`, `tool_call_update` and `session_info_update`. A `session/prompt` sent while the agent works is
 a steering message; its response arrives when the run ends. Extras live under `_acf/` (`_acf/notice`,
-`_acf/turn_end`) and `_meta.acf`, which other clients can ignore. The agent uses its own sandbox and
+`_acf/turn_end`, `_acf/turn_start` when a finished background command wakes the agent) and `_meta.acf`, which other clients can ignore. The agent uses its own sandbox and
 connections, so `cwd` and `mcpServers` from the client are ignored.
 
 Clients that start agents as a subprocess over stdio (most editors) can use the bridge:
