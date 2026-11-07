@@ -92,6 +92,7 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_SANDBOX_NETWORK` | `bridge` | `none` cuts sandboxes off from the internet |
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
+| `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
 
 Other LangChain providers need their package installed (`pip install langchain-ollama`, …).
 
@@ -106,6 +107,15 @@ Other LangChain providers need their package installed (`pip install langchain-o
     "github":     { "url": "https://api.example.com/mcp", "oauth": { "client_id": "…", "scopes": ["repo"] } }
   }
 }
+```
+
+**Popular apps.** The Connections page lists remote MCP servers that support OAuth dynamic client
+registration — Linear, Notion, Jira & Confluence, Sentry, monday.com, Canva, Intercom, Stripe, Vercel and
+Hugging Face. **Add** writes the entry into your configuration; **Sign in** does the rest, no API key needed.
+To add your own (or override a built-in one by `id`), point `ACF_MCP_PRESETS_FILE` at a JSON file:
+
+```json
+[{ "id": "acme", "name": "Acme", "description": "Tickets and docs", "url": "https://mcp.acme.com/mcp" }]
 ```
 
 ### Skills

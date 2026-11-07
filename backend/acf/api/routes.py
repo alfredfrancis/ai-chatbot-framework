@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from typing import Any
 
@@ -11,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import config, oauth, scheduler, skills, workspace
+from acf import config, mcp_presets, oauth, scheduler, skills, workspace
 from acf.agent import loop as agent
 from acf.auth import (
     COOKIE,
@@ -381,6 +382,40 @@ def put_mcp_config(body: McpConfigIn, db: Session = Depends(get_db), user: User 
         raise HTTPException(400, str(e)) from e
     db.get(User, user.id).mcp_config = body.config
     return {"ok": True}
+
+
+@router.get("/mcp/presets")
+def get_mcp_presets(user: User = Depends(current_user)) -> dict:
+    try:
+        configured = parse_config(user.mcp_config)
+    except ConfigError:
+        configured = {}
+    out = []
+    for p in mcp_presets.presets():
+        cfg = configured.get(p.id)
+        out.append({**p.to_dict(), "added": bool(cfg and cfg.url == p.url)})
+    return {"presets": out}
+
+
+@router.post("/mcp/presets/{preset_id}")
+def add_mcp_preset(preset_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    preset = mcp_presets.get(preset_id)
+    if not preset:
+        raise HTTPException(404, "Unknown app")
+    try:
+        parse_config(user.mcp_config)
+    except ConfigError as e:
+        raise HTTPException(400, f"Fix the configuration first: {e}") from e
+    data = json.loads(user.mcp_config or "{}")
+    servers = data.setdefault("mcpServers", {})
+    existing = servers.get(preset.id)
+    if existing is not None and existing.get("url") != preset.url:
+        raise HTTPException(409, f'A connection named "{preset.id}" already exists. Rename or remove it first.')
+    if existing is None:
+        servers[preset.id] = {"url": preset.url}
+    text = json.dumps(data, indent=2) + "\n"
+    db.get(User, user.id).mcp_config = text
+    return {"config": text}
 
 
 @router.get("/mcp/servers")
