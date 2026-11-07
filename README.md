@@ -16,7 +16,8 @@ its own private computer, their files, skills, app connections and scheduled job
   OpenRouter, vLLM, LiteLLM) or any other LangChain chat provider.
 - **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus MCP tools; parallel
   read-only calls; long outputs truncated and saved to a file; context compaction; **steering** (type
-  while the agent works and it picks your message up at the next step); **Stop** at any time.
+  while the agent works; it picks your message up without stopping — right away while it thinks, after
+  the running command otherwise); **Stop** at any time.
 - **One private sandbox per user** – a Docker container with a persistent `/workspace`, resource limits
   and no Linux capabilities. Commands and local MCP servers run there.
 - **Files, not forms** – `context.md` (about you) and `memory.md` (what the agent remembers) are plain

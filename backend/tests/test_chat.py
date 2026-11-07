@@ -126,7 +126,12 @@ async def test_steering_message_is_injected(client, user):
     chat_id = await new_chat(client)
 
     async def later():
-        await asyncio.sleep(0.6)
+        # Wait until the tool is running (the model has answered with the call), then steer.
+        for _ in range(200):
+            chat = (await client.get(f"/api/chats/{chat_id}")).json()
+            if any(m["role"] == "assistant" for m in chat["messages"]):
+                break
+            await asyncio.sleep(0.05)
         r = await client.post(f"/api/chats/{chat_id}/messages", json={"content": "show messages"})
         assert r.status_code == 202 and r.json() == {"queued": True}
 
@@ -139,6 +144,25 @@ async def test_steering_message_is_injected(client, user):
     assert final == "Messages: run: sleep 1.5; echo slow | show messages"
     roles = [m["role"] for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"]]
     assert roles == ["user", "assistant", "tool", "user", "assistant"]
+
+
+async def test_steering_while_the_model_thinks_restarts_the_call(client, user):
+    chat_id = await new_chat(client)
+
+    async def later():
+        await asyncio.sleep(0.5)
+        r = await client.post(f"/api/chats/{chat_id}/messages", json={"content": "show messages"})
+        assert r.status_code == 202
+
+    task = asyncio.create_task(later())
+    started = asyncio.get_running_loop().time()
+    events = await send(client, chat_id, "slow: 30 first thought")
+    await task
+    # The 30 s call was dropped; the model answered with both messages, without waiting it out.
+    assert asyncio.get_running_loop().time() - started < 10
+    assert [m["content"] for m in msgs(events, "assistant")] == ["Messages: slow: 30 first thought | show messages"]
+    roles = [m["role"] for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"]]
+    assert roles == ["user", "user", "assistant"]
 
 
 async def test_stop_cancels_and_keeps_history_valid(client, user):
