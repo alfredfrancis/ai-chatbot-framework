@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from acf import artifacts, config, mcp_presets, oauth, scheduler, skills, workspace
 from acf.agent import loop as agent
+from acf.agent import transcripts
 from acf.auth import (
     COOKIE,
     SESSION_DAYS,
@@ -174,6 +175,7 @@ def rename_chat(chat_id: int, body: ChatIn, db: Session = Depends(get_db), user:
 @router.delete("/chats/{chat_id}")
 def delete_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
     db.delete(_own_chat(db, user, chat_id))
+    transcripts.delete(user.id, chat_id)
     return {"ok": True}
 
 

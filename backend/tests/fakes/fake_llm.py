@@ -9,6 +9,9 @@ Rules (applied to the latest user text):
   read: <path> [<path> …]     -> calls read (several paths = parallel calls; first line only, so
                                  attached-file lines after it are ignored)
   show messages               -> lists every user message it received (steering/compaction checks)
+  [Review] …                  -> a background review: for the latest earlier user message
+                                 "learn: <path> | <content>" (backslash-n = newline) it writes the file, else
+                                 "Nothing to save."
   summarise the conversation… -> compaction summary
   tool: <name> <json args>    -> calls any tool by name (one per line = several calls at once)
   slow: <seconds> <text>      -> waits, then "Echo: <text>" (a model that is still thinking)
@@ -55,6 +58,12 @@ def decide(
     low = text.lower()
     if low.startswith("summarise the conversation"):
         return {"text": f"SUMMARY of {len(history_users or [])} user messages: " + " | ".join(history_users or [])}
+    if text.startswith("[Review]"):
+        learn = next((u for u in reversed(history_users or []) if u.lower().startswith("learn:")), None)
+        if not learn:
+            return {"text": "Nothing to save."}
+        path, _, content = learn[6:].partition("|")
+        return {"calls": [("write", {"path": path.strip(), "content": content.strip().replace("\\n", "\n")})]}
     if low.startswith("run:"):
         return {"calls": [("bash", {"command": text[4:].strip()})], "text": "Running that now."}
     if low.startswith("remember:"):

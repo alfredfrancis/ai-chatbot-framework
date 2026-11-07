@@ -22,7 +22,12 @@ its own private computer, their files, skills, app connections and scheduled job
   and no Linux capabilities. Commands and local MCP servers run there.
 - **Files, not forms** – `context.md` (about you) and `memory.md` (what the agent remembers) are plain
   files the agent reads every turn and edits itself. The UI is a read-only file browser with preview,
-  upload and download; to change anything, you ask the agent.
+  upload and download; to change anything, you ask the agent. `memory.md` has a size limit
+  (`ACF_MEMORY_LIMIT`) so it stays a short list of facts that matter in every chat.
+- **Learns as it goes** – every few messages (`ACF_REVIEW_INTERVAL`) a background pass looks back at the
+  chat and updates `memory.md` and the skills (a corrected format, a method that worked); the chat shows a
+  line saying what changed. Past chats are saved as Markdown in `.acf/chats/` so the agent can search them.
+  Text that looks like planted instructions is kept out of memory and skills.
 - **Attach files in chat** – the paperclip (or drag and drop) saves files to `uploads/` in the workspace
   (never overwriting: a second `report.csv` becomes `report (1).csv`) and sends them with the message.
   The agent reads them with its tools; the chat shows each attachment as a link to the file.
@@ -33,6 +38,8 @@ its own private computer, their files, skills, app connections and scheduled job
   moment can show up too. `context.md`, `memory.md`, hidden files and deleted files are not listed.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
+  Built in: `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research` and
+  `plain-writing`. Skills unused for `ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/`.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
   Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
   definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
@@ -105,6 +112,9 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_LLM_BASE_URL` | provider default | e.g. `http://localhost:11434/v1` with `openai` for Ollama |
 | `ACF_MAX_AGENT_STEPS` | `40` | Model calls per message |
 | `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
+| `ACF_MEMORY_LIMIT` | `4000` | Characters of `memory.md` (it goes into every prompt); the agent's writes past it are refused |
+| `ACF_REVIEW_INTERVAL` | `10` | User messages per chat between background reviews that update memory and skills (`0` = off) |
+| `ACF_SKILL_ARCHIVE_DAYS` | `30` | Skills not read for this many days move to `skills/.archive/` (`0` = never; `pinned: true` in a skill's frontmatter keeps it) |
 | `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
 | `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |
 | `ACF_ADMIN_EMAIL` / `ACF_ADMIN_PASSWORD` | – | Main account, created at startup; its password is reset to this value (and its sessions signed out) when it changes |
@@ -164,7 +174,8 @@ description: Write the weekly sales report. Use when asked for the weekly report
 ```
 
 Upload it as a `.zip` (or just the `SKILL.md`) on the Skills page, or ask the agent to create one —
-every workspace starts with a `skill-creator` skill that teaches it how.
+every workspace starts with a `skill-creator` skill that teaches it how, plus a few general skills
+(`backend/acf/builtin_skills/`). Each built-in skill is added once; one you delete stays deleted.
 
 ### External apps (ACP)
 

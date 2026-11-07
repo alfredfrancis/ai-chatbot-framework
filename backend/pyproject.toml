@@ -30,6 +30,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["acf*"]
 
+[tool.setuptools.package-data]
+acf = ["builtin_skills/**/*"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
@@ -44,6 +47,3 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC"]
 ignore = ["B008", "ASYNC109"]  # explicit timeouts on subprocess helpers are intended
-
-[tool.ruff.lint.per-file-ignores]
-"acf/skills.py" = ["E501"]  # the bundled SKILL.md text keeps its long YAML description line

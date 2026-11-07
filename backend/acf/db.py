@@ -83,7 +83,7 @@ class Chat(Base):
 class Message(Base):
     """One message in provider-neutral form.
 
-    role: user | assistant | tool | summary
+    role: user | assistant | tool | summary | note (a background review's record; not sent to the model)
     A background command's output is a user-role note (the model reads it as a message) that carries the
     job id in raw.background and the tool call that started it in tool_call_id.
     assistant messages may carry tool_calls [{id, name, arguments}] and the provider's raw content
@@ -93,7 +93,7 @@ class Message(Base):
     __tablename__ = "messages"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), index=True)
-    role: Mapped[str] = mapped_column(String(20))  # user | assistant | tool | summary
+    role: Mapped[str] = mapped_column(String(20))  # user | assistant | tool | summary | note
     content: Mapped[str] = mapped_column(Text, default="")
     tool_calls: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     tool_call_id: Mapped[str | None] = mapped_column(Text, nullable=True)

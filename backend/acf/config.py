@@ -57,6 +57,12 @@ class Settings:
     compact_tokens: int = field(default_factory=lambda: int(_env("COMPACT_TOKENS", "120000")))
     compact_keep_tokens: int = field(default_factory=lambda: int(_env("COMPACT_KEEP_TOKENS", "20000")))
     max_agent_steps: int = field(default_factory=lambda: int(_env("MAX_AGENT_STEPS", "40")))
+    # memory.md goes into every system prompt; writes past this many characters are refused.
+    memory_limit: int = field(default_factory=lambda: int(_env("MEMORY_LIMIT", "4000")))
+    # Every N user messages in a chat, a background pass reviews it and updates memory.md and skills (0 = off).
+    review_interval: int = field(default_factory=lambda: int(_env("REVIEW_INTERVAL", "10")))
+    # Skills not read for this many days move to skills/.archive/ (0 = never).
+    skill_archive_days: int = field(default_factory=lambda: int(_env("SKILL_ARCHIVE_DAYS", "30")))
 
     # Sandbox
     sandbox: str = field(default_factory=lambda: _env("SANDBOX", "docker"))  # docker | local

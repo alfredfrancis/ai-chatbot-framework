@@ -21,9 +21,12 @@ def make_zip(files: dict[str, bytes]) -> bytes:
     return buf.getvalue()
 
 
-async def test_builtin_skill_seeded(client, user):
-    names = [s["name"] for s in (await client.get("/api/skills")).json()]
-    assert names == ["skill-creator"]
+BUILTIN = {"action-items", "cited-research", "pdf", "plain-writing", "price-watch", "skill-creator", "weekly-review"}
+
+
+async def test_builtin_skills_seeded(client, user):
+    names = {s["name"] for s in (await client.get("/api/skills")).json()}
+    assert names == BUILTIN
 
 
 async def test_upload_zip_skill_and_agent_sees_it(client, user):
@@ -45,7 +48,7 @@ async def test_upload_zip_skill_and_agent_sees_it(client, user):
     assert "- charts: Make bar charts from CSV files. Use when asked for a chart. (skills/charts/SKILL.md)" in system
 
     assert (await client.delete("/api/skills/charts")).status_code == 200
-    assert [s["name"] for s in (await client.get("/api/skills")).json()] == ["skill-creator"]
+    assert {s["name"] for s in (await client.get("/api/skills")).json()} == BUILTIN
 
 
 async def test_upload_single_skill_md(client, user):
