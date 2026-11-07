@@ -1,9 +1,10 @@
 """The agent loop.
 
 Design (borrowing from pi, Hermes and Claude Code):
-- One `Run` per chat at a time. Messages sent while it works are *steering* messages: they are queued
-  and injected at the next turn boundary (after the current tool batch), so the user can redirect the
-  agent without stopping it.
+- One `Run` per chat at a time. Messages sent while it works are *steering* messages. While the model
+  is thinking, its call is restarted with the message added (nothing has happened yet, so nothing is
+  lost but tokens). While tools run, the message waits for the batch to finish: tools have side
+  effects and are never cut off. Either way the user redirects the agent without stopping it.
 - Model -> tool calls -> results -> model … until the model answers without tools. Independent
   read-only calls run concurrently; anything that writes runs in order.
 - Tool errors, bad arguments and unknown tools become error results the model can recover from.
@@ -154,6 +155,7 @@ class Run:
         self.user = user
         self.chat_id = chat_id
         self.inbox: asyncio.Queue[str] = asyncio.Queue()
+        self._nudged = asyncio.Event()
         self.events: list[dict[str, Any]] = []
         self._listeners: list[asyncio.Queue] = []
         self.task: asyncio.Task | None = None
@@ -187,6 +189,7 @@ class Run:
     # -- control
     def steer(self, text: str) -> None:
         self.inbox.put_nowait(text)
+        self._nudged.set()
         self.emit({"type": "queued", "text": text})
 
     def stop(self) -> None:
@@ -293,7 +296,7 @@ class Run:
                     ]
                 )
                 try:
-                    ai = await model.ainvoke([system, *history])
+                    ai = await self._think(model, system, history)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001
@@ -329,6 +332,26 @@ class Run:
                     history.append(msg)
                 self._inject_user_messages(history)
             self.emit({"type": "error", "error": "Stopped after too many steps. Say “continue” to keep going."})
+
+    async def _think(self, model, system: SystemMessage, history: list[BaseMessage]) -> AIMessage:
+        """Call the model; if the user steers before it answers, restart the call with their message."""
+        while True:
+            self._inject_user_messages(history)
+            self._nudged.clear()
+            call = asyncio.ensure_future(model.ainvoke([system, *history]))
+            nudge = asyncio.ensure_future(self._nudged.wait())
+            try:
+                await asyncio.wait({call, nudge}, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                nudge.cancel()
+                if not call.done():
+                    call.cancel()
+            if not call.cancelled():
+                return call.result()  # an answer that raced the nudge wins; the message goes in next step
+            try:
+                await call
+            except asyncio.CancelledError:
+                pass
 
     async def _execute(self, calls: list[dict], tools: dict[str, Tool], hub: McpHub) -> list[ToolMessage]:
         ctx = ToolContext(self.user.id)
