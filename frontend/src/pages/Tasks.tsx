@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type Task } from "../api";
 import { Topbar, useApp } from "../App";
+import { Toggle } from "../components/Toggle";
 
 type Freq = "hourly" | "daily" | "weekdays" | "weekly" | "custom";
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -117,15 +118,6 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
         <button type="submit" className="btn primary">Create task</button>
       </div>
     </form>
-  );
-}
-
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <span className="switch">
-      <input type="checkbox" role="switch" aria-label={label} checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span className="track" />
-    </span>
   );
 }
 

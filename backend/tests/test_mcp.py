@@ -138,6 +138,74 @@ async def test_unreachable_remote_server_has_friendly_error(client, user):
     assert servers[0]["error"] == "Could not reach 127.0.0.1:1. Check the address."
 
 
+async def _config(client) -> dict:
+    return json.loads((await client.get("/api/mcp/config")).json()["config"])
+
+
+async def test_add_edit_rename_delete_server(client, user):
+    keep = {"mcpServers": {"first": {"command": "npx"}, "gh": {"url": "https://x/mcp", "oauth": {"client_id": "c"}}}}
+    await client.put("/api/mcp/config", json={"config": json.dumps(keep)})
+
+    r = await client.put(
+        "/api/mcp/servers/files",
+        json={"transport": "stdio", "command": " npx ", "args": ["-y", "pkg"], "env": {"TOKEN": "t"}},
+    )
+    assert r.status_code == 200
+    cfg = await _config(client)
+    assert list(cfg["mcpServers"]) == ["first", "gh", "files"]
+    assert cfg["mcpServers"]["files"] == {"command": "npx", "args": ["-y", "pkg"], "env": {"TOKEN": "t"}}
+
+    # Editing a remote server keeps keys the form doesn't know (oauth), and can disable it.
+    r = await client.put(
+        "/api/mcp/servers/gh",
+        json={"transport": "http", "url": "https://y/mcp", "headers": {"X-Api-Key": "k"}, "enabled": False},
+    )
+    assert r.status_code == 200
+    assert (await _config(client))["mcpServers"]["gh"] == {
+        "oauth": {"client_id": "c"},
+        "url": "https://y/mcp",
+        "headers": {"X-Api-Key": "k"},
+        "enabled": False,
+    }
+
+    # Rename keeps position; clashes and unknown sources are rejected.
+    assert (
+        await client.put("/api/mcp/servers/gh", json={"transport": "stdio", "command": "x", "rename_from": "first"})
+    ).status_code == 409
+    assert (
+        await client.put("/api/mcp/servers/new", json={"transport": "stdio", "command": "x", "rename_from": "nope"})
+    ).status_code == 404
+    r = await client.put(
+        "/api/mcp/servers/local", json={"transport": "stdio", "command": "uvx", "rename_from": "first"}
+    )
+    assert r.status_code == 200
+    assert list((await _config(client))["mcpServers"]) == ["local", "gh", "files"]
+
+    # Invalid entries go through the same validation as the JSON editor.
+    r = await client.put("/api/mcp/servers/bad", json={"transport": "http", "url": "ftp://x"})
+    assert r.status_code == 400 and "must start with" in r.json()["detail"]
+    assert (
+        await client.put("/api/mcp/servers/bad%20name", json={"transport": "stdio", "command": "x"})
+    ).status_code == 400
+    assert (await client.put("/api/mcp/servers/empty", json={"transport": "stdio"})).status_code == 400
+
+    assert (await client.delete("/api/mcp/servers/files")).status_code == 200
+    assert (await client.delete("/api/mcp/servers/files")).status_code == 404
+    assert list((await _config(client))["mcpServers"]) == ["local", "gh"]
+
+
+async def test_delete_server_forgets_oauth_tokens(client, user):
+    from acf import oauth
+    from acf.db import OAuthToken, session_scope
+
+    await client.put("/api/mcp/servers/notes", json={"transport": "http", "url": "https://x/mcp"})
+    with session_scope() as db:
+        db.add(OAuthToken(user_id=user["id"], server_name="notes", server_url="https://x/mcp"))
+    assert (await client.delete("/api/mcp/servers/notes")).status_code == 200
+    with session_scope() as db:
+        assert oauth._row(db, user["id"], "notes") is None
+
+
 async def test_presets_catalog_and_add(client, user):
     presets = (await client.get("/api/mcp/presets")).json()["presets"]
     by_id = {p["id"]: p for p in presets}

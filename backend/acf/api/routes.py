@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -384,6 +384,87 @@ def put_mcp_config(body: McpConfigIn, db: Session = Depends(get_db), user: User 
     return {"ok": True}
 
 
+class McpServerIn(BaseModel):
+    """One server, as edited in the Connections form. Other keys of an existing entry (e.g. oauth) are kept."""
+
+    transport: Literal["stdio", "http"]
+    command: str = Field("", max_length=1000)
+    args: list[Annotated[str, Field(max_length=4000)]] = Field(default_factory=list, max_length=100)
+    env: dict[str, Annotated[str, Field(max_length=4000)]] = Field(default_factory=dict, max_length=100)
+    url: str = Field("", max_length=2000)
+    headers: dict[str, Annotated[str, Field(max_length=4000)]] = Field(default_factory=dict, max_length=100)
+    enabled: bool = True
+    rename_from: str | None = Field(None, max_length=40)
+
+
+_FORM_KEYS = ("command", "args", "env", "url", "headers", "enabled", "disabled")
+
+
+def _config_dict(text: str) -> dict:
+    try:
+        parse_config(text)
+    except ConfigError as e:
+        raise HTTPException(400, f"Fix the JSON configuration first: {e}") from e
+    data = json.loads(text or "{}")
+    data.setdefault("mcpServers", {})
+    return data
+
+
+def _save_config(db: Session, user: User, data: dict) -> None:
+    text = json.dumps(data, indent=2) + "\n"
+    try:
+        parse_config(text)
+    except ConfigError as e:
+        raise HTTPException(400, str(e)) from e
+    db.get(User, user.id).mcp_config = text
+
+
+@router.put("/mcp/servers/{name}")
+def put_mcp_server(
+    name: str, body: McpServerIn, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> dict:
+    data = _config_dict(user.mcp_config)
+    servers: dict = data["mcpServers"]
+    old_name = body.rename_from or name
+    if old_name != name and name in servers:
+        raise HTTPException(409, f'A connection named "{name}" already exists')
+    if old_name != name and old_name not in servers:
+        raise HTTPException(404, f'No connection named "{old_name}"')
+    entry = {k: v for k, v in (servers.get(old_name) or {}).items() if k not in _FORM_KEYS}
+    if body.transport == "stdio":
+        entry.pop("oauth", None)
+        entry.update(command=body.command.strip(), args=body.args)
+        if body.env:
+            entry["env"] = body.env
+    else:
+        entry.update(url=body.url.strip())
+        if body.headers:
+            entry["headers"] = body.headers
+    if not body.enabled:
+        entry["enabled"] = False
+    if old_name in servers:  # rebuild so a renamed server keeps its position
+        data["mcpServers"] = {
+            (name if k == old_name else k): (entry if k == old_name else v) for k, v in servers.items()
+        }
+    else:
+        servers[name] = entry
+    _save_config(db, user, data)
+    if old_name != name:
+        oauth.forget(user.id, old_name)
+    return {"ok": True}
+
+
+@router.delete("/mcp/servers/{name}")
+def delete_mcp_server(name: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    data = _config_dict(user.mcp_config)
+    if name not in data["mcpServers"]:
+        raise HTTPException(404, f'No connection named "{name}"')
+    del data["mcpServers"][name]
+    _save_config(db, user, data)
+    oauth.forget(user.id, name)
+    return {"ok": True}
+
+
 @router.get("/mcp/presets")
 def get_mcp_presets(user: User = Depends(current_user)) -> dict:
     try:
@@ -402,20 +483,15 @@ def add_mcp_preset(preset_id: str, db: Session = Depends(get_db), user: User = D
     preset = mcp_presets.get(preset_id)
     if not preset:
         raise HTTPException(404, "Unknown app")
-    try:
-        parse_config(user.mcp_config)
-    except ConfigError as e:
-        raise HTTPException(400, f"Fix the configuration first: {e}") from e
-    data = json.loads(user.mcp_config or "{}")
-    servers = data.setdefault("mcpServers", {})
+    data = _config_dict(user.mcp_config)
+    servers = data["mcpServers"]
     existing = servers.get(preset.id)
     if existing is not None and existing.get("url") != preset.url:
         raise HTTPException(409, f'A connection named "{preset.id}" already exists. Rename or remove it first.')
     if existing is None:
         servers[preset.id] = {"url": preset.url}
-    text = json.dumps(data, indent=2) + "\n"
-    db.get(User, user.id).mcp_config = text
-    return {"config": text}
+    _save_config(db, user, data)
+    return {"config": db.get(User, user.id).mcp_config}
 
 
 @router.get("/mcp/servers")
