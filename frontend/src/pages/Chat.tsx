@@ -3,9 +3,9 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus } from "../acp";
-import { api, uploadFile, type ChatSummary } from "../api";
+import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
-import { IconArrowUp, IconCheck, IconClock, IconDrawer, IconFile, IconPaperclip, IconSpark, IconTrash, IconX, Keys, Mark } from "../components/icons";
+import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Keys, Mark } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -301,6 +301,56 @@ function Composer({ onSend, onStop, running, background = false, placeholder }: 
   );
 }
 
+const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
+const PANEL_KEY = "acf.artifacts";
+const panelPref = () => { try { return localStorage.getItem(PANEL_KEY) === "open"; } catch { return false; } };
+
+function ArtifactList({ label, items }: { label: string; items: Artifact[] }) {
+  if (!items.length) return null;
+  return (
+    <section className="artifact-group">
+      <h3>{label}</h3>
+      <ul aria-label={`${label} files`}>
+        {items.map((a) => {
+          const dir = a.path.includes("/") ? a.path.slice(0, a.path.lastIndexOf("/")) : "";
+          return (
+            <li key={a.path} className="artifact">
+              <a className="open" href={rawUrl(a.path)} target="_blank" rel="noreferrer" title={a.path}>
+                {IMAGE.test(a.name) ? <IconImage /> : <IconFile />}
+                <span className="text">
+                  <span className="name">{a.name}</span>
+                  <span className="meta">{dir ? `${dir} · ` : ""}{formatSize(a.size)}</span>
+                </span>
+              </a>
+              <a className="btn ghost icon" href={rawUrl(a.path, true)} aria-label={`Download ${a.name}`} title="Download"><IconDownload /></a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Files attached to this chat and files the agent made in it. They live in the workspace (see Files). */
+function ArtifactsPanel({ items, onClose }: { items: Artifact[] | null; onClose: () => void }) {
+  return (
+    <>
+      <div className="scrim artifacts-scrim" onClick={onClose} />
+      <aside className="artifacts" id="artifacts" aria-label="Artifacts">
+        <div className="artifacts-head">
+          <h2>Artifacts</h2>
+          <button className="btn ghost icon" aria-label="Close artifacts" onClick={onClose}><IconX /></button>
+        </div>
+        {items && !items.length && <p className="empty">Files you attach and files the agent makes in this chat show up here.</p>}
+        {items && <>
+          <ArtifactList label="Produced" items={items.filter((a) => a.kind === "produced")} />
+          <ArtifactList label="Uploaded" items={items.filter((a) => a.kind === "uploaded")} />
+        </>}
+      </aside>
+    </>
+  );
+}
+
 function greeting(name: string) {
   const h = new Date().getHours();
   const part = h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -341,9 +391,22 @@ export default function ChatPage() {
   const [running, setRunning] = useState(false);
   const [queued, setQueued] = useState<Outgoing[]>([]);
   const [error, setError] = useState("");
+  const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
+  const [panel, setPanel] = useState(panelPref);
   const scroller = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(sid);
   current.current = sid;
+
+  const loadArtifacts = useCallback(async (target: string) => {
+    try {
+      const r = await api.get<Artifact[]>(`/chats/${target}/artifacts`);
+      if (current.current === target) setArtifacts(r);
+    } catch { /* the chat is gone or not loaded yet */ }
+  }, []);
+  const togglePanel = () => setPanel((v) => {
+    try { localStorage.setItem(PANEL_KEY, v ? "closed" : "open"); } catch { /* storage blocked */ }
+    return !v;
+  });
 
   const push = (text: string) => setEntries((e) => [...e, { kind: "notice", key: nextKey(), text }]);
 
@@ -372,10 +435,12 @@ export default function ChatPage() {
       setQueued([]);
       if (n.params.stopReason === "cancelled") push("Stopped.");
       if (n.params.error) setError(n.params.error);
+      loadArtifacts(n.params.sessionId);
       refresh();
     } else if (n.method === "session/update") {
       const u = n.params.update;
       if (u.sessionUpdate === "session_info_update") { refresh(); return; }
+      if (u.sessionUpdate === "tool_call_update" && (u as { status?: ToolStatus }).status === "completed") loadArtifacts(n.params.sessionId);
       if (u.sessionUpdate === "user_message_chunk") {
         // A queued message was read: its first chunk is its text, or its first file when it has no text.
         const content = (u as { content: unknown }).content;
@@ -388,7 +453,7 @@ export default function ChatPage() {
       }
       setEntries((e) => reduce(e, u));
     }
-  }), [load, refresh]);
+  }), [load, loadArtifacts, refresh]);
 
   const send = async (content: string, target: string, files: Attachment[] = []) => {
     setError("");
@@ -403,12 +468,14 @@ export default function ChatPage() {
       if (current.current === target && (err as Error).message !== "Connection lost") setError((err as Error).message);
     }
     if (current.current === target) { setRunning(false); setQueued([]); }
+    loadArtifacts(target);
     refresh();
   };
 
   useEffect(() => {
-    setEntries([]); setError(""); setQueued([]); setRunning(false);
+    setEntries([]); setError(""); setQueued([]); setRunning(false); setArtifacts(null);
     if (!sid) return;
+    loadArtifacts(sid);
     const pending = (location.state as { pending?: Outgoing } | null)?.pending;
     if (pending && !consumed.has(location.key)) {
       consumed.add(location.key);
@@ -448,16 +515,25 @@ export default function ChatPage() {
     <>
       <Topbar crumb="Chats" title={title}>
         {running && <span className="badge success">Working</span>}
+        <button className={`btn ghost sm artifacts-toggle${panel ? " on" : ""}`} aria-label="Artifacts" aria-expanded={panel} aria-controls="artifacts"
+          title={panel ? "Hide artifacts" : "Show artifacts"} onClick={togglePanel}>
+          <IconPanel />{artifacts?.length ? <span className="count">{artifacts.length}</span> : null}
+        </button>
         <button className={`btn ${confirming ? "danger" : "ghost"} ${confirming ? "sm" : "icon"}`} aria-label={confirming ? "Confirm delete" : "Delete chat"}
           title="Delete chat" onClick={remove}>{confirming ? "Delete chat?" : <IconTrash />}</button>
       </Topbar>
-      <div className="chat-scroll" ref={scroller}>
-        <Thread entries={entries} running={running} queued={queued} />
-        {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
-      </div>
-      <div className="composer-wrap">
-        <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running}
-          background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
+      <div className="chat-layout">
+        <div className="chat-col">
+          <div className="chat-scroll" ref={scroller}>
+            <Thread entries={entries} running={running} queued={queued} />
+            {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
+          </div>
+          <div className="composer-wrap">
+            <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running}
+              background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
+          </div>
+        </div>
+        {panel && <ArtifactsPanel items={artifacts} onClose={togglePanel} />}
       </div>
     </>
   );

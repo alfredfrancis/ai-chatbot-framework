@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { api, uploadFile, type FileEntry } from "../api";
+import { api, formatSize as size, rawUrl as raw, uploadFile, type FileEntry } from "../api";
 import { Topbar, useApp } from "../App";
 import { IconFile, IconFolder, IconImage } from "../components/icons";
 
 type Preview = { path: string; size: number; binary: boolean; truncated: boolean; content: string };
 const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
 
-const size = (n?: number) => (n == null ? "" : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`);
-const raw = (path: string, download = false) => `/api/files/raw?path=${encodeURIComponent(path)}${download ? "&download=true" : ""}`;
 
 /** A read-only view of the agent's workspace. Changes happen by asking the agent; files can be uploaded. */
 export default function FilesPage() {

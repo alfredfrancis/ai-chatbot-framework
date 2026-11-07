@@ -26,6 +26,11 @@ its own private computer, their files, skills, app connections and scheduled job
 - **Attach files in chat** – the paperclip (or drag and drop) saves files to `uploads/` in the workspace
   (never overwriting: a second `report.csv` becomes `report (1).csv`) and sends them with the message.
   The agent reads them with its tools; the chat shows each attachment as a link to the file.
+- **Artifacts panel** – each chat has a side panel (the panel button in its top bar) listing the files
+  attached to it and the files the agent made in it, to open or download (`GET /api/chats/{id}/artifacts`).
+  "Made" means written or edited by the agent, or changed in the workspace while one of the chat's commands
+  was running. That last part goes by file modification time, so a file another chat changes at the same
+  moment can show up too. `context.md`, `memory.md`, hidden files and deleted files are not listed.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
