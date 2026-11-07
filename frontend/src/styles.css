@@ -263,3 +263,7 @@ details.tools ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; color: 
 .dropzone svg { color: var(--accent-text); }
 
 @media (prefers-reduced-motion: reduce) { .wave-live polyline, .spin, .cmd { animation: none; } }
+
+/* ---------- segmented control (Form / JSON) ---------- */
+.seg { display: inline-flex; gap: var(--space-1); padding: var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.seg .btn[aria-pressed="true"] { background: var(--bg-selected); color: var(--text); }
