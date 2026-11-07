@@ -157,8 +157,8 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
         {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
         <nav className={`sidebar${navOpen ? " open" : ""}`} aria-label="Main">
           <Link to="/" className="brand-row" aria-label="AI Chatbot Framework home"><Lockup /></Link>
-          <button className="search-btn" onClick={() => setCmdOpen(true)}>
-            <IconSearch /><span>Search or run a command</span><Keys keys={["⌘", "K"]} />
+          <button className="search-btn" aria-label="Search or run a command" onClick={() => setCmdOpen(true)}>
+            <IconSearch /><span>Search</span><Keys keys={["⌘", "K"]} />
           </button>
           <Link to="/" className="btn primary"><IconPlus />New chat</Link>
           <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats<span className="right"><span className="kbd">C</span></span></NavLink>
@@ -166,10 +166,12 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
           {nav("/skills", "Skills", <IconSpark />, counts.skills)}
           {nav("/tasks", "Tasks", <IconClock />, counts.tasks)}
           {nav("/connections", "Connections", <IconPlug />, counts.connections)}
-          {chats.length > 0 && <div className="section-label">Recent</div>}
-          {chats.slice(0, 40).map((c) => (
-            <NavLink key={c.id} to={`/c/${c.id}`} className={({ isActive }) => `recent${isActive ? " active" : ""}`}>{c.title}</NavLink>
-          ))}
+          <div className="recents">
+            {chats.length > 0 && <div className="section-label">Recent</div>}
+            {chats.slice(0, 40).map((c) => (
+              <NavLink key={c.id} to={`/c/${c.id}`} title={c.title} className={({ isActive }) => `recent${isActive ? " active" : ""}`}>{c.title}</NavLink>
+            ))}
+          </div>
           <div className="me">
             <span className="avatar" aria-hidden="true">{(user.name || user.email)[0]}</span>
             <span className="who" title={user.email}>{user.name || user.email}</span>
