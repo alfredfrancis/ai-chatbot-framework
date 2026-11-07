@@ -33,8 +33,17 @@ def direct_exec_create(container: str) -> str:
     return json.loads(out)["Id"]
 
 
+@pytest.fixture(scope="module")
+def sandbox_image():
+    """The proxy refuses image pulls (as in production, where the sandbox-image service pulls it),
+    so fetch the image directly first."""
+    if docker_direct("image", "inspect", IMAGE).returncode != 0:
+        res = docker_direct("pull", IMAGE)
+        assert res.returncode == 0, res.stderr
+
+
 @pytest.fixture
-async def proxied(monkeypatch):
+async def proxied(monkeypatch, sandbox_image):
     """Docker sandboxes, with the app reaching Docker only through the proxy."""
     monkeypatch.setattr(config.settings, "sandbox", "docker")
     monkeypatch.setattr(config.settings, "sandbox_image", IMAGE)
