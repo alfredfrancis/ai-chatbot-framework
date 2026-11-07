@@ -1,0 +1,169 @@
+"""Database models (SQLite by default) and session helpers."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+
+from harbor import config
+
+
+def utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+class Base(DeclarativeBase):
+    type_annotation_map = {dict[str, Any]: JSON, list[Any]: JSON}
+
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    password_hash: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # Per-user LLM settings; empty values fall back to server defaults.
+    llm_provider: Mapped[str] = mapped_column(String(40), default="")
+    llm_model: Mapped[str] = mapped_column(String(200), default="")
+    llm_base_url: Mapped[str] = mapped_column(String(500), default="")
+    llm_api_key: Mapped[str] = mapped_column(String(500), default="")
+    mcp_config: Mapped[str] = mapped_column(Text, default='{\n  "mcpServers": {}\n}\n')
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class Chat(Base):
+    __tablename__ = "chats"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="New chat")
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Message(Base):
+    """One message in provider-neutral form.
+
+    role: user | assistant | tool
+    assistant messages may carry tool_calls [{id, name, arguments}] and the provider's raw content
+    blocks (kept verbatim so they can be replayed unchanged on the next request).
+    """
+
+    __tablename__ = "messages"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(20))
+    content: Mapped[str] = mapped_column(Text, default="")
+    tool_calls: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    tool_call_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    is_error: Mapped[bool] = mapped_column(Boolean, default=False)
+    raw: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "role": self.role,
+            "content": self.content,
+            "tool_calls": self.tool_calls or [],
+            "tool_call_id": self.tool_call_id,
+            "name": self.name,
+            "is_error": self.is_error,
+            "created_at": self.created_at.isoformat() + "Z",
+        }
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    prompt: Mapped[str] = mapped_column(Text)
+    schedule: Mapped[str] = mapped_column(String(100))  # 5-field cron expression
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_status: Mapped[str] = mapped_column(String(20), default="")  # ok | error | running
+    last_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class OAuthToken(Base):
+    """OAuth state for one (user, MCP server) pair."""
+
+    __tablename__ = "oauth_tokens"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    server_name: Mapped[str] = mapped_column(String(200))
+    server_url: Mapped[str] = mapped_column(String(1000))
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")  # authorization server metadata
+    client_json: Mapped[str] = mapped_column(Text, default="{}")  # registered client info
+    tokens_json: Mapped[str] = mapped_column(Text, default="{}")
+    pending_state: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    pending_verifier: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    def get(self, attr: str) -> dict[str, Any]:
+        return json.loads(getattr(self, attr) or "{}")
+
+    def put(self, attr: str, value: dict[str, Any]) -> None:
+        setattr(self, attr, json.dumps(value))
+
+
+_engine = None
+_SessionLocal: sessionmaker[Session] | None = None
+
+
+def init_db() -> None:
+    global _engine, _SessionLocal
+    url = config.settings.db_url
+    kwargs: dict[str, Any] = {}
+    if url.startswith("sqlite"):
+        kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
+    _engine = create_engine(url, **kwargs)
+    if url.startswith("sqlite"):
+
+        @event.listens_for(_engine, "connect")
+        def _pragma(dbapi_conn, _):  # pragma: no cover - trivial
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA foreign_keys=ON")
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.close()
+
+    Base.metadata.create_all(_engine)
+    _SessionLocal = sessionmaker(_engine, expire_on_commit=False)
+
+
+@contextmanager
+def session_scope() -> Iterator[Session]:
+    assert _SessionLocal is not None, "init_db() not called"
+    s = _SessionLocal()
+    try:
+        yield s
+        s.commit()
+    except BaseException:
+        s.rollback()
+        raise
+    finally:
+        s.close()
+
+
+def get_db() -> Iterator[Session]:
+    with session_scope() as s:
+        yield s

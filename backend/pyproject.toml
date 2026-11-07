@@ -1,0 +1,40 @@
+[project]
+name = "harbor"
+version = "0.1.0"
+description = "A simple, friendly personal AI agent with a private sandbox, memory, MCP tools and scheduled tasks."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy>=2.0",
+  "httpx>=0.27",
+  "anthropic>=2.6",
+  "mcp>=2.3",
+  "croniter>=6.0",
+  "python-multipart>=0.0.20",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.25", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["harbor*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+markers = ["docker: needs a running Docker daemon"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = ["B008", "ASYNC109"]  # explicit timeouts on subprocess helpers are intended
