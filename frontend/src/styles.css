@@ -219,6 +219,22 @@ details.tools ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; color: 
 .send .square { width: 12px; height: 12px; border-radius: 3px; background: currentColor; }
 @media (max-width: 640px) { .chat-scroll { padding: var(--space-4); } .composer-wrap { padding: 0 var(--space-3) var(--space-3); } .composer .bar .hints { display: none; } }
 
+/* attached files: chips in the composer and under a sent message */
+.attachments { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); white-space: normal; }
+.user-msg .attachments { margin-top: var(--space-2); }
+.user-msg .attachments:first-child { margin-top: 0; }
+.attachment { display: inline-flex; align-items: center; gap: var(--space-2); height: var(--control-md); max-width: 100%; padding: 0 var(--space-3);
+  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-raised); color: var(--text); font-size: 14px; line-height: 20px; }
+a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
+.attachment svg { color: var(--text-muted); flex-shrink: 0; }
+.attachment .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.attachment .error { color: var(--danger); font-size: 13px; white-space: nowrap; }
+.attachment.failed { border-color: var(--danger); }
+.attachment .remove { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-right: calc(-1 * var(--space-2));
+  border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; flex-shrink: 0; }
+.attachment .remove:hover { background: var(--bg-hover); color: var(--text); }
+.composer .bar .attach { margin-left: calc(-1 * var(--space-2)); }
+
 /* ---------- command menu ---------- */
 .cmd-wrap { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: 12vh var(--space-4) 0; }
 .cmd { width: 100%; max-width: 640px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); overflow: hidden;

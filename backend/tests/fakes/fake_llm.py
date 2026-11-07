@@ -6,7 +6,8 @@ Rules (applied to the latest user text):
   remember: <fact>            -> appends a bullet to memory.md via bash
   write: <path> | <content>   -> calls write
   edit: <path> | <old> | <new>-> calls edit
-  read: <path> [<path> …]     -> calls read (several paths = parallel calls)
+  read: <path> [<path> …]     -> calls read (several paths = parallel calls; first line only, so
+                                 attached-file lines after it are ignored)
   show messages               -> lists every user message it received (steering/compaction checks)
   summarise the conversation… -> compaction summary
   tool: <name> <json args>    -> calls any tool by name (one per line = several calls at once)
@@ -65,7 +66,7 @@ def decide(
         path, old, new = (x.strip() for x in text[5:].split("|"))
         return {"calls": [("edit", {"path": path, "old_string": old, "new_string": new})], "text": ""}
     if low.startswith("read:"):
-        paths = text[5:].split()
+        paths = text[5:].splitlines()[0].split()
         return {"calls": [("read", {"path": p}) for p in paths], "text": ""}
     if low.startswith("tool:"):
         calls = []

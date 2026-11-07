@@ -7,6 +7,7 @@ Two Markdown files steer the agent:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from acf import config
@@ -15,6 +16,19 @@ CONTEXT_FILE = "context.md"
 MEMORY_FILE = "memory.md"
 MANAGED_FILES = (CONTEXT_FILE, MEMORY_FILE)
 MAX_FILE_BYTES = 5_000_000
+
+# A workspace file attached to a prompt (an ACP resource_link to file:///workspace/…) is one line of the
+# user message; the agent opens it with read, and session/load turns it back into the resource_link.
+ATTACHED = "[Attached file: {name}]({uri})"
+ATTACHED_RE = re.compile(r"^\[Attached file: ([^\]\n]+)\]\((file:///workspace/[^)\n]+)\)$", re.MULTILINE)
+
+
+def message_title(text: str) -> str:
+    """First line of a user message for a chat title; attached files show by name."""
+    first = (text.strip().splitlines() or [""])[0]
+    m = ATTACHED_RE.fullmatch(first)
+    return (m.group(1) if m else first)[:60] or "New chat"
+
 
 DEFAULT_CONTEXT = """# About me
 Write anything AI Chatbot Framework should know about you: who you are, how you like answers, what you work on.

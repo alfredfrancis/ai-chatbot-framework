@@ -108,6 +108,12 @@ export const acp = new AcpClient();
 export const newSession = () => acp.request<{ sessionId: string }>("session/new", { cwd: "/workspace", mcpServers: [] });
 export const loadSession = (sessionId: string) =>
   acp.request<{ _meta?: { acf?: { running?: boolean } } } | null>("session/load", { sessionId, cwd: "/workspace", mcpServers: [] });
-export const prompt = (sessionId: string, text: string) =>
-  acp.request<{ stopReason: StopReason }>("session/prompt", { sessionId, prompt: [{ type: "text", text }] });
+/** A file in the workspace, sent as an ACP resource_link (file:///workspace/<path>). */
+export type Attachment = { name: string; uri: string };
+export const WORKSPACE_URI = "file:///workspace/";
+export const prompt = (sessionId: string, text: string, files: Attachment[] = []) =>
+  acp.request<{ stopReason: StopReason }>("session/prompt", {
+    sessionId,
+    prompt: [...(text ? [{ type: "text", text }] : []), ...files.map((f) => ({ type: "resource_link", ...f }))],
+  });
 export const cancel = (sessionId: string) => acp.notify("session/cancel", { sessionId });

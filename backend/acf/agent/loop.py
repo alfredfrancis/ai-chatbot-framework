@@ -42,7 +42,7 @@ from langchain_core.messages import (
     messages_from_dict,
 )
 
-from acf import config
+from acf import config, workspace
 from acf.agent import prompt
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, truncate
 from acf.db import Chat, Message, User, session_scope, utcnow
@@ -313,7 +313,7 @@ class Run:
             chat = db.get(Chat, self.chat_id)
             first = next((m for m in history if isinstance(m, HumanMessage)), None)
             if chat and chat.title in ("", "New chat") and first:
-                chat.title = (str(first.content).strip().splitlines() or ["New chat"])[0][:60]
+                chat.title = workspace.message_title(str(first.content))
                 self.emit({"type": "title", "title": chat.title})
 
         try:
