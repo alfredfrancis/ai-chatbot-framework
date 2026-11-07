@@ -11,8 +11,11 @@ it is NOT isolated.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import os
 import secrets
 import shutil
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -48,21 +51,55 @@ def _clip(data: bytes) -> str:
     return text
 
 
+_reaping: set[asyncio.Task] = set()
+
+
+def _kill_group(proc: asyncio.subprocess.Process) -> None:
+    """Kill the command and everything it started (it runs in its own process group)."""
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(proc.pid, signal.SIGKILL)
+
+
+async def _kill_and_reap(proc: asyncio.subprocess.Process) -> None:
+    _kill_group(proc)
+    with contextlib.suppress(Exception):
+        await asyncio.wait_for(proc.communicate(), 10)  # collect the exit and close the pipes
+
+
+def _kill(proc: asyncio.subprocess.Process) -> None:
+    """Kill a command that was stopped, in the background so the caller's cancellation isn't delayed."""
+    task = asyncio.ensure_future(_kill_and_reap(proc))
+    _reaping.add(task)
+    task.add_done_callback(_reaping.discard)
+
+
 async def _run(args: list[str], timeout: float, cwd: str | None = None) -> ExecResult:
-    proc = await asyncio.create_subprocess_exec(
-        *args,
-        cwd=cwd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        stdin=asyncio.subprocess.DEVNULL,
+    start = asyncio.ensure_future(
+        asyncio.create_subprocess_exec(
+            *args,
+            cwd=cwd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.DEVNULL,
+            start_new_session=True,
+        )
     )
+    try:
+        # Shielded: cancelling process creation makes Python 3.12 wait for the process to exit.
+        proc = await asyncio.shield(start)
+    except asyncio.CancelledError:
+        start.add_done_callback(lambda t: t.cancelled() or t.exception() or _kill(t.result()))
+        raise
     try:
         out, err = await asyncio.wait_for(proc.communicate(), timeout)
         return ExecResult(proc.returncode or 0, _clip(out), _clip(err))
     except TimeoutError:
-        proc.kill()
+        _kill_group(proc)
         out, err = await proc.communicate()
         return ExecResult(124, _clip(out), _clip(err), timed_out=True)
+    except asyncio.CancelledError:
+        _kill(proc)  # stopped by the user: don't leave the command running
+        raise
 
 
 class SandboxError(RuntimeError):
