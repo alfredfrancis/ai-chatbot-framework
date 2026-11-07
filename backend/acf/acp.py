@@ -102,9 +102,9 @@ def user_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def assistant_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
+def assistant_updates(m: dict[str, Any], with_text: bool = True) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    if m["content"]:
+    if m["content"] and with_text:
         out.append(
             {
                 "sessionUpdate": "agent_message_chunk",
@@ -316,7 +316,9 @@ class Connection:
         if current and current[0] is run:
             return current[1]
         queue = run.listen()  # registered now, so nothing between here and the first await is missed
-        task = self._spawn(self._forward(run, chat_id, queue, skip_user, after_id, answered or set(), gate))
+        # Streams whose message is already stored (and so replayed by session/load) are not re-sent.
+        replayed = {e.get("stream") for e in run.events if e["type"] == "message" and e["message"]["id"] <= after_id}
+        task = self._spawn(self._forward(run, chat_id, queue, skip_user, after_id, answered or set(), replayed, gate))
         self._watchers[chat_id] = (run, task)
         return task
 
@@ -328,9 +330,11 @@ class Connection:
         skip_user: str | None,
         after_id: int,
         answered: set[str],
+        replayed: set[str | None],
         gate: asyncio.Event | None,
     ) -> None:
         sid = str(chat_id)
+        streamed: set[str] = set()  # streams whose text this client got as deltas
         try:
             if gate:
                 await gate.wait()
@@ -346,7 +350,16 @@ class Connection:
                     if m["role"] == "user" and skip_user is not None and m["content"] == skip_user:
                         skip_user = None  # the prompt that started this run; its sender has it
                         continue
-                    await self._emit(sid, message_updates(m))
+                    if m["role"] == "assistant":
+                        await self._emit(sid, assistant_updates(m, with_text=e.get("stream") not in streamed))
+                    else:
+                        await self._emit(sid, message_updates(m))
+                elif kind == "delta" and e["stream"] not in replayed:
+                    if e["kind"] == "text":
+                        streamed.add(e["stream"])
+                    update = "agent_message_chunk" if e["kind"] == "text" else "agent_thought_chunk"
+                    meta = {"acf": {"messageId": e["stream"]}}
+                    await self._emit(sid, [{"sessionUpdate": update, "content": _text(e["text"]), "_meta": meta}])
                 elif kind == "tool_start" and e["id"] not in answered:
                     await self._emit(
                         sid, [{"sessionUpdate": "tool_call_update", "toolCallId": e["id"], "status": "in_progress"}]

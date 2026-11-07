@@ -19,8 +19,8 @@ const TRY: { icon: ReactNode; text: string; prompt: string }[] = [
 /** A tool call as the chat knows it from ACP tool_call / tool_call_update notifications. */
 type ToolCall = { id: string; title: string; tool?: string; input: Record<string, unknown>; status: ToolStatus; output?: string; durationMs?: number | null };
 type Entry =
-  | { kind: "user"; key: string; text: string; messageId?: number }
-  | { kind: "text"; key: string; text: string; messageId?: number }
+  | { kind: "user"; key: string; text: string; messageId?: number | string }
+  | { kind: "text"; key: string; text: string; messageId?: number | string }
   | { kind: "tool"; key: string; call: ToolCall }
   | { kind: "notice"; key: string; text: string };
 
@@ -124,6 +124,7 @@ function group(entries: Entry[]): Item[] {
 function Thread({ entries, running, queued }: { entries: Entry[]; running: boolean; queued: string[] }) {
   const items = group(entries);
   const toolBusy = running && entries.some((e) => e.kind === "tool" && (e.call.status === "pending" || e.call.status === "in_progress"));
+  const streaming = running && entries[entries.length - 1]?.kind === "text"; // the reply itself shows progress
   const last = items[items.length - 1];
   const working = <div className="working" aria-label="Working">Working…</div>;
   return (
@@ -143,7 +144,7 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
                   {b.calls.map((c) => <Step key={c.id} call={c} running={running} />)}
                 </div>
               ))}
-              {live && !toolBusy && working}
+              {live && !toolBusy && !streaming && working}
             </div>
           </div>
         );

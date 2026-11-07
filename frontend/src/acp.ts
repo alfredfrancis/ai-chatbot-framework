@@ -6,7 +6,7 @@
 
 export type ContentBlock = { type: "text"; text: string } | { type: string; [k: string]: unknown };
 export type ToolStatus = "pending" | "in_progress" | "completed" | "failed";
-type Meta = { _meta?: { acf?: { messageId?: number; tool?: string; durationMs?: number | null } } };
+type Meta = { _meta?: { acf?: { messageId?: number | string; tool?: string; durationMs?: number | null } } };
 export type SessionUpdate = Meta & (
   | { sessionUpdate: "user_message_chunk" | "agent_message_chunk" | "agent_thought_chunk"; content: ContentBlock }
   | { sessionUpdate: "tool_call"; toolCallId: string; title: string; kind?: string; status?: ToolStatus; rawInput?: Record<string, unknown> }

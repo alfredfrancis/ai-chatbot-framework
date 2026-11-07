@@ -156,7 +156,8 @@ token is shown once, stored hashed, and can be replaced or revoked at any time.
 
 Supported: `initialize`, `session/new`, `session/load` (replays the history, then follows a running agent),
 `session/list`, `session/prompt` (text, resource links and embedded text resources) and `session/cancel`.
-Each session is a chat in the web app. Updates are `user_message_chunk`, `agent_message_chunk`,
+Each session is a chat in the web app. Updates are `user_message_chunk`, `agent_message_chunk` and
+`agent_thought_chunk` (streamed as the model writes; chunks of one message share `_meta.acf.messageId`),
 `tool_call`, `tool_call_update` and `session_info_update`. A `session/prompt` sent while the agent works is
 a steering message; its response arrives when the run ends. Extras live under `_acf/` (`_acf/notice`,
 `_acf/turn_end`) and `_meta.acf`, which other clients can ignore. The agent uses its own sandbox and
@@ -190,7 +191,6 @@ Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architectur
 
 ## Known limitations
 
-- Replies arrive per step, not token by token.
 - API keys and OAuth tokens are stored unencrypted in the database. Protect it and its backups.
 - No schema migrations yet: tables are created at startup. A future schema change will need Alembic.
 - Sandboxes run as root inside the container (no capabilities, `no-new-privileges`). For stronger

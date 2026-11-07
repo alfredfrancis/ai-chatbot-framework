@@ -145,6 +145,14 @@ async def acp_connect(client, headers: dict[str, str] | None = None):
             conn.close()
 
 
+def joined(chunks: list[dict]) -> dict[Any, str]:
+    out: dict[Any, str] = {}
+    for i, u in enumerate(chunks):
+        key = u.get("_meta", {}).get("acf", {}).get("messageId", f"#{i}")
+        out[key] = out.get(key, "") + u["content"]["text"]
+    return out
+
+
 class Turn:
     """What one session/prompt produced."""
 
@@ -156,7 +164,12 @@ class Turn:
 
     @property
     def texts(self) -> list[str]:
-        return [u["content"]["text"] for u in self.of("agent_message_chunk")]
+        """Agent messages in order, each joined from its streamed chunks (grouped by _meta.acf.messageId)."""
+        return list(joined(self.of("agent_message_chunk")).values())
+
+    @property
+    def thoughts(self) -> list[str]:
+        return list(joined(self.of("agent_thought_chunk")).values())
 
     @property
     def final(self) -> str:

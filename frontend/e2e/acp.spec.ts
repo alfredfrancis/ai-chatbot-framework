@@ -67,7 +67,10 @@ test("web chat runs over ACP, and other apps connect with an access token", asyn
     const res = await client.call("session/prompt", { sessionId: sid, prompt: [{ type: "text", text: "run: echo from-editor" }] });
     expect(res.result.stopReason).toBe("end_turn");
     const chunks = client.messages.filter((m) => m.method === "session/update" && m.params.update.sessionUpdate === "agent_message_chunk");
-    expect(chunks.at(-1)!.params.update.content.text).toContain("Result: from-editor");
+    // Replies stream: chunks of one message share _meta.acf.messageId.
+    const last = chunks.at(-1)!.params.update._meta.acf.messageId;
+    const reply = chunks.filter((c) => c.params.update._meta.acf.messageId === last).map((c) => c.params.update.content.text).join("");
+    expect(reply).toContain("Result: from-editor");
 
     // The same conversation is a chat in the web app, replayed with session/load.
     await page.reload();

@@ -71,3 +71,21 @@ test("steer the agent while it works, then stop it", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
   await shot(page, "05-stopped");
 });
+
+test("replies appear word by word, and stopping keeps what was shown", async ({ page }) => {
+  await signUp(page);
+  await say(page, "typing: one two three four five six seven eight nine ten");
+  await expect(lastAssistant(page)).toContainText("Echo: one two");
+  await expect(lastAssistant(page)).not.toContainText("ten");
+  await shot(page, "05b-streaming-reply");
+  await expect(lastAssistant(page)).toHaveText("Echo: one two three four five six seven eight nine ten");
+
+  await say(page, "typing: alpha beta gamma delta epsilon zeta eta theta iota kappa");
+  await expect(lastAssistant(page)).toContainText("alpha beta");
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.getByText("Stopped.")).toBeVisible();
+  const shown = (await lastAssistant(page).textContent())!;
+  expect(shown).not.toContain("kappa");
+  await page.reload();
+  await expect(lastAssistant(page)).toHaveText(shown);
+});
