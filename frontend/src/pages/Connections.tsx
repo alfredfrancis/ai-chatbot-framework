@@ -329,7 +329,7 @@ export default function ConnectionsPage() {
           <p className="lead">Give your agent access to apps and tools. Local tools run inside your private sandbox.</p>
         </div>
 
-        <div className="row-flex between">
+        <div className="row-flex between wrap">
           <h2>Your connections</h2>
           <div className="seg" role="group" aria-label="Editor">
             <button className="btn ghost sm" aria-pressed={view === "form"} onClick={() => switchView("form")}>Form</button>
@@ -366,7 +366,7 @@ export default function ConnectionsPage() {
 
             {presets.length > 0 && (
               <section className="stack" aria-labelledby="popular-apps">
-                <div className="row-flex between">
+                <div className="row-flex between wrap">
                   <h2 id="popular-apps">Popular apps</h2>
                   <span className="hint">Sign in with your account — no API key needed</span>
                 </div>
@@ -377,7 +377,7 @@ export default function ConnectionsPage() {
           </>
         ) : (
           <section className="stack">
-            <div className="row-flex between">
+            <div className="row-flex between wrap">
               <label className="label" htmlFor="mcp-config">Configuration (JSON)</label>
               <span className="hint">Same format as Claude Desktop</span>
             </div>
