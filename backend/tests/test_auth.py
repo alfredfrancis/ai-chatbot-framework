@@ -98,3 +98,43 @@ async def test_admin_account_from_env(client, env):
     assert bad.status_code == 401
     ok = await client.post("/api/auth/login", json={"email": email, "password": "second password"})
     assert ok.status_code == 200
+
+
+async def test_signup_is_committed_before_the_response_is_sent():
+    """A client that connects the moment it has the cookie (e.g. the ACP WebSocket) must find its session."""
+    import json
+
+    from acf.auth import user_for_session
+    from acf.db import session_scope
+    from acf.main import create_app
+
+    app = create_app()
+    body = json.dumps({"email": f"race-{time.time_ns()}@example.com", "password": "correct horse"}).encode()
+    seen: dict = {}
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            cookie = next(v.decode() for k, v in message["headers"] if k == b"set-cookie")
+            token = cookie.split(";")[0].split("=", 1)[1]
+            with session_scope() as db:  # another connection, as another request would use
+                seen["user"] = user_for_session(db, token)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/api/auth/signup",
+        "raw_path": b"/api/auth/signup",
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"host", b"test"), (b"content-type", b"application/json")],
+        "client": ("127.0.0.1", 1),
+        "server": ("test", 80),
+    }
+    await app(scope, receive, send)
+    assert seen["user"] is not None

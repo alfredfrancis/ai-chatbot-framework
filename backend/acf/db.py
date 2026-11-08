@@ -281,5 +281,7 @@ def session_scope() -> Iterator[Session]:
 
 
 def get_db() -> Iterator[Session]:
+    """Request DB session. Use as `Depends(get_db, scope="function")` so the commit happens before the
+    response is sent: with the default scope a client could act on the reply before its writes land."""
     with session_scope() as s:
         yield s
