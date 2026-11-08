@@ -4,7 +4,7 @@ import { api, type Task } from "../api";
 import { Topbar, useApp } from "../App";
 import { Toggle } from "../components/Toggle";
 
-type Freq = "hourly" | "daily" | "weekdays" | "weekly" | "custom";
+type Freq = "once" | "hourly" | "daily" | "weekdays" | "weekly" | "custom";
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
@@ -34,6 +34,23 @@ export function describe(cron: string): string {
   return `Custom (${cron})`;
 }
 
+/** A one-off task whose run has started: it is done and won't run again unless given a new time. */
+const isDone = (t: Task) => !!t.run_at && !t.enabled && !!t.last_run_at;
+
+function schedule(t: Task): string {
+  if (!t.run_at) return describe(t.schedule);
+  const d = new Date(t.run_at);
+  return `Once on ${d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+}
+
+/** Tomorrow at 09:00 local time, as a datetime-local value. */
+function tomorrowAt9(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
+}
+
 function when(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -50,13 +67,15 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
   const [time, setTime] = useState("08:00");
   const [day, setDay] = useState(1);
   const [custom, setCustom] = useState("0 9 * * *");
+  const [runAt, setRunAt] = useState(tomorrowAt9);
   const [error, setError] = useState("");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     try {
-      await api.post("/tasks", { name, prompt, schedule: toCron(freq, time, day, custom), timezone: localTz });
+      const timing = freq === "once" ? { run_at: runAt } : { schedule: toCron(freq, time, day, custom) };
+      await api.post("/tasks", { name, prompt, ...timing, timezone: localTz });
       onDone();
     } catch (err) {
       setError((err as Error).message);
@@ -78,6 +97,7 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
         <div className="field">
           <label htmlFor="task-freq">Repeat</label>
           <select id="task-freq" className="input" value={freq} onChange={(e) => setFreq(e.target.value as Freq)}>
+            <option value="once">Once</option>
             <option value="hourly">Every hour</option>
             <option value="daily">Every day</option>
             <option value="weekdays">Every weekday</option>
@@ -85,7 +105,12 @@ function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
             <option value="custom">Custom (cron)</option>
           </select>
         </div>
-        {freq === "custom" ? (
+        {freq === "once" ? (
+          <div className="field">
+            <label htmlFor="task-run-at">On</label>
+            <input id="task-run-at" className="input" type="datetime-local" required value={runAt} onChange={(e) => setRunAt(e.target.value)} />
+          </div>
+        ) : freq === "custom" ? (
           <div className="field">
             <label htmlFor="task-cron">Cron expression</label>
             <input id="task-cron" className="input mono" value={custom} onChange={(e) => setCustom(e.target.value)}  />
@@ -150,7 +175,9 @@ export default function TasksPage() {
     refresh();
   };
   const badge = (t: Task) =>
-    !t.enabled ? <span className="badge">Paused</span>
+    t.last_status === "running" ? <span className="badge warning">Running</span>
+      : isDone(t) ? <span className="badge">{t.last_status === "error" ? "Failed" : "Done"}</span>
+      : !t.enabled ? <span className="badge">Paused</span>
       : t.last_status === "error" ? <span className="badge danger">Failed</span>
       : t.last_status === "running" ? <span className="badge warning">Running</span>
       : <span className="badge success">On</span>;
@@ -164,7 +191,7 @@ export default function TasksPage() {
         <div className="page-inner">
           <div>
             <h1>Tasks</h1>
-            <p className="lead">Jobs your agent runs on a schedule. Each run opens as a chat.</p>
+            <p className="lead">Jobs your agent runs on a schedule or once at a set time. Each run opens as a chat.</p>
           </div>
           {creating && <TaskForm onCancel={() => setCreating(false)} onDone={() => { setCreating(false); load(); refresh(); }} />}
           {tasks && tasks.length === 0 && !creating && (
@@ -178,8 +205,8 @@ export default function TasksPage() {
                   <div className="grow">
                     <span className="title">{t.name}</span>
                     <span className="meta">
-                      {describe(t.schedule)}
-                      {t.enabled ? (t.next_run_at ? ` · Next ${when(t.next_run_at)}` : "") : " · Paused"}
+                      {schedule(t)}
+                      {t.enabled ? (t.next_run_at ? ` · Next ${when(t.next_run_at)}` : "") : isDone(t) ? "" : " · Paused"}
                     </span>
                     {t.last_run_at && (
                       <span className="meta">
@@ -191,7 +218,7 @@ export default function TasksPage() {
                   <div className="side">
                     {badge(t)}
                     <button className="btn sm" onClick={() => runNow(t)}>Run now</button>
-                    <Toggle checked={t.enabled} onChange={(v) => toggle(t, v)} label={`${t.name} enabled`} />
+                    {!isDone(t) && <Toggle checked={t.enabled} onChange={(v) => toggle(t, v)} label={`${t.name} enabled`} />}
                     <button className={`btn ${confirm === t.id ? "danger" : "ghost"} sm`} onClick={() => remove(t)}
                       aria-label={confirm === t.id ? `Confirm delete ${t.name}` : `Delete ${t.name}`}>{confirm === t.id ? "Delete?" : "Delete"}</button>
                   </div>

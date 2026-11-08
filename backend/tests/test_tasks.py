@@ -113,7 +113,8 @@ async def test_agent_manages_tasks_with_the_system_server(client, user):
     system = (await send(client, chat_id, "show system")).final
     assert "system: create_task, delete_task, list_tasks, run_task, update_task" in system.splitlines()
     definition = json.loads(workspace.read_file(user["id"], ".acf/mcp/system/create_task.json"))
-    assert set(definition["input_schema"]["required"]) == {"name", "prompt", "schedule", "timezone"}
+    assert set(definition["input_schema"]["required"]) == {"name", "prompt", "timezone"}
+    assert {"schedule", "run_at"} <= set(definition["input_schema"]["properties"])
 
     turn = await send(
         client,
@@ -159,3 +160,58 @@ async def test_system_is_a_reserved_server_name(client, user):
     cfg = '{"mcpServers": {"system": {"command": "x"}}}'
     r = await client.put("/api/mcp/config", json={"config": cfg})
     assert r.status_code == 400 and "built-in" in r.text
+
+
+async def test_one_off_task_runs_once_then_turns_itself_off(client, user):
+    import asyncio
+
+    # Local time in the task's time zone: 09:30 in Lisbon in winter is 09:30 UTC, in Tokyo 00:30 UTC.
+    day = (utcnow() + timedelta(days=2)).date().isoformat()
+    r = await client.post(
+        "/api/tasks", json={"name": "Remind", "prompt": "hi", "run_at": f"{day}T09:30", "timezone": "Asia/Tokyo"}
+    )
+    assert r.status_code == 200, r.text
+    task = r.json()
+    assert task["schedule"] == "" and task["run_at"] == f"{day}T00:30:00Z" == task["next_run_at"]
+
+    for body, msg in [
+        ({"run_at": "2020-01-01T09:00"}, "in the past"),
+        ({"run_at": "tomorrow"}, "date and time"),
+        ({"run_at": f"{day}T09:30", "schedule": "0 9 * * *"}, "not both"),
+        ({}, "Give a schedule"),
+    ]:
+        bad = await client.post("/api/tasks", json={"name": "x", "prompt": "y", **body})
+        assert bad.status_code == 400 and msg in bad.text, (body, bad.text)
+
+    with session_scope() as db:
+        db.get(Task, task["id"]).next_run_at = utcnow() - timedelta(minutes=1)  # it is due
+    assert task["id"] in await scheduler.tick()
+    for _ in range(100):
+        t = next(x for x in (await client.get("/api/tasks")).json() if x["id"] == task["id"])
+        if t["last_status"] == "ok":
+            break
+        await asyncio.sleep(0.05)
+    assert t["last_status"] == "ok" and t["enabled"] is False and t["next_run_at"] is None
+    assert task["id"] not in await scheduler.tick()
+
+    with session_scope() as db:
+        db.get(Task, task["id"]).run_at = utcnow() - timedelta(minutes=1)  # its time has passed
+    again = await client.patch(f"/api/tasks/{task['id']}", json={"enabled": True})
+    assert again.status_code == 400 and "in the past" in again.text
+    moved = (await client.patch(f"/api/tasks/{task['id']}", json={"enabled": True, "run_at": f"{day}T10:00"})).json()
+    assert moved["enabled"] and moved["next_run_at"] == f"{day}T01:00:00Z"
+    repeating = (await client.patch(f"/api/tasks/{task['id']}", json={"schedule": "0 9 * * *"})).json()
+    assert repeating["run_at"] is None and repeating["schedule"] == "0 9 * * *"
+
+
+async def test_agent_schedules_a_one_off_task(client, user):
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    day = (utcnow() + timedelta(days=1)).date().isoformat()
+    turn = await send(
+        client,
+        chat_id,
+        _call("create_task", name="Call mum", prompt="Remind me", run_at=f"{day}T17:00", timezone="UTC"),
+    )
+    assert '"schedule": ""' in turn.final
+    [task] = (await client.get("/api/tasks")).json()
+    assert task["run_at"] == f"{day}T17:00:00Z" and task["enabled"]
