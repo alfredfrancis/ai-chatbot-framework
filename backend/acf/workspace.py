@@ -2,7 +2,7 @@
 
 Two Markdown files steer the agent:
 - context.md: written by the user ("about me", preferences, instructions)
-- memory.md:  written mostly by the agent (facts it was asked to remember)
+- memory.md:  written by the agent (facts that matter in every chat; size-limited, see agent.tools)
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ Write anything AI Chatbot Framework should know about you: who you are, how you 
 """
 
 DEFAULT_MEMORY = """# Memory
-Things AI Chatbot Framework has been asked to remember.
+Facts about you that matter in every chat. AI Chatbot Framework keeps this short and up to date.
 """
 
 
@@ -74,6 +74,12 @@ def resolve(user_id: int, rel: str) -> Path:
     if target != root and root not in target.parents:
         raise ValueError(f"Path is outside the workspace: {rel}")
     return target
+
+
+def relative(user_id: int, rel: str) -> str:
+    """A user-supplied path in its normal form relative to the workspace ("./a/../memory.md" -> "memory.md")."""
+    root = workspace_dir(user_id).resolve()
+    return resolve(user_id, rel).relative_to(root).as_posix()
 
 
 def read_file(user_id: int, name: str) -> str:

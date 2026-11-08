@@ -19,6 +19,8 @@ export ACF_LLM_PROVIDER=anthropic
 export ACF_LLM_BASE_URL="http://127.0.0.1:${FAKE_LLM_PORT:-9100}"
 export ACF_LLM_API_KEY=test-key
 export ACF_SCHEDULER_INTERVAL=2
+# A background review every 2 user messages (learning.spec); without a "learn:" message it saves nothing.
+export ACF_REVIEW_INTERVAL=2
 export ACF_SANDBOX_PREFIX=acf-e2e
 # Main account from the environment; sign-ups stay open so every spec can make its own user.
 export ACF_ADMIN_EMAIL=owner@example.com ACF_ADMIN_PASSWORD="owner password" ACF_ADMIN_NAME=Olivia

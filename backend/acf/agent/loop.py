@@ -19,6 +19,10 @@ Design (borrowing from pi, Hermes and Claude Code):
   thousands of prompt tokens per step.
 - Tool errors, bad arguments and unknown tools become error results the model can recover from.
 - Outputs are truncated with the full text spilled to a file (see tools.truncate).
+- The system prompt is built once per turn and reused for every step, so the provider's prompt cache
+  holds; edits to memory.md, context.md and skills reach it at the next turn.
+- After a run: the chat is saved as Markdown for the agent to search (transcripts), and every few user
+  messages a background review updates memory.md and skills (review).
 - History is append-only. Provider messages are stored verbatim (thinking blocks survive). Before a
   new user turn, if the history is too long, older messages are summarised into one compaction record.
 - Stop cancels the run; dangling tool calls get a "stopped" result so the history stays valid.
@@ -46,8 +50,8 @@ from langchain_core.messages import (
     messages_from_dict,
 )
 
-from acf import config, workspace
-from acf.agent import prompt
+from acf import config, skills, workspace
+from acf.agent import prompt, review, transcripts
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, truncate
 from acf.db import Chat, Message, User, session_scope, utcnow
 from acf.llm import LLMConfig, LLMError, estimate_tokens, friendly_error, make_model
@@ -208,6 +212,7 @@ class Run:
         # ACP stop reason: end_turn | cancelled | max_turn_requests; `error` is set when the run failed.
         self.stop_reason = "end_turn"
         self.error: str | None = None
+        self.system: str | None = None  # the system prompt of the latest turn (reused by the review)
 
     # -- events
     def emit(self, event: dict[str, Any]) -> None:
@@ -272,7 +277,13 @@ class Run:
             self.emit({"type": "error", "error": self.final_text})
         finally:
             RUNS.pop(self.chat_id, None)
+            transcripts.save(self.user.id, self.chat_id)
             self.emit({"type": "done"})
+        if self.stop_reason != "cancelled" and self.ok:
+            try:
+                review.maybe_start(self.user, self.chat_id, self.system)
+            except Exception:  # noqa: BLE001 - never let the review break a finished run
+                log.exception("could not start a review")
 
     def _inject_user_messages(self, history: list[BaseMessage]) -> bool:
         got = False
@@ -285,7 +296,7 @@ class Run:
             got = True
         return got
 
-    async def _compact(self, history: list[BaseMessage], model, apps: dict[str, list[str]]) -> list[BaseMessage]:
+    async def _compact(self, history: list[BaseMessage], model, system: str) -> list[BaseMessage]:
         s = config.settings
         if estimate_tokens(history) < s.compact_tokens:
             return history
@@ -299,14 +310,12 @@ class Run:
         if keep_from is None or keep_from < 2:
             return history  # nothing worth summarising
         older = [_strip_thinking(m) if isinstance(m, AIMessage) else m for m in history[:keep_from]]
-        reply = await model.ainvoke(
-            [SystemMessage(prompt.build(self.user.id, apps)), *older, HumanMessage(SUMMARY_PROMPT)]
-        )
+        reply = await model.ainvoke([SystemMessage(system), *older, HumanMessage(SUMMARY_PROMPT)])
         with session_scope() as db:
             ids = [
                 m.id
                 for m in db.query(Message.id)
-                .filter(Message.chat_id == self.chat_id, Message.role != "summary")
+                .filter(Message.chat_id == self.chat_id, Message.role.in_(("user", "assistant", "tool")))
                 .order_by(Message.id)
                 .all()
             ]
@@ -346,23 +355,21 @@ class Run:
                 if st["state"] in ("error", "needs_auth"):
                     self.emit({"type": "notice", "text": f"{st['name']}: {st['error'] or 'sign-in required'}"})
             tools: dict[str, Tool] = {t.name: t for t in [*BUILTIN_TOOLS, hub.tool()] if t}
-            apps = hub.catalog()
             model = base_model.bind_tools([t.schema() for t in tools.values()])
+            skills.seed(self.user.id)  # built-in skills added since the account was made
+            for name in skills.archive_stale(self.user.id):
+                self.emit({"type": "notice", "text": f"Moved the unused skill “{name}” to skills/.archive/."})
+            # One system prompt for the whole turn: the same prefix every step, so the provider's cache holds.
+            self.system = prompt.build(self.user.id, hub.catalog())
+            system = SystemMessage(
+                content=[{"type": "text", "text": self.system, "cache_control": {"type": "ephemeral"}}]
+            )
             try:
-                history = await self._compact(history, base_model, apps)
+                history = await self._compact(history, base_model, self.system)
             except Exception as e:  # noqa: BLE001 - compaction is best effort
                 log.warning("compaction failed: %s", e)
 
             for _ in range(config.settings.max_agent_steps):
-                system = SystemMessage(
-                    content=[
-                        {
-                            "type": "text",
-                            "text": prompt.build(self.user.id, apps),
-                            "cache_control": {"type": "ephemeral"},
-                        }
-                    ]
-                )
                 try:
                     ai, stream_id = await self._think(model, system, history)
                 except asyncio.CancelledError:

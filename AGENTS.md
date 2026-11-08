@@ -20,11 +20,14 @@ backend/acf/
   llm.py             LangChain init_chat_model, friendly errors, token estimate
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
   agent/tools.py     read / write / edit / bash + output truncation
-  agent/prompt.py    system prompt: instructions + context.md + memory.md + skills index + connected apps
+  agent/prompt.py    system prompt (built once per turn): instructions + context.md + skills + apps + memory.md
+  agent/review.py    background review every N user messages: updates memory.md and skills
+  agent/transcripts.py  past chats as .acf/chats/<id>.md for the agent to grep
+  scan.py            prompt-injection check for memory.md, skills and skill uploads
   acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
   acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
   artifacts.py       a chat's artifacts: files attached to it and files the agent made in it
-  skills.py          skill discovery, upload (zip / SKILL.md), built-in skill-creator
+  skills.py          skill discovery, upload (zip / SKILL.md), built-in skills (builtin_skills/), archiving
   workspace.py       per-user folder, path safety
   sandbox.py         DockerSandbox (one container per user), LocalSandbox (dev only, not isolated)
   docker_proxy.py    the only holder of the Docker socket in production; allows sandbox operations only
@@ -94,6 +97,7 @@ make lint         # ruff + tsc
 - Keep DB sessions short; never hold one across an `await` on the model. PostgreSQL enforces column
   lengths (SQLite doesn't): bound user input in the API models and run tests on both
   (`ACF_TEST_DB_URL=postgresql://… make test`; CI runs both).
+- Build the system prompt once per turn (`Run._turn`); never rebuild it per step — that breaks the cache.
 - Thinking blocks are bound to their prefix: only compaction may drop them, and only for messages
   before the cut.
 - All chat traffic is ACP (`acp.py`, `frontend/src/acp.ts`); there are no chat REST/SSE endpoints. Backend
