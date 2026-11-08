@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useNavigate } from "react-router-dom";
 import { api, formatSize as size, rawUrl as raw, uploadFile, type FileEntry } from "../api";
-import { Topbar, useApp } from "../App";
+import { PageHeader, Topbar, useApp } from "../App";
 import { IconDownload, IconFile, IconFolder, IconUploadSm } from "../components/icons";
 
 type Preview = { path: string; size: number; binary: boolean; truncated: boolean; content: string };
 const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
+/** The files the agent itself keeps, explained where people meet them. */
+const ABOUT: Record<string, string> = {
+  "context.md": "What your agent knows about you",
+  "memory.md": "What your agent has learned while working",
+  skills: "Know-how your agent can use",
+  apps: "Apps your agent built for you",
+};
 
 /** A read-only view of the agent's workspace. Changes happen by asking the agent; files can be uploaded. */
 export default function FilesPage() {
@@ -16,6 +24,7 @@ export default function FilesPage() {
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const { refresh } = useApp();
+  const navigate = useNavigate();
 
   const open = useCallback(async (dir: string) => {
     setError("");
@@ -49,17 +58,14 @@ export default function FilesPage() {
 
   return (
     <>
-    <Topbar title="Files">
-      <button className="btn primary" onClick={() => input.current?.click()}><IconUploadSm />Upload</button>
-      <input ref={input} type="file" multiple className="sr-only" data-testid="upload" aria-label="Upload files"
-        onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
-    </Topbar>
+    <Topbar title="Files" phoneOnly />
     <div className="page">
       <div className="page-inner wide">
-        <div>
-          <h1>Files</h1>
-          <p className="lead">Your agent's workspace. To change something, ask in chat.</p>
-        </div>
+        <PageHeader title="Files" lead="Your agent's workspace. To change a file, ask in chat.">
+          <button className="btn primary" onClick={() => input.current?.click()}><IconUploadSm />Upload</button>
+          <input ref={input} type="file" multiple className="sr-only" data-testid="upload" aria-label="Upload files" tabIndex={-1}
+            onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
+        </PageHeader>
         <div className="drive-bar">
           <nav className="pathbar" aria-label="Folder">
             {parts.length ? <button onClick={() => open("")}>workspace</button> : <span className="here">workspace</span>}
@@ -70,33 +76,35 @@ export default function FilesPage() {
               </span>
             ))}
           </nav>
-          {entries && <span className="eyebrow">{folders} folder{folders === 1 ? "" : "s"} · {entries.length - folders} file{entries.length - folders === 1 ? "" : "s"}</span>}
+          {entries && <span className="hint">{folders} folder{folders === 1 ? "" : "s"}, {entries.length - folders} file{entries.length - folders === 1 ? "" : "s"}</span>}
         </div>
         {error && <div className="banner" role="alert">{error}</div>}
         <div className="drive">
-          <div className="drive-grid" role="list" aria-label="Files">
-            {entries?.length === 0 && <div className="empty">This folder is empty. Upload a file, or ask your agent to make one.</div>}
-            {entries?.map((e) => (
-              <div role="listitem" key={e.path} className={e.type === "dir" ? "is-dir" : "is-file"}>
-                {e.type === "dir" ? (
-                  <button className="folder-tile" onClick={() => show(e)}>
-                    <IconFolder />
-                    <span className="text"><span className="name">{e.name}</span><span className="meta">{e.items} item{e.items === 1 ? "" : "s"}</span></span>
-                  </button>
-                ) : (
-                  <button className={`file-card${preview?.path === e.path ? " active" : ""}`} onClick={() => show(e)} aria-pressed={preview?.path === e.path}>
-                    <Thumb entry={e} />
-                    <span className="text"><span className="name">{e.name}</span><span className="meta">{ext(e.name) || "File"} · {size(e.size)}</span></span>
-                  </button>
-                )}
-              </div>
-            ))}
+          <div className="list file-list">
+            {entries && entries.length > 0 && <div className="list-head" aria-hidden="true"><span>Name</span><span style={{ textAlign: "right" }}>Size</span></div>}
+            <div role="list" aria-label="Files">
+              {entries?.length === 0 && <div className="empty">This folder is empty. Upload a file, or ask your agent to make one.</div>}
+              {entries?.map((e) => {
+                const about = path === "" ? ABOUT[e.name] : undefined;
+                return (
+                  <div role="listitem" key={e.path}>
+                    <button className={`file-row ${e.type}`} onClick={() => show(e)} aria-pressed={e.type === "file" ? preview?.path === e.path : undefined}>
+                      <span className="name">
+                        {e.type === "dir" ? <IconFolder /> : IMAGE.test(e.name) ? <img className="row-thumb" src={raw(e.path)} alt="" loading="lazy" /> : <IconFile />}
+                        <span className="text"><span>{e.name}</span>{about && <span className="desc">{about}</span>}</span>
+                      </span>
+                      <span className="size">{e.type === "dir" ? `${e.items} item${e.items === 1 ? "" : "s"}` : size(e.size)}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <section className="details" aria-label="Preview">
             {preview ? (
               <>
                 <div className="details-head">
-                  <span className="text"><span className="name">{name}</span><span className="meta mono">{preview.path}</span></span>
+                  <span className="text"><span className="name">{name}</span>{preview.path !== name && <span className="meta mono">{preview.path}</span>}</span>
                   <a className="btn sm" href={raw(preview.path, true)}><IconDownload />Download</a>
                 </div>
                 <div className="preview-body" data-testid="preview">
@@ -107,6 +115,9 @@ export default function FilesPage() {
                   {preview.truncated && <p className="hint">Showing the first 500 KB.</p>}
                 </div>
                 <dl className="facts"><dt>Size</dt><dd>{size(preview.size)}</dd><dt>Type</dt><dd>{ext(name) || "File"}</dd></dl>
+                <div className="details-foot">
+                  <button className="btn" onClick={() => navigate("/", { state: { draft: `Change ${preview.path}: ` } })}>Ask the agent to edit this</button>
+                </div>
               </>
             ) : (
               <div className="empty">Select a file to preview it.</div>
@@ -120,14 +131,3 @@ export default function FilesPage() {
 }
 
 const ext = (n: string) => (n.includes(".") ? n.split(".").pop()!.toUpperCase() : "");
-const TONE: Record<string, string> = {
-  CSV: "data", TSV: "data", XLSX: "data", XLS: "data", JSON: "data", MD: "text", TXT: "text", PDF: "doc", DOCX: "doc", PPTX: "doc",
-  PY: "code", JS: "code", TS: "code", SH: "code", HTML: "code",
-};
-
-/** A file card's picture: the image itself, or the file type on a tinted page. */
-function Thumb({ entry }: { entry: FileEntry }) {
-  if (IMAGE.test(entry.name)) return <span className="thumb"><img src={raw(entry.path)} alt="" loading="lazy" /></span>;
-  const e = ext(entry.name);
-  return <span className="thumb" aria-hidden="true"><span className={`page-icon ${TONE[e] ?? ""}`}>{e.slice(0, 4) || <IconFile />}</span></span>;
-}

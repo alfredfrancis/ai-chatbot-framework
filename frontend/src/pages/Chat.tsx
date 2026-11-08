@@ -1,20 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
+import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
 import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
 
-const TRY: { icon: ReactNode; text: string; prompt: string }[] = [
-  { icon: <IconDrawer />, text: "Summarise the spreadsheets in my files", prompt: "Look at the files in my workspace and summarise any spreadsheets you find." },
-  { icon: <IconClock />, text: "Every weekday at 8:00, write my plan for the day", prompt: "Help me set up a task that writes my plan for the day every weekday at 8:00." },
-  { icon: <IconSpark />, text: "Turn how I write my weekly update into a skill", prompt: "Make a skill for writing my weekly status update." },
+/** Suggestions on the empty chat; each says which part of the agent it shows off. */
+const TRY: { icon: ReactNode; kind: string; text: string; prompt: string }[] = [
+  { icon: <IconDrawer />, kind: "Uses your files", text: "Summarise the spreadsheets in my files", prompt: "Look at the files in my workspace and summarise any spreadsheets you find." },
+  { icon: <IconClock />, kind: "Becomes a task", text: "Every weekday at 8:00, plan my day", prompt: "Help me set up a task that writes my plan for the day every weekday at 8:00." },
+  { icon: <IconSpark />, kind: "Becomes a skill", text: "Learn how I write my weekly update", prompt: "Make a skill for writing my weekly status update." },
 ];
 
 /** A tool call as the chat knows it from ACP tool_call / tool_call_update notifications. */
@@ -443,22 +445,34 @@ function Home({ onStart, draft = "" }: { onStart: (t: string, files?: Attachment
   const n = (x: number, one: string) => `${x} ${one}${x === 1 ? "" : "s"}`;
   return (
     <>
-      <Topbar title="New chat" />
+      <Topbar title="New chat" phoneOnly />
       <div className="home">
         <div className="hero" aria-hidden="true">
           <span className="glow" /><span className="ring" /><Mark size={56} />
         </div>
         <div className="hello">
-          <span className="eyebrow">Agent ready</span>
-          <h1>{greeting(user.name || "there")}<span className="caret" aria-hidden="true">_</span></h1>
-          <p className="sub" data-testid="status-line">
-            Your agent has a private computer, {n(counts.files, "file")}, {n(counts.skills, "skill")} and {n(counts.connections, "connection")}.
-          </p>
+          <h1>{greeting(user.name || "there")}</h1>
+          <p className="sub">What should your agent work on?</p>
         </div>
-        <Composer key={draft} initial={draft} onSend={onStart} running={false} placeholder="Ask anything, or describe a job to do" />
-        <div className="try">
-          <div className="label-row">Try</div>
-          {TRY.map((t) => <button key={t.text} onClick={() => onStart(t.prompt)}>{t.icon}{t.text}</button>)}
+        <div className="stack">
+          <Composer key={draft} initial={draft} onSend={onStart} running={false} placeholder="Ask anything, or describe a job to do" />
+          {/* What the agent has to work with; each part links to where it lives. */}
+          <nav className="capabilities" aria-label="What your agent has" data-testid="status-line">
+            <span className="row-flex"><span className="live-dot" aria-hidden="true" />Private computer</span>
+            <span className="sep" aria-hidden="true">·</span><Link to="/files">{n(counts.files, "file")}</Link>
+            <span className="sep" aria-hidden="true">·</span><Link to="/skills">{n(counts.skills, "skill")}</Link>
+            <span className="sep" aria-hidden="true">·</span>
+            {counts.connections
+              ? <Link to="/connections">{n(counts.connections, "connected app")}</Link>
+              : <Link to="/connections" className="cta">Connect an app</Link>}
+          </nav>
+        </div>
+        <div className="try" role="group" aria-label="Suggestions">
+          {TRY.map((t) => (
+            <button key={t.text} onClick={() => onStart(t.prompt)}>
+              <span className="kind">{t.icon}{t.kind}</span>{t.text}
+            </button>
+          ))}
         </div>
       </div>
     </>
@@ -588,10 +602,8 @@ export default function ChatPage() {
     navigate(`/c/${s.sessionId}`, { state: { pending: { text, files } } });
   };
   const stop = () => { if (sid) cancel(sid); };
-  const [confirming, setConfirming] = useState(false);
   const remove = async () => {
     if (!chatId) return;
-    if (!confirming) { setConfirming(true); setTimeout(() => setConfirming(false), 4000); return; }
     await api.del(`/chats/${chatId}`);
     refresh();
     navigate("/");
@@ -612,8 +624,10 @@ export default function ChatPage() {
           title={panel ? "Hide artifacts" : "Show artifacts"} onClick={togglePanel}>
           <IconPanel />{artifacts?.length ? <span className="count">{artifacts.length}</span> : null}
         </button>
-        <button className={`btn ${confirming ? "danger" : "ghost"} ${confirming ? "sm" : "icon"}`} aria-label={confirming ? "Confirm delete" : "Delete chat"}
-          title="Delete chat" onClick={remove}>{confirming ? "Delete chat?" : <IconTrash />}</button>
+        <MoreMenu label="Chat actions" items={[
+          { label: panel ? "Hide artifacts" : "Show artifacts", icon: <IconPanel />, phoneOnly: true, onSelect: togglePanel },
+          { label: "Delete chat", icon: <IconTrash />, confirm: "Yes, delete this chat", onSelect: remove },
+        ]} />
       </Topbar>
       <div className="chat-layout">
         <div className="chat-col">

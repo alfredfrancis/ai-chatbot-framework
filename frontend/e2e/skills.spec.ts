@@ -42,8 +42,9 @@ test("upload a skill, the agent uses it, remove it", async ({ page }) => {
   await expect(page.getByTestId("tool-step").last()).toContainText("Used skill charts");
 
   await nav(page).getByRole("link", { name: "Skills" }).click();
-  await page.getByRole("button", { name: "Remove charts" }).click();
-  await page.getByRole("button", { name: "Confirm remove charts" }).click();
+  await page.getByRole("button", { name: "More actions for charts" }).click();
+  await page.getByRole("menuitem", { name: "Remove skill" }).click();
+  await page.getByRole("menuitem", { name: "Yes, remove this skill" }).click();
   await expect(page.getByTestId("skill-charts")).toHaveCount(0);
 });
 

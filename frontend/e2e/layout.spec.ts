@@ -21,7 +21,7 @@ test("sidebar keeps full-height rows with many chats, and home lines up", async 
     expect(await r.evaluate((el) => [el.clientHeight, el.scrollHeight])).toEqual([40, 40]);
   }
   // Only the recent chats scroll; the account row stays pinned and visible.
-  await expect(sidebar.getByRole("button", { name: "Sign out" })).toBeInViewport();
+  await expect(sidebar.getByRole("link", { name: "Settings" })).toBeInViewport();
   expect(await sidebar.locator(".recents").evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
   await expect(sidebar.getByRole("button", { name: "Search or run a command" })).toBeVisible();
   await shot(page, "sidebar-many-chats");
@@ -40,7 +40,7 @@ test("phone: section headers wrap instead of squeezing", async ({ browser }) => 
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "dark" });
   await signUp(page, "Pia");
   await page.goto("/connections");
-  const heading = page.getByRole("heading", { name: "Popular apps" });
+  const heading = page.getByRole("heading", { name: "Connect your first app" });
   await expect(heading).toBeVisible();
   expect((await heading.boundingBox())!.height).toBeLessThanOrEqual(28); // one line
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);

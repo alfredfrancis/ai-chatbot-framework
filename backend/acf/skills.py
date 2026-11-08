@@ -44,9 +44,16 @@ class Skill:
     description: str
     path: str  # relative to the workspace, e.g. skills/charts/SKILL.md
     files: int
+    builtin: bool = False  # came with AI Chatbot Framework (acf/builtin_skills/), possibly changed since
 
     def to_dict(self) -> dict:
-        return {"name": self.name, "description": self.description, "path": self.path, "files": self.files}
+        return {
+            "name": self.name,
+            "description": self.description,
+            "path": self.path,
+            "files": self.files,
+            "builtin": self.builtin,
+        }
 
 
 class SkillError(ValueError):
@@ -156,13 +163,15 @@ def archive_stale(user_id: int, now: float | None = None) -> list[str]:
 
 def list_skills(user_id: int) -> list[Skill]:
     root = skills_root(user_id)
+    builtin = set(builtin_names())
     out = []
     for md in sorted(root.glob("*/SKILL.md")):
         meta = parse_frontmatter(md.read_text(errors="replace"))
         name = str(meta.get("name") or md.parent.name)
         desc = " ".join(str(meta.get("description") or "").split())
         files = sum(1 for p in md.parent.rglob("*") if p.is_file())
-        out.append(Skill(name=name, description=desc, path=f"{SKILLS_DIR}/{md.parent.name}/SKILL.md", files=files))
+        path = f"{SKILLS_DIR}/{md.parent.name}/SKILL.md"
+        out.append(Skill(name=name, description=desc, path=path, files=files, builtin=md.parent.name in builtin))
     return out
 
 

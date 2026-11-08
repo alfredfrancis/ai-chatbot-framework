@@ -1,7 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type Task } from "../api";
-import { Topbar, useApp } from "../App";
+import { PageHeader, Topbar, useApp } from "../App";
+import { IconCalendar, IconClock, IconGlobe, IconNote, IconPlus } from "../components/icons";
+import { MoreMenu } from "../components/Menu";
 import { Toggle } from "../components/Toggle";
 
 type Freq = "once" | "hourly" | "daily" | "weekdays" | "weekly" | "custom";
@@ -60,12 +62,27 @@ function when(iso: string | null): string {
   return fmt;
 }
 
-function TaskForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
-  const [name, setName] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [freq, setFreq] = useState<Freq>("daily");
-  const [time, setTime] = useState("08:00");
-  const [day, setDay] = useState(1);
+type Template = { name: string; prompt: string; freq: Freq; time: string; day: number; blurb: string; when: string; icon: ReactNode };
+
+/** Starting points on the empty Tasks page: each opens the form filled in, to change before saving. */
+const TEMPLATES: Template[] = [
+  { name: "Plan my day", freq: "weekdays", time: "08:00", day: 1, when: "Weekdays · 08:00", icon: <IconCalendar />,
+    blurb: "A short plan for the day from your notes and files.",
+    prompt: "Look at my notes and files and write a short plan for today: the three things that matter most, then the rest. Save it to notes/today.md." },
+  { name: "Weekly review", freq: "weekly", time: "16:00", day: 5, when: "Fridays · 16:00", icon: <IconNote />,
+    blurb: "What changed this week, what's done and what's next.",
+    prompt: "Review what changed in my files this week. Write what got done, what is still open and what's next. Save it to notes/weekly-review.md." },
+  { name: "Watch a web page", freq: "hourly", time: "00:00", day: 1, when: "Every hour", icon: <IconGlobe />,
+    blurb: "Tells you when a price or a page you care about changes.",
+    prompt: "Check https://example.com and tell me if anything important changed since the last check. Replace the address with the page to watch." },
+];
+
+function TaskForm({ initial, onDone, onCancel }: { initial?: Template; onDone: () => void; onCancel: () => void }) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [prompt, setPrompt] = useState(initial?.prompt ?? "");
+  const [freq, setFreq] = useState<Freq>(initial?.freq ?? "daily");
+  const [time, setTime] = useState(initial?.time ?? "08:00");
+  const [day, setDay] = useState(initial?.day ?? 1);
   const [custom, setCustom] = useState("0 9 * * *");
   const [runAt, setRunAt] = useState(tomorrowAt9);
   const [error, setError] = useState("");
@@ -150,7 +167,8 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(params.get("new") === "1");
-  const [confirm, setConfirm] = useState<number | null>(null);
+  const [template, setTemplate] = useState<Template | undefined>(undefined);
+  const create = (t?: Template) => { setTemplate(t); setCreating(true); };
   const navigate = useNavigate();
   const { refresh } = useApp();
 
@@ -168,9 +186,7 @@ export default function TasksPage() {
     if (r.chat_id) navigate(`/c/${r.chat_id}`);
   };
   const remove = async (t: Task) => {
-    if (confirm !== t.id) { setConfirm(t.id); return; }
     await api.del(`/tasks/${t.id}`);
-    setConfirm(null);
     load();
     refresh();
   };
@@ -184,18 +200,36 @@ export default function TasksPage() {
 
   return (
     <>
-      <Topbar title="Tasks">
-        {!creating && <button className="btn primary" onClick={() => setCreating(true)}>New task</button>}
-      </Topbar>
+      <Topbar title="Tasks" phoneOnly />
       <div className="page">
         <div className="page-inner">
-          <div>
-            <h1>Tasks</h1>
-            <p className="lead">Jobs your agent runs on a schedule or once at a set time. Each run opens as a chat.</p>
-          </div>
-          {creating && <TaskForm onCancel={() => setCreating(false)} onDone={() => { setCreating(false); load(); refresh(); }} />}
+          <PageHeader title="Tasks" lead="Work your agent does on a schedule. Each run opens as a chat you can read later.">
+            {!creating && !!tasks?.length && <button className="btn primary" onClick={() => create()}><IconPlus />New task</button>}
+          </PageHeader>
+          {creating && <TaskForm key={template?.name ?? ""} initial={template} onCancel={() => setCreating(false)}
+            onDone={() => { setCreating(false); load(); refresh(); }} />}
           {tasks && tasks.length === 0 && !creating && (
-            <div className="list"><div className="empty">No tasks yet. Create one to have the agent check, summarise or tidy things up for you regularly.</div></div>
+            <>
+              <section className="list empty-state" aria-labelledby="no-tasks">
+                <span className="badge-icon" aria-hidden="true"><IconClock /></span>
+                <div>
+                  <h2 id="no-tasks">Put your agent on a schedule</h2>
+                  <p>Describe the job and when it should run, in plain words. You'll find each result in Chats.</p>
+                </div>
+                <button className="btn primary lg" onClick={() => create()}><IconPlus />New task</button>
+              </section>
+              <section className="stack" aria-labelledby="task-templates">
+                <h2 className="subhead" id="task-templates">Start from a template</h2>
+                <div className="cards">
+                  {TEMPLATES.map((t) => (
+                    <button key={t.name} className="card-btn" onClick={() => create(t)} aria-label={`Use template: ${t.name}`}>
+                      {t.icon}<span className="title">{t.name}</span><span className="meta">{t.blurb}</span>
+                      <span className="badge plain">{t.when}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </>
           )}
           {tasks && tasks.length > 0 && (
             <div className="list">
@@ -219,8 +253,8 @@ export default function TasksPage() {
                     {badge(t)}
                     <button className="btn sm" onClick={() => runNow(t)}>Run now</button>
                     {!isDone(t) && <Toggle checked={t.enabled} onChange={(v) => toggle(t, v)} label={`${t.name} enabled`} />}
-                    <button className={`btn ${confirm === t.id ? "danger" : "ghost"} sm`} onClick={() => remove(t)}
-                      aria-label={confirm === t.id ? `Confirm delete ${t.name}` : `Delete ${t.name}`}>{confirm === t.id ? "Delete?" : "Delete"}</button>
+                    <MoreMenu label={`More actions for ${t.name}`}
+                      items={[{ label: "Delete task", confirm: "Yes, delete this task", onSelect: () => remove(t) }]} />
                   </div>
                 </div>
               ))}

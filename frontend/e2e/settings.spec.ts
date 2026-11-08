@@ -35,6 +35,9 @@ test("the server's key is only offered for the server's own model", async ({ pag
   await signUp(page);
   await nav(page).getByRole("link", { name: "Settings" }).click();
   await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Using the server's key");
+  // The server's own model needs no address; the field is one click away.
+  await expect(page.getByLabel(/Server address/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Use a custom server address" }).click();
   await page.getByLabel(/Server address/).fill("https://models.example.com");
   await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Paste your API key");
   await expect(page.getByText("The server's key only works with its own model provider and address.")).toBeVisible();

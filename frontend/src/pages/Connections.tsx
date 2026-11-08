@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, type McpPreset, type McpServer } from "../api";
-import { Topbar, useApp } from "../App";
+import { PageHeader, Topbar, useApp } from "../App";
+import { MoreMenu } from "../components/Menu";
 import { Toggle } from "../components/Toggle";
 
 const EXAMPLE = `{
@@ -173,7 +174,6 @@ function ServerRow({ s, editable, onChange, onEdit, onDelete }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [confirm, setConfirm] = useState(false);
 
   const signIn = async () => {
     setBusy(true);
@@ -222,31 +222,31 @@ function ServerRow({ s, editable, onChange, onEdit, onDelete }: {
       {s.state === "connected" && s.signed_in && <button className="btn ghost sm" onClick={signOut}>Sign out</button>}
       {editable && (
         <div className="side">
-          <button className="btn ghost sm" onClick={onEdit} aria-label={`Edit ${s.name}`}>Edit</button>
-          <button className={`btn ${confirm ? "danger" : "ghost"} sm`} aria-label={confirm ? `Confirm delete ${s.name}` : `Delete ${s.name}`}
-            onClick={() => (confirm ? onDelete() : setConfirm(true))} onBlur={() => setConfirm(false)}>{confirm ? "Delete?" : "Delete"}</button>
+          <MoreMenu label={`More actions for ${s.name}`} items={[
+            { label: "Edit", onSelect: onEdit },
+            { label: "Delete connection", confirm: "Yes, delete this connection", onSelect: onDelete },
+          ]} />
         </div>
       )}
     </div>
   );
 }
 
-function PresetRow({ p, onAdd }: { p: McpPreset; onAdd: (p: McpPreset) => Promise<void> }) {
+function PresetCard({ p, onAdd }: { p: McpPreset; onAdd: (p: McpPreset) => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const add = async () => {
     setBusy(true);
     try { await onAdd(p); } finally { setBusy(false); }
   };
   return (
-    <div className="lrow" data-testid={`preset-${p.id}`}>
-      <div className="tile" aria-hidden="true">{p.name[0]}</div>
-      <div className="grow">
-        <div className="title">{p.name}</div>
-        <div className="meta">{p.description}</div>
+    <div className="app-card" data-testid={`preset-${p.id}`}>
+      <div className="who">
+        <div className="tile" aria-hidden="true">{p.name[0]}</div>
+        <div className="text"><span className="title">{p.name}</span><span className="meta">{p.description}</span></div>
       </div>
       {p.added
         ? <span className="badge success">Added</span>
-        : <button className="btn ghost sm" onClick={add} disabled={busy} aria-label={`Add ${p.name}`}>{busy ? "Adding…" : "Add"}</button>}
+        : <button className="btn" onClick={add} disabled={busy} aria-label={`Connect ${p.name}`}>{busy ? "Connecting…" : "Connect"}</button>}
     </div>
   );
 }
@@ -315,27 +315,15 @@ export default function ConnectionsPage() {
     if (v === "form") setConfig(saved); // drop unsaved JSON edits
   };
 
+  const hasServers = !!servers?.length;
   return (
     <>
-    <Topbar title="Connections">
-      {view === "form" && !editing && entries && (
-        <button className="btn primary" onClick={() => setEditing({ name: null, draft: EMPTY })}>Add connection</button>
-      )}
-    </Topbar>
+    <Topbar title="Connections" phoneOnly />
     <div className="page">
       <div className="page-inner">
-        <div>
-          <h1>Connections</h1>
-          <p className="lead">Give your agent access to apps and tools. Local tools run inside your private sandbox.</p>
-        </div>
-
-        <div className="row-flex between wrap">
-          <h2>Your connections</h2>
-          <div className="seg" role="group" aria-label="Editor">
-            <button className="btn ghost sm" aria-pressed={view === "form"} onClick={() => switchView("form")}>Form</button>
-            <button className="btn ghost sm" aria-pressed={view === "json"} onClick={() => switchView("json")}>JSON</button>
-          </div>
-        </div>
+        <PageHeader title="Connections" lead="Connect the apps you use, and your agent can work with them in any chat.">
+          {view === "json" && <button className="btn" onClick={() => switchView("form")}>Back to connections</button>}
+        </PageHeader>
 
         {view === "form" ? (
           <>
@@ -345,15 +333,14 @@ export default function ConnectionsPage() {
             )}
             {(listError || !entries) && (
               <div className="banner" role="alert">
-                {listError || "The configuration isn't valid JSON."} Fix it in the JSON view.
+                {listError || "The configuration isn't valid JSON."} Fix it with Edit as JSON.
               </div>
             )}
-            <section aria-label="Connected servers">
-              {servers === null ? (
-                <div className="list"><div className="empty">Checking connections…</div></div>
-              ) : servers.length === 0 ? (
-                <div className="list"><div className="empty">No connections yet. Add one to give your agent new tools.</div></div>
-              ) : (
+            {servers === null ? (
+              <div className="list"><div className="empty">Checking connections…</div></div>
+            ) : hasServers && (
+              <section className="stack" aria-labelledby="your-connections">
+                <h2 id="your-connections">Your connections</h2>
                 <div className="list">
                   {servers.map((s) => (
                     <ServerRow key={s.name} s={s} onChange={refresh} editable={!!entries?.[s.name] && !editing}
@@ -361,17 +348,33 @@ export default function ConnectionsPage() {
                       onDelete={() => remove(s.name)} />
                   ))}
                 </div>
-              )}
-            </section>
+              </section>
+            )}
+            {servers !== null && !hasServers && presets.length === 0 && (
+              <div className="list"><div className="empty">No connections yet. Add one to give your agent new tools.</div></div>
+            )}
 
             {presets.length > 0 && (
-              <section className="stack" aria-labelledby="popular-apps">
+              <section className="stack" aria-label="Popular apps">
                 <div className="row-flex between wrap">
-                  <h2 id="popular-apps">Popular apps</h2>
-                  <span className="hint">Sign in with your account — no API key needed</span>
+                  <h2>{hasServers ? "Popular apps" : "Connect your first app"}</h2>
+                  <span className="hint">You sign in with your own account. No API keys.</span>
                 </div>
                 {presetError && <div className="banner" role="alert">{presetError}</div>}
-                <div className="list">{presets.map((p) => <PresetRow key={p.id} p={p} onAdd={addPreset} />)}</div>
+                <div className="app-grid">{presets.map((p) => <PresetCard key={p.id} p={p} onAdd={addPreset} />)}</div>
+              </section>
+            )}
+
+            {!editing && (
+              <section className="more-tools" aria-labelledby="more-tools">
+                <div>
+                  <h2 className="subhead" id="more-tools">Another app or tool</h2>
+                  <p className="hint">Add any MCP server by its address, or run a local one inside your sandbox.</p>
+                </div>
+                <div className="row-flex">
+                  <button className="btn ghost" onClick={() => switchView("json")}>Edit as JSON</button>
+                  <button className="btn" disabled={!entries} onClick={() => setEditing({ name: null, draft: EMPTY })}>Add custom connection</button>
+                </div>
               </section>
             )}
           </>
