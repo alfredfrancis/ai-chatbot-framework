@@ -85,6 +85,24 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # Run state shared by the app processes (acf/bus.py): who runs which chat, live events, stop.
+  # Nothing in it needs a backup; the database holds everything that lasts.
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    user: redis # the image's own non-root user, so its entrypoint needs no capabilities
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
+    restart: unless-stopped
+    logging: *logging
+
+  # Scale out and in at any time: docker compose up -d --scale app=3
   app:
     image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
     build: .
@@ -97,6 +115,8 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       <<: *sandbox-env
       DOCKER_HOST: tcp://docker-proxy:2375
@@ -104,6 +124,7 @@ services:
       # database backups; changing it makes stored secrets unreadable. `openssl rand -base64 48`
       ACF_SECRET_KEY: ${ACF_SECRET_KEY:?Set ACF_SECRET_KEY in .env}
       ACF_DB_URL: postgresql://acf:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/acf
+      ACF_REDIS_URL: redis://redis:6379/0
       ACF_PUBLIC_URL: https://${ACF_DOMAIN:-localhost}
       ACF_COOKIE_SECURE: "true"
       ACF_ALLOW_SIGNUP: ${ACF_ALLOW_SIGNUP:-}
@@ -128,6 +149,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    # Room for running agents to finish when a process is stopped (ACF_SHUTDOWN_GRACE is 20 s).
+    stop_grace_period: 40s
     restart: unless-stopped
     logging: *logging
 

@@ -1,8 +1,17 @@
 # Serves AI Chatbot Framework on $ACF_DOMAIN with an automatic certificate.
 {$ACF_DOMAIN:localhost} {
 	encode zstd gzip
-	reverse_proxy app:8000 {
-		# Stream agent events (server-sent events) without buffering.
+	reverse_proxy {
+		# Every app process (docker compose up -d --scale app=N), looked up again every few seconds.
+		dynamic a {
+			name app
+			port 8000
+			refresh 5s
+		}
+		lb_policy least_conn
+		# A process that is going away: try another one.
+		lb_try_duration 10s
+		# Stream agent events without buffering.
 		flush_interval -1
 	}
 }

@@ -159,9 +159,8 @@ def detail(user_id: int, app_id: str) -> dict[str, Any]:
     """The app as the UI shows it: its OpenUI Lang source, and whether the agent works on it."""
     app = get(user_id, app_id)
     chat_id = _chat_id(user_id, app_id)
-    run = agent.RUNS.get(chat_id) if chat_id else None
     source = workspace.read_file(user_id, f"{APPS_DIR}/{app_id}/{SCREEN}")[:MAX_SCREEN] if app.spec else ""
-    return {**app.summary(), "source": source, "chat_id": chat_id, "running": bool(run and not run.done)}
+    return {**app.summary(), "source": source, "chat_id": chat_id, "running": bool(chat_id and agent.running(chat_id))}
 
 
 # ------------------------------------------------------------------ actions

@@ -100,7 +100,12 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   // The board's agentNote and the button reached the agent in the app's own chat.
   await page.getByRole("link", { name: "Open chat" }).click();
   await expect(page.locator(".topbar .here")).toHaveText("Cockpit app");
-  await expect(page.getByTestId("assistant-msg").filter({ hasText: "synced-42" }).first()).toBeVisible();
+  // The agent ran the board's command. Check its output, not the reply: in a real sandbox the command takes
+  // long enough for the later moves to arrive as steering, and the reply then answers those.
+  const synced = page.getByTestId("tool-step").filter({ hasText: "Ran echo synced-" }).first();
+  await expect(synced.locator(".ok")).toBeVisible();
+  await synced.click();
+  await expect(page.locator(".step-output").filter({ hasText: "synced-42" }).first()).toBeVisible();
   await expect(page.getByText(/\[App: Cockpit, apps\/cockpit\/app.json\] Moved "Book flights" from "Do first" to "Schedule"/)).toBeVisible();
 
   // Apps are in the command menu too.

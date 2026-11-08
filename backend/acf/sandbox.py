@@ -37,7 +37,7 @@ from typing import Any
 import anyio
 import anyio.abc
 
-from acf import config, workspace
+from acf import bus, config, workspace
 
 MAX_OUTPUT = 2_000_000  # the agent truncates for the model and saves the full text
 WORKDIR = "/workspace"
@@ -380,7 +380,9 @@ class DockerSandbox(Sandbox):
         if not shutil.which("docker"):
             raise SandboxError("Docker CLI not found. Install Docker or set ACF_SANDBOX=local for development.")
         lock = _locks.setdefault(self.user_id, asyncio.Lock())
-        async with lock:
+        # One container per user: callers in this process wait on the asyncio lock, other processes on
+        # the bus lock (they would otherwise race to create, replace or start the same container).
+        async with lock, bus.current().hold(f"sandbox:{self.user_id}", timeout=420):
             state, ws_id = await self._inspect()
             expected = self._workspace_id()
             if state != "missing" and ws_id != expected:

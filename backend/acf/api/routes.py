@@ -155,7 +155,7 @@ def create_chat(body: ChatIn, db: Session = Depends(get_db), user: User = Depend
 def get_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
     chat = _own_chat(db, user, chat_id)
     msgs = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id).all()
-    return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": chat.id in agent.RUNS}
+    return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": agent.running(chat.id)}
 
 
 @router.get("/chats/{chat_id}/artifacts")

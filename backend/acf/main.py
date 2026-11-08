@@ -12,7 +12,8 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from acf import acp, auth, config, db, scheduler
+from acf import acp, auth, bus, config, db, scheduler
+from acf.agent import loop as agent
 from acf.api.routes import router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -20,15 +21,21 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    db.init_db()
-    with db.session_scope() as s:
-        auth.ensure_admin(s)
+    await bus.current().start()
+    # Processes starting together take turns: creating tables, the main account and the secret key file.
+    async with bus.current().hold("startup", timeout=300):
+        db.init_db()
+        with db.session_scope() as s:
+            auth.ensure_admin(s)
     task = asyncio.create_task(scheduler.loop()) if config.settings.scheduler_enabled else None
     yield
     if task:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+    # Scaling in or restarting: finish (or stop) this process's agents, then free its chats and locks.
+    await agent.shutdown(config.settings.shutdown_grace)
+    await bus.current().close()
 
 
 # Workspace files are the user's (or the agent's) content: never run them as part of the app.

@@ -44,6 +44,7 @@ from acf import config, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
 from acf.auth import COOKIE, user_for_acp_token, user_for_session
+from acf.bus import Feed
 from acf.db import Chat, Message, User, session_scope, utcnow
 
 log = logging.getLogger("acf.acp")
@@ -226,7 +227,7 @@ class Connection:
         self.user_id = user_id
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task] = set()
-        self._watchers: dict[int, tuple[agent.Run, asyncio.Task]] = {}
+        self._watchers: dict[int, tuple[str, asyncio.Task]] = {}  # chat -> (run id, forwarding task)
         self._chats: dict[int, Any] = {}  # chat id -> unwatch, for sessions this connection shows
 
     # -- io
@@ -326,9 +327,9 @@ class Connection:
         def on_event(e: dict[str, Any]) -> None:
             if e["type"] == "run":
                 current = self._watchers.get(chat_id)
-                if not (current and current[0] is e["run"]):
+                if not (current and current[0] == e["run_id"]):
                     self._spawn(self.notify("_acf/turn_start", {"sessionId": sid}))
-                    self._follow(e["run"], chat_id)
+                    self._follow(agent.feed(chat_id, e["run_id"]), chat_id)
             elif e["type"] == "message":
                 self._spawn(self._emit(sid, message_updates(e["message"])))
 
@@ -353,28 +354,31 @@ class Connection:
 
     def _follow(
         self,
-        run: agent.Run,
+        run: Feed,
         chat_id: int,
         *,
         skip_user: str | None = None,
         after_id: int = 0,
         answered: set[str] | None = None,
+        replayed: set[str] | None = None,
         gate: asyncio.Event | None = None,
     ) -> asyncio.Task:
         """Forward a run's events to this client (once per run), then send `_acf/turn_end`."""
         current = self._watchers.get(chat_id)
-        if current and current[0] is run:
+        if current and current[0] == run.run_id:
             return current[1]
         queue = run.listen()  # registered now, so nothing between here and the first await is missed
         # Streams whose message is already stored (and so replayed by session/load) are not re-sent.
-        replayed = {e.get("stream") for e in run.events if e["type"] == "message" and e["message"]["id"] <= after_id}
+        replayed = (replayed or set()) | {
+            e.get("stream") for e in run.events if e["type"] == "message" and e["message"]["id"] <= after_id
+        }
         task = self._spawn(self._forward(run, chat_id, queue, skip_user, after_id, answered or set(), replayed, gate))
-        self._watchers[chat_id] = (run, task)
+        self._watchers[chat_id] = (run.run_id, task)
         return task
 
     async def _forward(
         self,
-        run: agent.Run,
+        run: Feed,
         chat_id: int,
         queue: asyncio.Queue,
         skip_user: str | None,
@@ -392,6 +396,9 @@ class Connection:
                 e = await queue.get()
                 kind = e["type"]
                 if kind == "done":
+                    end: dict[str, Any] = {"sessionId": sid, "stopReason": e.get("stop_reason") or "end_turn"}
+                    if e.get("error"):
+                        end["error"] = e["error"]
                     break
                 if kind == "message":
                     m = e["message"]
@@ -425,13 +432,10 @@ class Connection:
                         "updatedAt": utcnow().isoformat() + "Z",
                     }
                     await self._emit(sid, [update])
-            end: dict[str, Any] = {"sessionId": sid, "stopReason": run.stop_reason}
-            if run.error:
-                end["error"] = run.error
             await self.notify("_acf/turn_end", end)
         finally:
             run.unlisten(queue)
-            if self._watchers.get(chat_id, (None,))[0] is run:
+            if self._watchers.get(chat_id, (None,))[0] == run.run_id:
                 del self._watchers[chat_id]
 
 
@@ -479,8 +483,7 @@ async def session_list(conn: Connection, params: dict[str, Any]) -> dict[str, An
 async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
     chat_id = conn._own_chat(params)
     sid = str(chat_id)
-    run = agent.RUNS.get(chat_id)
-    run = run if run and not run.done else None
+    run = agent.active(chat_id)
     gate = asyncio.Event()
     with session_scope() as db:
         stored = db.query(Message).filter_by(chat_id=chat_id).order_by(Message.id).all()
@@ -488,10 +491,13 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
         last_usage = next(
             (m.raw["usage"] for m in reversed(stored) if m.role == "assistant" and (m.raw or {}).get("usage")), None
         )
+        # Streams whose answer is stored: their deltas may still reach a feed that trails another process.
+        replayed = {(m.raw or {}).get("stream") for m in stored if m.role == "assistant"} - {None}
     answered = {m["tool_call_id"] for m in rows if m["role"] == "tool"}
     conn._watch(chat_id)
     if run:  # listen before replaying, so events emitted meanwhile are queued, not lost
-        conn._follow(run, chat_id, after_id=rows[-1]["id"] if rows else 0, answered=answered, gate=gate)
+        after_id = rows[-1]["id"] if rows else 0
+        conn._follow(run, chat_id, after_id=after_id, answered=answered, replayed=replayed, gate=gate)
     for m in rows:
         await conn._emit(sid, message_updates(m))
     if last_usage:
@@ -506,9 +512,10 @@ async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, 
     run, queued = agent.start(conn._user(), chat_id, text)
     task = conn._follow(run, chat_id, skip_user=None if queued else text)
     await asyncio.wait({task})
-    if run.error:
-        raise RpcError(RUN_FAILED, run.error)
-    return {"stopReason": run.stop_reason}
+    done = run.result or {}
+    if done.get("error"):
+        raise RpcError(RUN_FAILED, done["error"])
+    return {"stopReason": done.get("stop_reason") or "end_turn"}
 
 
 METHODS = {

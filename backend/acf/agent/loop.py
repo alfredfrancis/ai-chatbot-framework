@@ -27,6 +27,9 @@ Design (borrowing from pi, Hermes and Claude Code):
   new user turn, if the history is too long, older messages are summarised into one compaction record.
 - Stop cancels the run; dangling tool calls get a "stopped" result so the history stays valid.
 - Every step is an event; late subscribers (a reloaded page) get a replay, then live events.
+- Run state is shared through the bus (acf/bus.py), so any app process can serve any chat: a run holds
+  its chat's lease, reads its inbox (messages and job notes sent from any process) and publishes its
+  events to a feed; stop and steering are signals to every process.
 """
 
 from __future__ import annotations
@@ -36,7 +39,7 @@ import contextlib
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langchain_core.messages import (
@@ -50,7 +53,7 @@ from langchain_core.messages import (
     messages_from_dict,
 )
 
-from acf import config, skills, workspace
+from acf import bus, config, skills, workspace
 from acf.agent import prompt, review, transcripts, usage
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, truncate
 from acf.db import Chat, Message, User, session_scope, utcnow
@@ -146,9 +149,10 @@ def repair(chat_id: int) -> None:
                         )
                         answered.add(tc["id"])
         reported = {m.background for m in rows if m.role == "user" and m.background}
+        running = bus.current().jobs(chat_id)
         for m in rows:
             job = m.background if m.role == "tool" else None
-            if job and job not in reported and job not in JOBS:
+            if job and job not in reported and job not in running:
                 db.add(_job_note_row(chat_id, job, m.tool_call_id or "", m.name or "", JOB_LOST, True, None))
 
 
@@ -198,14 +202,21 @@ def load_history(chat_id: int) -> list[BaseMessage]:
 # ------------------------------------------------------------------ the run
 
 
+def _text_item(text: str) -> dict[str, Any]:
+    return {"kind": "text", "text": text}
+
+
+def _note_item(fields: dict[str, Any]) -> dict[str, Any]:
+    return {"kind": "note", "fields": fields}
+
+
 class Run:
-    def __init__(self, user: User, chat_id: int):
+    def __init__(self, user: User, chat_id: int, run_id: str | None = None):
         self.user = user
         self.chat_id = chat_id
-        self.inbox: asyncio.Queue[str | dict[str, Any]] = asyncio.Queue()  # user text, or a job's note row
+        self.id = run_id or bus.new_id()
+        self.feed = bus.current().feed(chat_id, self.id, local=True)
         self._nudged = asyncio.Event()
-        self.events: list[dict[str, Any]] = []
-        self._listeners: list[asyncio.Queue] = []
         self.task: asyncio.Task | None = None
         self.final_text = ""
         self.ok = True
@@ -217,40 +228,19 @@ class Run:
 
     # -- events
     def emit(self, event: dict[str, Any]) -> None:
-        self.events.append(event)
-        for q in self._listeners:
-            q.put_nowait(event)
+        bus.current().publish(self.feed, event)
 
-    def listen(self) -> asyncio.Queue:
-        """Register a listener now: it gets every event so far, then live ones."""
-        q: asyncio.Queue = asyncio.Queue()
-        for e in self.events:
-            q.put_nowait(e)
-        self._listeners.append(q)
-        return q
-
-    def unlisten(self, q: asyncio.Queue) -> None:
-        if q in self._listeners:
-            self._listeners.remove(q)
-
-    async def subscribe(self) -> AsyncIterator[dict[str, Any]]:
-        q = self.listen()
-        try:
-            while True:
-                e = await q.get()
-                yield e
-                if e["type"] == "done":
-                    return
-        finally:
-            self.unlisten(q)
+    @property
+    def events(self) -> list[dict[str, Any]]:
+        return self.feed.events
 
     @property
     def done(self) -> bool:
         return self.task is not None and self.task.done()
 
     # -- control
-    def steer(self, text: str) -> None:
-        self.inbox.put_nowait(text)
+    def nudge(self, text: str) -> None:
+        """A message was pushed to the chat's inbox: restart a model call that hasn't started answering."""
         self._nudged.set()
         self.emit({"type": "queued", "text": text})
 
@@ -260,14 +250,19 @@ class Run:
 
     # -- main
     async def main(self) -> None:
+        b = bus.current()
         try:
-            while not self.inbox.empty():
-                await self._turn()
+            while True:
+                while b.pending(self.chat_id):
+                    await self._turn()
+                # Release, then look again: a message pushed meanwhile is ours if no one else took the chat.
+                b.release(self.chat_id, self.id)
+                if not b.pending(self.chat_id) or not b.claim(self.chat_id, self.id):
+                    break
         except asyncio.CancelledError:
-            while not self.inbox.empty():  # keep the output of jobs that finished just before the stop
-                item = self.inbox.get_nowait()
-                if isinstance(item, dict):
-                    self.emit({"type": "message", "message": _save(self.chat_id, **item)})
+            for item in b.take(self.chat_id):  # keep the output of jobs that finished just before the stop
+                if item["kind"] == "note":
+                    self.emit({"type": "message", "message": _save(self.chat_id, **item["fields"])})
             repair(self.chat_id)
             self.stop_reason = "cancelled"
             self.emit({"type": "stopped"})
@@ -277,9 +272,19 @@ class Run:
             self.final_text = self.error = f"Something went wrong: {e}"
             self.emit({"type": "error", "error": self.final_text})
         finally:
-            RUNS.pop(self.chat_id, None)
+            b.release(self.chat_id, self.id)
+            if RUNS.get(self.chat_id) is self:
+                RUNS.pop(self.chat_id)
             transcripts.save(self.user.id, self.chat_id)
-            self.emit({"type": "done"})
+            self.emit(
+                {
+                    "type": "done",
+                    "stop_reason": self.stop_reason,
+                    "error": self.error,
+                    "ok": self.ok,
+                    "final_text": self.final_text,
+                }
+            )
         if self.stop_reason != "cancelled" and self.ok:
             try:
                 review.maybe_start(self.user, self.chat_id, self.system)
@@ -288,9 +293,8 @@ class Run:
 
     def _inject_user_messages(self, history: list[BaseMessage]) -> bool:
         got = False
-        while not self.inbox.empty():
-            item = self.inbox.get_nowait()
-            fields = item if isinstance(item, dict) else {"role": "user", "content": item}
+        for item in bus.current().take(self.chat_id):
+            fields = item["fields"] if item["kind"] == "note" else {"role": "user", "content": item["text"]}
             msg = _save(self.chat_id, **fields)
             history.append(HumanMessage(fields["content"]))
             self.emit({"type": "message", "message": msg})
@@ -402,7 +406,7 @@ class Run:
                     role="assistant",
                     content=text,
                     tool_calls=[{"id": c["id"], "name": c["name"], "arguments": c["args"]} for c in calls] or None,
-                    raw={"lc": message_to_dict(ai), "usage": self.usage},
+                    raw={"lc": message_to_dict(ai), "usage": self.usage, "stream": stream_id},
                 )
                 self.emit({"type": "message", "message": saved, "stream": stream_id})
                 self.emit({"type": "usage", "usage": self.usage})
@@ -422,20 +426,29 @@ class Run:
         """Stream the model's answer. If the user steers before it starts answering, restart the call with
         their message; once it is answering, let it finish (the message is read at the next step)."""
         while True:
-            self._inject_user_messages(history)
             self._nudged.clear()
+            self._inject_user_messages(history)
             stream = _Stream()
             call = asyncio.ensure_future(self._stream(model, [system, *history], stream))
-            nudge = asyncio.ensure_future(self._nudged.wait())
+            nudge: asyncio.Future | None = None
             try:
-                done, _ = await asyncio.wait({call, nudge}, return_when=asyncio.FIRST_COMPLETED)
+                while True:
+                    nudge = asyncio.ensure_future(self._nudged.wait())
+                    done, _ = await asyncio.wait({call, nudge}, return_when=asyncio.FIRST_COMPLETED)
+                    if call in done or stream.answering:
+                        break
+                    self._nudged.clear()
+                    if bus.current().pending(self.chat_id):
+                        break  # restart with the new message
+                    # A late nudge for a message this call already has (signals can trail the inbox).
                 if call not in done and stream.answering:
                     return await call, stream.id
             except asyncio.CancelledError:
                 self._keep_partial(stream)
                 raise
             finally:
-                nudge.cancel()
+                if nudge:
+                    nudge.cancel()
                 if not call.done():
                     call.cancel()
             if call.done() and not call.cancelled():
@@ -462,7 +475,8 @@ class Run:
         if not text:
             return
         ai = AIMessage(content=text)
-        saved = _save(self.chat_id, role="assistant", content=text, raw={"lc": message_to_dict(ai)})
+        raw = {"lc": message_to_dict(ai), "stream": stream.id}
+        saved = _save(self.chat_id, role="assistant", content=text, raw=raw)
         self.final_text = text
         self.emit({"type": "message", "message": saved, "stream": stream.id})
 
@@ -527,28 +541,63 @@ class Run:
             raise
 
 
-RUNS: dict[int, Run] = {}
+RUNS: dict[int, Run] = {}  # runs this process is running, by chat
 
 
-def _new_run(user: User, chat_id: int, item: str | dict[str, Any]) -> Run:
-    run = Run(user, chat_id)
+def _new_run(user: User, chat_id: int, run_id: str) -> Run:
+    run = Run(user, chat_id, run_id)
     RUNS[chat_id] = run
-    run.inbox.put_nowait(item)
     run.task = asyncio.create_task(run.main())
     return run
 
 
-def start(user: User, chat_id: int, text: str) -> tuple[Run, bool]:
-    """Send a message: start a run, or steer the active one. Returns (run, queued)."""
-    run = RUNS.get(chat_id)
-    if run and not run.done:
-        run.steer(text)
-        return run, True
-    return _new_run(user, chat_id, text), False
+def _submit(user: User, chat_id: int, item: dict[str, Any], steer: str | None = None) -> tuple[bus.Feed, bool]:
+    """Put an item in the chat's inbox, then start a run here or leave it to the one running (anywhere).
+    Returns (the feed of the run that reads it, whether that run was already running)."""
+    b = bus.current()
+    b.push(chat_id, item)
+    for _ in range(100):
+        run_id = bus.new_id()
+        if b.claim(chat_id, run_id):
+            return _new_run(user, chat_id, run_id).feed, False
+        owner = b.owner(chat_id)
+        if owner:
+            if steer is not None:
+                b.signal({"op": "steer", "chat_id": chat_id, "text": steer})
+            return b.feed(chat_id, owner), True
+    raise RuntimeError(f"Could not start a run for chat {chat_id}")
+
+
+def start(user: User, chat_id: int, text: str) -> tuple[bus.Feed, bool]:
+    """Send a message: start a run, or steer the active one. Returns (its feed, queued)."""
+    return _submit(user, chat_id, _text_item(text), steer=text)
+
+
+def active(chat_id: int) -> bus.Feed | None:
+    """The feed of the chat's running run, wherever it runs."""
+    b = bus.current()
+    run_id = b.owner(chat_id)
+    if not run_id:
+        return None
+    feed = b.feed(chat_id, run_id)
+    return None if feed.done else feed
+
+
+def feed(chat_id: int, run_id: str) -> bus.Feed:
+    return bus.current().feed(chat_id, run_id)
+
+
+def running(chat_id: int) -> bool:
+    return bus.current().owner(chat_id) is not None
 
 
 def stop(chat_id: int) -> None:
-    """Stop the chat's run and its background commands."""
+    """Stop the chat's run and its background commands, in whichever process runs them."""
+    bus.current().signal({"op": "stop", "chat_id": chat_id})
+
+
+def _on_stop(msg: dict[str, Any]) -> None:
+    chat_id = msg["chat_id"]
     run = RUNS.get(chat_id)
     if run:
         run.stop()
@@ -556,10 +605,42 @@ def stop(chat_id: int) -> None:
         job.task.cancel()
 
 
+def _on_steer(msg: dict[str, Any]) -> None:
+    run = RUNS.get(msg["chat_id"])
+    if run and not run.done:
+        run.nudge(msg["text"])
+
+
+def _on_lost(msg: dict[str, Any]) -> None:
+    """Another process took this chat (this one was cut off from the bus): stop here."""
+    run = RUNS.get(msg["chat_id"])
+    if run:
+        run.stop()
+
+
+async def shutdown(grace: float) -> None:
+    """Scale in / restart: let running agents finish for `grace` seconds, then stop them and the jobs.
+    Only this event loop's work (tests serve a second app in a thread of the same process)."""
+    loop = asyncio.get_running_loop()
+    runs = lambda: [r for r in RUNS.values() if r.task and not r.task.done() and r.task.get_loop() is loop]  # noqa: E731
+    jobs = [j for j in JOBS.values() if j.task.get_loop() is loop]
+    if runs():
+        await asyncio.wait([r.task for r in runs()], timeout=grace)
+    for job in jobs:
+        job.lost = True
+        job.task.cancel()
+    for run in runs():
+        run.stop()
+    pending = [t for t in [*(r.task for r in runs()), *(j.task for j in jobs)] if t and not t.done()]
+    if pending:
+        await asyncio.wait(pending, timeout=10)
+
+
 # ------------------------------------------------------------------ chat watchers
 
 # Clients that show a chat hear about what happens outside a run they follow: a run started by a finished
-# background command ({"type": "run", "run": Run}) and a note saved while no run reads it ({"type": "message"}).
+# background command ({"type": "run", "run_id": …}) and a note saved while no run reads it ({"type": "message"}).
+# Events go out as a bus signal, so clients connected to any process hear them.
 _watchers: dict[int, list[Callable[[dict[str, Any]], None]]] = {}
 
 
@@ -577,9 +658,13 @@ def watch_chat(chat_id: int, callback: Callable[[dict[str, Any]], None]) -> Call
 
 
 def _broadcast(chat_id: int, event: dict[str, Any]) -> None:
-    for cb in list(_watchers.get(chat_id, [])):
+    bus.current().signal({"op": "chat", "chat_id": chat_id, "event": event})
+
+
+def _on_chat(msg: dict[str, Any]) -> None:
+    for cb in list(_watchers.get(msg["chat_id"], [])):
         try:
-            cb(event)
+            cb(msg["event"])
         except Exception:  # noqa: BLE001 - one broken client must not break the others
             log.exception("chat watcher failed")
 
@@ -591,9 +676,10 @@ class Job:
     def __init__(self, job_id: str, user: User, chat_id: int, call: dict, label: str):
         self.id, self.user, self.chat_id, self.call, self.label = job_id, user, chat_id, call, label
         self.task: asyncio.Task
+        self.lost = False  # cancelled by a shutdown, not by the user
 
 
-JOBS: dict[str, Job] = {}
+JOBS: dict[str, Job] = {}  # background commands this process runs
 
 
 def _job_note_row(
@@ -619,10 +705,11 @@ def _job_note(
 
 def start_job(user: User, chat_id: int, call: dict, label: str, work: Callable[[], Awaitable[ToolResult]]) -> str:
     """Run `work` in the background for this chat; its result is reported as a note (see _finish)."""
-    if sum(1 for j in JOBS.values() if j.chat_id == chat_id) >= MAX_JOBS:
+    if len(bus.current().jobs(chat_id)) >= MAX_JOBS:
         raise ValueError(f"{MAX_JOBS} background commands are already running. Wait for one to finish.")
     job = Job("bg-" + uuid.uuid4().hex[:6], user, chat_id, call, label)
     JOBS[job.id] = job
+    bus.current().add_job(chat_id, job.id)
     job.task = asyncio.create_task(_job_main(job, work))
     return job.id
 
@@ -633,25 +720,31 @@ async def _job_main(job: Job, work: Callable[[], Awaitable[ToolResult]]) -> None
     try:
         result = await work()
     except asyncio.CancelledError:
-        result, stopped = ToolResult(JOB_STOPPED, True), True
+        result, stopped = ToolResult(JOB_LOST if job.lost else JOB_STOPPED, True), True
     except Exception as e:  # noqa: BLE001
         log.exception("background job failed")
         result = ToolResult(f"The command could not run: {e}", True)
     finally:
         JOBS.pop(job.id, None)
+        bus.current().drop_job(job.id)
     ms = int((time.monotonic() - started) * 1000)
     note = _job_note(job.id, job.call["id"], job.call["name"], result.content, result.is_error, ms, job.label)
-    run = RUNS.get(job.chat_id)
     if stopped:  # a stop doesn't wake the agent: save it for the next turn and tell who is watching
         _broadcast(job.chat_id, {"type": "message", "message": _save(job.chat_id, **note)})
-    elif run and not run.done:
-        run.inbox.put_nowait(note)  # read at the run's next step
-    else:
-        _broadcast(job.chat_id, {"type": "run", "run": _new_run(job.user, job.chat_id, note)})
+        return
+    # Read at the next step of the chat's run (in any process), or start one here.
+    feed, queued = _submit(job.user, job.chat_id, _note_item(note))
+    if not queued:
+        _broadcast(job.chat_id, {"type": "run", "run_id": feed.run_id})
 
 
 async def run_to_completion(user: User, chat_id: int, text: str) -> tuple[str, bool]:
-    run, _ = start(user, chat_id, text)
-    assert run.task
-    await asyncio.shield(run.task)
-    return run.final_text, run.ok
+    feed, _ = start(user, chat_id, text)
+    done = await asyncio.shield(feed.wait())
+    return done.get("final_text", ""), bool(done.get("ok"))
+
+
+bus.handle("stop", _on_stop)
+bus.handle("steer", _on_steer)
+bus.handle("lost", _on_lost)
+bus.handle("chat", _on_chat)

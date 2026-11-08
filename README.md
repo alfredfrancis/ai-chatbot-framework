@@ -108,6 +108,23 @@ socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containe
 settings. Sandboxes run under gVisor, as a non-root user, on their own network, behind an egress firewall
 on the host. **Set up the host as described in [deploy/README.md](deploy/README.md) before going public.**
 
+### Scale out and in
+
+The app is stateless between requests: run state is shared through Redis (in the stack), so you can run
+as many app processes as you like and add or remove them at any time:
+
+```sh
+docker compose up -d --scale app=3
+```
+
+Caddy spreads requests and chat connections over them and picks up new ones within seconds. Any process
+serves any chat; each user still has one sandbox and one workspace. A process that is stopped lets its
+running agents finish first (`ACF_SHUTDOWN_GRACE`, default 20 s); its clients reconnect to another one and
+keep following. One that crashes frees its chats after `ACF_BUS_TTL` (30 s). Across several machines,
+every app process needs the same PostgreSQL, Redis and Docker proxy, and the data folder at the same path
+(shared storage), because sandboxes mount workspaces from the Docker host. How it works:
+[architecture](docs/architecture.md#several-app-processes-backendacfbuspy).
+
 ## Develop in Docker
 
 ```sh
@@ -153,6 +170,10 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
 | `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
+| `ACF_REDIS_URL` | – (set in the production stack) | Redis for run state shared between app processes. Needed for more than one process; unset keeps it in memory |
+| `ACF_REDIS_PREFIX` | `acf` | Key prefix, to share one Redis between deployments |
+| `ACF_BUS_TTL` | `30` | Seconds before a dead process's chats, locks and background commands are freed |
+| `ACF_SHUTDOWN_GRACE` | `20` | Seconds a stopping process gives its running agents to finish |
 
 Other LangChain providers need their package installed (`pip install langchain-ollama`, …).
 
@@ -254,7 +275,6 @@ Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architectur
 
 - Sandboxes refuse to start when the workspace belongs to root: run the app as a normal user.
 - No per-user quotas yet (model spend, disk, number of sandboxes), and no rate limiting on sign-in.
-- One app process: the scheduler and running agents live in it, so don't run several replicas.
 
 ## License
 
