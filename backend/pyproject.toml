@@ -18,6 +18,7 @@ dependencies = [
   "croniter>=6.0",
   "python-multipart>=0.0.20",
   "cryptography>=43",
+  "alembic>=1.14",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +32,7 @@ build-backend = "setuptools.build_meta"
 include = ["acf*"]
 
 [tool.setuptools.package-data]
-acf = ["builtin_skills/**/*"]
+acf = ["builtin_skills/**/*", "migrations/*.mako", "migrations/*.py", "migrations/versions/*.py"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

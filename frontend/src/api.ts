@@ -7,7 +7,8 @@ export type Task = {
   id: number;
   name: string;
   prompt: string;
-  schedule: string;
+  schedule: string; // cron; "" for a one-off task
+  run_at: string | null; // one-off: when it runs (UTC)
   timezone: string;
   enabled: boolean;
   next_run_at: string | null;
