@@ -21,7 +21,16 @@ def make_zip(files: dict[str, bytes]) -> bytes:
     return buf.getvalue()
 
 
-BUILTIN = {"action-items", "cited-research", "pdf", "plain-writing", "price-watch", "skill-creator", "weekly-review"}
+BUILTIN = {
+    "action-items",
+    "cited-research",
+    "pdf",
+    "personal-assistant",
+    "plain-writing",
+    "price-watch",
+    "skill-creator",
+    "weekly-review",
+}
 
 
 async def test_builtin_skills_seeded(client, user):

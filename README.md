@@ -38,8 +38,10 @@ its own private computer, their files, skills, app connections and scheduled job
   moment can show up too. `context.md`, `memory.md`, hidden files and deleted files are not listed.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
-  Built in: `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research` and
-  `plain-writing`. Skills unused for `ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/`.
+  Built in: `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research`,
+  `plain-writing` and `personal-assistant` (a proactive assistant over email, calendar and other apps, with
+  a first-run interview that saves preferences to `assistant/profile.md`). Skills unused for
+  `ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/`.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
   Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
   definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
