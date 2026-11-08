@@ -8,7 +8,19 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, create_engine, event, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    event,
+    inspect,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 from sqlalchemy.types import TypeDecorator
 
@@ -128,7 +140,8 @@ class Task(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     prompt: Mapped[str] = mapped_column(Text)
-    schedule: Mapped[str] = mapped_column(String(100))  # 5-field cron expression
+    schedule: Mapped[str] = mapped_column(String(100))  # 5-field cron expression; "" for a one-off task
+    run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # one-off: when, naive UTC
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -172,8 +185,31 @@ def normalize_url(url: str) -> str:
     return url
 
 
+BASELINE_REVISION = "0001"  # the schema as `create_all` made it before migrations existed
+
+
+def migrate(engine=None) -> None:
+    """Bring the schema up to date with the migrations in acf/migrations (Alembic). A database made by an
+    older version, before migrations existed, is marked as the baseline first and then upgraded."""
+    from importlib.resources import files
+
+    from alembic import command
+    from alembic.config import Config
+
+    engine = engine or _engine
+    assert engine is not None
+    cfg = Config()
+    cfg.set_main_option("script_location", str(files("acf") / "migrations"))
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        tables = set(inspect(conn).get_table_names())
+        if "users" in tables and "alembic_version" not in tables:
+            command.stamp(cfg, BASELINE_REVISION)
+        command.upgrade(cfg, "head")
+
+
 def init_db() -> None:
-    """Connect and create missing tables. PostgreSQL in Docker deployments; SQLite for quick local runs."""
+    """Connect and migrate the schema. PostgreSQL in Docker deployments; SQLite for quick local runs."""
     global _engine, _SessionLocal
     url = normalize_url(config.settings.db_url)
     kwargs: dict[str, Any] = {}
@@ -193,7 +229,7 @@ def init_db() -> None:
             cur.execute("PRAGMA journal_mode=WAL")
             cur.close()
 
-    Base.metadata.create_all(_engine)
+    migrate(_engine)
     _SessionLocal = sessionmaker(_engine, expire_on_commit=False)
     encrypt_existing()
 

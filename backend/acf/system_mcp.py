@@ -31,7 +31,15 @@ Prompt = Annotated[
     str, Field(min_length=1, max_length=20_000, description="What the agent should do on each run, in full")
 ]
 Schedule = Annotated[
-    str, Field(max_length=100, description="5-field cron expression, e.g. '0 9 * * 1-5' (09:00 on weekdays)")
+    str,
+    Field(max_length=100, description="Repeating: 5-field cron expression, e.g. '0 9 * * 1-5' (09:00 on weekdays)"),
+]
+RunAt = Annotated[
+    str,
+    Field(
+        max_length=40,
+        description="Once: local date and time in `timezone`, e.g. '2026-11-09T14:30'. Must be in the future.",
+    ),
 ]
 Timezone = Annotated[str, Field(max_length=64, description="IANA time zone of the schedule, e.g. 'Europe/Lisbon'")]
 
@@ -50,7 +58,7 @@ def _invalid_as_error() -> Iterator[None]:
 
 
 def server(user_id: int) -> MCPServer:
-    mcp = MCPServer(NAME, instructions="Features of AI Chatbot Framework: recurring tasks.")
+    mcp = MCPServer(NAME, instructions="Features of AI Chatbot Framework: scheduled tasks.")
 
     def own(db, task_id: int) -> Task:
         task = db.get(Task, task_id)
@@ -60,17 +68,32 @@ def server(user_id: int) -> MCPServer:
 
     @mcp.tool(annotations=_READ)
     def list_tasks() -> str:
-        """List the user's recurring tasks (also shown on the Tasks page)."""
+        """List the user's scheduled tasks, repeating and one-off (also shown on the Tasks page)."""
         with session_scope() as db:
             tasks = db.query(Task).filter_by(user_id=user_id).order_by(Task.id).all()
             return json.dumps([scheduler.as_dict(t) for t in tasks], indent=2)
 
     @mcp.tool(annotations=_WRITE)
-    def create_task(name: Name, prompt: Prompt, schedule: Schedule, timezone: Timezone, enabled: bool = True) -> str:
-        """Create a recurring task: on each scheduled run the agent gets `prompt` in a new chat, without the
-        current conversation, so write the prompt so it stands on its own. Ask the user for their time zone
-        if you do not know it."""
-        fields = {"name": name, "prompt": prompt, "schedule": schedule, "timezone": timezone, "enabled": enabled}
+    def create_task(
+        name: Name,
+        prompt: Prompt,
+        timezone: Timezone,
+        schedule: Schedule | None = None,
+        run_at: RunAt | None = None,
+        enabled: bool = True,
+    ) -> str:
+        """Schedule a task: give `schedule` for a repeating task or `run_at` for one that runs once (a
+        reminder, "in 2 hours", "tomorrow at 9"). On each run the agent gets `prompt` in a new chat, without
+        the current conversation, so write the prompt so it stands on its own. Ask the user for their time
+        zone if you do not know it. A one-off task turns itself off after its run."""
+        fields = {
+            "name": name,
+            "prompt": prompt,
+            "schedule": schedule,
+            "run_at": run_at,
+            "timezone": timezone,
+            "enabled": enabled,
+        }
         with session_scope() as db, _invalid_as_error():
             return json.dumps(scheduler.as_dict(scheduler.create(db, user_id, fields)), indent=2)
 
@@ -80,11 +103,20 @@ def server(user_id: int) -> MCPServer:
         name: Name | None = None,
         prompt: Prompt | None = None,
         schedule: Schedule | None = None,
+        run_at: RunAt | None = None,
         timezone: Timezone | None = None,
         enabled: bool | None = None,
     ) -> str:
-        """Change a task. Leave out what stays the same; enabled=false pauses it."""
-        fields = {"name": name, "prompt": prompt, "schedule": schedule, "timezone": timezone, "enabled": enabled}
+        """Change a task. Leave out what stays the same; enabled=false pauses it. Setting `schedule` makes it
+        repeating, setting `run_at` makes it run once."""
+        fields = {
+            "name": name,
+            "prompt": prompt,
+            "schedule": schedule,
+            "run_at": run_at,
+            "timezone": timezone,
+            "enabled": enabled,
+        }
         with session_scope() as db, _invalid_as_error():
             return json.dumps(scheduler.as_dict(scheduler.update(own(db, task_id), fields)), indent=2)
 

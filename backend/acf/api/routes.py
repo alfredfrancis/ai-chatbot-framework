@@ -594,7 +594,8 @@ async def oauth_callback(body: OAuthCallbackIn, user: User = Depends(current_use
 class TaskIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     prompt: str = Field(min_length=1, max_length=20_000)
-    schedule: str = Field(max_length=100)
+    schedule: str = Field("", max_length=100)  # cron; leave empty for a one-off task
+    run_at: str | None = Field(None, max_length=40)  # one-off: ISO date-time, local to `timezone` without offset
     timezone: str = Field("UTC", max_length=64)
     enabled: bool = True
 
@@ -603,6 +604,7 @@ class TaskPatch(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     prompt: str | None = Field(None, min_length=1, max_length=20_000)
     schedule: str | None = Field(None, max_length=100)
+    run_at: str | None = Field(None, max_length=40)
     timezone: str | None = Field(None, max_length=64)
     enabled: bool | None = None
 

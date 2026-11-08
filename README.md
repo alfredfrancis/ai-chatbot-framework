@@ -57,8 +57,8 @@ its own private computer, their files, skills, app connections and scheduled job
   chat, answered in the background), `run` (an `apps/<id>/actions/<name>.sh` script in the sandbox) and
   `mcp` (read-only tools of connected apps; anything that changes things goes through the agent).
   Diagrams: [docs/personal-apps.md](docs/personal-apps.md).
-- **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat. Set them up on the Tasks page or
-  just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
+- **Scheduled tasks** – repeating ("every weekday at 08:00 …") or once ("tomorrow at 17:00"); each run becomes a
+  chat, and a one-off task turns itself off after its run. Set them up on the Tasks page or just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
   `delete_task` and `run_task` (the server name `system` is reserved).
 - **Agent Client Protocol (ACP)** – the chat speaks [ACP](https://agentclientprotocol.com) over a
   WebSocket, and so can your own apps and editors. Create an optional access token in
@@ -169,6 +169,10 @@ which the form keeps but doesn't edit). The API equivalents are `PUT`/`DELETE /a
 }
 ```
 
+`oauth.authorize_params` adds parameters to the provider's sign-in URL. Google, for example, only issues a
+refresh token with `{ "access_type": "offline", "prompt": "consent" }`; without one the connection ends when
+the access token expires.
+
 **Popular apps.** The Connections page lists remote MCP servers that support OAuth dynamic client
 registration — Linear, Notion, Jira & Confluence, Sentry, monday.com, Canva, Intercom, Stripe, Vercel and
 Hugging Face. **Add** writes the entry into your configuration; **Sign in** does the rest, no API key needed.
@@ -243,7 +247,6 @@ Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architectur
 
 ## Known limitations
 
-- No schema migrations yet: tables are created at startup. A future schema change will need Alembic.
 - Sandboxes refuse to start when the workspace belongs to root: run the app as a normal user.
 - No per-user quotas yet (model spend, disk, number of sandboxes), and no rate limiting on sign-in.
 - One app process: the scheduler and running agents live in it, so don't run several replicas.

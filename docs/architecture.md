@@ -133,10 +133,19 @@ The page polls `GET /api/apps/{id}` for the source and the agent's state. Every 
 
 ## Scheduled tasks (`backend/acf/scheduler.py`)
 
-Cron + time zone. `tick()` starts due tasks (next run is computed first, so a slow run never
-double-fires); each run is an agent run in a new chat.
+Cron + time zone, or a single time (`run_at`) for a one-off task. `tick()` starts due tasks (next run is
+computed first, so a slow run never double-fires; a one-off task is turned off instead); each run is an agent
+run in a new chat.
 
 The agent manages tasks through the built-in `system` MCP server (`backend/acf/system_mcp.py`): an
 in-process `MCPServer` bound to the user, which `McpHub` connects next to the user's own servers on every
 run. It goes through the same `.acf/mcp/` definitions and `mcp_call` as any app, so it adds no built-in
 tool. Other app features the agent should reach belong there as tools.
+
+## Database migrations (`backend/acf/migrations/`)
+
+Alembic, run by `db.migrate()` on every start (`init_db`), on SQLite and PostgreSQL. `0001_baseline` is the
+schema older versions made with `create_all`; a database that has those tables but no `alembic_version` is
+stamped at the baseline and then upgraded, so existing installs keep their data. Write a migration with
+`make migration m="…"` (autogenerate, `render_as_batch` for SQLite) and review it;
+`tests/test_migrations.py` checks that the migrations build exactly the schema the models describe.
