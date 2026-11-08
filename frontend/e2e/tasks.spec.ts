@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, shot, signUp } from "./helpers";
+import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 
 test("create, run, pause and delete a recurring task", async ({ page }) => {
   await signUp(page);
@@ -51,4 +51,19 @@ test("a task runs on its schedule", async ({ page }) => {
   }).toPass({ timeout: 100_000, intervals: [3000] });
   await row.getByRole("link", { name: "View result" }).click();
   await expect(lastAssistant(page)).toHaveText("Echo: scheduled hello");
+});
+
+test("the agent sets up a recurring task from the chat", async ({ page }) => {
+  await signUp(page);
+  const args = { name: "Weekly digest", prompt: "run: echo digest", schedule: "0 9 * * 1", timezone: "UTC" };
+  await say(page, `tool: mcp_call ${JSON.stringify({ server: "system", tool: "create_task", arguments: args })}`);
+  await expect(page.getByTestId("tool-step")).toContainText("Used system · create_task");
+  await expect(lastAssistant(page)).toContainText('"name": "Weekly digest"');
+  await shot(page, "12-agent-created-task");
+
+  await nav(page).getByRole("link", { name: "Tasks" }).click();
+  const row = page.getByTestId("task-Weekly digest");
+  await expect(row).toContainText("Next");
+  await row.getByRole("button", { name: "Run now" }).click();
+  await expect(lastAssistant(page)).toContainText("Result: digest");
 });

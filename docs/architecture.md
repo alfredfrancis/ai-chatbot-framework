@@ -108,3 +108,8 @@ automatic refresh.
 
 Cron + time zone. `tick()` starts due tasks (next run is computed first, so a slow run never
 double-fires); each run is an agent run in a new chat.
+
+The agent manages tasks through the built-in `system` MCP server (`backend/acf/system_mcp.py`): an
+in-process `MCPServer` bound to the user, which `McpHub` connects next to the user's own servers on every
+run. It goes through the same `.acf/mcp/` definitions and `mcp_call` as any app, so it adds no built-in
+tool. Other app features the agent should reach belong there as tools.

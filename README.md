@@ -44,7 +44,9 @@ its own private computer, their files, skills, app connections and scheduled job
   Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
   definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
   slow down every turn.
-- **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat.
+- **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat. Set them up on the Tasks page or
+  just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
+  `delete_task` and `run_task` (the server name `system` is reserved).
 - **Agent Client Protocol (ACP)** – the chat speaks [ACP](https://agentclientprotocol.com) over a
   WebSocket, and so can your own apps and editors. Create an optional access token in
   **Settings → External apps** to let them in.

@@ -18,6 +18,9 @@ always entered and exited in the same task.
 The model never gets one schema per MCP tool. Each tool's definition is a file in the workspace
 (.acf/mcp/<server>/<tool>.json), the system prompt lists only the names, and one `mcp_call` tool runs
 them.
+
+The built-in `system` server (acf.system_mcp: the app's own features, such as recurring tasks) is always
+connected next to the user's servers, in process; the name is reserved.
 """
 
 from __future__ import annotations
@@ -45,6 +48,7 @@ CONNECT_TIMEOUT = 60
 CALL_TIMEOUT = 300
 DEFINITIONS_DIR = ".acf/mcp"
 CALL_TOOL = "mcp_call"
+SYSTEM_SERVER = "system"
 _NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 _UNSAFE_FILE_CHARS = re.compile(r"[^A-Za-z0-9_.-]")
 
@@ -56,7 +60,7 @@ class ConfigError(ValueError):
 @dataclass
 class ServerConfig:
     name: str
-    transport: str  # stdio | http
+    transport: str  # stdio | http | builtin
     command: str = ""
     args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
@@ -80,6 +84,8 @@ def parse_config(text: str) -> dict[str, ServerConfig]:
     for name, cfg in servers.items():
         if not _NAME_RE.match(name):
             raise ConfigError(f'Server name "{name}" may only use letters, numbers, - and _ (max 40)')
+        if name == SYSTEM_SERVER:
+            raise ConfigError(f'"{SYSTEM_SERVER}" is the name of the built-in server; choose another name')
         if not isinstance(cfg, dict):
             raise ConfigError(f'"{name}" must be an object')
         enabled = cfg.get("enabled", True) is not False and cfg.get("disabled", False) is not True
@@ -197,6 +203,12 @@ class _Connection:
     @asynccontextmanager
     async def _client(self):
         cfg = self.cfg
+        if cfg.transport == "builtin":
+            from acf import system_mcp  # it imports the scheduler, which imports the agent loop and this module
+
+            async with Client(system_mcp.server(self.user_id), read_timeout_seconds=CALL_TIMEOUT) as client:
+                yield client
+            return
         if cfg.transport == "stdio":
             async with self.sandbox.process([cfg.command, *cfg.args], cfg.env) as proc:
                 async with Client(_process_transport(proc), read_timeout_seconds=CALL_TIMEOUT) as client:
@@ -317,7 +329,8 @@ class McpHub:
         self._tools: dict[str, dict[str, Any]] = {}
 
     async def __aenter__(self) -> McpHub:
-        conns = [_Connection(c, self.user_id, self.sandbox) for c in self.configs.values() if c.enabled]
+        system = ServerConfig(name=SYSTEM_SERVER, transport="builtin")
+        conns = [_Connection(c, self.user_id, self.sandbox) for c in [system, *self.configs.values()] if c.enabled]
         await asyncio.gather(*(c.start() for c in conns))
         for c in conns:
             self.connections[c.cfg.name] = c

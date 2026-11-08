@@ -25,7 +25,7 @@ from acf.auth import (
     hash_password,
     verify_password,
 )
-from acf.db import AcpToken, Chat, Message, Task, User, get_db, session_scope, utcnow
+from acf.db import AcpToken, Chat, Message, Task, User, get_db, session_scope
 from acf.mcp_client import ConfigError, McpHub, parse_config
 from acf.sandbox import get_sandbox
 
@@ -576,21 +576,6 @@ class TaskPatch(BaseModel):
     enabled: bool | None = None
 
 
-def _task_dict(t: Task) -> dict[str, Any]:
-    return {
-        "id": t.id,
-        "name": t.name,
-        "prompt": t.prompt,
-        "schedule": t.schedule,
-        "timezone": t.timezone,
-        "enabled": t.enabled,
-        "next_run_at": _iso(t.next_run_at),
-        "last_run_at": _iso(t.last_run_at),
-        "last_status": t.last_status,
-        "last_chat_id": t.last_chat_id,
-    }
-
-
 def _own_task(db: Session, user: User, task_id: int) -> Task:
     t = db.get(Task, task_id)
     if not t or t.user_id != user.id:
@@ -600,20 +585,16 @@ def _own_task(db: Session, user: User, task_id: int) -> Task:
 
 @router.get("/tasks")
 def list_tasks(db: Session = Depends(get_db), user: User = Depends(current_user)) -> list[dict]:
-    return [_task_dict(t) for t in db.query(Task).filter_by(user_id=user.id).order_by(Task.id).all()]
+    return [scheduler.as_dict(t) for t in db.query(Task).filter_by(user_id=user.id).order_by(Task.id).all()]
 
 
 @router.post("/tasks")
 def create_task(body: TaskIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
     try:
-        scheduler.validate(body.schedule, body.timezone)
+        t = scheduler.create(db, user.id, body.model_dump())
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
-    t = Task(user_id=user.id, **body.model_dump())
-    t.next_run_at = scheduler.next_run(t.schedule, t.timezone) if t.enabled else None
-    db.add(t)
-    db.flush()
-    return _task_dict(t)
+    return scheduler.as_dict(t)
 
 
 @router.patch("/tasks/{task_id}")
@@ -621,16 +602,11 @@ def update_task(
     task_id: int, body: TaskPatch, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> dict:
     t = _own_task(db, user, task_id)
-    data = body.model_dump(exclude_none=True)
-    schedule, tz = data.get("schedule", t.schedule), data.get("timezone", t.timezone)
     try:
-        scheduler.validate(schedule, tz)
+        scheduler.update(t, body.model_dump(exclude_none=True))
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
-    for k, v in data.items():
-        setattr(t, k, v)
-    t.next_run_at = scheduler.next_run(t.schedule, t.timezone, utcnow()) if t.enabled else None
-    return _task_dict(t)
+    return scheduler.as_dict(t)
 
 
 @router.delete("/tasks/{task_id}")
