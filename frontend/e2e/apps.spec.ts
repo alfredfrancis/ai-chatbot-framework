@@ -42,7 +42,9 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await signUp(page);
   await makeCockpit(page);
 
-  const apps = nav(page).getByRole("group", { name: "Apps" });
+  // The user's own apps sit in their own labelled section of the sidebar, and of the command menu.
+  const apps = nav(page).getByRole("group", { name: "Your apps" });
+  await expect(apps.getByText("Your apps", { exact: true })).toBeVisible();
   await apps.getByRole("link", { name: "Cockpit", exact: true }).click();
   await expect(page).toHaveURL(/\/apps\/cockpit$/);
   await expect(page.getByRole("heading", { name: "Cockpit", level: 1 })).toBeVisible();
@@ -104,6 +106,7 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   // Apps are in the command menu too.
   await page.keyboard.press("Control+k");
   await page.getByLabel("Search commands").fill("cock");
+  await expect(page.getByRole("dialog").getByText("Your apps", { exact: true })).toBeVisible();
   await page.getByRole("option", { name: "Cockpit", exact: true }).click();
   await expect(page).toHaveURL(/\/apps\/cockpit$/);
 });
@@ -132,6 +135,6 @@ test("a broken screen shows its problems and the agent is asked to fix it; phone
   await expect(quadrant(page, "Drop").getByTestId("item-Book flights")).toBeVisible();
   await shot(page, "42-app-cockpit-phone-light");
   await page.getByRole("button", { name: "Open menu" }).click();
-  await expect(nav(page).getByRole("group", { name: "Apps" }).getByRole("link")).toHaveText(["broken", "Cockpit", "Notes"]);
+  await expect(nav(page).getByRole("group", { name: "Your apps" }).getByRole("link")).toHaveText(["broken", "Cockpit", "Notes"]);
   await page.close();
 });

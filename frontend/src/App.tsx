@@ -149,7 +149,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     { id: "upload-skill", group: "Actions", label: "Upload a skill", icon: <IconSpark />, run: () => navigate("/skills") },
     { id: "sign-out", group: "Actions", label: "Sign out", icon: <IconLogout />, run: signOut },
     ...GO.map((g) => ({ id: `go-${g.key}`, group: "Go to", label: g.label, icon: g.icon, keys: ["G", g.key.toUpperCase()], run: () => navigate(g.to) })),
-    ...apps.map((a) => ({ id: `app-${a.id}`, group: "Apps", label: a.title, icon: <IconApp />, run: () => navigate(`/apps/${a.id}`) })),
+    ...apps.map((a) => ({ id: `app-${a.id}`, group: "Your apps", label: a.title, icon: <IconApp />, run: () => navigate(`/apps/${a.id}`) })),
     ...chats.slice(0, 8).map((c) => ({ id: `chat-${c.id}`, group: "Recent chats", label: c.title, icon: <IconChat />, run: () => navigate(`/c/${c.id}`) })),
   ];
 
@@ -170,8 +170,14 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             <IconSearch /><span>Search</span><Keys keys={["⌘", "K"]} />
           </button>
           <Link to="/" className="btn primary"><IconPlus />New chat</Link>
+          <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats<span className="right"><span className="kbd">C</span></span></NavLink>
+          {nav("/files", "Files", <IconDrawer />, counts.files)}
+          {nav("/skills", "Skills", <IconSpark />, counts.skills)}
+          {nav("/tasks", "Tasks", <IconClock />, counts.tasks)}
+          {nav("/connections", "Connections", <IconPlug />, counts.connections)}
           {apps.length > 0 && (
-            <div className="apps-nav" role="group" aria-label="Apps">
+            <div className="apps-nav" role="group" aria-labelledby="apps-nav-label">
+              <div className="section-label" id="apps-nav-label">Your apps</div>
               {apps.map((a) => (
                 <NavLink key={a.id} to={`/apps/${a.id}`} title={a.description || a.title} className={({ isActive }) => `nav${isActive ? " active" : ""}`}>
                   <IconApp /><span className="nav-label">{a.title}</span>
@@ -179,11 +185,6 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
               ))}
             </div>
           )}
-          <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats<span className="right"><span className="kbd">C</span></span></NavLink>
-          {nav("/files", "Files", <IconDrawer />, counts.files)}
-          {nav("/skills", "Skills", <IconSpark />, counts.skills)}
-          {nav("/tasks", "Tasks", <IconClock />, counts.tasks)}
-          {nav("/connections", "Connections", <IconPlug />, counts.connections)}
           <div className="recents">
             {chats.length > 0 && <div className="section-label">Recent</div>}
             {chats.slice(0, 40).map((c) => (
