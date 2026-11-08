@@ -23,7 +23,6 @@ test("browse the workspace, upload, and see the agent's changes", async ({ page 
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
   await page.getByTestId("upload").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: png });
   await expect(list.getByRole("button", { name: /logo\.png/ }).locator("img")).toHaveAttribute("src", /logo\.png/);
-  await expect(nav(page).getByTestId("sandbox-status")).toHaveText("sandbox ready");
 
   // Changes happen through the agent
   await nav(page).getByRole("link", { name: "New chat" }).click();
@@ -31,8 +30,12 @@ test("browse the workspace, upload, and see the agent's changes", async ({ page 
   await expect(lastAssistant(page)).toContainText("Result: Wrote notes/plan.md");
   await say(page, "remember: Maya prefers euros");
   await expect(page.getByTestId("tool-step").last()).toContainText("memory.md");
+  // A Docker sandbox only starts on the first command; once the agent has run one, the sidebar shows it live
+  await say(page, "run: echo hi");
+  await expect(lastAssistant(page)).toContainText("Result: hi");
 
   await nav(page).getByRole("link", { name: "Files" }).click();
+  await expect(nav(page).getByTestId("sandbox-status")).toHaveText("sandbox ready");
   await list.getByRole("button", { name: /notes/ }).click();
   await expect(page.getByRole("navigation", { name: "Folder" })).toContainText("workspace/notes");
   await list.getByRole("button", { name: /plan\.md/ }).click();
