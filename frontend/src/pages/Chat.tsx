@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
-import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Keys, Mark } from "../components/icons";
+import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -121,9 +121,9 @@ function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const failed = call.status === "failed" || (!finished && !busy);
   return (
     <>
-      <button className="step" onClick={() => finished && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
-        <span className={`state${finished ? (failed ? " fail" : " ok") : busy ? "" : " fail"}`}>
-          {finished ? (failed ? <IconX /> : <IconCheck />) : busy ? <span className="spin" aria-label={bg ? "Running in background" : "Working"} /> : <IconX />}
+      <button className={`step${busy && !finished ? " live" : ""}`} onClick={() => finished && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
+        <span className={`state${finished ? (failed ? " fail" : " ok") : busy ? " live" : " fail"}`}>
+          {finished ? (failed ? <IconX /> : <IconCheck />) : busy ? <Wave label={bg ? "Running in background" : "Working"} /> : <IconX />}
         </span>
         <span className="verb">{d.verb}</span>{" "}
         <span className={`detail${d.mono ? "" : " name"}`}>{d.detail}</span>
@@ -364,8 +364,12 @@ function Home({ onStart }: { onStart: (t: string, files?: Attachment[]) => void 
     <>
       <Topbar title="New chat" />
       <div className="home">
-        <div>
-          <h1>{greeting(user.name || "there")}</h1>
+        <div className="hero" aria-hidden="true">
+          <span className="glow" /><span className="ring" /><Mark size={56} />
+        </div>
+        <div className="hello">
+          <span className="eyebrow">Agent ready</span>
+          <h1>{greeting(user.name || "there")}<span className="caret" aria-hidden="true">_</span></h1>
           <p className="sub" data-testid="status-line">
             Your agent has a private computer, {n(counts.files, "file")}, {n(counts.skills, "skill")} and {n(counts.connections, "connection")}.
           </p>
@@ -514,7 +518,7 @@ export default function ChatPage() {
   return (
     <>
       <Topbar crumb="Chats" title={title}>
-        {running && <span className="badge success">Working</span>}
+        {running && <span className="badge live"><span className="live-dot" />Working</span>}
         <button className={`btn ghost sm artifacts-toggle${panel ? " on" : ""}`} aria-label="Artifacts" aria-expanded={panel} aria-controls="artifacts"
           title={panel ? "Hide artifacts" : "Show artifacts"} onClick={togglePanel}>
           <IconPanel />{artifacts?.length ? <span className="count">{artifacts.length}</span> : null}

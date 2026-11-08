@@ -26,12 +26,14 @@ test("sidebar keeps full-height rows with many chats, and home lines up", async 
   await expect(sidebar.getByRole("button", { name: "Search or run a command" })).toBeVisible();
   await shot(page, "sidebar-many-chats");
 
-  // Home: greeting, composer and suggestions share one left edge.
+  // Home: logo, greeting, composer and suggestions share one centre line; composer and suggestions one left edge.
   await page.goto("/");
-  const left = async (l: ReturnType<typeof page.locator>) => Math.round((await l.boundingBox())!.x);
-  const heading = await left(page.getByRole("heading", { level: 1 }));
-  expect(await left(page.locator(".home .composer"))).toBe(heading);
-  expect(await left(page.locator(".home .try"))).toBe(heading);
+  const box = async (l: ReturnType<typeof page.locator>) => (await l.boundingBox())!;
+  const centre = async (l: ReturnType<typeof page.locator>) => { const b = await box(l); return Math.round(b.x + b.width / 2); };
+  const mid = await centre(page.locator(".home .composer"));
+  expect(Math.abs((await centre(page.getByRole("heading", { level: 1 }))) - mid)).toBeLessThanOrEqual(1);
+  expect(Math.abs((await centre(page.locator(".home .hero"))) - mid)).toBeLessThanOrEqual(1);
+  expect(Math.round((await box(page.locator(".home .try"))).x)).toBe(Math.round((await box(page.locator(".home .composer"))).x));
 });
 
 test("phone: section headers wrap instead of squeezing", async ({ browser }) => {

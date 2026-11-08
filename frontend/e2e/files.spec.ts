@@ -15,6 +15,15 @@ test("browse the workspace, upload, and see the agent's changes", async ({ page 
   await list.getByRole("button", { name: /sales\.csv/ }).click();
   await expect(page.getByTestId("preview")).toContainText("mon,120");
   await expect(page.getByRole("link", { name: "Download" })).toHaveAttribute("href", /download=true/);
+  // A drive, not a menu: each file is a card with its type and size, and the selected one shows its details
+  await expect(list.getByRole("button", { name: /sales\.csv/ })).toContainText("CSV · 16 B");
+  await expect(list.getByRole("button", { name: /sales\.csv/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "Preview" }).getByRole("definition").first()).toHaveText("16 B");
+  // Pictures show as thumbnails
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+  await page.getByTestId("upload").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: png });
+  await expect(list.getByRole("button", { name: /logo\.png/ }).locator("img")).toHaveAttribute("src", /logo\.png/);
+  await expect(nav(page).getByTestId("sandbox-status")).toHaveText("sandbox ready");
 
   // Changes happen through the agent
   await nav(page).getByRole("link", { name: "New chat" }).click();
