@@ -414,7 +414,9 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 
 /* Personal apps (pages/AppView.tsx, openui/library.tsx): menu entries under New chat, and the components an
    app's OpenUI Lang screen is built from. */
-.apps-nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-2); }
+.apps-nav { display: flex; flex-direction: column; gap: 2px; }
+a.lrow { color: var(--text); }
+a.lrow:hover { text-decoration: none; }
 .nav .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-page { gap: var(--space-6); }
 .app-working { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 14px; color: var(--accent-text); white-space: nowrap; }

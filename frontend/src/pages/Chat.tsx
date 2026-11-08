@@ -220,10 +220,11 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
 type Pending = { id: string; name: string; file?: Attachment; error?: string };
 let pendingSeq = 0;
 
-function Composer({ onSend, onStop, running, background = false, placeholder }: {
+function Composer({ onSend, onStop, running, background = false, placeholder, initial = "" }: {
   onSend: (text: string, files: Attachment[]) => void; onStop?: () => void; running: boolean; background?: boolean; placeholder?: string;
+  initial?: string;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initial);
   const [pending, setPending] = useState<Pending[]>([]);
   const ref = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -357,7 +358,7 @@ function greeting(name: string) {
   return `${part}, ${name}.`;
 }
 
-function Home({ onStart }: { onStart: (t: string, files?: Attachment[]) => void }) {
+function Home({ onStart, draft = "" }: { onStart: (t: string, files?: Attachment[]) => void; draft?: string }) {
   const { user, counts } = useApp();
   const n = (x: number, one: string) => `${x} ${one}${x === 1 ? "" : "s"}`;
   return (
@@ -374,7 +375,7 @@ function Home({ onStart }: { onStart: (t: string, files?: Attachment[]) => void 
             Your agent has a private computer, {n(counts.files, "file")}, {n(counts.skills, "skill")} and {n(counts.connections, "connection")}.
           </p>
         </div>
-        <Composer onSend={onStart} running={false} placeholder="Ask anything, or describe a job to do" />
+        <Composer key={draft} initial={draft} onSend={onStart} running={false} placeholder="Ask anything, or describe a job to do" />
         <div className="try">
           <div className="label-row">Try</div>
           {TRY.map((t) => <button key={t.text} onClick={() => onStart(t.prompt)}>{t.icon}{t.text}</button>)}
@@ -509,7 +510,7 @@ export default function ChatPage() {
     navigate("/");
   };
 
-  if (!sid) return <Home onStart={start} />;
+  if (!sid) return <Home key={location.key} onStart={start} draft={(location.state as { draft?: string } | null)?.draft} />;
   const summary: ChatSummary | undefined = chats.find((c) => c.id === chatId);
   const first = entries.find((e) => e.kind === "user");
   const firstUser = (first?.text || first?.files[0]?.name || "").split("\n")[0].slice(0, 60);
