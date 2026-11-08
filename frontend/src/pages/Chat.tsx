@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import Markdown from "react-markdown";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
+import ChatView from "../openui/ChatView";
 import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
@@ -178,7 +179,24 @@ function UserMsg({ text, files, testId }: Outgoing & { testId: string }) {
   );
 }
 
-function Thread({ entries, running, queued }: { entries: Entry[]; running: boolean; queued: Outgoing[] }) {
+/** What an ```openui block in a reply needs: whether the reply is still streaming, and how to send a message. */
+const ViewContext = createContext<{ live: boolean; onPrompt: (text: string) => void }>({ live: false, onPrompt: () => {} });
+type HastNode = { type?: string; tagName?: string; value?: string; properties?: { className?: unknown }; children?: HastNode[] };
+const textOfNode = (n: HastNode): string => n.value ?? (n.children ?? []).map(textOfNode).join("");
+
+/** A code block; an ```openui block becomes a live view built from the OpenUI component library. */
+function Pre({ node, children, ...rest }: ComponentProps<"pre"> & { node?: HastNode }) {
+  const { live, onPrompt } = useContext(ViewContext);
+  const code = node?.children?.find((c) => c.tagName === "code");
+  const cls = code?.properties?.className;
+  if (code && Array.isArray(cls) && cls.some((c) => c === "language-openui" || c === "language-openui-lang")) {
+    return <ChatView source={textOfNode(code)} streaming={live} onPrompt={onPrompt} />;
+  }
+  return <pre {...rest}>{children}</pre>;
+}
+const MD_COMPONENTS: Components = { pre: Pre as Components["pre"] };
+
+function Thread({ entries, running, queued, onPrompt }: { entries: Entry[]; running: boolean; queued: Outgoing[]; onPrompt: (text: string) => void }) {
   const items = group(entries);
   const toolBusy = running && entries.some((e) => e.kind === "tool" && !inBackground(e.call) && (e.call.status === "pending" || e.call.status === "in_progress"));
   const streaming = running && entries[entries.length - 1]?.kind === "text"; // the reply itself shows progress
@@ -195,7 +213,9 @@ function Thread({ entries, running, queued }: { entries: Entry[]; running: boole
             <Mark size={24} live={live} />
             <div className="body">
               {it.blocks.map((b) => b.kind === "text" ? (
-                <div key={b.key} className="answer" data-testid="assistant-msg"><Markdown remarkPlugins={[remarkGfm]}>{b.text}</Markdown></div>
+                <ViewContext.Provider key={b.key} value={{ live, onPrompt }}>
+                  <div className="answer" data-testid="assistant-msg"><Markdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{b.text}</Markdown></div>
+                </ViewContext.Provider>
               ) : (
                 <div key={b.key} className="steps" data-testid="activity">
                   {b.calls.map((c) => <Step key={c.id} call={c} running={running} />)}
@@ -598,7 +618,7 @@ export default function ChatPage() {
       <div className="chat-layout">
         <div className="chat-col">
           <div className="chat-scroll" ref={scroller}>
-            <Thread entries={entries} running={running} queued={queued} />
+            <Thread entries={entries} running={running} queued={queued} onPrompt={(t) => send(t, sid)} />
             {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
           </div>
           <div className="composer-wrap">

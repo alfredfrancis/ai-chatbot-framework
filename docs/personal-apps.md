@@ -14,7 +14,7 @@ flowchart LR
     Sidebar["Sidebar: up to 5 apps<br/>under New chat"]
     AppView["AppView page<br/>pages/AppView.tsx"]
     Renderer["OpenUI Renderer<br/>@openuidev/react-lang"]
-    Library["Component library<br/>openui/library.tsx<br/>Screen · Card · Stat · Table<br/>Button · TextField · Board …"]
+    Library["Component library<br/>openui/library.tsx<br/>Screen · Card · Tabs · Stat · List<br/>BarChart · LineChart · PieChart<br/>Button · TextField · Slider · Board …"]
     AppView --> Renderer --> Library
   end
 
@@ -33,7 +33,7 @@ flowchart LR
     Screen["apps/<id>/app.oui<br/>OpenUI Lang screen"]
     Data["brief.md · tasks.json<br/>+ files listed in app.json"]
     Scripts["apps/<id>/actions/*.sh"]
-    Skill["skills/personal-apps/<br/>SKILL.md + openui.md"]
+    Skill["skills/personal-apps/SKILL.md<br/>skills/openui/ SKILL.md + reference.md"]
   end
 
   Sandbox["Sandbox<br/>Docker container per user"]
@@ -58,7 +58,7 @@ flowchart LR
 - **No generated HTML.** `app.oui` can only name components from `openui/library.tsx`, which use the design
   system's classes and tokens.
 - **One vocabulary, two readers.** The same library renders screens and generates the agent's reference
-  (`builtin_skills/personal-apps/openui.md`), so the agent can't use a component that doesn't exist. CI checks
+  (`builtin_skills/openui/reference.md`), so the agent can't use a component that doesn't exist. CI checks
   the file is current.
 - **Path rules.** An app reads and writes its own folder (never `app.json` or `app.oui`) plus files listed in
   `app.json`.
@@ -77,7 +77,7 @@ sequenceDiagram
   participant S as Sidebar
   U->>C: "Set up my cockpit"
   C->>A: prompt (personal-assistant skill matches)
-  A->>W: read skills/personal-apps/SKILL.md + openui.md
+  A->>W: read skills/personal-apps + skills/openui (SKILL.md, reference.md)
   A->>W: write tasks.json, brief.md
   A->>W: write apps/cockpit/app.json
   A->>W: write apps/cockpit/app.oui (root = Screen([...]))

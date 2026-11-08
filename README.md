@@ -40,8 +40,8 @@ its own private computer, their files, skills, app connections and scheduled job
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
   Built in: `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research`,
   `plain-writing`, `personal-assistant` (a proactive assistant over email, calendar and other apps, with
-  a first-run interview that saves preferences to `assistant/profile.md`, and an optional Cockpit app) and
-  `personal-apps` (how to build apps, below). Skills unused for
+  a first-run interview that saves preferences to `assistant/profile.md`, and an optional Cockpit app),
+  `openui` (views in chat answers, below) and `personal-apps` (how to build apps, below). Skills unused for
   `ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/`.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
   Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
@@ -57,6 +57,10 @@ its own private computer, their files, skills, app connections and scheduled job
   chat, answered in the background), `run` (an `apps/<id>/actions/<name>.sh` script in the sandbox) and
   `mcp` (read-only tools of connected apps; anything that changes things goes through the agent).
   Diagrams: [docs/personal-apps.md](docs/personal-apps.md).
+- **Views in chat** – the agent can answer with a chart, a plan, tabs or a small form inside its reply: an
+  ` ```openui ` block written with the same components (bar, line and pie charts, progress, lists, steps,
+  tabs, sliders, choices, buttons). A button sends its text back into the chat, so the user can pick
+  instead of typing.
 - **Scheduled tasks** – repeating ("every weekday at 08:00 …") or once ("tomorrow at 17:00"); each run becomes a
   chat, and a one-off task turns itself off after its run. Set them up on the Tasks page or just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
   `delete_task` and `run_task` (the server name `system` is reserved).

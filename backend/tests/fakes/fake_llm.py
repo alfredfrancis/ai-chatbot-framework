@@ -19,6 +19,7 @@ Rules (applied to the latest user text):
   think: <text>               -> thinks "Considering: <text>", then "Echo: <text>"
   [background job …          -> "Background done: <the note>" (a background command finished)
   [App: …] <event>\n<rest>     -> a message from a personal app: the rules apply to <rest>
+  reply: <text>               -> replies with <text> verbatim (newlines kept), e.g. an ```openui view
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
   anything else               -> "Echo: <text>"
@@ -88,6 +89,8 @@ def decide(
             name, _, args = line.strip()[5:].strip().partition(" ")
             calls.append((name, json.loads(args or "{}")))
         return {"calls": calls, "text": ""}
+    if low.startswith("reply:"):
+        return {"text": text[6:].strip()}
     if low.startswith("typing:"):
         return {"text": f"Echo: {text[7:].strip()}", "word_delay": 0.3}
     if low.startswith("think:"):

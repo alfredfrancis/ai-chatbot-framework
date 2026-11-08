@@ -1,6 +1,6 @@
-<!-- Generated from frontend/src/openui/library.tsx by frontend/scripts/build-app-prompt.mjs. Do not edit. -->
+<!-- Generated from frontend/src/openui/library.tsx by frontend/scripts/build-openui-prompt.mjs. Do not edit. -->
 
-Personal apps are written in OpenUI Lang. The file apps/<id>/app.oui holds one program whose root is Screen(...). This is the complete reference for the language and the components available.
+OpenUI Lang describes a screen built from the components below. It is used in two places: a view inside a chat reply (a fenced ```openui block) and a personal app (the file apps/<id>/app.oui). Both hold one program whose root is Screen(...). The tools listed under Query are available in personal apps only. This is the complete reference for the language and the components available.
 
 ## Syntax Rules
 
@@ -28,20 +28,46 @@ Arguments marked with ? are optional. Sub-components can be inline or referenced
 Props typed `ActionExpression` accept one @step, or Action([@steps...]) for several. See the Action section for available steps (@Run, @ToAssistant, @OpenUrl, @Set, @Reset).
 Props marked `$binding<type>` accept a `$variable` reference for two-way binding.
 
-Screen(children: any[]) — The whole app screen: its sections from top to bottom.
+### Layout
+Screen(children: any[]) — The whole screen (an app, or a view in a chat reply): its sections from top to bottom.
 Row(children: any[]) — Puts components side by side; they stack on phones.
 Grid(children: any[], columns?: number) — Equal columns (2-4) of cards or stats; one column on phones.
 Card(title: string, children?: any[], description?: string) — A titled section.
+Tabs(tabs: Tab[]) — Pages the user switches between, one shown at a time, e.g. Tabs([Tab("This week", [...]), Tab("Next week", [...])]).
+Tab(title: string, children: any[]) — One page of Tabs: a title and what it shows.
+Collapsible(title: string, children: any[], open?: boolean) — A section the user opens to see more (details, the full list, the method). Closed unless open is true.
+
+### Content
 Heading(text: string) — A section heading outside a Card.
 Text(markdown: string) — Markdown text (bold, lists, links, tables). Use for briefs and notes, e.g. Text(brief.text).
 Stat(label: string, value: string | number, note?: string) — One number or short value with a label, e.g. Stat("Due today", @Count(due)).
 Badge(text: string, tone?: "neutral" | "success" | "warning" | "danger") — A short status label.
 Notice(text: string, tone?: "neutral" | "success" | "warning" | "danger") — A one-line message that stands out: a warning, a problem, or good news.
+List(items: {title: string, note?: string, badge?: string, tone?: "neutral" | "success" | "warning" | "danger"}[]) — Rows of items with a title, an optional note under it and an optional badge on the right, e.g. List([{title: "Dentist", note: "Tue 9:30", badge: "Booked", tone: "success"}]).
+Steps(items: {title: string, note?: string, done?: boolean}[]) — Numbered steps in order (a plan, a how-to, a timeline); done steps show ticked.
 Table(columns: string[], rows: (string | number | any)[][]) — Rows of values under column headings. rows is a list of rows, each a list of cells.
+
+### Charts
+BarChart(title: string, labels: string[], series: {name: string, values: number[]}[], unit?: string) — Bars for comparing amounts across labels. series is a list of {name, values}, one value per label; several series show side by side. E.g. BarChart("Spend", ["Jan", "Feb"], [{name: "Food", values: [320, 280]}]).
+LineChart(title: string, labels: string[], series: {name: string, values: number[]}[], unit?: string) — Lines for a trend over time. labels are the points in order (dates, months); series as in BarChart.
+PieChart(title: string, slices: {label: string, value: number}[], unit?: string) — A ring showing how a whole splits into parts (at most 6; the rest is grouped as Other). slices are {label, value}.
+Progress(label: string, value: number, max?: number, tone?: "neutral" | "success" | "warning" | "danger") — A bar showing how far along something is, e.g. Progress("Budget used", 420, 600).
+Pick the chart for the question: BarChart compares, LineChart shows a trend, PieChart shows shares of a whole, Progress shows how far along.
+
+### Actions and inputs
 Button(label: string, action?: ActionExpression, variant?: "primary" | "secondary" | "ghost" | "danger", confirm?: string) — A button. Without an action it sends its label to the agent. Use the primary variant for at most one main action. confirm is a question shown before it runs (use it for anything the user can't undo).
 TextField(label: string, value?: $binding<string>, placeholder?: string) — A one-line text box bound to a $variable, e.g. TextField("New task", $title).
+TextArea(label: string, value?: $binding<string>, placeholder?: string) — A multi-line text box bound to a $variable, for notes or a longer answer.
+NumberField(label: string, value?: $binding<number>, min?: number, max?: number, step?: number) — A number box bound to a $variable, e.g. NumberField("Budget", $budget, 0).
+DateField(label: string, value?: $binding<string>) — A date picker bound to a $variable; the value is YYYY-MM-DD.
 SelectField(label: string, options: {value: string, label: string}[], value?: $binding<string>) — A dropdown bound to a $variable. options are {value, label} objects.
-Board(title: string, file: string, columns: {id: string, title: string, hint?: string}[], agentNote?: string) — Columns of items the user drags between, ticks done and adds to; it reads and saves a JSON file {"items": [{"id", "title", "column", "note"?, "due"?, "done"?}]} by itself (column is a column id). Four columns show as a 2x2 matrix. agentNote, if set, is sent to the agent with each change - only set it when the agent must react, since each change then costs a run.
+RadioGroup(label: string, options: {value: string, label: string}[], value?: $binding<string>) — One choice from a few options, all visible (use SelectField for many). options are {value, label} objects.
+Checkbox(label: string, value?: $binding<boolean>) — A yes/no tick box bound to a $variable (true or false).
+Slider(label: string, value?: $binding<number>, min: number, max: number, step?: number) — A slider for a number in a range, bound to a $variable, e.g. Slider("Hours a week", $hours, 0, 40).
+Inputs only hold a $variable; a Button uses it, e.g. Button("Plan it", @ToAssistant("Plan a trip for " + $days + " days")).
+
+### Apps only
+Board(title: string, file: string, columns: {id: string, title: string, hint?: string}[], agentNote?: string) — Columns of items the user drags between, ticks done and adds to; it reads and saves a JSON file {"items": [{"id", "title", "column", "note"?, "due"?, "done"?}]} by itself (column is a column id). Four columns show as a 2x2 matrix. agentNote, if set, is sent to the agent with each change - only set it when the agent must react, since each change then costs a run. Apps only.
 
 ## Built-in Functions
 
@@ -247,6 +273,12 @@ Always write the root = Screen(...) statement first so the UI shell appears imme
 
 ## Examples
 
+root = Screen([spend, split, pick])
+$food = 300
+spend = BarChart("Spending by month", ["Aug", "Sep", "Oct"], [{name: "Food", values: [320, 280, 345]}, {name: "Travel", values: [120, 410, 90]}], "EUR")
+split = PieChart("October", [{label: "Food", value: 345}, {label: "Travel", value: 90}, {label: "Home", value: 610}], "EUR")
+pick = Card("Set a budget", [Slider("Monthly food budget", $food, 200, 500, 10), Button("Track it", @ToAssistant("Track my food spending against a budget of " + $food + " EUR a month."), "primary")])
+
 root = Screen([summary, needs, todo, actions])
 brief = Query("read_file", {path: "apps/cockpit/brief.md"}, {text: ""}, 10)
 tasks = Query("read_file", {path: "apps/cockpit/tasks.json"}, {data: {items: []}}, 10)
@@ -266,8 +298,9 @@ Before finishing, walk your output and verify:
 4. Every $binding appears in at least one component or expression.
 5. Every visible filter $binding appears in at least one Query args object.
 
-- The tools above are called by the app screen, not by you: to see a file's shape, read it with your own read tool.
-- Write only these components; never HTML, CSS or colours - the app's look comes from the design system.
-- Read data with Query("read_file", ...) and a refresh interval (e.g. 10) so the screen follows the files you update.
+- Write only these components; never HTML, CSS or colours - the look comes from the design system.
+- Every program starts with root = Screen([...]) on its first line.
+- In a chat reply: write the program in a fenced code block whose language is openui, with your text before or after it. Put the numbers in the program itself; Query, Mutation, @Run and Board do not work in chat. A Button with @ToAssistant("...") sends that text to you in the same chat, as if the user typed it.
+- In a personal app: the tools above are called by the app screen, not by you; to see a file's shape, read it with your own read tool. Read data with Query("read_file", ...) and a refresh interval (e.g. 10) so the screen follows the files you update.
 - Buttons that need judgment, writing or another app's write tools send the work to you with @ToAssistant("...").
-- Keep one screen focused on what the user acts on; at most one primary Button.
+- Keep a screen focused on what the user acts on; at most one primary Button.
