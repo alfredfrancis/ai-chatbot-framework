@@ -8,8 +8,9 @@
   }
 }
 
-Local (stdio) servers are started INSIDE the user's sandbox. Remote servers use Streamable HTTP and
-OAuth when the server asks for it (HTTP 401).
+Local (stdio) servers are started INSIDE the user's sandbox with `Sandbox.process()`, whatever the
+sandbox provider; `_process_transport` speaks MCP over that byte stream. Remote servers use Streamable
+HTTP and OAuth when the server asks for it (HTTP 401).
 
 Each connection lives in its own asyncio task so that the SDK's task groups and cancel scopes are
 always entered and exited in the same task.
@@ -29,13 +30,16 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
+import anyio
 import httpx2
-from mcp import Client, StdioServerParameters
+import mcp_types
+from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
+from mcp.shared.message import SessionMessage
 
 from acf import oauth, workspace
 from acf.agent.tools import Tool, ToolContext, ToolResult
-from acf.sandbox import Sandbox
+from acf.sandbox import Sandbox, SandboxProcess
 
 CONNECT_TIMEOUT = 60
 CALL_TIMEOUT = 300
@@ -130,6 +134,50 @@ def _result_text(result: Any) -> str:
     return "\n".join(parts) or "(no output)"
 
 
+@asynccontextmanager
+async def _process_transport(proc: SandboxProcess):
+    """MCP's stdio transport (newline-delimited JSON-RPC) over a process in the sandbox. The process
+    itself is stopped by `Sandbox.process()`, which owns it."""
+    read_in, read_out = anyio.create_memory_object_stream[SessionMessage | Exception](0)
+    write_in, write_out = anyio.create_memory_object_stream[SessionMessage](0)
+
+    async def reader() -> None:
+        buffer = b""
+        async with read_in:
+            while chunk := await proc.read():
+                *lines, buffer = (buffer + chunk).split(b"\n")
+                for line in lines:
+                    if not line.strip():
+                        continue
+                    try:
+                        msg: SessionMessage | Exception = SessionMessage(
+                            mcp_types.jsonrpc_message_adapter.validate_json(line, by_name=False)
+                        )
+                    except ValueError as e:
+                        msg = e  # the session reports it
+                    try:
+                        await read_in.send(msg)
+                    except (anyio.ClosedResourceError, anyio.BrokenResourceError):
+                        return
+
+    async def writer() -> None:
+        try:
+            async with write_out:
+                async for msg in write_out:
+                    data = msg.message.model_dump_json(by_alias=True, exclude_unset=True) + "\n"
+                    await proc.write(data.encode())
+        except BrokenPipeError:
+            await read_in.aclose()  # the server is gone: end the session instead of waiting forever
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(reader)
+        tg.start_soon(writer)
+        try:
+            yield read_out, write_in
+        finally:
+            tg.cancel_scope.cancel()
+
+
 class NeedsAuth(Exception):
     pass
 
@@ -150,12 +198,9 @@ class _Connection:
     async def _client(self):
         cfg = self.cfg
         if cfg.transport == "stdio":
-            await self.sandbox.ensure()
-            command, args, cwd = self.sandbox.stdio_command(cfg.command, cfg.args, cfg.env)
-            env = cfg.env if self.sandbox.kind == "local" else None
-            params = StdioServerParameters(command=command, args=args, env=env, cwd=cwd)
-            async with Client(params, read_timeout_seconds=CALL_TIMEOUT) as client:
-                yield client
+            async with self.sandbox.process([cfg.command, *cfg.args], cfg.env) as proc:
+                async with Client(_process_transport(proc), read_timeout_seconds=CALL_TIMEOUT) as client:
+                    yield client
             return
         headers = dict(cfg.headers)
         token = await oauth.access_token(self.user_id, cfg.name, cfg.url)

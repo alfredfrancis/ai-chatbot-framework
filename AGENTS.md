@@ -26,7 +26,7 @@ backend/acf/
   artifacts.py       a chat's artifacts: files attached to it and files the agent made in it
   skills.py          skill discovery, upload (zip / SKILL.md), built-in skill-creator
   workspace.py       per-user folder, path safety
-  sandbox.py         DockerSandbox (one container per user), LocalSandbox (dev only, not isolated)
+  sandbox.py         Sandbox port + adapters: DockerSandbox (one container per user), LocalSandbox (dev only)
   mcp_client.py      config parsing, McpHub (one asyncio task per server connection), mcp_call + .acf/mcp/ files
   oauth.py           OAuth client for remote MCP servers
   scheduler.py       cron tasks
@@ -61,8 +61,9 @@ make lint         # ruff + tsc
    agent edits files; the UI browses them.
 4. **Model access goes through LangChain** (`acf.llm.make_model`). Don't import provider SDKs elsewhere.
    History is append-only: store `message_to_dict(ai)` and replay it verbatim.
-5. **Isolation is a feature.** Anything the agent executes goes through `Sandbox`. User/model paths go
-   through `workspace.resolve`. Every query is scoped to `current_user`.
+5. **Isolation is a feature.** Anything the agent executes goes through `Sandbox` (`exec`, or `process()` for
+   long-lived processes); never branch on the adapter's kind, and every adapter passes
+   `tests/test_sandbox_contract.py`. User/model paths go through `workspace.resolve`. Every query is scoped to `current_user`.
 6. **MCP connections live in their own task** (`_Connection._run`); never enter SDK contexts in one task
    and exit them in another.
 7. **Design** follows the "AI Chatbot Framework" design system (Claude Design). Its tokens are committed as

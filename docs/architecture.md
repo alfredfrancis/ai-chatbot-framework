@@ -59,9 +59,32 @@ WebSocket for clients that spawn agents as subprocesses.
 
 ## Sandboxes (`backend/acf/sandbox.py`)
 
-`acf-sbx-<user>` is created on first use with `--cap-drop ALL`, `no-new-privileges`, memory/CPU/pids
-limits and the workspace bind-mounted at `/workspace`. It is labelled with the workspace's id and replaced
-if the folder was recreated.
+`Sandbox` is a port; each provider is an adapter, picked by `ACF_SANDBOX` (`docker`, `local`, a kind added
+with `register_sandbox()`, or `package.module:Class`). Nothing outside `sandbox.py` knows which one runs.
+
+| Method | What an adapter does |
+|---|---|
+| `ensure()` | Start the user's sandbox if needed; raise `SandboxError` with a sentence for the user if it can't. |
+| `exec(command, timeout)` | Run a shell command in the workspace, return `ExecResult`. A timeout or a cancel kills it. |
+| `spawn(argv, env)` | Start a long-lived process and return a `SandboxProcess`: `write`/`read` bytes on stdin/stdout, `close_stdin`, `returncode`, `kill`. Callers use `process()`, which runs `ensure()` and stops the process (close stdin, wait, kill). |
+| `status()` / `reset()` | Report state for Settings; throw the sandbox away (the workspace stays). |
+
+The contract, checked for every adapter by `tests/test_sandbox_contract.py`:
+
+- **Workspace.** The user's workspace is storage the backend owns (`workspace.workspace_dir`) and the
+  working directory of every command and process. The adapter mounts or syncs it, so `read`/`write`/`edit`,
+  the system prompt, skills and artifacts (which use the backend's copy) see the same files as `bash`.
+  A provider that can neither mount nor sync storage does not fit yet.
+- **Stopping.** A timeout, a cancelled `exec` and `kill()` stop the command and everything it started
+  *inside* the sandbox, not only the backend's handle on it.
+- **Secrets stay in the backend.** Stdio MCP servers talk MCP over a `SandboxProcess`
+  (`mcp_client._process_transport`); OAuth tokens and remote MCP connections never enter the sandbox.
+
+Docker adapter: `acf-sbx-<user>` is created on first use with `--cap-drop ALL`, `no-new-privileges`,
+memory/CPU/pids limits and the workspace bind-mounted at `/workspace`. It is labelled with the workspace's id
+and replaced if the folder was recreated. Commands run as `docker exec` under a small `sh` wrapper that
+records the session leader's pid; a stop kills that session inside the container (killing the `docker exec`
+client alone would leave the command running). It needs only `sh` and `/proc` in the image.
 
 ## Skills (`backend/acf/skills.py`)
 
