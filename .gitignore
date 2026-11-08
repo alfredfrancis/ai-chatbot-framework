@@ -11,3 +11,4 @@ data/
 .vscode/
 data-dev/
 .env
+dump.rdb
