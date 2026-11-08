@@ -22,7 +22,12 @@ its own private computer, their files, skills, app connections and scheduled job
   and no Linux capabilities. Commands and local MCP servers run there.
 - **Files, not forms** – `context.md` (about you) and `memory.md` (what the agent remembers) are plain
   files the agent reads every turn and edits itself. The UI is a read-only file browser with preview,
-  upload and download; to change anything, you ask the agent.
+  upload and download; to change anything, you ask the agent. `memory.md` has a size limit
+  (`ACF_MEMORY_LIMIT`) so it stays a short list of facts that matter in every chat.
+- **Learns as it goes** – every few messages (`ACF_REVIEW_INTERVAL`) a background pass looks back at the
+  chat and updates `memory.md` and the skills (a corrected format, a method that worked); the chat shows a
+  line saying what changed. Past chats are saved as Markdown in `.acf/chats/` so the agent can search them.
+  Text that looks like planted instructions is kept out of memory and skills.
 - **Attach files in chat** – the paperclip (or drag and drop) saves files to `uploads/` in the workspace
   (never overwriting: a second `report.csv` becomes `report (1).csv`) and sends them with the message.
   The agent reads them with its tools; the chat shows each attachment as a link to the file.
@@ -33,6 +38,8 @@ its own private computer, their files, skills, app connections and scheduled job
   moment can show up too. `context.md`, `memory.md`, hidden files and deleted files are not listed.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
+  Built in: `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research` and
+  `plain-writing`. Skills unused for `ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/`.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
   Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
   definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
@@ -58,7 +65,8 @@ On a server with Docker and a domain pointing at it:
 
 ```sh
 git clone https://github.com/alfredfrancis/ai-chatbot-framework.git && cd ai-chatbot-framework
-cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD and ANTHROPIC_API_KEY (or another model)
+cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD, ACF_SECRET_KEY and a model key
+# prepare the host first: gVisor, user-namespace remapping, sandbox firewall (deploy/README.md)
 docker compose up -d        # or: make up
 ```
 
@@ -66,13 +74,18 @@ Set `ACF_ADMIN_EMAIL` and `ACF_ADMIN_PASSWORD` in `.env` to create your account 
 then closed unless `ACF_ALLOW_SIGNUP=true`). Without them, open `https://<ACF_DOMAIN>` and create the first
 account, then set `ACF_ALLOW_SIGNUP=false`.
 [Caddy](https://caddyserver.com) gets and renews the HTTPS certificate; ports 80 and 443 must be open.
+Other host ports: `ACF_HTTP_PORT` / `ACF_HTTPS_PORT` (e.g. `127.0.0.1:8088` behind a tunnel or another proxy).
+When that tunnel or proxy terminates HTTPS (e.g. Cloudflare Tunnel), also set `ACF_CADDY_ADDRESS=:80` so Caddy
+serves plain HTTP.
 The stack pulls the published images (`ACF_REGISTRY`/`ACF_VERSION` in `.env`); to build from source
 instead (needed until the first release publishes images), run `docker compose up -d --build`. The
 database is PostgreSQL in its own container (volume `postgres-data`); workspaces live in `./data`, or
 `ACF_DATA_PATH`. Back up both. Logs are rotated and the app has a health check.
 
-The app mounts the Docker socket to start one sandbox container per user. Whoever controls the Docker
-socket controls the host, so run it on a machine dedicated to it.
+Each user gets one sandbox container. The app runs as a non-root user and never touches the Docker
+socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containers with fixed, locked-down
+settings. Sandboxes run under gVisor, as a non-root user, on their own network, behind an egress firewall
+on the host. **Set up the host as described in [deploy/README.md](deploy/README.md) before going public.**
 
 ## Develop in Docker
 
@@ -94,11 +107,16 @@ Environment variables (users can override the model in **Settings**):
 | Variable | Default | Meaning |
 |---|---|---|
 | `ACF_LLM_PROVIDER` | `anthropic` | Any LangChain provider id: `anthropic`, `openai`, `ollama`, `google_genai`, … |
+| `ACF_LLM_PROVIDERS` | providers that take an API key | Providers users may choose (comma-separated, `*` = any). The server's own is always allowed |
 | `ACF_LLM_MODEL` | `claude-opus-5-5` / `gpt-4.1-mini` | Default model |
-| `ACF_LLM_API_KEY` | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Server-wide key |
+| `ACF_LLM_API_KEY` | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Server-wide key, used by every user without their own. Only sent to the server's provider and `ACF_LLM_BASE_URL` |
+| `ACF_SECRET_KEY` | generated in `ACF_DATA_DIR/secret.key` | Encrypts API keys, MCP configs and OAuth tokens in the database. Required by the production stack |
 | `ACF_LLM_BASE_URL` | provider default | e.g. `http://localhost:11434/v1` with `openai` for Ollama |
 | `ACF_MAX_AGENT_STEPS` | `40` | Model calls per message |
 | `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
+| `ACF_MEMORY_LIMIT` | `4000` | Characters of `memory.md` (it goes into every prompt); the agent's writes past it are refused |
+| `ACF_REVIEW_INTERVAL` | `10` | User messages per chat between background reviews that update memory and skills (`0` = off) |
+| `ACF_SKILL_ARCHIVE_DAYS` | `30` | Skills not read for this many days move to `skills/.archive/` (`0` = never; `pinned: true` in a skill's frontmatter keeps it) |
 | `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
 | `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |
 | `ACF_ADMIN_EMAIL` / `ACF_ADMIN_PASSWORD` | – | Main account, created at startup; its password is reset to this value (and its sessions signed out) when it changes |
@@ -107,7 +125,9 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
 | `ACF_SANDBOX` | `docker` | `docker`, `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)) |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
-| `ACF_SANDBOX_NETWORK` | `bridge` | `none` cuts sandboxes off from the internet |
+| `ACF_SANDBOX_NETWORK` | `acf-sandbox` | Created when missing, with traffic between sandboxes off. `none` cuts sandboxes off from the internet |
+| `ACF_SANDBOX_BRIDGE` | `acf-sbx0` | Interface name of that network (the egress firewall matches it) |
+| `ACF_SANDBOX_RUNTIME` | – (`runsc` in the production stack) | Container runtime, e.g. `runsc` for gVisor |
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
 | `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
@@ -156,7 +176,8 @@ description: Write the weekly sales report. Use when asked for the weekly report
 ```
 
 Upload it as a `.zip` (or just the `SKILL.md`) on the Skills page, or ask the agent to create one —
-every workspace starts with a `skill-creator` skill that teaches it how.
+every workspace starts with a `skill-creator` skill that teaches it how, plus a few general skills
+(`backend/acf/builtin_skills/`). Each built-in skill is added once; one you delete stays deleted.
 
 ### External apps (ACP)
 
@@ -205,10 +226,9 @@ Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architectur
 
 ## Known limitations
 
-- API keys and OAuth tokens are stored unencrypted in the database. Protect it and its backups.
 - No schema migrations yet: tables are created at startup. A future schema change will need Alembic.
-- Sandboxes run as root inside the container (no capabilities, `no-new-privileges`). For stronger
-  isolation use gVisor (`--runtime=runsc`) on the Docker host.
+- Sandboxes refuse to start when the workspace belongs to root: run the app as a normal user.
+- No per-user quotas yet (model spend, disk, number of sandboxes), and no rate limiting on sign-in.
 - One app process: the scheduler and running agents live in it, so don't run several replicas.
 
 ## License

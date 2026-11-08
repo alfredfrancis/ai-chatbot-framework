@@ -19,7 +19,9 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Practice | How |
 |---|---|
 | Few, sharp tools | `read` (numbered lines, offset/limit), `write`, `edit` (exact, unique replacement), `bash` (sandbox). Everything else is bash. |
-| Files over special tools | Memory and context are `memory.md` and `context.md`; the agent edits them like any file. |
+| Files over special tools | Memory and context are `memory.md` and `context.md`; the agent edits them like any file. `memory.md` is capped at `ACF_MEMORY_LIMIT` characters: `write`/`edit` refuse to grow it past that (the error says to merge and prune), and the prompt shows how full it is. The prompt routes know-how to skills and only every-chat facts to memory, written as facts rather than orders. Past chats are files too: `.acf/chats/<id>.md` (user and assistant text, tool names), rewritten after each run and deleted with the chat, for the agent to grep. |
+| Background review | Every `ACF_REVIEW_INTERVAL` user messages in a chat, after the run ends, `agent/review.py` calls the model with the turn's system prompt (so the cache is reused), the history and a review prompt, with `read`/`write`/`edit` limited to `memory.md`, `context.md` (read) and `skills/`. It runs in the background, one per user, and adds nothing to the history; a `note` row records it (`raw.review_at`) and, when files changed, names them, which clients get as `_acf/notice`. |
+| Injection checks | `acf/scan.py` flags planted instructions ("ignore previous instructions", "don't tell the user", sending secrets with curl, bidi/tag characters). Writes of such text to `memory.md` or `skills/**/*.md` are refused, uploaded skills containing it are rejected, and a `memory.md` containing it is left out of the prompt. Narrow on purpose; the sandbox is the real boundary. |
 | Progressive disclosure | Skills appear as one line each (`name: description (path)`); the agent reads `SKILL.md` when needed. MCP tools appear as names per connected app; each tool's definition (description and input schema) is written to `.acf/mcp/<server>/<tool>.json` when the run connects, and one `mcp_call` tool (`server`, `tool`, `arguments`) runs them. Binding every MCP schema instead costs tens of thousands of prompt tokens per step. |
 | Parallel tools | All calls in one model answer run at the same time; results keep the call order. A call waits only for earlier calls on the same resource (a file path for `read`/`write`/`edit`, the app for `mcp_call`) when one of them writes. The prompt tells the model to batch only independent steps. |
 | Background commands | `bash` with `background: true` returns at once ("Started in the background as job bg-…") and runs as a job of the chat (up to 8 per chat, 1 hour max). Its output is saved as a user-role note (`raw.background` = job id, `tool_call_id` = the call that started it): a run that is still working reads it at its next step; otherwise it starts a new run. Stop ends jobs too (the note says so; it doesn't wake the agent). A job lost in a server restart gets a closing note. |
@@ -27,7 +29,7 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Small context | Tool output above 30k characters keeps head and tail; the full text is saved to `.acf/outputs/` for the agent to read. |
 | Compaction | Before a new turn, if the history is over `ACF_COMPACT_TOKENS`, older messages are summarised into one record. The cut is at a user message so tool calls stay paired; thinking blocks from before the cut are dropped. |
 | Append-only history | Assistant messages are stored as LangChain message dicts and replayed verbatim (Claude thinking blocks survive). |
-| Prompt caching | The system prompt is a single cached block; it changes only when context files, skills, connected apps or the date change. |
+| Prompt caching | The system prompt is a single cached block, built once per turn and reused for every step (and for compaction and the review), so edits during a turn don't break the cache; they show up next turn. It is ordered from most to least stable: instructions, `context.md`, skills, connected apps, `memory.md`, the date. |
 | Streaming | The model is called with `astream`; text and thinking deltas are `delta` events as they arrive. When the stream ends the merged chunk becomes one stored message (`message_to_dict`), so history is unchanged. A stop mid-answer stores the text shown so far (no thinking, no tool calls). |
 | Steering | A message sent while the agent works is never an interruption. If the model is still thinking (no text or tool call yet), the call is restarted with the message added (only tokens are lost). Once it is answering, the answer finishes and the message is read next — streamed text is never retracted. If tools are running, it is injected when the batch ends — tools are never cut off. |
 | Stop | Cancels the run; any tool call without a result gets "Stopped by the user", so the history stays valid. |
@@ -90,7 +92,11 @@ client alone would leave the command running). It needs only `sh` and `/proc` in
 
 `skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`). Uploads accept a `.zip`/`.skill`
 (the shallowest `SKILL.md` is the root; path traversal and `__MACOSX` are dropped; 20 MB limit) or a
-single `SKILL.md`. New workspaces get `skill-creator`.
+single `SKILL.md`; every Markdown file in an upload goes through the injection check. Built-in skills
+(`acf/builtin_skills/`) are copied in once each (`.acf/skills.json` remembers which, so a deleted one stays
+deleted). Each `read` of a `SKILL.md` is recorded there too; at the start of a turn, skills unread for
+`ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/` (with a notice). `skill-creator` and skills with
+`pinned: true` stay.
 
 ## OAuth for remote MCP servers (`backend/acf/oauth.py`)
 

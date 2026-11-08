@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from acf import config, workspace
+from acf import config, scan, skills, workspace
 from acf.sandbox import SandboxError, get_sandbox
 
 MAX_READ_LINES = 2000
@@ -74,6 +74,29 @@ def truncate(text: str, ctx: ToolContext, keep_tail: bool = True) -> str:
     )
 
 
+def _guard(user_id: int, rel: str, old: str, new: str) -> str | None:
+    """Why a write of `new` to `rel` is refused, if it is: memory.md has a size limit, and memory.md and
+    skills must not take in text that looks like planted instructions (see acf.scan)."""
+    rel = workspace.relative(user_id, rel)
+    if not scan.guarded(rel):
+        return None
+    found = scan.findings(new)
+    if found and not set(found) <= set(scan.findings(old)):
+        return (
+            f"Refused: the new text for {rel} looks like instructions planted by a web page or file "
+            f"({', '.join(found)}). Save the facts in your own words, without instructions to the agent."
+        )
+    limit = config.settings.memory_limit
+    if rel == workspace.MEMORY_FILE:
+        if len(new.strip()) > limit and len(new) > len(old):
+            return (
+                f"Refused: memory.md would be {len(new.strip())} characters; the limit is {limit}. In the same "
+                "edit, merge related bullets and remove stale or task-specific ones (task know-how belongs "
+                "in a skill), then try again."
+            )
+    return None
+
+
 async def _read(args: dict, ctx: ToolContext) -> ToolResult:
     path = workspace.resolve(ctx.user_id, str(args["path"]))
     if path.is_dir():
@@ -84,6 +107,7 @@ async def _read(args: dict, ctx: ToolContext) -> ToolResult:
     if b"\0" in raw[:4096]:
         return ToolResult(f"{args['path']} is a binary file ({len(raw)} bytes). Use bash to inspect it.", True)
     lines = raw.decode(errors="replace").splitlines()
+    skills.record_use(ctx.user_id, str(args["path"]))
     offset = max(int(args.get("offset") or 1), 1)
     limit = min(int(args.get("limit") or MAX_READ_LINES), MAX_READ_LINES)
     chunk = lines[offset - 1 : offset - 1 + limit]
@@ -97,8 +121,10 @@ async def _read(args: dict, ctx: ToolContext) -> ToolResult:
 
 
 async def _write(args: dict, ctx: ToolContext) -> ToolResult:
-    content = str(args.get("content", ""))
-    workspace.write_file(ctx.user_id, str(args["path"]), content)
+    content, rel = str(args.get("content", "")), str(args["path"])
+    if refused := _guard(ctx.user_id, rel, workspace.read_file(ctx.user_id, rel), content):
+        return ToolResult(refused, True)
+    workspace.write_file(ctx.user_id, rel, content)
     return ToolResult(f"Wrote {args['path']} ({len(content.splitlines())} lines)")
 
 
@@ -119,9 +145,10 @@ async def _edit(args: dict, ctx: ToolContext) -> ToolResult:
             f"old_string appears {count} times in {rel}. Add surrounding lines to make it unique, or set replace_all.",
             True,
         )
-    workspace.write_file(
-        ctx.user_id, rel, text.replace(old, new) if args.get("replace_all") else text.replace(old, new, 1)
-    )
+    updated = text.replace(old, new) if args.get("replace_all") else text.replace(old, new, 1)
+    if refused := _guard(ctx.user_id, rel, text, updated):
+        return ToolResult(refused, True)
+    workspace.write_file(ctx.user_id, rel, updated)
     return ToolResult(f"Edited {rel} ({count if args.get('replace_all') else 1} replacement)")
 
 

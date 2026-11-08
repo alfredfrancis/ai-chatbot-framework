@@ -19,17 +19,28 @@ test("switch to an OpenAI-compatible model server", async ({ page }) => {
   await expect(lastAssistant(page)).toContainText("Result: via-openai");
 });
 
-test("any LangChain provider id can be chosen; bad ones are explained", async ({ page }) => {
+test("only providers the server offers can be chosen", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Settings" }).click();
   await page.getByLabel("Model provider").selectOption("other");
-  await page.getByLabel("LangChain provider id").fill("nosuchprovider");
+  await page.getByLabel("LangChain provider id").fill("bedrock_converse");
   await page.getByLabel("Model", { exact: true }).fill("x");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
-  await nav(page).getByRole("link", { name: "New chat" }).click();
-  await say(page, "hi");
-  await expect(page.getByRole("alert")).toContainText(/nosuchprovider|set up the model/);
+  await expect(page.getByRole("alert")).toContainText("doesn't offer 'bedrock_converse'");
+  await expect(page.getByRole("alert")).toContainText("anthropic");
+});
+
+test("the server's key is only offered for the server's own model", async ({ page }) => {
+  await signUp(page);
+  await nav(page).getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Using the server's key");
+  await page.getByLabel(/Server address/).fill("https://models.example.com");
+  await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Paste your API key");
+  await expect(page.getByText("The server's key only works with its own model provider and address.")).toBeVisible();
+  await shot(page, "12b-settings-own-key");
+  await page.getByLabel(/Server address/).fill("");
+  await page.getByLabel("Model provider").selectOption("openai");
+  await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Paste your API key");
 });
 
 test("model errors are shown to the user", async ({ page }) => {

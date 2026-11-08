@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from acf import artifacts, config, mcp_presets, oauth, scheduler, skills, workspace
 from acf.agent import loop as agent
+from acf.agent import transcripts
 from acf.auth import (
     COOKIE,
     SESSION_DAYS,
@@ -174,6 +175,7 @@ def rename_chat(chat_id: int, body: ChatIn, db: Session = Depends(get_db), user:
 @router.delete("/chats/{chat_id}")
 def delete_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
     db.delete(_own_chat(db, user, chat_id))
+    transcripts.delete(user.id, chat_id)
     return {"ok": True}
 
 
@@ -296,10 +298,10 @@ def delete_skill(name: str, user: User = Depends(current_user)) -> dict:
 
 
 class SettingsIn(BaseModel):
-    provider: str = ""
-    model: str = ""
-    base_url: str = ""
-    api_key: str | None = None  # None = keep, "" = clear
+    provider: str = Field("", max_length=64)
+    model: str = Field("", max_length=200)
+    base_url: str = Field("", max_length=2000)
+    api_key: str | None = Field(None, max_length=4000)  # None = keep, "" = clear
 
 
 @router.get("/settings")
@@ -310,8 +312,10 @@ def get_settings(user: User = Depends(current_user)) -> dict:
         "model": user.llm_model,
         "base_url": user.llm_base_url,
         "has_api_key": bool(user.llm_api_key),
+        "providers": s.allowed_providers(),
         "defaults": {
             "provider": s.llm_provider,
+            "base_url": s.llm_base_url,
             "model": s.default_model(user.llm_provider or s.llm_provider),
             "has_api_key": bool(s.llm_api_key),
         },
@@ -320,8 +324,13 @@ def get_settings(user: User = Depends(current_user)) -> dict:
 
 @router.put("/settings")
 def put_settings(body: SettingsIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+    if body.base_url.strip() and not body.base_url.strip().startswith(("http://", "https://")):
+        raise HTTPException(400, "The server address must start with http:// or https://")
     if body.provider and not re.fullmatch(r"[a-z][a-z0-9_-]{1,40}", body.provider):
         raise HTTPException(400, "Provider must be a LangChain provider id such as anthropic, openai or ollama")
+    if body.provider and not config.settings.provider_allowed(body.provider):
+        names = ", ".join(config.settings.allowed_providers())
+        raise HTTPException(400, f"This server doesn't offer '{body.provider}'. Available: {names}")
     u = db.get(User, user.id)
     u.llm_provider, u.llm_model, u.llm_base_url = body.provider, body.model.strip(), body.base_url.strip()
     if body.api_key is not None:

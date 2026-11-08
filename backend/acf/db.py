@@ -8,14 +8,28 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, create_engine, event
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.types import TypeDecorator
 
-from acf import config
+from acf import config, secrets_box
 
 
 def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+class EncryptedText(TypeDecorator):
+    """Text encrypted at rest (acf.secrets_box); code reads and writes plain strings."""
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        return secrets_box.encrypt(value)
+
+    def process_result_value(self, value, dialect):
+        return secrets_box.decrypt(value)
 
 
 class Base(DeclarativeBase):
@@ -33,8 +47,8 @@ class User(Base):
     llm_provider: Mapped[str] = mapped_column(String(64), default="")
     llm_model: Mapped[str] = mapped_column(Text, default="")
     llm_base_url: Mapped[str] = mapped_column(Text, default="")
-    llm_api_key: Mapped[str] = mapped_column(Text, default="")
-    mcp_config: Mapped[str] = mapped_column(Text, default='{\n  "mcpServers": {}\n}\n')
+    llm_api_key: Mapped[str] = mapped_column(EncryptedText, default="")
+    mcp_config: Mapped[str] = mapped_column(EncryptedText, default='{\n  "mcpServers": {}\n}\n')
 
 
 class AuthSession(Base):
@@ -69,7 +83,7 @@ class Chat(Base):
 class Message(Base):
     """One message in provider-neutral form.
 
-    role: user | assistant | tool | summary
+    role: user | assistant | tool | summary | note (a background review's record; not sent to the model)
     A background command's output is a user-role note (the model reads it as a message) that carries the
     job id in raw.background and the tool call that started it in tool_call_id.
     assistant messages may carry tool_calls [{id, name, arguments}] and the provider's raw content
@@ -79,7 +93,7 @@ class Message(Base):
     __tablename__ = "messages"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), index=True)
-    role: Mapped[str] = mapped_column(String(20))  # user | assistant | tool | summary
+    role: Mapped[str] = mapped_column(String(20))  # user | assistant | tool | summary | note
     content: Mapped[str] = mapped_column(Text, default="")
     tool_calls: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     tool_call_id: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -133,8 +147,8 @@ class OAuthToken(Base):
     server_name: Mapped[str] = mapped_column(String(200))
     server_url: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")  # authorization server metadata
-    client_json: Mapped[str] = mapped_column(Text, default="{}")  # registered client info
-    tokens_json: Mapped[str] = mapped_column(Text, default="{}")
+    client_json: Mapped[str] = mapped_column(EncryptedText, default="{}")  # registered client info
+    tokens_json: Mapped[str] = mapped_column(EncryptedText, default="{}")
     pending_state: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     pending_verifier: Mapped[str | None] = mapped_column(String(200), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -181,6 +195,39 @@ def init_db() -> None:
 
     Base.metadata.create_all(_engine)
     _SessionLocal = sessionmaker(_engine, expire_on_commit=False)
+    encrypt_existing()
+
+
+# Columns holding secrets: (table, column) pairs typed EncryptedText.
+SECRET_COLUMNS = [
+    (table.name, col.name)
+    for table in Base.metadata.sorted_tables
+    for col in table.columns
+    if isinstance(col.type, EncryptedText)
+]
+
+
+def encrypt_existing() -> int:
+    """Encrypt secrets stored in plain text by earlier versions, and refuse to start with the wrong key.
+    Returns the number of values encrypted."""
+    assert _engine is not None
+    done = 0
+    with _engine.begin() as conn:
+        for table, col in SECRET_COLUMNS:
+            rows = conn.execute(text(f"SELECT id, {col} FROM {table} WHERE {col} IS NOT NULL AND {col} != ''"))
+            checked = False
+            for row_id, value in rows.fetchall():
+                if value.startswith(secrets_box.PREFIX):
+                    if not checked:
+                        secrets_box.decrypt(value)  # raises SecretKeyError for the wrong key
+                        checked = True
+                    continue
+                conn.execute(
+                    text(f"UPDATE {table} SET {col} = :v WHERE id = :id"),
+                    {"v": secrets_box.encrypt(value), "id": row_id},
+                )
+                done += 1
+    return done
 
 
 @contextmanager

@@ -36,7 +36,8 @@ export type Settings = {
   model: string;
   base_url: string;
   has_api_key: boolean;
-  defaults: { provider: string; model: string; has_api_key: boolean };
+  providers: string[];
+  defaults: { provider: string; model: string; base_url: string; has_api_key: boolean };
 };
 /** A file size people can read: 812 B, 4.2 KB, 1.3 MB. */
 export const formatSize = (n?: number) =>

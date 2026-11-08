@@ -41,6 +41,7 @@ from acf import config, workspace
 
 MAX_OUTPUT = 2_000_000  # the agent truncates for the model and saves the full text
 WORKDIR = "/workspace"
+PIDS_LIMIT = 512
 STOP_GRACE = 2.0  # seconds a process gets to exit after its stdin closes, and to die after a kill
 # Variables a host process inherits (as the MCP SDK's stdio client does); everything else must be passed.
 _HOST_ENV = ("HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER")
@@ -329,6 +330,7 @@ class DockerSandbox(Sandbox):
         res = await _run(
             [
                 "docker",
+                "container",
                 "inspect",
                 "-f",
                 '{{.State.Status}} {{index .Config.Labels "acf.workspace"}}',
@@ -343,6 +345,36 @@ class DockerSandbox(Sandbox):
 
     async def _state(self) -> str:
         return (await self._inspect())[0]
+
+    async def _ensure_network(self) -> None:
+        """Create the sandbox network if needed: a bridge with inter-container traffic off."""
+        s = config.settings
+        net = s.sandbox_network
+        if net == "host" or net.startswith("container:"):
+            raise SandboxError(f"ACF_SANDBOX_NETWORK={net} would share a network with the host or a container")
+        if net in ("bridge", "none"):
+            return
+        if (await _run(["docker", "network", "inspect", net], 30)).exit_code == 0:
+            return
+        res = await _run(
+            [
+                "docker",
+                "network",
+                "create",
+                "--driver",
+                "bridge",
+                "--label",
+                "acf.sandbox=1",
+                "-o",
+                "com.docker.network.bridge.enable_icc=false",
+                "-o",
+                f"com.docker.network.bridge.name={s.sandbox_bridge}",
+                net,
+            ],
+            60,
+        )
+        if res.exit_code != 0 and (await _run(["docker", "network", "inspect", net], 30)).exit_code != 0:
+            raise SandboxError(f"Could not create the sandbox network: {res.stderr.strip() or res.stdout.strip()}")
 
     async def ensure(self) -> None:
         if not shutil.which("docker"):
@@ -362,9 +394,16 @@ class DockerSandbox(Sandbox):
                     return
                 await _run(["docker", "rm", "-f", self.name], 60)
             s = config.settings
-            # Run as the workspace's owner: with every capability dropped, even root cannot write to a
-            # folder owned by another user (e.g. when the app itself runs as a normal user).
+            # Run as the workspace's owner: the app's own (non-root) user. Never as root: root in a
+            # container is root on the host unless the daemon remaps user namespaces.
             owner = workspace.workspace_dir(self.user_id).stat()
+            if owner.st_uid == 0 or owner.st_gid == 0:
+                raise SandboxError(
+                    "Sandboxes don't run as root. Run AI Chatbot Framework as a normal user, or make that user "
+                    "own the data folder."
+                )
+            await self._ensure_network()
+            runtime = ["--runtime", s.sandbox_runtime] if s.sandbox_runtime else []
             args = [
                 "docker",
                 "run",
@@ -386,13 +425,14 @@ class DockerSandbox(Sandbox):
                 "--cpus",
                 s.sandbox_cpus,
                 "--pids-limit",
-                "512",
+                str(PIDS_LIMIT),
                 "--network",
                 s.sandbox_network,
                 "--cap-drop",
                 "ALL",
                 "--security-opt",
                 "no-new-privileges",
+                *runtime,
                 "-v",
                 f"{workspace.host_workspace_dir(self.user_id)}:{WORKDIR}",
                 "-w",

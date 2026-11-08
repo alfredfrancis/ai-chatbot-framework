@@ -11,6 +11,9 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(f"ACF_{name}", default)
 
 
+DEFAULT_PROVIDERS = "anthropic,openai,google_genai,mistralai,groq,deepseek,xai,fireworks,together,perplexity"
+
+
 @dataclass
 class Settings:
     data_dir: Path = field(default_factory=lambda: Path(_env("DATA_DIR", "./data")).resolve())
@@ -34,6 +37,8 @@ class Settings:
             else not _env("ADMIN_EMAIL").strip()
         )
     )
+    # Encrypts secrets stored in the database (see acf/secrets_box.py). Any long random string.
+    secret_key: str = field(default_factory=lambda: _env("SECRET_KEY"))
     cookie_secure: bool = field(default_factory=lambda: _env("COOKIE_SECURE", "false").lower() == "true")
 
     # LLM defaults (each user can override in Settings).
@@ -45,9 +50,19 @@ class Settings:
             _env("LLM_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
         )
     )
+    # Providers users may pick in Settings (comma-separated LangChain ids; "*" = any). The default lists
+    # providers that take an API key, so a user can't make the server use credentials from its environment
+    # (e.g. bedrock with the machine's cloud role). The server's own provider is always allowed.
+    llm_providers: str = field(default_factory=lambda: _env("LLM_PROVIDERS").strip() or DEFAULT_PROVIDERS)
     compact_tokens: int = field(default_factory=lambda: int(_env("COMPACT_TOKENS", "120000")))
     compact_keep_tokens: int = field(default_factory=lambda: int(_env("COMPACT_KEEP_TOKENS", "20000")))
     max_agent_steps: int = field(default_factory=lambda: int(_env("MAX_AGENT_STEPS", "40")))
+    # memory.md goes into every system prompt; writes past this many characters are refused.
+    memory_limit: int = field(default_factory=lambda: int(_env("MEMORY_LIMIT", "4000")))
+    # Every N user messages in a chat, a background pass reviews it and updates memory.md and skills (0 = off).
+    review_interval: int = field(default_factory=lambda: int(_env("REVIEW_INTERVAL", "10")))
+    # Skills not read for this many days move to skills/.archive/ (0 = never).
+    skill_archive_days: int = field(default_factory=lambda: int(_env("SKILL_ARCHIVE_DAYS", "30")))
 
     # Sandbox
     sandbox: str = field(default_factory=lambda: _env("SANDBOX", "docker"))  # docker | local
@@ -55,7 +70,13 @@ class Settings:
     sandbox_image: str = field(default_factory=lambda: _env("SANDBOX_IMAGE", "acf-sandbox:latest"))
     # Host path of data_dir, when AI Chatbot Framework itself runs in a container and talks to the host's Docker.
     sandbox_host_data_dir: str = field(default_factory=lambda: _env("SANDBOX_HOST_DATA_DIR"))
-    sandbox_network: str = field(default_factory=lambda: _env("SANDBOX_NETWORK", "bridge"))
+    # Sandboxes get their own bridge network with inter-container traffic off (created when missing).
+    # deploy/sandbox-firewall.sh blocks it from private, link-local and metadata addresses by its
+    # interface name (ACF_SANDBOX_BRIDGE). "none" cuts sandboxes off from the network.
+    sandbox_network: str = field(default_factory=lambda: _env("SANDBOX_NETWORK", "acf-sandbox"))
+    sandbox_bridge: str = field(default_factory=lambda: _env("SANDBOX_BRIDGE", "acf-sbx0"))
+    # Container runtime, e.g. "runsc" (gVisor: a user-space kernel between sandboxes and the host).
+    sandbox_runtime: str = field(default_factory=lambda: _env("SANDBOX_RUNTIME"))
     sandbox_memory: str = field(default_factory=lambda: _env("SANDBOX_MEMORY", "1g"))
     sandbox_cpus: str = field(default_factory=lambda: _env("SANDBOX_CPUS", "1"))
     command_timeout: int = field(default_factory=lambda: int(_env("COMMAND_TIMEOUT", "120")))
@@ -74,9 +95,21 @@ class Settings:
             raise ValueError("ACF_ADMIN_EMAIL must be an email address")
         if self.admin_password and len(self.admin_password) < 8:
             raise ValueError("ACF_ADMIN_PASSWORD must be at least 8 characters")
+        if len(self.sandbox_bridge) > 15:
+            raise ValueError("ACF_SANDBOX_BRIDGE must be at most 15 characters (a Linux interface name)")
+        if self.secret_key and len(self.secret_key) < 32:
+            raise ValueError("ACF_SECRET_KEY must be at least 32 characters (e.g. `openssl rand -base64 48`)")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if not self.db_url:
             self.db_url = f"sqlite:///{self.data_dir / 'acf.db'}"
+
+    def provider_allowed(self, provider: str) -> bool:
+        allowed = {p.strip() for p in self.llm_providers.split(",") if p.strip()}
+        return "*" in allowed or provider in allowed or provider == self.llm_provider
+
+    def allowed_providers(self) -> list[str]:
+        allowed = [p.strip() for p in self.llm_providers.split(",") if p.strip()]
+        return allowed if "*" in allowed else sorted({*allowed, self.llm_provider})
 
     def default_model(self, provider: str) -> str:
         if self.llm_model:

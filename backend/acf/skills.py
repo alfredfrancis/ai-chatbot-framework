@@ -3,56 +3,39 @@ a `description`, plus any scripts or reference files it needs.
 
 They live in the user's workspace under skills/<name>/ (so /workspace/skills/<name>/ in the sandbox).
 Only names and descriptions go into the system prompt; the agent reads SKILL.md when a task needs it
-(progressive disclosure). The agent can also write new skills itself.
+(progressive disclosure). The agent can also write new skills itself, and fixes them as it learns.
+
+Built-in skills (acf/builtin_skills/) are copied into a workspace once each: a user can change or delete
+them, and a deleted one does not come back. Each read of a SKILL.md is recorded; a skill nobody read for
+`skill_archive_days` moves to skills/.archive/ (never deleted). `pinned: true` in the frontmatter, and
+skill-creator, keep a skill in place.
 """
 
 from __future__ import annotations
 
 import io
+import json
+import logging
 import re
 import shutil
+import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 import yaml
 
-from acf import workspace
+from acf import config, scan, workspace
 
+log = logging.getLogger("acf.skills")
 SKILLS_DIR = "skills"
+ARCHIVE_DIR = ".archive"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 MAX_ZIP_BYTES = 20 * 1024 * 1024
 MAX_FILES = 500
-
-SKILL_CREATOR = """---
-name: skill-creator
-description: How to write a new skill. Use when the user asks you to remember how to do a task, to make a skill, or when you solved a multi-step task that is likely to come up again.
----
-
-# Creating a skill
-
-A skill is a folder `skills/<name>/` containing `SKILL.md` and optional helper files (scripts,
-templates, reference notes).
-
-1. Pick a short lowercase name with dashes, e.g. `weekly-report`.
-2. Write `skills/<name>/SKILL.md`:
-
-   ```
-   ---
-   name: weekly-report
-   description: One or two sentences saying what it does AND when to use it.
-   ---
-
-   # Weekly report
-   Step-by-step instructions, the exact commands to run, where inputs and outputs live,
-   and what good output looks like.
-   ```
-
-3. Put scripts next to it (e.g. `skills/weekly-report/make_report.py`) and call them from the steps.
-4. Keep SKILL.md short and concrete. Move long reference material into separate files and
-   say when to read them.
-5. Test the skill once by following it, then tell the user it exists.
-"""
+BUILTIN = Path(__file__).parent / "builtin_skills"
+STATE_FILE = ".acf/skills.json"  # {"seeded": [names], "used": {name: unix time}}
+DAY = 86_400
 
 
 @dataclass
@@ -89,12 +72,86 @@ def skills_root(user_id: int) -> Path:
     return root
 
 
+def _state(user_id: int) -> dict:
+    try:
+        data = json.loads(workspace.read_file(user_id, STATE_FILE) or "{}")
+    except ValueError:
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def _save_state(user_id: int, data: dict) -> None:
+    workspace.write_file(user_id, STATE_FILE, json.dumps(data, indent=1, sort_keys=True))
+
+
+def builtin_names() -> list[str]:
+    return sorted(p.parent.name for p in BUILTIN.glob("*/SKILL.md"))
+
+
 def seed(user_id: int) -> None:
-    """Give a new workspace the built-in skill-creator skill."""
-    target = skills_root(user_id) / "skill-creator" / "SKILL.md"
-    if not target.exists():
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(SKILL_CREATOR)
+    """Copy each built-in skill into the workspace once (a skill the user deleted stays deleted)."""
+    state = _state(user_id)
+    seeded = set(state.get("seeded", []))
+    root = skills_root(user_id)
+    added = False
+    for name in builtin_names():
+        if name in seeded:
+            continue
+        if not (root / name).exists():
+            shutil.copytree(BUILTIN / name, root / name)
+        seeded.add(name)
+        added = True
+    if added:
+        state["seeded"] = sorted(seeded)
+        _save_state(user_id, state)
+
+
+def record_use(user_id: int, rel: str) -> None:
+    """Note that a skill's SKILL.md was read (rel is the path the agent read)."""
+    try:
+        parts = PurePosixPath(workspace.relative(user_id, rel)).parts
+    except ValueError:
+        return
+    if len(parts) == 3 and parts[0] == SKILLS_DIR and parts[2] == "SKILL.md" and parts[1] != ARCHIVE_DIR:
+        state = _state(user_id)
+        state.setdefault("used", {})[parts[1]] = int(time.time())
+        _save_state(user_id, state)
+
+
+def archive_stale(user_id: int, now: float | None = None) -> list[str]:
+    """Move skills unused for `skill_archive_days` to skills/.archive/. Returns the names moved.
+
+    A skill's clock starts the first time this sees it, so new and existing skills get the full period."""
+    days = config.settings.skill_archive_days
+    if days <= 0:
+        return []
+    now = time.time() if now is None else now
+    state = _state(user_id)
+    used: dict = state.setdefault("used", {})
+    root = skills_root(user_id)
+    moved, changed = [], False
+    for md in sorted(root.glob("*/SKILL.md")):
+        name = md.parent.name
+        if name not in used:
+            used[name], changed = int(now), True
+            continue
+        if name == "skill-creator" or parse_frontmatter(md.read_text(errors="replace")).get("pinned") is True:
+            continue
+        if now - float(used[name]) < days * DAY:
+            continue
+        dest = root / ARCHIVE_DIR / name
+        if dest.exists():
+            dest = root / ARCHIVE_DIR / f"{name}-{int(now)}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        md.parent.rename(dest)
+        used.pop(name)
+        moved.append(name)
+        changed = True
+    if changed:
+        _save_state(user_id, state)
+    if moved:
+        log.info("archived unused skills for user %s: %s", user_id, ", ".join(moved))
+    return moved
 
 
 def list_skills(user_id: int) -> list[Skill]:
@@ -110,6 +167,10 @@ def list_skills(user_id: int) -> list[Skill]:
 
 
 def _validate_skill_md(text: str, fallback: str) -> str:
+    if found := scan.findings(text):
+        raise SkillError(
+            f"This skill contains text that looks like hidden instructions ({', '.join(found)}), so it was not added"
+        )
     meta = parse_frontmatter(text)
     if not meta.get("description"):
         raise SkillError("SKILL.md needs YAML frontmatter with a name and a description")
@@ -161,6 +222,12 @@ def install(user_id: int, filename: str, data: bytes) -> Skill:
             if rel.is_absolute() or ".." in rel.parts or "__MACOSX" in rel.parts:
                 continue
             content = zf.read(n)
+            if rel.suffix.lower() == ".md" and (found := scan.findings(content.decode("utf-8", errors="replace"))):
+                shutil.rmtree(staging)
+                raise SkillError(
+                    f"{rel} contains text that looks like hidden instructions ({', '.join(found)}), "
+                    "so the skill was not added"
+                )
             total += len(content)
             if total > MAX_ZIP_BYTES * 2:
                 shutil.rmtree(staging)

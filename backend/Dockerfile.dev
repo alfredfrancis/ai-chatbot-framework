@@ -3,6 +3,8 @@ FROM docker:29-cli AS dockercli
 
 FROM python:3.12-slim
 COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
+RUN useradd --uid 10001 --user-group --no-create-home --home-dir /data acf
+ENV DOCKER_CONFIG=/tmp/.docker
 WORKDIR /app/backend
 COPY backend/ ./
 RUN pip install --no-cache-dir -e ".[dev]"

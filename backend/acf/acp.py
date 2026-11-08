@@ -16,7 +16,8 @@ history and, if the agent is working, keeps streaming live updates. A session/pr
 is working is a steering message: it is read at the next step and its response arrives when the run ends.
 
 Extensions (`_acf/…` notifications and `_meta.acf`; other clients ignore them):
-  _acf/notice    {sessionId, text}                connection problems, summaries, step limit
+  _acf/notice    {sessionId, text}                connection problems, summaries, step limit, what a
+                                                  background review learned
   _acf/turn_end  {sessionId, stopReason, error?}  a run this connection follows has ended
   _acf/turn_start {sessionId}                     a finished background command started a run on a
                                                   session this connection loaded or prompted
@@ -154,7 +155,8 @@ def tool_result_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def message_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
-    """One stored message as ACP updates; a summary becomes an `_acf/notice` (marked with `notice`)."""
+    """One stored message as ACP updates; a summary or a review note becomes an `_acf/notice` (marked with
+    `notice`)."""
     role = m["role"]
     if role == "user" and m["background"] and m["tool_call_id"]:
         return tool_result_updates(m)
@@ -166,6 +168,8 @@ def message_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
         return tool_result_updates(m)
     if role == "summary":
         return [{"notice": SUMMARY_NOTICE}]
+    if role == "note" and m["content"]:
+        return [{"notice": m["content"]}]
     return []
 
 

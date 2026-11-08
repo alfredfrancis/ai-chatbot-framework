@@ -20,13 +20,18 @@ backend/acf/
   llm.py             LangChain init_chat_model, friendly errors, token estimate
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
   agent/tools.py     read / write / edit / bash + output truncation
-  agent/prompt.py    system prompt: instructions + context.md + memory.md + skills index + connected apps
+  agent/prompt.py    system prompt (built once per turn): instructions + context.md + skills + apps + memory.md
+  agent/review.py    background review every N user messages: updates memory.md and skills
+  agent/transcripts.py  past chats as .acf/chats/<id>.md for the agent to grep
+  scan.py            prompt-injection check for memory.md, skills and skill uploads
   acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
   acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
   artifacts.py       a chat's artifacts: files attached to it and files the agent made in it
-  skills.py          skill discovery, upload (zip / SKILL.md), built-in skill-creator
+  skills.py          skill discovery, upload (zip / SKILL.md), built-in skills (builtin_skills/), archiving
   workspace.py       per-user folder, path safety
   sandbox.py         Sandbox port + adapters: DockerSandbox (one container per user), LocalSandbox (dev only)
+  docker_proxy.py    the only holder of the Docker socket in production; allows sandbox operations only
+  secrets_box.py     encryption at rest for secret DB columns (db.EncryptedText, ACF_SECRET_KEY)
   mcp_client.py      config parsing, McpHub (one asyncio task per server connection), mcp_call + .acf/mcp/ files
   oauth.py           OAuth client for remote MCP servers
   scheduler.py       cron tasks
@@ -36,6 +41,7 @@ frontend/src/        React + Vite; pages/ per screen; styles.css (components) + 
 design/              tokens.json (source of truth), README.md (brand book), components.css
 frontend/e2e/        Playwright specs; they also write docs/screenshots/e2e/*.png
 sandbox/Dockerfile   the sandbox image
+deploy/              Caddyfile, host hardening guide (gVisor, userns-remap), sandbox egress firewall
 ```
 
 ## Commands
@@ -84,9 +90,15 @@ make lint         # ruff + tsc
 ## Gotchas
 
 - Docker deployments need `ACF_SANDBOX_HOST_DATA_DIR` (bind mounts use host paths).
+- Sandboxes never run as root: Docker tests must run as a non-root user. A change to how DockerSandbox
+  calls Docker must also pass `docker_proxy.Policy` (tests/test_docker_proxy.py); never widen the
+  proxy to get a feature working without a test that the unsafe variant is still refused.
+- The server's model key only goes to the server's own provider and address (`LLMConfig.for_user`).
+- Columns holding secrets use `EncryptedText`; never put secrets in other columns.
 - Keep DB sessions short; never hold one across an `await` on the model. PostgreSQL enforces column
   lengths (SQLite doesn't): bound user input in the API models and run tests on both
   (`ACF_TEST_DB_URL=postgresql://… make test`; CI runs both).
+- Build the system prompt once per turn (`Run._turn`); never rebuild it per step — that breaks the cache.
 - Thinking blocks are bound to their prefix: only compaction may drop them, and only for messages
   before the cut.
 - All chat traffic is ACP (`acp.py`, `frontend/src/acp.ts`); there are no chat REST/SSE endpoints. Backend

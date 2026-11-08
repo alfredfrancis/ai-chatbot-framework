@@ -3,7 +3,7 @@ import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 
 test("home, chat, sandbox commands and history", async ({ page }) => {
   await signUp(page);
-  await expect(page.getByTestId("status-line")).toHaveText("Your agent has a private computer, 3 files, 1 skill and 0 connections.");
+  await expect(page.getByTestId("status-line")).toHaveText("Your agent has a private computer, 3 files, 7 skills and 0 connections.");
   await shot(page, "02-home");
 
   await say(page, "hello there");
