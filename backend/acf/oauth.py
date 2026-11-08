@@ -181,7 +181,10 @@ async def start(user_id: int, name: str, server_url: str, oauth_cfg: dict, redir
         row.pending_verifier = verifier
         row.updated_at = utcnow()
 
+    # First, so a configuration can't replace the parameters the flow depends on.
+    extra = oauth_cfg.get("authorize_params")
     params = {
+        **(extra if isinstance(extra, dict) else {}),
         "response_type": "code",
         "client_id": client_info["client_id"],
         "redirect_uri": redirect_uri,

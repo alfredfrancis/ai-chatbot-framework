@@ -156,6 +156,10 @@ which the form keeps but doesn't edit). The API equivalents are `PUT`/`DELETE /a
 }
 ```
 
+`oauth.authorize_params` adds parameters to the provider's sign-in URL. Google, for example, only issues a
+refresh token with `{ "access_type": "offline", "prompt": "consent" }`; without one the connection ends when
+the access token expires.
+
 **Popular apps.** The Connections page lists remote MCP servers that support OAuth dynamic client
 registration — Linear, Notion, Jira & Confluence, Sentry, monday.com, Canva, Intercom, Stripe, Vercel and
 Hugging Face. **Add** writes the entry into your configuration; **Sign in** does the rest, no API key needed.
