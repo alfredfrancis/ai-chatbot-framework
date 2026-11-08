@@ -160,6 +160,20 @@ async def test_oauth_flow(client, user, oauth_mcp_url):
     assert servers[0]["state"] == "needs_auth"
 
 
+async def test_oauth_authorize_params(client, user, oauth_mcp_url):
+    """Extra sign-in parameters reach the provider but can't replace the ones the flow depends on."""
+    extra = {"access_type": "offline", "prompt": "consent", "state": "evil", "redirect_uri": "http://evil.example/cb"}
+    cfg = {"mcpServers": {"notes": {"url": f"{oauth_mcp_url}/mcp", "oauth": {"authorize_params": extra}}}}
+    await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})
+
+    redirect = "http://app.local/oauth/callback"
+    r = await client.post("/api/mcp/servers/notes/oauth/start", json={"redirect_uri": redirect})
+    assert r.status_code == 200, r.text
+    q = parse_qs(urlparse(r.json()["authorize_url"]).query)
+    assert q["access_type"] == ["offline"] and q["prompt"] == ["consent"]
+    assert q["state"] != ["evil"] and q["redirect_uri"] == [redirect]
+
+
 async def test_token_refresh(client, user, oauth_mcp_url):
     """An expired access token is refreshed transparently."""
     import time
