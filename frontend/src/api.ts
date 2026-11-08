@@ -3,6 +3,8 @@ export type FileEntry = { name: string; path: string; type: "dir" | "file"; size
 export type Artifact = { path: string; name: string; kind: "uploaded" | "produced"; size: number; modified_at: string };
 export type Skill = { name: string; description: string; path: string; files: number };
 export type ChatSummary = { id: number; title: string; task_id: number | null; updated_at: string };
+export type AppSummary = { id: string; title: string; description: string; error: string | null };
+export type AppDetail = AppSummary & { source: string; chat_id: number | null; running: boolean };
 export type Task = {
   id: number;
   name: string;

@@ -5,6 +5,9 @@ on:
     branches: [master]
   pull_request:
 
+env:
+  OPENUI_TELEMETRY_DISABLED: "1" # @openuidev/lang-core reports installs to PostHog otherwise
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -79,8 +82,8 @@ jobs:
       - name: Build web app (tokens + typecheck + bundle)
         working-directory: frontend
         run: npm run build
-      - name: Generated tokens.css matches design/tokens.json
-        run: git diff --exit-code frontend/src/tokens.css
+      - name: Generated files are current (tokens.css, personal-apps OpenUI reference)
+        run: git diff --exit-code frontend/src/tokens.css backend/acf/builtin_skills/personal-apps/openui.md
       - name: Pull sandbox image
         run: docker pull python:3.12-alpine
       - name: End-to-end tests (real Docker sandbox)

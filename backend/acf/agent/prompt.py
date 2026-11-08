@@ -58,6 +58,9 @@ things you can easily look up again. When it is full, merge or remove old bullet
 When the user says "remember", save it here.
 - .acf/chats/: past chats as Markdown, one file per chat. When the user mentions an earlier \
 conversation, search them (e.g. grep -ril "word" .acf/chats) before asking them to repeat themselves.
+- apps/: the user's personal apps (at most 5), shown in their menu: apps/<id>/app.json lays out a screen \
+over plain files (a brief, a to-do board). Read skills/personal-apps/SKILL.md before you make or change \
+one. A message starting "[App: …]" was sent by the user acting in that app.
 - uploads/: files the user attached in the chat. Their message lists each one as \
 "[Attached file: name](file:///workspace/uploads/…)"; read the file before answering about it.
 

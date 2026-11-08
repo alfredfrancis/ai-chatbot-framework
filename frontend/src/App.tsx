@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { acp } from "./acp";
-import { api, type ChatSummary, type User } from "./api";
+import { api, type AppSummary, type ChatSummary, type User } from "./api";
 import {
-  IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconPlug, IconPlus, IconSearch, IconSpark, Keys, Lockup,
+  IconApp, IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconPlug, IconPlus, IconSearch, IconSpark, Keys, Lockup,
 } from "./components/icons";
+import AppPage from "./pages/AppView";
 import AuthPage from "./pages/Auth";
 import ChatPage from "./pages/Chat";
 import ConnectionsPage from "./pages/Connections";
@@ -15,7 +16,7 @@ import SkillsPage from "./pages/Skills";
 import TasksPage from "./pages/Tasks";
 
 type Counts = { files: number; skills: number; tasks: number; connections: number };
-type AppCtx = { user: User; chats: ChatSummary[]; counts: Counts; refresh: () => void; openNav: () => void; openCommands: () => void };
+type AppCtx = { user: User; chats: ChatSummary[]; apps: AppSummary[]; counts: Counts; refresh: () => void; openNav: () => void; openCommands: () => void };
 const Ctx = createContext<AppCtx | null>(null);
 export const useApp = () => useContext(Ctx)!;
 
@@ -96,6 +97,7 @@ const typing = (t: EventTarget | null) =>
 
 function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [apps, setApps] = useState<AppSummary[]>([]);
   const [counts, setCounts] = useState<Counts>({ files: 0, skills: 0, tasks: 0, connections: 0 });
   const [sandbox, setSandbox] = useState<string>("");
   const [navOpen, setNavOpen] = useState(false);
@@ -105,6 +107,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
 
   const refresh = useCallback(() => {
     api.get<ChatSummary[]>("/chats").then(setChats).catch(() => {});
+    api.get<AppSummary[]>("/apps").then(setApps).catch(() => {});
     api.get<{ state: string }>("/sandbox").then((r) => setSandbox(r.state)).catch(() => {});
     Promise.all([
       api.get<{ entries: unknown[] }>("/files").then((r) => r.entries.length).catch(() => 0),
@@ -146,6 +149,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     { id: "upload-skill", group: "Actions", label: "Upload a skill", icon: <IconSpark />, run: () => navigate("/skills") },
     { id: "sign-out", group: "Actions", label: "Sign out", icon: <IconLogout />, run: signOut },
     ...GO.map((g) => ({ id: `go-${g.key}`, group: "Go to", label: g.label, icon: g.icon, keys: ["G", g.key.toUpperCase()], run: () => navigate(g.to) })),
+    ...apps.map((a) => ({ id: `app-${a.id}`, group: "Apps", label: a.title, icon: <IconApp />, run: () => navigate(`/apps/${a.id}`) })),
     ...chats.slice(0, 8).map((c) => ({ id: `chat-${c.id}`, group: "Recent chats", label: c.title, icon: <IconChat />, run: () => navigate(`/c/${c.id}`) })),
   ];
 
@@ -157,7 +161,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const onChat = location.pathname === "/" || location.pathname.startsWith("/c/");
 
   return (
-    <Ctx.Provider value={{ user, chats, counts, refresh, openNav: () => setNavOpen(true), openCommands: () => setCmdOpen(true) }}>
+    <Ctx.Provider value={{ user, chats, apps, counts, refresh, openNav: () => setNavOpen(true), openCommands: () => setCmdOpen(true) }}>
       <div className="shell">
         {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
         <nav className={`sidebar${navOpen ? " open" : ""}`} aria-label="Main">
@@ -166,6 +170,15 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             <IconSearch /><span>Search</span><Keys keys={["⌘", "K"]} />
           </button>
           <Link to="/" className="btn primary"><IconPlus />New chat</Link>
+          {apps.length > 0 && (
+            <div className="apps-nav" role="group" aria-label="Apps">
+              {apps.map((a) => (
+                <NavLink key={a.id} to={`/apps/${a.id}`} title={a.description || a.title} className={({ isActive }) => `nav${isActive ? " active" : ""}`}>
+                  <IconApp /><span className="nav-label">{a.title}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
           <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats<span className="right"><span className="kbd">C</span></span></NavLink>
           {nav("/files", "Files", <IconDrawer />, counts.files)}
           {nav("/skills", "Skills", <IconSpark />, counts.skills)}
@@ -211,6 +224,7 @@ export default function App() {
             <Route element={<Shell user={user} onSignOut={() => setUser(null)} />}>
               <Route path="/" element={<ChatPage />} />
               <Route path="/c/:id" element={<ChatPage />} />
+              <Route path="/apps/:id" element={<AppPage />} />
               <Route path="/files" element={<FilesPage />} />
               <Route path="/skills" element={<SkillsPage />} />
               <Route path="/tasks" element={<TasksPage />} />

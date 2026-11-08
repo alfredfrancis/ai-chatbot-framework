@@ -411,3 +411,54 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 /* ---------- segmented control (Form / JSON) ---------- */
 .seg { display: inline-flex; gap: var(--space-1); padding: var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .seg .btn[aria-pressed="true"] { background: var(--bg-selected); color: var(--text); }
+
+/* Personal apps (pages/AppView.tsx, openui/library.tsx): menu entries under New chat, and the components an
+   app's OpenUI Lang screen is built from. */
+.apps-nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-2); }
+.nav .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-page { gap: var(--space-6); }
+.app-working { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 14px; color: var(--accent-text); white-space: nowrap; }
+.oui-problems { margin: 0; padding-left: 18px; font-family: var(--font-mono); font-size: 14px; }
+.oui-screen { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+.oui-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.oui-card > .btn, .oui-screen > .btn, .oui-card > .oui-confirm { align-self: flex-start; }
+.oui-row > .card, .oui-row > .oui-stat { flex: 1 1 260px; }
+.oui-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.oui-grid[data-columns="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.oui-grid[data-columns="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.oui-card h2 + .hint { margin: var(--space-1) 0 0; }
+.oui-stat { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.oui-stat .label { font-size: 14px; line-height: 20px; color: var(--text-muted); }
+.oui-stat .value { font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.oui-notice { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: 15px; background: var(--bg-hover); color: var(--text); }
+.oui-notice.success { background: var(--accent-subtle); color: var(--accent-text); }
+.oui-notice.warning { background: var(--warning-subtle); color: var(--warning); }
+.oui-notice.danger { background: var(--danger-subtle); color: var(--danger); }
+.oui-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.oui-table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.oui-table th { text-align: left; font-size: 13px; font-weight: 500; color: var(--text-faint); background: var(--bg); }
+.oui-table th, .oui-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+.oui-table tr:last-child td { border-bottom: 0; }
+.oui-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+.board.matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.quadrant { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-2); min-height: 180px; transition: border-color 0.16s, box-shadow 0.16s; }
+.quadrant.over { border-color: var(--accent); box-shadow: var(--shadow-glow); }
+.quadrant-head { display: flex; align-items: center; gap: var(--space-2); }
+.quadrant-head .title { font-weight: 600; }
+.quadrant-head .count { margin-left: auto; font-family: var(--font-mono); font-size: 13px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.qitems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); flex: 1; }
+.qitem { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  background: var(--bg-elevated); border: 1px solid var(--border); cursor: grab; }
+.qitem:active { cursor: grabbing; }
+.qitem input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.qitem .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.qitem .title { overflow-wrap: anywhere; }
+.qitem .meta { font-size: 13px; line-height: 18px; color: var(--text-muted); overflow-wrap: anywhere; }
+.qitem.done .title { text-decoration: line-through; color: var(--text-faint); }
+.qitem .input.move { width: auto; max-width: 132px; height: var(--control-sm); font-size: 14px; flex-shrink: 0; }
+.qadd .input { height: var(--control-sm); font-size: 15px; background: transparent; border-style: dashed; border-color: var(--border); }
+.qadd .input:focus { border-style: solid; }
+@media (max-width: 640px) { .board.matrix, .oui-grid, .oui-grid[data-columns] { grid-template-columns: 1fr; } }

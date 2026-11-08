@@ -4,7 +4,7 @@ import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 test("built-in skills are ready on a new account", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Skills" }).click();
-  for (const name of ["skill-creator", "pdf", "action-items", "weekly-review", "price-watch", "cited-research", "plain-writing", "personal-assistant"]) {
+  for (const name of ["skill-creator", "pdf", "action-items", "weekly-review", "price-watch", "cited-research", "plain-writing", "personal-assistant", "personal-apps"]) {
     await expect(page.getByTestId(`skill-${name}`)).toBeVisible();
   }
   await expect(page.getByTestId("skill-price-watch")).toContainText("alert when the full price drops");

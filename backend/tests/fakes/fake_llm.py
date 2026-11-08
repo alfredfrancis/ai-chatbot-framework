@@ -18,6 +18,7 @@ Rules (applied to the latest user text):
   typing: <text>              -> "Echo: <text>", streamed one word every 0.3 s
   think: <text>               -> thinks "Considering: <text>", then "Echo: <text>"
   [background job …          -> "Background done: <the note>" (a background command finished)
+  [App: …] <event>\n<rest>     -> a message from a personal app: the rules apply to <rest>
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
   anything else               -> "Echo: <text>"
@@ -56,6 +57,8 @@ def decide(
         return {"text": f"Result: {tool_result[:2000]}"}
     text = (last_user or "").strip()
     low = text.lower()
+    if text.startswith("[App:") and "\n" in text:
+        return decide(text.split("\n", 1)[1], tool_result, system, tool_names, history_users)
     if low.startswith("summarise the conversation"):
         return {"text": f"SUMMARY of {len(history_users or [])} user messages: " + " | ".join(history_users or [])}
     if text.startswith("[Review]"):

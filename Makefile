@@ -10,7 +10,7 @@ help:
 setup: ## Install backend (venv) and frontend dependencies
 	python3 -m venv .venv
 	$(PIP) install -e "backend[dev]"
-	cd frontend && npm install
+	cd frontend && OPENUI_TELEMETRY_DISABLED=1 npm install
 
 api: ## Run the API on :8000 with reload (sandbox=docker unless ACF_SANDBOX=local)
 	cd backend && ../$(PY) -m uvicorn acf.main:app --reload --port 8000

@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import artifacts, config, mcp_presets, oauth, scheduler, skills, workspace
+from acf import apps, artifacts, config, mcp_presets, oauth, scheduler, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import transcripts
 from acf.auth import (
@@ -292,6 +292,37 @@ def delete_skill(name: str, user: User = Depends(current_user)) -> dict:
     except skills.SkillError as e:
         raise HTTPException(404, str(e)) from e
     return {"ok": True}
+
+
+# ------------------------------------------------------------------ personal apps (see acf.apps)
+
+
+@router.get("/apps")
+def list_apps(user: User = Depends(current_user)) -> list[dict]:
+    return [a.summary() for a in apps.list_apps(user.id)]
+
+
+@router.get("/apps/{app_id}")
+def get_app(app_id: str, user: User = Depends(current_user)) -> dict:
+    try:
+        return apps.detail(user.id, app_id)
+    except apps.NotFound as e:
+        raise HTTPException(404, "App not found") from e
+
+
+class AppActionIn(BaseModel):
+    action: apps.Action
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/apps/{app_id}/actions")
+async def app_action(app_id: str, body: AppActionIn, user: User = Depends(current_user)) -> dict:
+    try:
+        return await apps.run_action(user, app_id, body.action, body.args)
+    except apps.NotFound as e:
+        raise HTTPException(404, "App not found") from e
+    except (apps.AppError, ValueError) as e:
+        raise HTTPException(400, str(e)) from e
 
 
 # ------------------------------------------------------------------ settings & sandbox
