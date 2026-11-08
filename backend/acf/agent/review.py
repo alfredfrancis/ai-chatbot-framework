@@ -18,7 +18,7 @@ from typing import Any
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
-from acf import config, workspace
+from acf import bus, config, workspace
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult
 from acf.db import Chat, Message, User, session_scope
 from acf.llm import LLMConfig, make_model
@@ -110,9 +110,17 @@ def maybe_start(user: User, chat_id: int, system: str | None) -> asyncio.Task | 
     users, last = counts(chat_id)
     if users - last < interval:
         return None
+    lock = f"review:{user.id}"  # one review per user, across processes (they edit the same files)
+    if not bus.current().lock(lock):
+        return None
     task = asyncio.create_task(_review(user, chat_id, users, system))
     _active[user.id] = task
-    task.add_done_callback(lambda _: _active.pop(user.id, None))
+
+    def done(_: asyncio.Task) -> None:
+        _active.pop(user.id, None)
+        bus.current().unlock(lock)
+
+    task.add_done_callback(done)
     return task
 
 

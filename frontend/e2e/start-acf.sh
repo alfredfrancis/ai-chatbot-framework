@@ -28,16 +28,41 @@ export ACF_ALLOW_SIGNUP=true
 export ACF_MCP_PRESETS_FILE="$ROOT/frontend/e2e/presets.json"
 export ACF_SECRET_KEY="${ACF_SECRET_KEY:-e2e-secret-key-that-is-long-enough-0000}"
 cd "$ROOT/backend"
+PORT="${ACF_PORT:-8765}"
+# E2E_REPLICAS=2 (or more): that many app processes sharing run state through Redis, behind a round-robin
+# proxy on $PORT, so every page load, request and chat connection may land on a different one.
+REPLICAS="${E2E_REPLICAS:-1}"
+PIDS=()
+cleanup() { [ ${#PIDS[@]} -gt 0 ] && kill "${PIDS[@]}" 2>/dev/null; true; }
+trap cleanup EXIT INT TERM
+serve() {
+  if [ "$REPLICAS" -le 1 ]; then
+    "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "$PORT" --log-level warning
+    return
+  fi
+  if [ -z "${E2E_REDIS_URL:-}" ]; then
+    REDIS_PORT=$((PORT + 100))
+    redis-server --port "$REDIS_PORT" --bind 127.0.0.1 --save "" --appendonly no >/dev/null &
+    PIDS+=($!)
+    E2E_REDIS_URL="redis://127.0.0.1:$REDIS_PORT/0"
+  fi
+  export ACF_REDIS_URL="$E2E_REDIS_URL" ACF_REDIS_PREFIX="acf-e2e-$$"
+  BACKENDS=()
+  for i in $(seq 1 "$REPLICAS"); do
+    P=$((PORT + i))
+    "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "$P" --log-level warning &
+    PIDS+=($!)
+    BACKENDS+=("$P")
+  done
+  "$PY" -m tests.fakes.round_robin --listen "$PORT" --to "$(IFS=,; echo "${BACKENDS[*]}")"
+}
 if [ "$ACF_SANDBOX" = docker ]; then
   docker ps -aq --filter name=acf-e2e- | xargs -r docker rm -f >/dev/null
   # As in production: the app reaches Docker only through the narrow proxy, on its own sandbox network.
   export ACF_SANDBOX_NETWORK="${E2E_SANDBOX_NETWORK:-acf-e2e-sandbox}" ACF_SANDBOX_BRIDGE="${E2E_SANDBOX_BRIDGE:-acf-e2e0}"
   PROXY_PORT="${E2E_DOCKER_PROXY_PORT:-2399}"
   "$PY" -m acf.docker_proxy --listen "127.0.0.1:$PROXY_PORT" --socket "${E2E_DOCKER_SOCKET:-/var/run/docker.sock}" &
-  PROXY=$!
-  trap 'kill $PROXY 2>/dev/null' EXIT INT TERM
+  PIDS+=($!)
   export DOCKER_HOST="tcp://127.0.0.1:$PROXY_PORT"
-  "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "${ACF_PORT:-8765}" --log-level warning
-  exit
 fi
-exec "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "${ACF_PORT:-8765}" --log-level warning
+serve

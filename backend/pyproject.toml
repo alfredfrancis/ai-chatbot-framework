@@ -19,6 +19,7 @@ dependencies = [
   "python-multipart>=0.0.20",
   "cryptography>=43",
   "alembic>=1.14",
+  "redis>=5.2",
 ]
 
 [project.optional-dependencies]

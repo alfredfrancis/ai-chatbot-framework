@@ -5,6 +5,7 @@ Browser (React) ──/api (JSON) + /api/acp (ACP over WebSocket)──▶  Fast
 Other ACP clients ──/api/acp (Bearer token) or acf.acp_bridge (stdio)──▶
                                          ├── PostgreSQL (SQLite for quick local runs): users, chats, messages, tasks, OAuth tokens
                                          ├── Agent runs (one per chat) ── LangChain chat model
+                                         ├── Run state shared between app processes (bus: memory or Redis)
                                          ├── Scheduler loop
                                          ├── Remote MCP servers (Streamable HTTP + OAuth)
                                          └── Docker ──▶ acf-sbx-<user>  (/workspace mounted)
@@ -35,6 +36,25 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Steering | A message sent while the agent works is never an interruption. If the model is still thinking (no text or tool call yet), the call is restarted with the message added (only tokens are lost). Once it is answering, the answer finishes and the message is read next — streamed text is never retracted. If tools are running, it is injected when the batch ends — tools are never cut off. |
 | Stop | Cancels the run; any tool call without a result gets "Stopped by the user", so the history stays valid. |
 | Observable | Every step is an event (`delta`, `message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`). Clients see them through ACP (below). |
+
+## Several app processes (`backend/acf/bus.py`)
+
+Any number of app processes can serve the same users: put them behind one address, with one PostgreSQL,
+one data folder (workspaces) and one Docker (through `docker-proxy`), and set `ACF_REDIS_URL`. A user's
+chats can be served by any process; their sandbox and workspace stay one per user. The database holds
+everything that lasts; the bus holds what exists only while work is in flight. Without `ACF_REDIS_URL`
+the bus is in memory (`LocalBus`), which is right for exactly one process.
+
+| What | How |
+|---|---|
+| One run per chat | A run holds the chat's lease (`SET NX` with a TTL) while it works. |
+| Messages to a run | `agent.start` pushes the message to the chat's inbox (a Redis list), then tries to claim the chat: it starts the run in its own process, or the run that holds the chat (anywhere) reads it at its next step and a `steer` signal restarts a model call that hasn't started answering. A finishing run releases the chat and then checks the inbox again, so a message is never left behind. Job notes go the same way. |
+| Events | A run publishes every event to its feed: in-process listeners get it at once, and one publisher writes them in order to a Redis stream (batched, so streamed words don't cost a round trip each). Another process that follows the run tails the stream: replay, then live, ending at `done` (which carries the stop reason and error). `session/load` skips deltas of answers already in the history using the stream id stored with each assistant message, so a feed that trails by a few milliseconds never shows text twice. |
+| Stop, chat events | Signals over Redis pub/sub to every process: `stop` cancels the run and the background commands of the chat wherever they run; `chat` delivers `_acf/turn_start` and job notes to clients connected to any process. |
+| Scheduled tasks | Every process runs the scheduler. A due task is claimed with a compare-and-set update of `next_run_at`, so exactly one process starts it; a `task:<id>` lock stops "Run now" from overlapping it. |
+| Locks | `review:<user>` (one background review per user), `sandbox:<user>` (one process creates or restarts a user's container at a time), and the background-command registry (the per-chat limit, and which jobs are still alive when the history is repaired). |
+| Failure | Leases, locks and jobs expire `ACF_BUS_TTL` seconds after their process stops refreshing them. A process that dies frees its chats on its own: followers get a `done` with an error, and the next message runs elsewhere with the lost tool calls and jobs closed off in the history. A process cut off from Redis long enough to lose a lease stops that run rather than run the chat twice. |
+| Scaling in | On shutdown a process stops taking work, lets its running agents finish for up to `ACF_SHUTDOWN_GRACE` seconds (clients reconnect to another process and keep following), then stops what is left and releases everything it holds. |
 
 ## Agent Client Protocol (`backend/acf/acp.py`)
 
