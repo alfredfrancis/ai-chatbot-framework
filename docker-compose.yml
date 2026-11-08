@@ -142,7 +142,8 @@ services:
       - "${ACF_HTTPS_PORT:-443}:443"
       - "${ACF_HTTPS_PORT:-443}:443/udp"
     environment:
-      ACF_DOMAIN: ${ACF_DOMAIN:-localhost}
+      # The address Caddy serves; ":80" = plain HTTP when a tunnel or proxy in front terminates HTTPS.
+      ACF_DOMAIN: ${ACF_CADDY_ADDRESS:-${ACF_DOMAIN:-localhost}}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
