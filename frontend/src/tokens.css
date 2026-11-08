@@ -1,11 +1,11 @@
 /* Generated from design/tokens.json by scripts/build-tokens.mjs. Do not edit. */
 :root {
-  --bg: #0e0f12;
-  --bg-raised: #15161a;
-  --bg-elevated: #1c1d22;
-  --bg-hover: #23252b;
-  --bg-selected: #2b2d34;
-  --border: #26282e;
+  --bg: #0b0c0f;
+  --bg-raised: #111317;
+  --bg-elevated: #16181d;
+  --bg-hover: #1d1f25;
+  --bg-selected: #24272e;
+  --border: #22252b;
   --border-strong: #696c77;
   --text: #edeef0;
   --text-muted: #a0a3ab;
@@ -14,6 +14,10 @@
   --accent-fg: #08200f;
   --accent-text: #74c597;
   --accent-subtle: #15271c;
+  --accent-2: #7fd0d0;
+  --accent-2-subtle: #132326;
+  --grid-line: rgba(95,179,131,0.035);
+  --glow: rgba(95,179,131,0.22);
   --danger: #ff7a70;
   --danger-subtle: #3a1716;
   --warning: #f5b04b;
@@ -23,6 +27,8 @@
   --scrim: rgba(0,0,0,0.6);
   --shadow-pop: 0 16px 48px rgba(0,0,0,0.55);
   --shadow-composer: 0 8px 24px rgba(0,0,0,0.35);
+  --shadow-glow: 0 0 18px rgba(95,179,131,0.22);
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.35);
   --font-sans: "Geist Variable", Geist, "SF Pro Text", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --space-1: 4px;
@@ -60,6 +66,10 @@
     --accent-fg: #ffffff;
     --accent-text: #2a7049;
     --accent-subtle: #e7f2eb;
+    --accent-2: #1f6662;
+    --accent-2-subtle: #dcf0f0;
+    --grid-line: rgba(46,122,80,0.07);
+    --glow: rgba(95,179,131,0.3);
     --danger: #c4161c;
     --danger-subtle: #fdecec;
     --warning: #995800;
@@ -68,6 +78,8 @@
     --scrim: rgba(17,17,20,0.35);
     --shadow-pop: 0 16px 48px rgba(17,17,20,0.14);
     --shadow-composer: 0 8px 24px rgba(17,17,20,0.08);
+    --shadow-glow: 0 4px 14px rgba(46,122,80,0.25);
+    --shadow-card: 0 8px 22px rgba(17,17,20,0.07);
     color-scheme: light;
   }
 }

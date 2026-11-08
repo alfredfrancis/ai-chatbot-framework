@@ -5,8 +5,9 @@ test("switch to an OpenAI-compatible model server", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Settings" }).click();
   await expect(page.getByText("Local folder (development mode)").or(page.getByText("Private container"))).toBeVisible();
-  await page.getByLabel("Model provider").selectOption("openai");
+  await page.getByRole("radio", { name: /OpenAI-compatible/ }).check();
   await page.getByLabel("Model", { exact: true }).fill("llama3");
+  await expect(page.getByTestId("model-in-use")).toHaveText("openai · llama3");
   await page.getByLabel(/Server address/).fill("http://127.0.0.1:9100/v1");
   await page.getByLabel("API key").fill("sk-local");
   await page.getByRole("button", { name: "Save" }).click();
@@ -22,7 +23,7 @@ test("switch to an OpenAI-compatible model server", async ({ page }) => {
 test("only providers the server offers can be chosen", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Settings" }).click();
-  await page.getByLabel("Model provider").selectOption("other");
+  await page.getByRole("radio", { name: /Another provider/ }).check();
   await page.getByLabel("LangChain provider id").fill("bedrock_converse");
   await page.getByLabel("Model", { exact: true }).fill("x");
   await page.getByRole("button", { name: "Save" }).click();
@@ -39,14 +40,14 @@ test("the server's key is only offered for the server's own model", async ({ pag
   await expect(page.getByText("The server's key only works with its own model provider and address.")).toBeVisible();
   await shot(page, "12b-settings-own-key");
   await page.getByLabel(/Server address/).fill("");
-  await page.getByLabel("Model provider").selectOption("openai");
+  await page.getByRole("radio", { name: /OpenAI-compatible/ }).check();
   await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Paste your API key");
 });
 
 test("model errors are shown to the user", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Settings" }).click();
-  await page.getByLabel("Model provider").selectOption("openai");
+  await page.getByRole("radio", { name: /OpenAI-compatible/ }).check();
   await page.getByLabel("Model", { exact: true }).fill("m");
   await page.getByLabel(/Server address/).fill("http://127.0.0.1:1/v1");
   await page.getByRole("button", { name: "Save" }).click();

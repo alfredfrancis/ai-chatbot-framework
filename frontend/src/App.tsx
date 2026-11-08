@@ -41,6 +41,9 @@ export function Topbar({ crumb, title, children }: { crumb?: string; title: stri
   );
 }
 
+const LIVE = ["ready", "running"];
+const SANDBOX_LABEL: Record<string, string> = { ready: "sandbox ready", running: "sandbox ready", missing: "sandbox starts on first use" };
+
 type Command = { id: string; group: string; label: string; icon: ReactNode; keys?: string[]; run: () => void };
 
 function CommandMenu({ commands, onClose }: { commands: Command[]; onClose: () => void }) {
@@ -94,6 +97,7 @@ const typing = (t: EventTarget | null) =>
 function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [counts, setCounts] = useState<Counts>({ files: 0, skills: 0, tasks: 0, connections: 0 });
+  const [sandbox, setSandbox] = useState<string>("");
   const [navOpen, setNavOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const location = useLocation();
@@ -101,6 +105,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
 
   const refresh = useCallback(() => {
     api.get<ChatSummary[]>("/chats").then(setChats).catch(() => {});
+    api.get<{ state: string }>("/sandbox").then((r) => setSandbox(r.state)).catch(() => {});
     Promise.all([
       api.get<{ entries: unknown[] }>("/files").then((r) => r.entries.length).catch(() => 0),
       api.get<unknown[]>("/skills").then((r) => r.length).catch(() => 0),
@@ -174,7 +179,12 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
           </div>
           <div className="me">
             <span className="avatar" aria-hidden="true">{(user.name || user.email)[0]}</span>
-            <span className="who" title={user.email}>{user.name || user.email}</span>
+            <span className="who" title={user.email}>
+              <span className="name">{user.name || user.email}</span>
+              {sandbox && <span className="status" data-testid="sandbox-status">
+                {LIVE.includes(sandbox) && <span className="live-dot" aria-hidden="true" />}{SANDBOX_LABEL[sandbox] ?? `sandbox ${sandbox}`}
+              </span>}
+            </span>
             <Link to="/settings" className="btn ghost icon" aria-label="Settings" title="Settings"><IconGear /></Link>
             <button className="btn ghost icon" aria-label="Sign out" title="Sign out" onClick={signOut}><IconLogout /></button>
           </div>

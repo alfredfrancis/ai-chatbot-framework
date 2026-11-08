@@ -68,10 +68,10 @@ function ExternalApps() {
 }
 
 const PROVIDERS = [
-  { value: "", label: "Server default" },
-  { value: "anthropic", label: "Claude (Anthropic)" },
-  { value: "openai", label: "OpenAI-compatible (OpenAI, Ollama, OpenRouter…)" },
-  { value: "other", label: "Another LangChain provider…" },
+  { value: "", label: "Server default", hint: "" },
+  { value: "anthropic", label: "Claude (Anthropic)", hint: "anthropic" },
+  { value: "openai", label: "OpenAI-compatible", hint: "openai, ollama, openrouter…" },
+  { value: "other", label: "Another provider", hint: "any langchain id" },
 ];
 const KNOWN = ["", "anthropic", "openai"];
 
@@ -129,18 +129,32 @@ export default function SettingsPage() {
     <>
     <Topbar title="Settings" />
     <div className="page">
+      <div className="settings-layout">
+        <nav className="section-nav" aria-label="Settings sections">
+          <a href="#model-settings">Model</a><a href="#external-apps">External apps</a><a href="#sandbox">Sandbox</a>
+        </nav>
       <div className="page-inner">
         <div>
           <h1>Settings</h1>
           <p className="lead">Choose the model your agent uses. Leave fields empty to use the server's defaults.</p>
         </div>
-        <form className="card" onSubmit={save} aria-label="Model settings">
-          <div className="field">
-            <label htmlFor="provider">Model provider</label>
-            <select id="provider" className="input" value={provider} onChange={(e) => setProvider(e.target.value)}>
-              {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
+        <form className="card" id="model-settings" onSubmit={save} aria-label="Model settings">
+          <div className="row-flex between wrap">
+            <h2>Model</h2>
+            <span className="badge live" data-testid="model-in-use">{effective || "default"} · {model || (effective === s.defaults.provider ? s.defaults.model : "default model")}</span>
           </div>
+          <fieldset className="choices">
+            <legend className="label">Model provider</legend>
+            {PROVIDERS.map((p) => (
+              <label key={p.value} className={`choice${provider === p.value ? " on" : ""}`}>
+                <input type="radio" name="provider" value={p.value} checked={provider === p.value} onChange={() => setProvider(p.value)} />
+                <span className="text">
+                  <span className="title">{p.label}</span>
+                  <span className="meta">{p.value === "" ? `${s.defaults.provider} · ${s.defaults.model}` : p.hint}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
           {provider === "other" && (
             <div className="field">
               <label htmlFor="custom-provider">LangChain provider id</label>
@@ -177,10 +191,11 @@ export default function SettingsPage() {
 
         <ExternalApps />
 
-        <section className="stack">
+        <section className="stack" id="sandbox">
           <h2>Sandbox</h2>
           <div className="list">
             <div className="lrow">
+              {(sandbox?.state === "running" || sandbox?.state === "ready") && <span className="live-dot" aria-hidden="true" />}
               <div className="grow">
                 <div className="title">{sandbox?.kind === "docker" ? "Private container" : "Local folder (development mode)"}</div>
                 <div className="meta">
@@ -191,6 +206,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+      </div>
       </div>
     </div>
     </>
