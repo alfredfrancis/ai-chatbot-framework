@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
+from sqlalchemy.orm import Session
 
 from acf import config
 from acf.agent import loop as agent
@@ -32,6 +34,47 @@ def next_run(schedule: str, tz: str, after: datetime | None = None) -> datetime:
     base = (after or utcnow()).replace(tzinfo=UTC).astimezone(zone)
     nxt = croniter(schedule, base).get_next(datetime)
     return nxt.astimezone(UTC).replace(tzinfo=None)
+
+
+def _iso(d: datetime | None) -> str | None:
+    return d.isoformat() + "Z" if d else None
+
+
+def as_dict(t: Task) -> dict[str, Any]:
+    return {
+        "id": t.id,
+        "name": t.name,
+        "prompt": t.prompt,
+        "schedule": t.schedule,
+        "timezone": t.timezone,
+        "enabled": t.enabled,
+        "next_run_at": _iso(t.next_run_at),
+        "last_run_at": _iso(t.last_run_at),
+        "last_status": t.last_status,
+        "last_chat_id": t.last_chat_id,
+    }
+
+
+def create(db: Session, user_id: int, fields: dict[str, Any]) -> Task:
+    """Add a task for a user (the HTTP API and the agent's system tools). Raises ValueError if invalid."""
+    task = Task(user_id=user_id, **fields)
+    task.timezone = task.timezone or "UTC"
+    task.enabled = task.enabled is not False
+    validate(task.schedule, task.timezone)
+    task.next_run_at = next_run(task.schedule, task.timezone) if task.enabled else None
+    db.add(task)
+    db.flush()
+    return task
+
+
+def update(task: Task, fields: dict[str, Any]) -> Task:
+    """Change a task; None values are left as they are. Raises ValueError if invalid."""
+    fields = {k: v for k, v in fields.items() if v is not None}
+    validate(fields.get("schedule", task.schedule), fields.get("timezone", task.timezone))
+    for k, v in fields.items():
+        setattr(task, k, v)
+    task.next_run_at = next_run(task.schedule, task.timezone, utcnow()) if task.enabled else None
+    return task
 
 
 async def run_task(task_id: int) -> int | None:

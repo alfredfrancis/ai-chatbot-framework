@@ -58,8 +58,10 @@ def _reply(turn) -> str:
 
 async def test_app_tools_are_names_in_the_prompt_and_files_in_the_workspace(client, user):
     chat_id = (await client.post("/api/chats", json={})).json()["id"]
-    assert _reply(await send(client, chat_id, "list tools")) == "Tools: read, write, edit, bash"
-    assert "mcp_call" not in _reply(await send(client, chat_id, "show system"))
+    # The built-in system server is always connected, so mcp_call is there before the user adds any app.
+    assert _reply(await send(client, chat_id, "list tools")) == "Tools: read, write, edit, bash, mcp_call"
+    before = _reply(await send(client, chat_id, "show system")).splitlines()
+    assert not any(line.startswith("echo:") for line in before)
 
     await setup_echo(client, user["id"])
     stale = workspace.workspace_dir(user["id"]) / ".acf/mcp/echo/removed_tool.json"

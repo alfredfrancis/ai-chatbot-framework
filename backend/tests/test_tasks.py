@@ -1,7 +1,9 @@
+import json
 from datetime import datetime, timedelta
 
-from acf import scheduler
-from acf.db import Task, session_scope, utcnow
+from acf import scheduler, workspace
+from acf.db import Task, User, session_scope, utcnow
+from tests.conftest import send
 
 
 async def test_create_validate_update_delete(client, user):
@@ -99,3 +101,61 @@ async def test_long_task_name_fits_the_chat_title(client, user):
     assert chat["title"].startswith("N" * 180 + " · ") and len(chat["title"]) <= 200
     too_long = await client.post("/api/tasks", json={"name": "x" * 201, "prompt": "hi", "schedule": "0 * * * *"})
     assert too_long.status_code == 422
+
+
+def _call(tool: str, **arguments) -> str:
+    return "tool: mcp_call " + json.dumps({"server": "system", "tool": tool, "arguments": arguments})
+
+
+async def test_agent_manages_tasks_with_the_system_server(client, user):
+    """The built-in `system` MCP server is always connected and lets the agent schedule tasks."""
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    system = (await send(client, chat_id, "show system")).final
+    assert "system: create_task, delete_task, list_tasks, run_task, update_task" in system.splitlines()
+    definition = json.loads(workspace.read_file(user["id"], ".acf/mcp/system/create_task.json"))
+    assert set(definition["input_schema"]["required"]) == {"name", "prompt", "schedule", "timezone"}
+
+    turn = await send(
+        client,
+        chat_id,
+        _call("create_task", name="Briefing", prompt="hello", schedule="0 8 * * 1-5", timezone="Europe/Lisbon"),
+    )
+    assert turn.of("tool_call")[0]["title"] == "Used system · create_task"
+    [task] = (await client.get("/api/tasks")).json()
+    assert task["name"] == "Briefing" and task["enabled"] and task["next_run_at"]
+
+    bad = await send(client, chat_id, _call("create_task", name="x", prompt="y", schedule="daily", timezone="UTC"))
+    assert "5-field cron expression" in bad.final
+    assert len((await client.get("/api/tasks")).json()) == 1
+
+    await send(client, chat_id, _call("update_task", task_id=task["id"], enabled=False))
+    paused = (await client.get("/api/tasks")).json()[0]
+    assert paused["enabled"] is False and paused["next_run_at"] is None and paused["prompt"] == "hello"
+    assert '"name": "Briefing"' in (await send(client, chat_id, _call("list_tasks"))).final
+
+    await send(client, chat_id, _call("delete_task", task_id=task["id"]))
+    assert (await client.get("/api/tasks")).json() == []
+
+
+async def test_system_server_only_sees_the_users_own_tasks(client, user):
+    with session_scope() as db:
+        someone = User(email=f"other-{user['id']}@example.com", password_hash="x")
+        db.add(someone)
+        db.flush()
+        other = Task(user_id=someone.id, name="Not yours", prompt="p", schedule="0 * * * *")
+        db.add(other)
+        db.flush()
+        other_id = other.id
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    assert "Not yours" not in (await send(client, chat_id, _call("list_tasks"))).final
+    for tool in ("update_task", "delete_task", "run_task"):
+        args = {"task_id": other_id, **({"enabled": False} if tool == "update_task" else {})}
+        assert f"No task with id {other_id}" in (await send(client, chat_id, _call(tool, **args))).final
+    with session_scope() as db:
+        assert db.get(Task, other_id).enabled is True
+
+
+async def test_system_is_a_reserved_server_name(client, user):
+    cfg = '{"mcpServers": {"system": {"command": "x"}}}'
+    r = await client.put("/api/mcp/config", json={"config": cfg})
+    assert r.status_code == 400 and "built-in" in r.text
