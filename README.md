@@ -56,6 +56,7 @@ its own private computer, their files, skills, app connections and scheduled job
   `update_file` (the app's folder and files it lists), `ask_agent` (a message to the agent in the app's own
   chat, answered in the background), `run` (an `apps/<id>/actions/<name>.sh` script in the sandbox) and
   `mcp` (read-only tools of connected apps; anything that changes things goes through the agent).
+  Diagrams: [docs/personal-apps.md](docs/personal-apps.md).
 - **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat. Set them up on the Tasks page or
   just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
   `delete_task` and `run_task` (the server name `system` is reserved).

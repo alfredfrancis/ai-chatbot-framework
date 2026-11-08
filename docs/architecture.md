@@ -106,6 +106,8 @@ automatic refresh.
 
 ## Personal apps (`backend/acf/apps.py`, `frontend/src/openui/`)
 
+Diagrams: [personal-apps.md](personal-apps.md).
+
 An app is `apps/<id>/app.json` (title, description, order, extra `files`; validated with pydantic, an
 invalid one is listed with its error) plus `apps/<id>/app.oui`, a screen in OpenUI Lang. The menu shows at
 most 5, by `order` then id.
