@@ -21,6 +21,9 @@ Extensions (`_acf/…` notifications and `_meta.acf`; other clients ignore them)
   _acf/turn_end  {sessionId, stopReason, error?}  a run this connection follows has ended
   _acf/turn_start {sessionId}                     a finished background command started a run on a
                                                   session this connection loaded or prompted
+After every model call a `usage_update` (used, size) reports how full the context window is;
+`_meta.acf` = {percent, measured, parts: [{name, tokens, items?, count?}]} says what fills it (see
+agent/usage). session/load ends its replay with the latest one.
 A background command's tool call stays `in_progress` (`_meta.acf.background` = job id) after its turn;
 when the command ends, a `tool_call_update` completes it with the output.
 """
@@ -39,6 +42,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from acf import config, workspace
 from acf.agent import loop as agent
+from acf.agent import usage as context_usage
 from acf.auth import COOKIE, user_for_acp_token, user_for_session
 from acf.db import Chat, Message, User, session_scope, utcnow
 
@@ -410,6 +414,8 @@ class Connection:
                     await self._emit(
                         sid, [{"sessionUpdate": "tool_call_update", "toolCallId": e["id"], "status": "in_progress"}]
                     )
+                elif kind == "usage":
+                    await self._emit(sid, [context_usage.update(e["usage"])])
                 elif kind == "notice":
                     await self._emit(sid, [{"notice": e["text"]}])
                 elif kind == "title":
@@ -477,13 +483,19 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
     run = run if run and not run.done else None
     gate = asyncio.Event()
     with session_scope() as db:
-        rows = [m.to_dict() for m in db.query(Message).filter_by(chat_id=chat_id).order_by(Message.id).all()]
+        stored = db.query(Message).filter_by(chat_id=chat_id).order_by(Message.id).all()
+        rows = [m.to_dict() for m in stored]
+        last_usage = next(
+            (m.raw["usage"] for m in reversed(stored) if m.role == "assistant" and (m.raw or {}).get("usage")), None
+        )
     answered = {m["tool_call_id"] for m in rows if m["role"] == "tool"}
     conn._watch(chat_id)
     if run:  # listen before replaying, so events emitted meanwhile are queued, not lost
         conn._follow(run, chat_id, after_id=rows[-1]["id"] if rows else 0, answered=answered, gate=gate)
     for m in rows:
         await conn._emit(sid, message_updates(m))
+    if last_usage:
+        await conn._emit(sid, [context_usage.update(last_usage)])
     return _Reply({"_meta": {"acf": {"running": run is not None}}}, after=gate.set)
 
 

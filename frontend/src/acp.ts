@@ -15,8 +15,14 @@ export type SessionUpdate = Meta & (
       content?: { type: string; content?: ContentBlock }[] | null;
     }
   | { sessionUpdate: "session_info_update"; title?: string | null }
+  | { sessionUpdate: "usage_update"; used: number; size: number; _meta?: { acf?: UsageMeta } }
   | { sessionUpdate: string }
 );
+/** What fills the context window (estimates); see backend agent/usage.py. */
+export type UsagePart = { name: string; tokens: number; items?: string[]; count?: number };
+export type UsageMeta = { percent: number; measured: boolean; parts: UsagePart[] };
+/** The context window after the latest model call. */
+export type Usage = { used: number; size: number } & UsageMeta;
 export type AcpNotification =
   | { method: "session/update"; params: { sessionId: string; update: SessionUpdate } }
   | { method: "_acf/notice"; params: { sessionId: string; text: string } }
