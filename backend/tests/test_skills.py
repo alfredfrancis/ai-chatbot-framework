@@ -40,6 +40,13 @@ async def test_builtin_skills_seeded(client, user):
     assert names == BUILTIN
 
 
+async def test_skills_say_whether_they_are_built_in(client, user):
+    r = await client.post("/api/skills", files={"file": ("SKILL.md", SKILL)})
+    assert r.json()["builtin"] is False
+    flags = {s["name"]: s["builtin"] for s in (await client.get("/api/skills")).json()}
+    assert flags == {**dict.fromkeys(BUILTIN, True), "charts": False}
+
+
 async def test_upload_zip_skill_and_agent_sees_it(client, user):
     data = make_zip({"charts/SKILL.md": SKILL, "charts/chart.py": b"print('chart')", "__MACOSX/x": b"junk"})
     r = await client.post("/api/skills", files={"file": ("charts.zip", data)})
@@ -49,6 +56,7 @@ async def test_upload_zip_skill_and_agent_sees_it(client, user):
         "description": "Make bar charts from CSV files. Use when asked for a chart.",
         "path": "skills/charts/SKILL.md",
         "files": 2,
+        "builtin": False,
     }
     ws = workspace.workspace_dir(user["id"])
     assert (ws / "skills/charts/chart.py").read_text() == "print('chart')"

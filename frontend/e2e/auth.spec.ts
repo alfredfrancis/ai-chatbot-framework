@@ -3,6 +3,7 @@ import { shot, signUp } from "./helpers";
 
 test("sign up, sign out and sign back in", async ({ page }) => {
   const email = await signUp(page);
+  await page.getByRole("link", { name: "Settings" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   await shot(page, "01-sign-in");

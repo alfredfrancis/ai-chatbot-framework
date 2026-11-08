@@ -3,7 +3,10 @@ import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 
 test("home, chat, sandbox commands and history", async ({ page }) => {
   await signUp(page);
-  await expect(page.getByTestId("status-line")).toHaveText("Your agent has a private computer, 3 files, 10 skills and 0 connections.");
+  // What the agent has, as links to where each part lives; no "0 connections".
+  const has = page.getByRole("navigation", { name: "What your agent has" });
+  await expect(has).toHaveText(/Private computer.*3 files.*10 skills.*Connect an app/);
+  await expect(has.getByRole("link", { name: "Connect an app" })).toHaveAttribute("href", "/connections");
   await shot(page, "02-home");
 
   await say(page, "hello there");
@@ -25,8 +28,9 @@ test("home, chat, sandbox commands and history", async ({ page }) => {
   await expect(page.getByTestId("user-msg")).toHaveCount(2);
   await expect(lastAssistant(page)).toHaveText(/Result: computed-42/);
 
-  await page.getByRole("button", { name: "Delete chat" }).click();
-  await page.getByRole("button", { name: "Confirm delete" }).click();
+  await page.getByRole("button", { name: "Chat actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete chat" }).click();
+  await page.getByRole("menuitem", { name: "Yes, delete this chat" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(nav(page).getByRole("link", { name: "hello there" })).toHaveCount(0);
 });

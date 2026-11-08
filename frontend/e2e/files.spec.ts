@@ -15,11 +15,12 @@ test("browse the workspace, upload, and see the agent's changes", async ({ page 
   await list.getByRole("button", { name: /sales\.csv/ }).click();
   await expect(page.getByTestId("preview")).toContainText("mon,120");
   await expect(page.getByRole("link", { name: "Download" })).toHaveAttribute("href", /download=true/);
-  // A drive, not a menu: each file is a card with its type and size, and the selected one shows its details
-  await expect(list.getByRole("button", { name: /sales\.csv/ })).toContainText("CSV · 16 B");
+  // A list with each file's size; the agent's own files say what they are; the selected one shows its details
+  await expect(list.getByRole("button", { name: /sales\.csv/ })).toContainText("16 B");
+  await expect(list.getByRole("button", { name: /memory\.md/ })).toContainText("What your agent has learned while working");
   await expect(list.getByRole("button", { name: /sales\.csv/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("region", { name: "Preview" }).getByRole("definition").first()).toHaveText("16 B");
-  // Pictures show as thumbnails
+  // Pictures show a small thumbnail in their row
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
   await page.getByTestId("upload").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: png });
   await expect(list.getByRole("button", { name: /logo\.png/ }).locator("img")).toHaveAttribute("src", /logo\.png/);
@@ -35,7 +36,7 @@ test("browse the workspace, upload, and see the agent's changes", async ({ page 
   await expect(lastAssistant(page)).toContainText("Result: hi");
 
   await nav(page).getByRole("link", { name: "Files" }).click();
-  await expect(nav(page).getByTestId("sandbox-status")).toHaveText("sandbox ready");
+  await expect(nav(page).getByTestId("sandbox-status")).toHaveText("Sandbox ready");
   await list.getByRole("button", { name: /notes/ }).click();
   await expect(page.getByRole("navigation", { name: "Folder" })).toContainText("workspace/notes");
   await list.getByRole("button", { name: /plan\.md/ }).click();

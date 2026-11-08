@@ -4,7 +4,7 @@ import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 test("create, run, pause and delete a recurring task", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Tasks" }).click();
-  await expect(page.getByText(/No tasks yet/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Put your agent on a schedule" })).toBeVisible();
   await page.getByRole("button", { name: "New task" }).click();
   await page.getByLabel("Name").fill("Morning check");
   await page.getByLabel("What should the agent do?").fill("run: echo task-ran");
@@ -28,8 +28,9 @@ test("create, run, pause and delete a recurring task", async ({ page }) => {
   await row.getByRole("switch", { name: "Morning check enabled" }).click();
   await expect(row).toContainText("Paused");
 
-  await row.getByRole("button", { name: "Delete Morning check" }).click();
-  await row.getByRole("button", { name: "Confirm delete Morning check" }).click();
+  await row.getByRole("button", { name: "More actions for Morning check" }).click();
+  await page.getByRole("menuitem", { name: "Delete task" }).click();
+  await page.getByRole("menuitem", { name: "Yes, delete this task" }).click();
   await expect(row).toHaveCount(0);
 });
 

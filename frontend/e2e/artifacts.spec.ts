@@ -52,7 +52,9 @@ test("on a phone the artifacts panel opens over the chat", async ({ page }) => {
   await signUp(page);
   await say(page, "write: notes.md | hi");
   await expect(lastAssistant(page)).toContainText("Result: Wrote notes.md");
-  await page.getByRole("button", { name: "Artifacts", exact: true }).click();
+  // On a phone the artifacts button lives in the chat actions sheet.
+  await page.getByRole("button", { name: "Chat actions" }).click();
+  await page.getByRole("menuitem", { name: "Show artifacts" }).click();
   const panel = page.getByRole("complementary", { name: "Artifacts" });
   await expect(panel.getByRole("link", { name: /^notes\.md/ })).toBeVisible();
   const box = await panel.boundingBox();

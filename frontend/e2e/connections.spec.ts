@@ -10,7 +10,7 @@ async function openConnections(page: Page) {
 }
 
 async function addRemote(page: Page, name: string, url: string) {
-  await page.getByRole("button", { name: "Add connection" }).click();
+  await page.getByRole("button", { name: "Add custom connection" }).click();
   const form = page.getByRole("form", { name: "New connection" });
   await form.getByLabel("Name").fill(name);
   await form.getByLabel("Type").selectOption("http");
@@ -26,8 +26,8 @@ test("add a local MCP server with the form and use its tools", async ({ page }) 
   await expect(page.getByRole("button", { name: /echo_mcp\.py/ })).toBeVisible();
 
   await openConnections(page);
-  await expect(page.getByText("No connections yet.")).toBeVisible();
-  await page.getByRole("button", { name: "Add connection" }).click();
+  await expect(page.getByRole("heading", { name: "Connect your first app" })).toBeVisible();
+  await page.getByRole("button", { name: "Add custom connection" }).click();
   const form = page.getByRole("form", { name: "New connection" });
   await form.getByLabel("Name").fill("calculator");
   await expect(form.getByLabel("Type")).toHaveValue("stdio");
@@ -44,10 +44,12 @@ test("add a local MCP server with the form and use its tools", async ({ page }) 
   await expect(row).toContainText("add — Add two numbers");
 
   // The form wrote Claude-Desktop-style JSON, visible in the JSON view.
-  await page.getByRole("button", { name: "JSON" }).click();
+  await page.getByRole("button", { name: "Edit as JSON" }).click();
   const json = JSON.parse(await page.getByLabel("Configuration (JSON)").inputValue());
   expect(json.mcpServers.calculator).toEqual({ command: "python3", args: ["echo_mcp.py"], env: { GREETING: "hello" } });
-  await page.getByRole("button", { name: "Form" }).click();
+  await page.getByRole("button", { name: "Back to connections" }).click();
+  // With a connection, the apps section is a plain list of more to add.
+  await expect(page.getByRole("heading", { name: "Popular apps" })).toBeVisible();
 
   await nav(page).getByRole("link", { name: "New chat" }).click();
   await say(page, 'tool: mcp_call {"server": "calculator", "tool": "add", "arguments": {"a": 1234, "b": 4321}}');
@@ -61,7 +63,8 @@ test("edit, turn off, rename and delete a connection", async ({ page }) => {
   await addRemote(page, "notes", "http://127.0.0.1:9200/mcp");
   await expect(page.getByTestId("server-notes")).toContainText("Needs sign-in");
 
-  await page.getByRole("button", { name: "Edit notes" }).click();
+  await page.getByRole("button", { name: "More actions for notes" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
   const form = page.getByRole("form", { name: "Edit notes" });
   await expect(form.getByLabel("URL")).toHaveValue("http://127.0.0.1:9200/mcp");
   await form.getByLabel("Name").fill("journal");
@@ -75,21 +78,25 @@ test("edit, turn off, rename and delete a connection", async ({ page }) => {
 
   await expect(page.getByTestId("server-notes")).toHaveCount(0);
   await expect(page.getByTestId("server-journal")).toContainText("Off");
-  await page.getByRole("button", { name: "JSON" }).click();
+  await page.getByRole("button", { name: "Edit as JSON" }).click();
   expect(JSON.parse(await page.getByLabel("Configuration (JSON)").inputValue()).mcpServers).toEqual({
     journal: { url: "http://127.0.0.1:9200/mcp", headers: { "X-Api-Key": "secret" }, enabled: false },
   });
-  await page.getByRole("button", { name: "Form" }).click();
+  await page.getByRole("button", { name: "Back to connections" }).click();
 
-  await page.getByRole("button", { name: "Delete journal" }).click();
-  await page.getByRole("button", { name: "Confirm delete journal" }).click();
-  await expect(page.getByText("No connections yet.")).toBeVisible();
+  // Deleting asks again inside the ⋯ menu (a bottom sheet at this phone width).
+  await page.getByRole("button", { name: "More actions for journal" }).click();
+  await page.getByRole("menuitem", { name: "Delete connection" }).click();
+  await expect(page.getByTestId("server-journal")).toBeVisible();
+  await page.getByRole("menuitem", { name: "Yes, delete this connection" }).click();
+  await expect(page.getByTestId("server-journal")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Connect your first app" })).toBeVisible();
 });
 
 test("form validation errors are shown", async ({ page }) => {
   await signUp(page);
   await openConnections(page);
-  await page.getByRole("button", { name: "Add connection" }).click();
+  await page.getByRole("button", { name: "Add custom connection" }).click();
   const form = page.getByRole("form", { name: "New connection" });
   await form.getByLabel("Name").fill("bad name");
   await form.getByLabel("Command").fill("npx");
@@ -105,7 +112,7 @@ test("form validation errors are shown", async ({ page }) => {
 test("JSON view: invalid configuration is rejected with a clear message", async ({ page }) => {
   await signUp(page);
   await openConnections(page);
-  await page.getByRole("button", { name: "JSON" }).click();
+  await page.getByRole("button", { name: "Edit as JSON" }).click();
   await page.getByLabel("Configuration (JSON)").fill('{"mcpServers": {"x": {}}}');
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("alert")).toContainText('"x" needs either a "command"');
@@ -114,7 +121,7 @@ test("JSON view: invalid configuration is rejected with a clear message", async 
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
   await shot(page, "07b-connections-json");
-  await page.getByRole("button", { name: "Form" }).click();
+  await page.getByRole("button", { name: "Back to connections" }).click();
   await expect(page.getByTestId("server-linear")).toBeVisible();
 });
 
@@ -151,13 +158,13 @@ test("add a popular app in one click and sign in", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Connections" }).click();
   const apps = page.getByRole("region", { name: "Popular apps" });
-  await expect(apps.getByRole("button", { name: "Add Linear" })).toBeVisible();
-  await expect(apps.getByRole("button", { name: "Add Notion" })).toBeVisible();
+  await expect(apps.getByRole("button", { name: "Connect Linear" })).toBeVisible();
+  await expect(apps.getByRole("button", { name: "Connect Notion" })).toBeVisible();
   await shot(page, "09b-connections-popular-apps");
 
-  await apps.getByRole("button", { name: "Add Notes" }).click();
+  await apps.getByRole("button", { name: "Connect Notes" }).click();
   await expect(apps.getByTestId("preset-notes")).toContainText("Added");
-  await expect(apps.getByRole("button", { name: "Add Notes" })).toHaveCount(0);
+  await expect(apps.getByRole("button", { name: "Connect Notes" })).toHaveCount(0);
 
   const row = page.getByTestId("server-notes");
   const popupPromise = page.waitForEvent("popup");
@@ -167,7 +174,7 @@ test("add a popular app in one click and sign in", async ({ page }) => {
   await popup.waitForEvent("close");
   await expect(row).toContainText("Connected");
 
-  await page.getByRole("button", { name: "JSON", exact: true }).click();
+  await page.getByRole("button", { name: "Edit as JSON" }).click();
   const json = JSON.parse(await page.getByLabel("Configuration (JSON)").inputValue());
   expect(json.mcpServers.notes).toEqual({ url: "http://127.0.0.1:9200/mcp" });
 });

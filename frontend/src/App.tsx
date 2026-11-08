@@ -17,7 +17,10 @@ import SkillsPage from "./pages/Skills";
 import TasksPage from "./pages/Tasks";
 
 type Counts = { files: number; skills: number; tasks: number; connections: number };
-type AppCtx = { user: User; chats: ChatSummary[]; apps: AppSummary[]; counts: Counts; refresh: () => void; openNav: () => void; openCommands: () => void };
+type AppCtx = {
+  user: User; chats: ChatSummary[]; apps: AppSummary[]; counts: Counts; refresh: () => void; openNav: () => void; openCommands: () => void;
+  signOut: () => void;
+};
 const Ctx = createContext<AppCtx | null>(null);
 export const useApp = () => useContext(Ctx)!;
 
@@ -30,11 +33,12 @@ const GO = [
   { key: ",", to: "/settings", label: "Settings", icon: <IconGear /> },
 ];
 
-/** Page header: breadcrumb on the left, actions on the right, menu button on phones. */
-export function Topbar({ crumb, title, children }: { crumb?: string; title: string; children?: ReactNode }) {
+/** Top bar: breadcrumb on the left, actions on the right, menu button on phones.
+ *  `phoneOnly` pages carry their title in a PageHeader instead, so the bar only shows on phones (for the menu button). */
+export function Topbar({ crumb, title, children, phoneOnly = false }: { crumb?: string; title: string; children?: ReactNode; phoneOnly?: boolean }) {
   const { openNav } = useApp();
   return (
-    <header className="topbar">
+    <header className={`topbar${phoneOnly ? " phone-only" : ""}`}>
       <button className="btn ghost icon menu-btn" aria-label="Open menu" onClick={openNav}><IconMenu /></button>
       {crumb && <><span className="crumb">{crumb}</span><span className="crumb">/</span></>}
       <span className="here">{title}</span>
@@ -43,8 +47,18 @@ export function Topbar({ crumb, title, children }: { crumb?: string; title: stri
   );
 }
 
+/** A page's header: its title and one line on what it is for, with the page's one action on the right. */
+export function PageHeader({ title, lead, children }: { title: string; lead: ReactNode; children?: ReactNode }) {
+  return (
+    <header className="page-head">
+      <div className="text"><h1>{title}</h1><p className="lead">{lead}</p></div>
+      {children && <div className="actions">{children}</div>}
+    </header>
+  );
+}
+
 const LIVE = ["ready", "running"];
-const SANDBOX_LABEL: Record<string, string> = { ready: "sandbox ready", running: "sandbox ready", missing: "sandbox starts on first use" };
+const SANDBOX_LABEL: Record<string, string> = { ready: "Sandbox ready", running: "Sandbox ready", missing: "Sandbox starts on first use" };
 
 type Command = { id: string; group: string; label: string; icon: ReactNode; keys?: string[]; run: () => void };
 
@@ -142,7 +156,8 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [cmdOpen, navigate]);
 
-  const signOut = async () => { await api.post("/auth/logout").catch(() => {}); acp.close(); onSignOut(); };
+  // Signing back in starts at home, wherever the person signed out from.
+  const signOut = async () => { await api.post("/auth/logout").catch(() => {}); acp.close(); navigate("/", { replace: true }); onSignOut(); };
 
   const commands: Command[] = [
     { id: "new-chat", group: "Actions", label: "New chat", icon: <IconPlus />, keys: ["C"], run: () => navigate("/") },
@@ -156,15 +171,16 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     ...chats.slice(0, 8).map((c) => ({ id: `chat-${c.id}`, group: "Recent chats", label: c.title, icon: <IconChat />, run: () => navigate(`/c/${c.id}`) })),
   ];
 
-  const nav = (to: string, label: string, icon: ReactNode, right: ReactNode, end = false) => (
-    <NavLink to={to} end={end} className={({ isActive }) => `nav${isActive ? " active" : ""}`}>
-      {icon}{label}<span className="right">{right}</span>
+  // Counts only when there is something to count: a row of zeros reads like errors.
+  const nav = (to: string, label: string, icon: ReactNode, count: number) => (
+    <NavLink to={to} className={({ isActive }) => `nav${isActive ? " active" : ""}`}>
+      {icon}{label}{count > 0 && <span className="right">{count}</span>}
     </NavLink>
   );
   const onChat = location.pathname === "/" || location.pathname.startsWith("/c/");
 
   return (
-    <Ctx.Provider value={{ user, chats, apps, counts, refresh, openNav: () => setNavOpen(true), openCommands: () => setCmdOpen(true) }}>
+    <Ctx.Provider value={{ user, chats, apps, counts, refresh, openNav: () => setNavOpen(true), openCommands: () => setCmdOpen(true), signOut }}>
       <div className="shell">
         {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
         <nav className={`sidebar${navOpen ? " open" : ""}`} aria-label="Main">
@@ -172,8 +188,8 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
           <button className="search-btn" aria-label="Search or run a command" onClick={() => setCmdOpen(true)}>
             <IconSearch /><span>Search</span><Keys keys={["⌘", "K"]} />
           </button>
-          <Link to="/" className="btn primary"><IconPlus />New chat</Link>
-          <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats<span className="right"><span className="kbd">C</span></span></NavLink>
+          <Link to="/" className="btn new-chat"><IconPlus />New chat<span className="kbd">C</span></Link>
+          <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats</NavLink>
           {nav("/files", "Files", <IconDrawer />, counts.files)}
           {nav("/skills", "Skills", <IconSpark />, counts.skills)}
           {nav("/tasks", "Tasks", <IconClock />, counts.tasks)}
@@ -202,11 +218,10 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             <span className="who" title={user.email}>
               <span className="name">{user.name || user.email}</span>
               {sandbox && <span className="status" data-testid="sandbox-status">
-                {LIVE.includes(sandbox) && <span className="live-dot" aria-hidden="true" />}{SANDBOX_LABEL[sandbox] ?? `sandbox ${sandbox}`}
+                {LIVE.includes(sandbox) && <span className="live-dot" aria-hidden="true" />}{SANDBOX_LABEL[sandbox] ?? `Sandbox ${sandbox}`}
               </span>}
             </span>
-            <Link to="/settings" className="btn ghost icon" aria-label="Settings" title="Settings"><IconGear /></Link>
-            <button className="btn ghost icon" aria-label="Sign out" title="Sign out" onClick={signOut}><IconLogout /></button>
+            <NavLink to="/settings" className={({ isActive }) => `btn ghost icon${isActive ? " on" : ""}`} aria-label="Settings" title="Settings"><IconGear /></NavLink>
           </div>
         </nav>
         <div className="main"><Outlet /></div>

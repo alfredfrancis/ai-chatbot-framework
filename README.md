@@ -201,7 +201,7 @@ the access token expires.
 
 **Popular apps.** The Connections page lists remote MCP servers that support OAuth dynamic client
 registration — Linear, Notion, Jira & Confluence, Sentry, monday.com, Canva, Intercom, Stripe, Vercel and
-Hugging Face. **Add** writes the entry into your configuration; **Sign in** does the rest, no API key needed.
+Hugging Face. **Connect** writes the entry into your configuration; **Sign in** does the rest, no API key needed.
 To add your own (or override a built-in one by `id`), point `ACF_MCP_PRESETS_FILE` at a JSON file:
 
 ```json

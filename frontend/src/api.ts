@@ -1,7 +1,7 @@
 export type User = { id: number; email: string; name: string };
 export type FileEntry = { name: string; path: string; type: "dir" | "file"; size?: number; items?: number };
 export type Artifact = { path: string; name: string; kind: "uploaded" | "produced"; size: number; modified_at: string };
-export type Skill = { name: string; description: string; path: string; files: number };
+export type Skill = { name: string; description: string; path: string; files: number; builtin: boolean };
 export type ChatSummary = { id: number; title: string; task_id: number | null; updated_at: string };
 export type AppSummary = { id: string; title: string; description: string; error: string | null };
 export type AppDetail = AppSummary & { source: string; chat_id: number | null; running: boolean };
