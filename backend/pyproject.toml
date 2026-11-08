@@ -18,6 +18,7 @@ dependencies = [
   "croniter>=6.0",
   "python-multipart>=0.0.20",
   "cryptography>=43",
+  "redis>=5.2",
 ]
 
 [project.optional-dependencies]

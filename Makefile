@@ -2,7 +2,7 @@
 PY ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
-.PHONY: help setup dev api web test test-fast e2e e2e-docker lint format build sandbox-image up up-dev down down-dev
+.PHONY: help setup dev api web test test-fast e2e e2e-docker e2e-replicas lint format build sandbox-image up up-dev down down-dev
 
 help:
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -32,6 +32,9 @@ e2e: ## Build the web app and run Playwright end-to-end tests (local sandbox)
 
 e2e-docker: ## End-to-end tests against real Docker sandboxes
 	cd frontend && npm run build && E2E_SANDBOX=docker npm run e2e
+
+e2e-replicas: ## End-to-end tests against two app processes sharing run state (needs redis-server)
+	cd frontend && npm run build && E2E_REPLICAS=2 npm run e2e
 
 lint: ## Lint and typecheck everything
 	cd backend && ../.venv/bin/ruff check . && ../.venv/bin/ruff format --check .

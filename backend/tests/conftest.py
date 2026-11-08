@@ -128,3 +128,29 @@ def docker_available() -> bool:
     if not shutil.which("docker"):
         return False
     return subprocess.run(["docker", "info"], capture_output=True).returncode == 0
+
+
+@pytest.fixture(scope="session")
+def redis_url():
+    """A Redis for the bus: ACF_TEST_REDIS_URL, or a throwaway redis-server. Skips without either."""
+    if os.environ.get("ACF_TEST_REDIS_URL"):
+        yield os.environ["ACF_TEST_REDIS_URL"]
+        return
+    exe = shutil.which("redis-server")
+    if not exe:
+        pytest.skip("needs redis-server or ACF_TEST_REDIS_URL")
+    port = free_port()
+    proc = subprocess.Popen(
+        [exe, "--port", str(port), "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    url = f"redis://127.0.0.1:{port}/0"
+    for _ in range(100):
+        with socket.socket() as s:
+            if s.connect_ex(("127.0.0.1", port)) == 0:
+                break
+        time.sleep(0.05)
+    yield url
+    proc.terminate()
+    proc.wait(10)

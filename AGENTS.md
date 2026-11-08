@@ -23,6 +23,7 @@ backend/acf/
   agent/prompt.py    system prompt (built once per turn): instructions + context.md + skills + apps + memory.md
   agent/review.py    background review every N user messages: updates memory.md and skills
   agent/transcripts.py  past chats as .acf/chats/<id>.md for the agent to grep
+  bus.py             run state shared by app processes: chat leases, inbox, run feeds, signals, locks (memory or Redis)
   scan.py            prompt-injection check for memory.md, skills and skill uploads
   acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
   acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
@@ -52,6 +53,7 @@ make dev          # API :8000 + web :5173 (ACF_SANDBOX=local if no Docker)
 make test         # backend tests (Docker tests auto-skip without a daemon)
 make e2e          # build web app + Playwright (local sandbox)
 make e2e-docker   # same with real Docker sandboxes (CI)
+make e2e-replicas # same with two app processes behind a round-robin proxy (CI runs Docker + two)
 make lint         # ruff + tsc
 ```
 
@@ -101,6 +103,10 @@ make lint         # ruff + tsc
 - Build the system prompt once per turn (`Run._turn`); never rebuild it per step — that breaks the cache.
 - Thinking blocks are bound to their prefix: only compaction may drop them, and only for messages
   before the cut.
+- The app scales out: any process serves any request. State that outlives a request lives in the database
+  or goes through `acf.bus` (leases, inbox, feeds, signals, locks) — never in a module-level dict or a
+  process-local lock. Bus/multi-process changes need `tests/test_bus.py` / `tests/test_cluster.py` (real
+  processes + Redis; they skip without `redis-server` or `ACF_TEST_REDIS_URL`).
 - All chat traffic is ACP (`acp.py`, `frontend/src/acp.ts`); there are no chat REST/SSE endpoints. Backend
   tests drive it in-process with `tests/acp_client.py` (`send()` / `prompt()` in conftest).
 - The E2E Playwright version is pinned to the preinstalled browser build (1.63.0).

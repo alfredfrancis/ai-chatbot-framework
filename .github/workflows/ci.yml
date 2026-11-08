@@ -23,6 +23,12 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U acf -d acf" --health-interval 5s --health-timeout 5s --health-retries 20
+      # The run-state bus between app processes (tests/test_bus.py, tests/test_cluster.py).
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -44,6 +50,7 @@ jobs:
         working-directory: backend
         env:
           ACF_TEST_DB_URL: ${{ matrix.db == 'postgres' && 'postgresql://acf:acf@127.0.0.1:5432/acf' || '' }}
+          ACF_TEST_REDIS_URL: redis://127.0.0.1:6379/0
           ACF_TEST_FIREWALL: "1"
           ACF_TEST_FIREWALL_PUBLIC: "1"
         run: pytest -q
@@ -60,6 +67,11 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U acf -d acf" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -83,13 +95,16 @@ jobs:
         run: git diff --exit-code frontend/src/tokens.css
       - name: Pull sandbox image
         run: docker pull python:3.12-alpine
-      - name: End-to-end tests (real Docker sandbox)
+      # Two app processes behind a round-robin proxy (as when scaled out), sharing run state through Redis.
+      - name: End-to-end tests (real Docker sandbox, two app processes)
         working-directory: frontend
         env:
           CI: "true"
           PYTHON: python
           E2E_SANDBOX: docker
           E2E_DB_URL: postgresql://acf:acf@127.0.0.1:5432/acf
+          E2E_REPLICAS: "2"
+          E2E_REDIS_URL: redis://127.0.0.1:6379/0
         run: npm run e2e
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -88,6 +88,15 @@ class Settings:
     scheduler_enabled: bool = field(default_factory=lambda: _env("SCHEDULER", "true").lower() == "true")
     scheduler_interval: float = field(default_factory=lambda: float(_env("SCHEDULER_INTERVAL", "20")))
 
+    # Several app processes: they share run state through Redis (see acf/bus.py) and need PostgreSQL and
+    # one data folder. Unset: one process keeps it in memory.
+    redis_url: str = field(default_factory=lambda: _env("REDIS_URL"))
+    redis_prefix: str = field(default_factory=lambda: _env("REDIS_PREFIX", "acf"))
+    # A process that stops refreshing its chats, locks and jobs loses them after this many seconds.
+    bus_ttl: float = field(default_factory=lambda: float(_env("BUS_TTL", "30")))
+    # On shutdown (e.g. scaling in), running agents get this long to finish before they are stopped.
+    shutdown_grace: float = field(default_factory=lambda: float(_env("SHUTDOWN_GRACE", "20")))
+
     def __post_init__(self) -> None:
         if bool(self.admin_email) != bool(self.admin_password):
             raise ValueError("Set both ACF_ADMIN_EMAIL and ACF_ADMIN_PASSWORD, or neither")
