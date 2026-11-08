@@ -67,13 +67,13 @@ def health() -> dict:
 
 
 @router.get("/auth/config")
-def auth_config(db: Session = Depends(get_db)) -> dict:
+def auth_config(db: Session = Depends(get_db, scope="function")) -> dict:
     has_users = db.query(User.id).first() is not None
     return {"signup_allowed": config.settings.allow_signup or not has_users, "has_users": has_users}
 
 
 @router.post("/auth/signup")
-def signup(body: Credentials, resp: Response, db: Session = Depends(get_db)) -> dict:
+def signup(body: Credentials, resp: Response, db: Session = Depends(get_db, scope="function")) -> dict:
     email = body.email.strip().lower()
     if "@" not in email:
         raise HTTPException(400, "Enter a valid email address")
@@ -97,7 +97,7 @@ class Login(BaseModel):
 
 
 @router.post("/auth/login")
-def login(body: Login, resp: Response, db: Session = Depends(get_db)) -> dict:
+def login(body: Login, resp: Response, db: Session = Depends(get_db, scope="function")) -> dict:
     user = db.query(User).filter_by(email=body.email.strip().lower()).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(401, "Wrong email or password")
@@ -106,7 +106,7 @@ def login(body: Login, resp: Response, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/auth/logout")
-def logout(request: Request, resp: Response, db: Session = Depends(get_db)) -> dict:
+def logout(request: Request, resp: Response, db: Session = Depends(get_db, scope="function")) -> dict:
     token = request.cookies.get(COOKIE)
     if token:
         delete_session(db, token)
@@ -134,7 +134,7 @@ def _own_chat(db: Session, user: User, chat_id: int) -> Chat:
 
 
 @router.get("/chats")
-def list_chats(db: Session = Depends(get_db), user: User = Depends(current_user)) -> list[dict]:
+def list_chats(db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> list[dict]:
     rows = db.query(Chat).filter_by(user_id=user.id).order_by(Chat.updated_at.desc()).limit(200).all()
     return [_chat_dict(c) for c in rows]
 
@@ -144,7 +144,9 @@ class ChatIn(BaseModel):
 
 
 @router.post("/chats")
-def create_chat(body: ChatIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def create_chat(
+    body: ChatIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     chat = Chat(user_id=user.id, title=body.title[:200] or "New chat")
     db.add(chat)
     db.flush()
@@ -152,28 +154,34 @@ def create_chat(body: ChatIn, db: Session = Depends(get_db), user: User = Depend
 
 
 @router.get("/chats/{chat_id}")
-def get_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def get_chat(chat_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> dict:
     chat = _own_chat(db, user, chat_id)
     msgs = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id).all()
     return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": agent.running(chat.id)}
 
 
 @router.get("/chats/{chat_id}/artifacts")
-def chat_artifacts(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> list[dict]:
+def chat_artifacts(
+    chat_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> list[dict]:
     """Files uploaded to and produced by this chat (see acf.artifacts)."""
     chat = _own_chat(db, user, chat_id)
     return artifacts.chat_artifacts(db, chat.id, user.id)
 
 
 @router.patch("/chats/{chat_id}")
-def rename_chat(chat_id: int, body: ChatIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def rename_chat(
+    chat_id: int, body: ChatIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     chat = _own_chat(db, user, chat_id)
     chat.title = body.title[:200] or chat.title
     return _chat_dict(chat)
 
 
 @router.delete("/chats/{chat_id}")
-def delete_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def delete_chat(
+    chat_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     db.delete(_own_chat(db, user, chat_id))
     transcripts.delete(user.id, chat_id)
     return {"ok": True}
@@ -354,7 +362,9 @@ def get_settings(user: User = Depends(current_user)) -> dict:
 
 
 @router.put("/settings")
-def put_settings(body: SettingsIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def put_settings(
+    body: SettingsIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     if body.base_url.strip() and not body.base_url.strip().startswith(("http://", "https://")):
         raise HTTPException(400, "The server address must start with http:// or https://")
     if body.provider and not re.fullmatch(r"[a-z][a-z0-9_-]{1,40}", body.provider):
@@ -377,20 +387,20 @@ def _acp_token_dict(row: AcpToken | None) -> dict | None:
 
 
 @router.get("/acp/token")
-def get_acp_token(db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def get_acp_token(db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> dict:
     """The optional access token for external ACP clients (never returned after creation)."""
     return {"token": _acp_token_dict(db.get(AcpToken, user.id)), "endpoint": "/api/acp"}
 
 
 @router.post("/acp/token")
-def create_acp_token_route(db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def create_acp_token_route(db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> dict:
     token = create_acp_token(db, user)
     db.flush()
     return {"token": _acp_token_dict(db.get(AcpToken, user.id)), "value": token, "endpoint": "/api/acp"}
 
 
 @router.delete("/acp/token")
-def delete_acp_token(db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def delete_acp_token(db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> dict:
     row = db.get(AcpToken, user.id)
     if row:
         db.delete(row)
@@ -421,7 +431,9 @@ def get_mcp_config(user: User = Depends(current_user)) -> dict:
 
 
 @router.put("/mcp/config")
-def put_mcp_config(body: McpConfigIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def put_mcp_config(
+    body: McpConfigIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     try:
         parse_config(body.config)
     except ConfigError as e:
@@ -467,7 +479,7 @@ def _save_config(db: Session, user: User, data: dict) -> None:
 
 @router.put("/mcp/servers/{name}")
 def put_mcp_server(
-    name: str, body: McpServerIn, db: Session = Depends(get_db), user: User = Depends(current_user)
+    name: str, body: McpServerIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
 ) -> dict:
     data = _config_dict(user.mcp_config)
     servers: dict = data["mcpServers"]
@@ -501,7 +513,9 @@ def put_mcp_server(
 
 
 @router.delete("/mcp/servers/{name}")
-def delete_mcp_server(name: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def delete_mcp_server(
+    name: str, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     data = _config_dict(user.mcp_config)
     if name not in data["mcpServers"]:
         raise HTTPException(404, f'No connection named "{name}"')
@@ -525,7 +539,9 @@ def get_mcp_presets(user: User = Depends(current_user)) -> dict:
 
 
 @router.post("/mcp/presets/{preset_id}")
-def add_mcp_preset(preset_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def add_mcp_preset(
+    preset_id: str, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     preset = mcp_presets.get(preset_id)
     if not preset:
         raise HTTPException(404, "Unknown app")
@@ -617,12 +633,14 @@ def _own_task(db: Session, user: User, task_id: int) -> Task:
 
 
 @router.get("/tasks")
-def list_tasks(db: Session = Depends(get_db), user: User = Depends(current_user)) -> list[dict]:
+def list_tasks(db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> list[dict]:
     return [scheduler.as_dict(t) for t in db.query(Task).filter_by(user_id=user.id).order_by(Task.id).all()]
 
 
 @router.post("/tasks")
-def create_task(body: TaskIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def create_task(
+    body: TaskIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     try:
         t = scheduler.create(db, user.id, body.model_dump())
     except ValueError as e:
@@ -632,7 +650,7 @@ def create_task(body: TaskIn, db: Session = Depends(get_db), user: User = Depend
 
 @router.patch("/tasks/{task_id}")
 def update_task(
-    task_id: int, body: TaskPatch, db: Session = Depends(get_db), user: User = Depends(current_user)
+    task_id: int, body: TaskPatch, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
 ) -> dict:
     t = _own_task(db, user, task_id)
     try:
@@ -643,13 +661,17 @@ def update_task(
 
 
 @router.delete("/tasks/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+def delete_task(
+    task_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     db.delete(_own_task(db, user, task_id))
     return {"ok": True}
 
 
 @router.post("/tasks/{task_id}/run")
-async def run_task_now(task_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict:
+async def run_task_now(
+    task_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
     _own_task(db, user, task_id)
     task = asyncio.create_task(scheduler.run_task(task_id))
     # Return as soon as the run has created its chat, so the UI can open it.

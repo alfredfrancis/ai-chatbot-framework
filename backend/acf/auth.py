@@ -109,7 +109,7 @@ def user_for_acp_token(db: Session, token: str) -> User | None:
     return db.get(User, row.user_id)
 
 
-def current_user(request: Request, db: Session = Depends(get_db)) -> User:
+def current_user(request: Request, db: Session = Depends(get_db, scope="function")) -> User:
     token = request.cookies.get(COOKIE)
     if not token:
         auth = request.headers.get("authorization", "")
