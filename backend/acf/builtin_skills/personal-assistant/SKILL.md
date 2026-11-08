@@ -98,7 +98,8 @@ memory.md line, and offering to set up the scheduled briefs (see "Scheduled runs
   scheduling back-and-forth, the same question answered again). Note it in `routines.md` with evidence
   (how often, about how many minutes each time).
 - **Automation ideas**: for each routine, the smallest helpful step - a saved reply, an email filter, a
-  scheduled task in AI Chatbot Framework (Tasks page), a skill, or an app's own automation. Say how
+  scheduled task (repeating or one-off; you can create it with the system app), a skill, or an app's own
+  automation. Say how
   much time it saves and what it would need. One or two ideas per brief at most.
 
 ## The brief
@@ -147,8 +148,9 @@ entirely if the user asks.
 
 ## Scheduled runs
 
-Offer to set up the brief as a scheduled task: ask the user to add a task on the Tasks page with the
-schedule from the profile (e.g. weekdays 07:30: `30 7 * * 1-5`) and this prompt:
+Offer to set up the brief as a scheduled task. Once the user agrees, create it yourself with the system
+app's `create_task` (it then shows on the Tasks page), with the schedule from the profile (e.g. weekdays
+07:30: `30 7 * * 1-5`), the user's time zone and this prompt:
 `Use the personal-assistant skill to write my daily brief.`
 A weekly one (e.g. Sunday 18:00: `0 18 * * 0`) can cover the week ahead, trips and routine ideas. On a
 scheduled run, save the brief to `assistant/briefs/<date>.md`, and don't act on anything - drafts only.

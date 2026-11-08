@@ -11,6 +11,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import sqlalchemy
 import uvicorn
 
 FAKES = Path(__file__).parent / "fakes"
@@ -71,8 +72,11 @@ def acf_env(fake_llm_url):
     config.reload_settings()
     db.init_db()
     if not config.settings.db_url.startswith("sqlite"):
-        db.Base.metadata.drop_all(db._engine)  # start every run from an empty schema
-        db.Base.metadata.create_all(db._engine)
+        # Start every run from an empty schema, built by the migrations.
+        old = sqlalchemy.MetaData()
+        old.reflect(db._engine)
+        old.drop_all(db._engine)
+        db.migrate()
     yield data
     shutil.rmtree(data, ignore_errors=True)
 

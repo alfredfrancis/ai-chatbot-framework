@@ -15,7 +15,8 @@ recurring tasks. Design of the agent loop: [docs/architecture.md](docs/architect
 backend/acf/
   main.py            FastAPI app; serves /api and the built web app
   config.py          ACF_* settings — always read as `config.settings` (tests reload it)
-  db.py              SQLAlchemy models + session helpers (PostgreSQL in Docker, SQLite by default)
+  db.py              SQLAlchemy models + session helpers (PostgreSQL in Docker, SQLite by default); migrate()
+  migrations/        Alembic migrations, run at startup; `make migration m="…"` writes one from model changes
   auth.py            email/password (scrypt), cookie sessions
   llm.py             LangChain init_chat_model, friendly errors, token estimate
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
@@ -34,7 +35,8 @@ backend/acf/
   secrets_box.py     encryption at rest for secret DB columns (db.EncryptedText, ACF_SECRET_KEY)
   mcp_client.py      config parsing, McpHub (one asyncio task per server connection), mcp_call + .acf/mcp/ files
   oauth.py           OAuth client for remote MCP servers
-  scheduler.py       cron tasks
+  scheduler.py       tasks: repeating (cron) or one-off (run_at)
+  system_mcp.py      built-in `system` MCP server: app features for the agent (tasks)
   api/routes.py      every HTTP endpoint
 backend/tests/       pytest; fakes/ = scripted model server + stdio MCP + OAuth MCP servers
 frontend/src/        React + Vite; pages/ per screen; styles.css (components) + tokens.css (generated)
@@ -95,6 +97,8 @@ make lint         # ruff + tsc
   proxy to get a feature working without a test that the unsafe variant is still refused.
 - The server's model key only goes to the server's own provider and address (`LLMConfig.for_user`).
 - Columns holding secrets use `EncryptedText`; never put secrets in other columns.
+- A model change needs a migration (`make migration m="…"`, then read and fix what it wrote);
+  `tests/test_migrations.py` fails when models and migrations disagree. Never edit a released migration.
 - Keep DB sessions short; never hold one across an `await` on the model. PostgreSQL enforces column
   lengths (SQLite doesn't): bound user input in the API models and run tests on both
   (`ACF_TEST_DB_URL=postgresql://… make test`; CI runs both).
