@@ -3,9 +3,10 @@ import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocat
 import { acp } from "./acp";
 import { api, type AppSummary, type ChatSummary, type User } from "./api";
 import {
-  IconApp, IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconPlug, IconPlus, IconSearch, IconSpark, Keys, Lockup,
+  IconApp, IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconMore, IconPlug, IconPlus, IconSearch, IconSpark, Keys, Lockup,
 } from "./components/icons";
 import AppPage from "./pages/AppView";
+import AppsPage, { CREATE_APP_PROMPT } from "./pages/Apps";
 import AuthPage from "./pages/Auth";
 import ChatPage from "./pages/Chat";
 import ConnectionsPage from "./pages/Connections";
@@ -149,7 +150,9 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     { id: "upload-skill", group: "Actions", label: "Upload a skill", icon: <IconSpark />, run: () => navigate("/skills") },
     { id: "sign-out", group: "Actions", label: "Sign out", icon: <IconLogout />, run: signOut },
     ...GO.map((g) => ({ id: `go-${g.key}`, group: "Go to", label: g.label, icon: g.icon, keys: ["G", g.key.toUpperCase()], run: () => navigate(g.to) })),
-    ...apps.map((a) => ({ id: `app-${a.id}`, group: "Apps", label: a.title, icon: <IconApp />, run: () => navigate(`/apps/${a.id}`) })),
+    { id: "create-app", group: "Actions", label: "Create an app", icon: <IconApp />, run: () => navigate("/", { state: { draft: CREATE_APP_PROMPT } }) },
+    { id: "all-apps", group: "Your apps", label: "See all apps", icon: <IconApp />, run: () => navigate("/apps") },
+    ...apps.map((a) => ({ id: `app-${a.id}`, group: "Your apps", label: a.title, icon: <IconApp />, run: () => navigate(`/apps/${a.id}`) })),
     ...chats.slice(0, 8).map((c) => ({ id: `chat-${c.id}`, group: "Recent chats", label: c.title, icon: <IconChat />, run: () => navigate(`/c/${c.id}`) })),
   ];
 
@@ -170,20 +173,24 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
             <IconSearch /><span>Search</span><Keys keys={["⌘", "K"]} />
           </button>
           <Link to="/" className="btn primary"><IconPlus />New chat</Link>
-          {apps.length > 0 && (
-            <div className="apps-nav" role="group" aria-label="Apps">
-              {apps.map((a) => (
-                <NavLink key={a.id} to={`/apps/${a.id}`} title={a.description || a.title} className={({ isActive }) => `nav${isActive ? " active" : ""}`}>
-                  <IconApp /><span className="nav-label">{a.title}</span>
-                </NavLink>
-              ))}
-            </div>
-          )}
           <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats<span className="right"><span className="kbd">C</span></span></NavLink>
           {nav("/files", "Files", <IconDrawer />, counts.files)}
           {nav("/skills", "Skills", <IconSpark />, counts.skills)}
           {nav("/tasks", "Tasks", <IconClock />, counts.tasks)}
           {nav("/connections", "Connections", <IconPlug />, counts.connections)}
+          {apps.length > 0 && (
+            <div className="apps-nav" role="group" aria-labelledby="apps-nav-label">
+              <div className="section-label" id="apps-nav-label">Your apps</div>
+              {apps.slice(0, 3).map((a) => (
+                <NavLink key={a.id} to={`/apps/${a.id}`} title={a.description || a.title} className={({ isActive }) => `nav${isActive ? " active" : ""}`}>
+                  <IconApp /><span className="nav-label">{a.title}</span>
+                </NavLink>
+              ))}
+              <NavLink to="/apps" end className={({ isActive }) => `nav${isActive ? " active" : ""}`}>
+                <IconMore /><span className="nav-label">See all apps</span><span className="right">{apps.length}</span>
+              </NavLink>
+            </div>
+          )}
           <div className="recents">
             {chats.length > 0 && <div className="section-label">Recent</div>}
             {chats.slice(0, 40).map((c) => (
@@ -224,6 +231,7 @@ export default function App() {
             <Route element={<Shell user={user} onSignOut={() => setUser(null)} />}>
               <Route path="/" element={<ChatPage />} />
               <Route path="/c/:id" element={<ChatPage />} />
+              <Route path="/apps" element={<AppsPage />} />
               <Route path="/apps/:id" element={<AppPage />} />
               <Route path="/files" element={<FilesPage />} />
               <Route path="/skills" element={<SkillsPage />} />

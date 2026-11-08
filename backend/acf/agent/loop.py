@@ -51,7 +51,7 @@ from langchain_core.messages import (
 )
 
 from acf import config, skills, workspace
-from acf.agent import prompt, review, transcripts
+from acf.agent import prompt, review, transcripts, usage
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, truncate
 from acf.db import Chat, Message, User, session_scope, utcnow
 from acf.llm import LLMConfig, LLMError, estimate_tokens, friendly_error, make_model
@@ -213,6 +213,7 @@ class Run:
         self.stop_reason = "end_turn"
         self.error: str | None = None
         self.system: str | None = None  # the system prompt of the latest turn (reused by the review)
+        self.usage: dict[str, Any] | None = None  # context usage after the latest model call (see usage)
 
     # -- events
     def emit(self, event: dict[str, Any]) -> None:
@@ -355,12 +356,17 @@ class Run:
                 if st["state"] in ("error", "needs_auth"):
                     self.emit({"type": "notice", "text": f"{st['name']}: {st['error'] or 'sign-in required'}"})
             tools: dict[str, Tool] = {t.name: t for t in [*BUILTIN_TOOLS, hub.tool()] if t}
-            model = base_model.bind_tools([t.schema() for t in tools.values()])
+            schemas = [t.schema() for t in tools.values()]
+            model = base_model.bind_tools(schemas)
             skills.seed(self.user.id)  # built-in skills added since the account was made
             for name in skills.archive_stale(self.user.id):
                 self.emit({"type": "notice", "text": f"Moved the unused skill “{name}” to skills/.archive/."})
             # One system prompt for the whole turn: the same prefix every step, so the provider's cache holds.
-            self.system = prompt.build(self.user.id, hub.catalog())
+            apps = hub.catalog()
+            sections = prompt.sections(self.user.id, apps)
+            self.system = "".join(text for _, text in sections)
+            skill_names = [sk.name for sk in skills.list_skills(self.user.id)]
+            window = usage.window(base_model)
             system = SystemMessage(
                 content=[{"type": "text", "text": self.system, "cache_control": {"type": "ephemeral"}}]
             )
@@ -389,15 +395,17 @@ class Run:
                     for i, c in enumerate(ai.invalid_tool_calls)
                 ]
                 text = _text_of(ai)
+                history.append(ai)
+                self.usage = usage.measure(sections, schemas, skill_names, apps, history, ai, window)
                 saved = _save(
                     self.chat_id,
                     role="assistant",
                     content=text,
                     tool_calls=[{"id": c["id"], "name": c["name"], "arguments": c["args"]} for c in calls] or None,
-                    raw={"lc": message_to_dict(ai)},
+                    raw={"lc": message_to_dict(ai), "usage": self.usage},
                 )
-                history.append(ai)
                 self.emit({"type": "message", "message": saved, "stream": stream_id})
+                self.emit({"type": "usage", "usage": self.usage})
                 if text:
                     self.final_text = text
                 if not calls:

@@ -93,17 +93,22 @@ def _memory(user_id: int) -> tuple[str, str]:
     return mem, used
 
 
-def build(user_id: int, apps: dict[str, list[str]]) -> str:
+def sections(user_id: int, apps: dict[str, list[str]]) -> list[tuple[str, str]]:
+    """The system prompt in order, as (part, text): instructions, context, skills, apps, memory, date."""
     ctx = workspace.read_file(user_id, workspace.CONTEXT_FILE).strip()
     mem, used = _memory(user_id)
     skill_lines = "\n".join(f"- {s.name}: {s.description} ({s.path})" for s in skills.list_skills(user_id))
     app_lines = "\n".join(f"{server}: {', '.join(tools)}" for server, tools in apps.items())
     today = datetime.now(UTC).strftime("%A %d %B %Y")
-    return (
-        BASE.format(limit=config.settings.memory_limit)
-        + f'\n\n<context file="context.md">\n{ctx or "(empty)"}\n</context>'
-        + f"\n\n<skills>\n{skill_lines or '(none yet)'}\n</skills>"
-        + (f"\n\n{APPS.format(lines=app_lines)}" if apps else "")
-        + f'\n\n<memory file="memory.md" used="{used}">\n{mem or "(empty)"}\n</memory>'
-        + f"\n\nToday is {today} (UTC)."
-    )
+    return [
+        ("instructions", BASE.format(limit=config.settings.memory_limit)),
+        ("context", f'\n\n<context file="context.md">\n{ctx or "(empty)"}\n</context>'),
+        ("skills", f"\n\n<skills>\n{skill_lines or '(none yet)'}\n</skills>"),
+        ("apps", f"\n\n{APPS.format(lines=app_lines)}" if apps else ""),
+        ("memory", f'\n\n<memory file="memory.md" used="{used}">\n{mem or "(empty)"}\n</memory>'),
+        ("instructions", f"\n\nToday is {today} (UTC)."),
+    ]
+
+
+def build(user_id: int, apps: dict[str, list[str]]) -> str:
+    return "".join(text for _, text in sections(user_id, apps))

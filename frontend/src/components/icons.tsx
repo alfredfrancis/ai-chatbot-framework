@@ -60,8 +60,20 @@ export const IconCheck = () => <Svg size={16}><path d="M5 12l5 5 9-10" /></Svg>;
 export const IconX = () => <Svg size={16}><path d="M6 6l12 12M18 6 6 18" /></Svg>;
 export const IconMenu = () => <Svg><path d="M4 7h16M4 12h16M4 17h16" /></Svg>;
 export const IconApp = () => <Svg><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></Svg>;
+export const IconMore = () => <Svg><circle cx="6" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="18" cy="12" r="1" /></Svg>;
 export const IconTrash = () => <Svg size={18}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></Svg>;
 
 export function Keys({ keys }: { keys: string[] }) {
   return <span className="keys">{keys.map((k) => <span key={k} className="kbd">{k}</span>)}</span>;
+}
+
+/** A small ring filled to `percent` (the chat's context meter). */
+export function Gauge({ percent }: { percent: number }) {
+  const r = 7, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, percent));
+  return (
+    <svg aria-hidden="true" className="gauge" width="18" height="18" viewBox="0 0 18 18" fill="none" strokeWidth={1.75}>
+      <circle cx="9" cy="9" r={r} className="track" />
+      <circle cx="9" cy="9" r={r} stroke="currentColor" strokeLinecap="round" strokeDasharray={`${(c * p) / 100} ${c}`} transform="rotate(-90 9 9)" />
+    </svg>
+  );
 }

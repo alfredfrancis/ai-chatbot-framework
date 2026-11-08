@@ -284,6 +284,34 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 .attachment .remove:hover { background: var(--bg-hover); color: var(--text); }
 .composer .bar .attach { margin-left: calc(-1 * var(--space-2)); }
 
+/* ---------- context meter: how full the model's context window is ---------- */
+.context { position: relative; }
+.context-toggle { gap: var(--space-1); }
+.context-toggle.on { background: var(--bg-selected); color: var(--text); }
+.context-toggle.high { color: var(--warning); }
+.context-toggle .count { font-family: var(--font-mono); font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.gauge .track { stroke: var(--border-strong); }
+.context-pop { position: absolute; right: 0; top: calc(100% + var(--space-2)); z-index: 30; width: 360px; max-height: 70vh; overflow-y: auto;
+  padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); font-size: 16px; }
+.context-total { display: flex; align-items: baseline; gap: var(--space-2); }
+.context-total strong { font-family: var(--font-mono); font-size: 20px; line-height: 28px; font-weight: 600; }
+.context-total span { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.meter { height: 6px; border-radius: var(--radius-full); background: var(--bg-hover); overflow: hidden; }
+.meter.sm { height: 4px; }
+.meter span { display: block; height: 100%; border-radius: inherit; background: var(--text-muted); }
+.meter.high span { background: var(--warning); }
+.context-parts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.context-parts li { display: flex; flex-direction: column; gap: var(--space-1); }
+.context-parts .row-flex { justify-content: space-between; }
+.context-parts .name { font-weight: 550; }
+.context-parts .tokens { font-family: var(--font-mono); font-size: 14px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.context-parts .items { font-size: 14px; line-height: 20px; color: var(--text-muted); overflow-wrap: anywhere; }
+.context-pop .hint { margin: 0; font-size: 13px; line-height: 18px; color: var(--text-faint); }
+@media (max-width: 640px) {
+  .context-pop { position: fixed; left: var(--space-4); right: var(--space-4); top: calc(56px + var(--space-2)); width: auto; }
+}
+
 /* ---------- artifacts panel: files attached to and made in a chat ---------- */
 .chat-layout { flex: 1; min-height: 0; display: flex; }
 .chat-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -414,7 +442,9 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 
 /* Personal apps (pages/AppView.tsx, openui/library.tsx): menu entries under New chat, and the components an
    app's OpenUI Lang screen is built from. */
-.apps-nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-2); }
+.apps-nav { display: flex; flex-direction: column; gap: 2px; }
+a.lrow { color: var(--text); }
+a.lrow:hover { text-decoration: none; }
 .nav .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-page { gap: var(--space-6); }
 .app-working { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 14px; color: var(--accent-text); white-space: nowrap; }

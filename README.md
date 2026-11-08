@@ -135,6 +135,7 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_LLM_BASE_URL` | provider default | e.g. `http://localhost:11434/v1` with `openai` for Ollama |
 | `ACF_MAX_AGENT_STEPS` | `40` | Model calls per message |
 | `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
+| `ACF_CONTEXT_WINDOW` | model's own | Context window size (tokens) for the chat's context meter; default comes from LangChain's model profile, `128000` if unknown |
 | `ACF_MEMORY_LIMIT` | `4000` | Characters of `memory.md` (it goes into every prompt); the agent's writes past it are refused |
 | `ACF_REVIEW_INTERVAL` | `10` | User messages per chat between background reviews that update memory and skills (`0` = off) |
 | `ACF_SKILL_ARCHIVE_DAYS` | `30` | Skills not read for this many days move to `skills/.archive/` (`0` = never; `pinned: true` in a skill's frontmatter keeps it) |

@@ -42,7 +42,9 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await signUp(page);
   await makeCockpit(page);
 
-  const apps = nav(page).getByRole("group", { name: "Apps" });
+  // The user's own apps sit in their own labelled section of the sidebar, and of the command menu.
+  const apps = nav(page).getByRole("group", { name: "Your apps" });
+  await expect(apps.getByText("Your apps", { exact: true })).toBeVisible();
   await apps.getByRole("link", { name: "Cockpit", exact: true }).click();
   await expect(page).toHaveURL(/\/apps\/cockpit$/);
   await expect(page.getByRole("heading", { name: "Cockpit", level: 1 })).toBeVisible();
@@ -104,6 +106,7 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   // Apps are in the command menu too.
   await page.keyboard.press("Control+k");
   await page.getByLabel("Search commands").fill("cock");
+  await expect(page.getByRole("dialog").getByText("Your apps", { exact: true })).toBeVisible();
   await page.getByRole("option", { name: "Cockpit", exact: true }).click();
   await expect(page).toHaveURL(/\/apps\/cockpit$/);
 });
@@ -132,6 +135,34 @@ test("a broken screen shows its problems and the agent is asked to fix it; phone
   await expect(quadrant(page, "Drop").getByTestId("item-Book flights")).toBeVisible();
   await shot(page, "42-app-cockpit-phone-light");
   await page.getByRole("button", { name: "Open menu" }).click();
-  await expect(nav(page).getByRole("group", { name: "Apps" }).getByRole("link")).toHaveText(["broken", "Cockpit", "Notes"]);
+  await expect(nav(page).getByRole("group", { name: "Your apps" }).getByRole("link")).toHaveText(["broken", "Cockpit", "Notes", /See all apps/]);
   await page.close();
+});
+
+test("the sidebar shows three apps and links to all of them; Create app starts a chat with the app prompt", async ({ page }) => {
+  await signUp(page);
+  const app = (id: string, title: string) => [
+    write(`apps/${id}/app.json`, JSON.stringify({ title, description: `${title} app` })),
+    write(`apps/${id}/app.oui`, 'root = Screen([Text("hi")])'),
+  ];
+  await makeCockpit(page, ...app("budget", "Budget"), ...app("reading", "Reading list"), ...app("workouts", "Workouts"));
+
+  const apps = nav(page).getByRole("group", { name: "Your apps" });
+  await expect(apps.getByRole("link")).toHaveText(["Cockpit", "Budget", "Reading list", /See all apps\s*4/]);
+  await apps.getByRole("link", { name: /See all apps/ }).click();
+  await expect(page).toHaveURL(/\/apps$/);
+  await expect(page.getByRole("heading", { name: "Your apps", level: 1 })).toBeVisible();
+  for (const [id, t] of [["cockpit", "Cockpit"], ["budget", "Budget"], ["reading", "Reading list"], ["workouts", "Workouts"]]) {
+    await expect(page.getByTestId(`app-${id}`)).toContainText(t);
+  }
+  await shot(page, "44-all-apps");
+
+  await page.getByTestId("app-workouts").click();
+  await expect(page).toHaveURL(/\/apps\/workouts$/);
+  await page.goto("/apps");
+  await page.getByRole("button", { name: "Create app" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByLabel("Message")).toHaveValue(
+    "I want to build an app using the personal-apps skill. Interview me about my app requirements.");
+  await shot(page, "45-create-app-prompt");
 });
