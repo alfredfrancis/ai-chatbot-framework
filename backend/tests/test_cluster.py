@@ -163,8 +163,15 @@ async def test_a_run_on_one_process_streams_to_a_client_on_another(cluster, acco
     cookie, _ = account
     async with acp_to(a, cookie) as on_a, acp_to(b, cookie) as on_b:
         sid = (await on_a.request("session/new", {"cwd": "/", "mcpServers": []}))["sessionId"]
-        sent = asyncio.create_task(on_a.request("session/prompt", text_prompt(sid, "typing: one two three four five")))
-        await asyncio.sleep(0.6)
+        words = "one two three four five six seven eight"  # one word every 0.3 s
+        sent = asyncio.create_task(on_a.request("session/prompt", text_prompt(sid, f"typing: {words}")))
+        # Wait until A is actually streaming (a cold process takes a while to start its first model call).
+        await on_a.wait_for(
+            lambda n: (
+                n.get("method") == "session/update" and n["params"]["update"]["sessionUpdate"] == "agent_message_chunk"
+            ),
+            30,
+        )
         loaded = await on_b.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
         assert loaded["_meta"]["acf"]["running"] is True
         async with httpx.AsyncClient(base_url=b.url, headers={"cookie": cookie}) as http:
@@ -173,7 +180,7 @@ async def test_a_run_on_one_process_streams_to_a_client_on_another(cluster, acco
         end = await on_b.wait_for(turn_end(sid))
         assert "error" not in end["params"]
         # B saw the answer stream in, word by word, as one message.
-        assert agent_texts(on_b, sid)[-1] == "Echo: one two three four five"
+        assert agent_texts(on_b, sid)[-1] == f"Echo: {words}"
         assert len([u for u in on_b.updates(sid) if u["sessionUpdate"] == "agent_message_chunk"]) > 1
         async with httpx.AsyncClient(base_url=b.url, headers={"cookie": cookie}) as http:
             assert (await http.get(f"/api/chats/{sid}")).json()["running"] is False
