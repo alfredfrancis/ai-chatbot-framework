@@ -39,13 +39,21 @@ its own private computer, their files, skills, app connections and scheduled job
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
   Built in: `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research`,
-  `plain-writing` and `personal-assistant` (a proactive assistant over email, calendar and other apps, with
-  a first-run interview that saves preferences to `assistant/profile.md`). Skills unused for
+  `plain-writing`, `personal-assistant` (a proactive assistant over email, calendar and other apps, with
+  a first-run interview that saves preferences to `assistant/profile.md`, and an optional Cockpit app) and
+  `personal-apps` (how to build apps, below). Skills unused for
   `ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/`.
 - **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
   Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
   definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
   slow down every turn.
+- **Personal apps** – the agent (or a skill) can add up to 5 small apps to the menu, right under New chat,
+  e.g. the personal assistant's **Cockpit**: the day's brief and an Eisenhower matrix of to-dos you drag
+  around. An app is just files: `apps/<id>/app.json` lays out blocks (`markdown`, `board`, `buttons`) over
+  workspace files. There is no app backend; the page uses one action API, `POST /api/apps/{id}/actions`:
+  `update_file` (the app's folder and files it lists), `ask_agent` (a message to the agent in the app's own
+  chat, answered in the background), `run` (an `apps/<id>/actions/<name>.sh` script in the sandbox) and
+  `mcp` (read-only tools of connected apps; anything that changes things goes through the agent).
 - **Recurring tasks** – "every weekday at 08:00 …"; each run becomes a chat. Set them up on the Tasks page or
   just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
   `delete_task` and `run_task` (the server name `system` is reserved).
@@ -60,6 +68,8 @@ its own private computer, their files, skills, app connections and scheduled job
 | ![](docs/screenshots/e2e/04-steering-queued.png) | ![](docs/screenshots/e2e/07-skills.png) | ![](docs/screenshots/e2e/09-connections-connected.png) |
 | **Files** | **Command menu (⌘K)** | **Phone, light** |
 | ![](docs/screenshots/e2e/06-files.png) | ![](docs/screenshots/e2e/15-command-menu.png) | ![](docs/screenshots/e2e/14-phone-light-chat.png) |
+| **Cockpit app** | **Cockpit, phone** | |
+| ![](docs/screenshots/e2e/41-app-cockpit-moved.png) | ![](docs/screenshots/e2e/42-app-cockpit-phone-light.png) | |
 
 All screenshots are taken by the end-to-end tests (`docs/screenshots/e2e/`).
 

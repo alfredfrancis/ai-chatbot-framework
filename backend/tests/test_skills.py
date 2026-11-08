@@ -25,6 +25,7 @@ BUILTIN = {
     "action-items",
     "cited-research",
     "pdf",
+    "personal-apps",
     "personal-assistant",
     "plain-writing",
     "price-watch",

@@ -3,6 +3,22 @@ export type FileEntry = { name: string; path: string; type: "dir" | "file"; size
 export type Artifact = { path: string; name: string; kind: "uploaded" | "produced"; size: number; modified_at: string };
 export type Skill = { name: string; description: string; path: string; files: number };
 export type ChatSummary = { id: number; title: string; task_id: number | null; updated_at: string };
+export type AppSummary = { id: string; title: string; description: string; error: string | null };
+export type AppAction = "update_file" | "ask_agent" | "run" | "mcp";
+export type AppButton = { label: string; action: AppAction; args: Record<string, unknown>; confirm: string };
+export type BoardItem = { id: string; title: string; column: string; note?: string; due?: string; done?: boolean };
+export type AppColumn = { id: string; title: string; hint: string };
+export type AppBlock = {
+  type: "markdown" | "board" | "buttons";
+  title: string;
+  file: string;
+  text: string;
+  columns: AppColumn[];
+  on_change: string;
+  buttons: AppButton[];
+  data?: { items: BoardItem[] };
+};
+export type AppDetail = AppSummary & { blocks: AppBlock[]; chat_id: number | null; running: boolean };
 export type Task = {
   id: number;
   name: string;

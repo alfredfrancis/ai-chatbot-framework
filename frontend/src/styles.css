@@ -411,3 +411,33 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 /* ---------- segmented control (Form / JSON) ---------- */
 .seg { display: inline-flex; gap: var(--space-1); padding: var(--space-1); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .seg .btn[aria-pressed="true"] { background: var(--bg-selected); color: var(--text); }
+
+/* Personal apps (pages/AppView.tsx): menu entries under New chat, and the blocks an app lays out. */
+.apps-nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-2); }
+.nav .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-page { gap: var(--space-6); }
+.app-working { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 14px; color: var(--accent-text); white-space: nowrap; }
+.app-buttons .row-flex { gap: var(--space-2); }
+.app-output { margin: 0; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+  font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+.board.matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.quadrant { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-2); min-height: 180px; transition: border-color 0.16s, box-shadow 0.16s; }
+.quadrant.over { border-color: var(--accent); box-shadow: var(--shadow-glow); }
+.quadrant-head { display: flex; align-items: center; gap: var(--space-2); }
+.quadrant-head .title { font-weight: 600; }
+.quadrant-head .count { margin-left: auto; font-family: var(--font-mono); font-size: 13px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.qitems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); flex: 1; }
+.qitem { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  background: var(--bg-elevated); border: 1px solid var(--border); cursor: grab; }
+.qitem:active { cursor: grabbing; }
+.qitem input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.qitem .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.qitem .title { overflow-wrap: anywhere; }
+.qitem .meta { font-size: 13px; line-height: 18px; color: var(--text-muted); overflow-wrap: anywhere; }
+.qitem.done .title { text-decoration: line-through; color: var(--text-faint); }
+.qitem .input.move { width: auto; max-width: 132px; height: var(--control-sm); font-size: 14px; flex-shrink: 0; }
+.qadd .input { height: var(--control-sm); font-size: 15px; background: transparent; border-style: dashed; border-color: var(--border); }
+.qadd .input:focus { border-style: solid; }
+@media (max-width: 640px) { .board.matrix { grid-template-columns: 1fr; } }

@@ -15,7 +15,8 @@ yes.
 Everything lives in `assistant/` in the workspace, so it survives across chats and the user can browse it:
 
 - `assistant/profile.md` - the answers from the interview (the user's preferences). Read it first, every run.
-- `assistant/todo.md` - open tasks: `- [ ] task - due - source` (link or "email from X, 3 Nov").
+- `assistant/todo.md` - open tasks: `- [ ] task - due - source` (link or "email from X, 3 Nov"). With
+  the Cockpit app (below), the to-do list lives in `apps/cockpit/tasks.json` instead.
 - `assistant/shopping.md` - items grouped by shop or category, with who asked and when.
 - `assistant/trips/<place>-<yyyy-mm>.md` - one file per trip: dates, bookings, documents, to-dos, packing.
 - `assistant/routines.md` - patterns you noticed and automation ideas, each with a status: suggested,
@@ -144,6 +145,30 @@ meetings with no agenda this week - want me to draft a one-line agenda request?"
 in 5 months and you fly in March", "You reorder coffee every 3 weeks - add it to the shopping list
 automatically?". Log each tip in `assistant/log.md`; don't repeat a declined one, and stop tips
 entirely if the user asks.
+
+## The Cockpit app
+
+Offer it at the end of the set-up interview (and once later if they never answered): a page in their
+menu with the brief and an Eisenhower matrix of their to-dos they can drag around. If they say yes, read
+the personal-apps skill and create `apps/cockpit/`:
+
+- `app.json`: title "Cockpit", order 1, blocks: a markdown block "Needs you" (`apps/cockpit/brief.md`),
+  a board "To-do" (`apps/cockpit/tasks.json`) with four columns - `do` "Do first" (urgent and
+  important), `schedule` "Schedule" (important, not urgent), `delegate` "Delegate" (urgent, not
+  important), `drop` "Drop" (neither) - and buttons: "Refresh" (ask_agent: `Use the personal-assistant
+  skill to refresh the cockpit: rewrite apps/cockpit/brief.md and update apps/cockpit/tasks.json.`)
+  and "Plan my day" (ask_agent: `Use the personal-assistant skill to plan my day from the cockpit's
+  Do first and Schedule columns.`). Set the board's `on_change` to `If a task moved to Delegate, draft
+  a hand-off message for it and say so; otherwise reply "Noted."`.
+- `brief.md`: the "Needs you" and "Today" parts of the brief, at most one screen.
+- `tasks.json`: every open to-do (move the ones from `assistant/todo.md` and delete that file), each
+  with `id`, `title`, `column`, `due`, a short `note` with its source, and `done`.
+
+Sort new to-dos into the matrix with the user's rules from the profile: urgent = due within 48 hours
+or someone is waiting; important = it serves their goals or the people in the profile. Respect where
+the user put an item - if they moved it, never move it back; learn from it (note the pattern in the
+profile if they do it twice). On each run, rewrite `brief.md`, add new items, and remove done items
+older than 7 days. Scheduled briefs update the cockpit too.
 
 ## Scheduled runs
 

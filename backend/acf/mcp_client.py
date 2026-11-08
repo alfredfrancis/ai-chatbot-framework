@@ -387,24 +387,30 @@ class McpHub:
             label=lambda a: f"{a.get('server', '')} · {a.get('tool', '')}",
         )
 
-    def _lookup(self, args: dict) -> Any:
-        return self._tools.get(str(args.get("server", "")), {}).get(str(args.get("tool", "")))
+    def lookup(self, server: str, tool: str) -> Any:
+        return self._tools.get(server, {}).get(tool)
 
-    def _read_only(self, args: dict) -> bool:
-        t = self._lookup(args)
+    def read_only(self, server: str, tool: str) -> bool:
+        t = self.lookup(server, tool)
         return bool(t and t.annotations and getattr(t.annotations, "read_only_hint", False))
 
-    async def _call(self, args: dict, _ctx: ToolContext) -> ToolResult:
-        server, name = str(args.get("server", "")), str(args.get("tool", ""))
+    def _read_only(self, args: dict) -> bool:
+        return self.read_only(str(args.get("server", "")), str(args.get("tool", "")))
+
+    async def call(self, server: str, tool: str, arguments: dict) -> ToolResult:
+        """Call a tool of a connected app (the agent's mcp_call, and app actions)."""
         if server not in self._tools:
             return ToolResult(f"No connected app named {server!r}. Connected: {', '.join(self._tools)}", True)
-        if self._lookup(args) is None:
-            return ToolResult(f"{server} has no tool {name!r}. Its tools: {', '.join(self._tools[server])}", True)
+        if self.lookup(server, tool) is None:
+            return ToolResult(f"{server} has no tool {tool!r}. Its tools: {', '.join(self._tools[server])}", True)
+        text, is_error = await self.connections[server].call(tool, arguments)
+        return ToolResult(text, is_error)
+
+    async def _call(self, args: dict, _ctx: ToolContext) -> ToolResult:
         arguments = args.get("arguments") or {}
         if not isinstance(arguments, dict):
             return ToolResult("arguments must be a JSON object", True)
-        text, is_error = await self.connections[server].call(name, arguments)
-        return ToolResult(text, is_error)
+        return await self.call(str(args.get("server", "")), str(args.get("tool", "")), arguments)
 
     def status(self) -> list[dict]:
         out = []

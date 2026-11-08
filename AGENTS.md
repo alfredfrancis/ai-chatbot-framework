@@ -26,6 +26,7 @@ backend/acf/
   scan.py            prompt-injection check for memory.md, skills and skill uploads
   acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
   acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
+  apps.py            personal apps: apps/<id>/app.json + one action API (update_file, ask_agent, run, mcp)
   artifacts.py       a chat's artifacts: files attached to it and files the agent made in it
   skills.py          skill discovery, upload (zip / SKILL.md), built-in skills (builtin_skills/), archiving
   workspace.py       per-user folder, path safety

@@ -104,6 +104,23 @@ deleted). Each `read` of a `SKILL.md` is recorded there too; at the start of a t
 configured → PKCE authorize in a popup → `/oauth/callback` page posts code and state → token exchange →
 automatic refresh.
 
+## Personal apps (`backend/acf/apps.py`)
+
+An app is `apps/<id>/app.json` in the workspace (validated with pydantic; an invalid one is listed with
+its error so the agent can fix it). The menu shows at most 5, by `order` then id. `GET /api/apps/{id}`
+returns the blocks with the contents of their files; the page polls it, so changes the agent makes show up
+without a push channel. Every interaction is `POST /api/apps/{id}/actions`:
+
+- `update_file` writes inside `apps/<id>/` (not `app.json`) or a file listed in `files`, through
+  `workspace.resolve`.
+- `ask_agent` starts or steers a run in the app's own chat (its id kept in `.acf/apps.json`); the message
+  starts with `[App: <title>, apps/<id>/app.json] <event>` so the agent knows where it came from.
+- `run` executes `apps/<id>/actions/<name>.sh` through `Sandbox.exec`, with the input JSON as `$1`.
+- `mcp` opens an `McpHub` and calls a tool only if it is annotated read-only; writes must go through the
+  agent, which asks the user first.
+
+The format is taught to the agent by the built-in `personal-apps` skill, not by a new tool.
+
 ## Scheduled tasks (`backend/acf/scheduler.py`)
 
 Cron + time zone. `tick()` starts due tasks (next run is computed first, so a slow run never
