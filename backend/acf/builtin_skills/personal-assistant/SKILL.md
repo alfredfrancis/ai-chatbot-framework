@@ -154,7 +154,7 @@ menu with the brief and an Eisenhower matrix of their to-dos they can drag aroun
 the personal-apps skill and create `apps/cockpit/`:
 
 - `app.json`: `{"title": "Cockpit", "description": "What needs you today", "order": 1}`.
-- `app.oui`: use the Cockpit example in the personal-apps skill's `openui.md` - stats, a "Needs you"
+- `app.oui`: use the Cockpit example in the openui skill's `reference.md` - stats, a "Needs you"
   card with `brief.md`, a Board "To-do" over `tasks.json` with four columns (`do` "Do first": urgent and
   important, `schedule` "Schedule": important, not urgent, `delegate` "Delegate": urgent, not important,
   `drop` "Drop": neither), and buttons "Refresh" (`@ToAssistant("Use the personal-assistant skill to

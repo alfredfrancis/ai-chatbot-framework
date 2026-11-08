@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from acf import workspace
+from acf import skills, workspace
 from tests.conftest import send
 
 COCKPIT = {"title": "Cockpit", "description": "What needs you", "files": ["assistant/todo.md"]}
@@ -174,9 +174,33 @@ async def test_system_prompt_tells_the_agent_about_apps(client, user):
     assert "apps/" in text and "personal-apps" in text
 
 
-async def test_the_skill_ships_the_openui_reference(client, user):
-    ref = workspace.read_file(user["id"], "skills/personal-apps/openui.md")
+async def test_the_openui_skill_ships_the_generated_reference(client, user):
+    ref = workspace.read_file(user["id"], "skills/openui/reference.md")
     assert "Generated from frontend/src/openui/library.tsx" in ref
-    for signature in ("Screen(children", "Board(title: string, file: string", "Query(", "Mutation(", "@ToAssistant"):
+    for signature in (
+        "Screen(children",
+        "Board(title: string, file: string",
+        "BarChart(title: string, labels: string[]",
+        "PieChart(title: string, slices",
+        "Tabs(tabs: Tab[])",
+        "Slider(label: string, value?: $binding<number>",
+        "Query(",
+        "Mutation(",
+        "@ToAssistant",
+        "```openui",
+    ):
         assert signature in ref, signature
-    assert "openui.md" in workspace.read_file(user["id"], "skills/personal-apps/SKILL.md")
+    skill = workspace.read_file(user["id"], "skills/openui/SKILL.md")
+    assert "reference.md" in skill and "```openui" in skill
+
+
+async def test_personal_apps_refers_to_the_openui_skill(client, user):
+    text = workspace.read_file(user["id"], "skills/personal-apps/SKILL.md")
+    assert "skills/openui/SKILL.md" in text
+    assert not (skills.skills_root(user["id"]) / "personal-apps" / "openui.md").exists()
+
+
+async def test_system_prompt_points_to_openui_views(client, user):
+    chat = (await client.post("/api/chats", json={})).json()
+    text = (await send(client, chat["id"], "show system")).final
+    assert "skills/openui/SKILL.md" in text

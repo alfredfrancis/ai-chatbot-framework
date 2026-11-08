@@ -115,10 +115,15 @@ most 5, by `order` then id.
 Generative UI without generated HTML: the web app renders `app.oui` with `@openuidev/react-lang` and our own
 component library (`frontend/src/openui/library.tsx`), whose components use the design system's classes and
 tokens. The agent learns the language from a reference generated from that library
-(`frontend/scripts/build-app-prompt.mjs` → `builtin_skills/personal-apps/openui.md`, rebuilt by
-`npm run build`; CI checks it is current), so it can only use components that exist. Parse errors show on
+(`frontend/scripts/build-openui-prompt.mjs` → `builtin_skills/openui/reference.md`, rebuilt by
+`npm run build`; CI checks it is current; the `openui` skill explains it and `personal-apps` points to it), so it can only use components that exist. Parse errors show on
 the page with a button that sends them to the agent. We don't use OpenUI's own component package
 (`@openuidev/react-ui`): it brings its own styling.
+
+The same library renders views in chat replies: Markdown's ` ```openui ` code blocks become
+`openui/ChatView.tsx` (in `pages/Chat.tsx`). A chat view has no tools — no `Query`, `Mutation` or Board, so
+the agent puts the data in the program — and a button's `@ToAssistant` sends its text as the user's next
+message in that chat. The view is part of the stored reply, so it comes back on reload and in transcripts.
 
 The page polls `GET /api/apps/{id}` for the source and the agent's state. Every call the screen makes —
 `Query`/`Mutation` tools, `@ToAssistant` buttons, the Board — is `POST /api/apps/{id}/actions`:

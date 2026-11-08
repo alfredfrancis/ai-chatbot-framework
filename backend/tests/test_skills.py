@@ -24,6 +24,7 @@ def make_zip(files: dict[str, bytes]) -> bytes:
 BUILTIN = {
     "action-items",
     "cited-research",
+    "openui",
     "pdf",
     "personal-apps",
     "personal-assistant",

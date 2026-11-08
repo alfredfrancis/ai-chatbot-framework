@@ -17,10 +17,11 @@ files up to date. Ask before replacing or deleting an app the user already has.
   `id` (the folder name): lowercase letters, digits and dashes. `title` at most 40 characters. Lower
   `order` comes first; with more than 5 apps only the first 5 show - tell the user. `files` lists files
   outside the app's folder the screen may read and write.
-- `app.oui` - the screen, in **OpenUI Lang**. Read `openui.md` in this skill's folder before writing
-  one: it is the complete reference for the language and the only components that exist (Screen, Row,
-  Grid, Card, Text, Stat, Table, Button, TextField, SelectField, Board, ...). You write components and
-  data bindings, never HTML or styles; the app's look comes from the design system.
+- `app.oui` - the screen, in **OpenUI Lang**. Read `skills/openui/SKILL.md` and its `reference.md`
+  before writing one: the reference is the complete language and the only components that exist
+  (Screen, Grid, Card, Tabs, Stat, List, Table, BarChart, LineChart, PieChart, Button, TextField,
+  Slider, Board, ...). You write components and data bindings, never HTML or styles; the app's look
+  comes from the design system.
 - Data files the screen reads and writes, e.g. `brief.md`, `tasks.json`.
 - `actions/<name>.sh` - optional scripts the screen can run in the sandbox.
 

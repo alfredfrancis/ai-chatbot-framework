@@ -40,7 +40,7 @@ backend/acf/
   system_mcp.py      built-in `system` MCP server: app features for the agent (tasks)
   api/routes.py      every HTTP endpoint
 backend/tests/       pytest; fakes/ = scripted model server + stdio MCP + OAuth MCP servers
-frontend/src/        React + Vite; pages/ per screen; openui/ = the component library personal apps are written in; styles.css (components) + tokens.css (generated)
+frontend/src/        React + Vite; pages/ per screen; openui/ = the component library personal apps and chat views are written in; styles.css (components) + tokens.css (generated)
 design/              tokens.json (source of truth), README.md (brand book), components.css
 frontend/e2e/        Playwright specs; they also write docs/screenshots/e2e/*.png
 sandbox/Dockerfile   the sandbox image
@@ -108,7 +108,7 @@ make lint         # ruff + tsc
   before the cut.
 - All chat traffic is ACP (`acp.py`, `frontend/src/acp.ts`); there are no chat REST/SSE endpoints. Backend
   tests drive it in-process with `tests/acp_client.py` (`send()` / `prompt()` in conftest).
-- Personal apps are OpenUI Lang rendered by `frontend/src/openui/library.tsx`. Changing that library
-  regenerates `backend/acf/builtin_skills/personal-apps/openui.md` (`npm run build`); commit both.
+- Personal apps and ` ```openui ` blocks in chat replies are OpenUI Lang rendered by `frontend/src/openui/library.tsx`
+  (+ `charts.tsx`). Changing it regenerates `backend/acf/builtin_skills/openui/reference.md` (`npm run build`); commit both.
   Install with `OPENUI_TELEMETRY_DISABLED=1` (`@openuidev/lang-core` pings PostHog on install otherwise).
 - The E2E Playwright version is pinned to the preinstalled browser build (1.63.0).

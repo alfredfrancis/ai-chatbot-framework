@@ -1,27 +1,27 @@
 /**
- * The components a personal app may use, as an OpenUI Lang library (https://openui.com).
- *
- * The agent writes apps/<id>/app.oui in OpenUI Lang; this library is the only vocabulary it has, so every
- * screen is built from these design-system components (no HTML, no styles). The agent learns the language
- * from a prompt generated from this file (scripts/build-app-prompt.mjs → the personal-apps skill), so a
- * component's description is written for the model.
+ * The components an OpenUI Lang screen may use (https://openui.com): personal apps (apps/<id>/app.oui) and
+ * views the agent puts in a chat reply (an ```openui block). This library is the only vocabulary the agent
+ * has, so every screen is built from these design-system components (no HTML, no styles). The agent learns
+ * the language from a reference generated from this file (scripts/build-openui-prompt.mjs → the openui skill),
+ * so a component's description is written for the model.
  */
 import { action, createLibrary, defineComponent, reactive, useStateField, useTriggerAction } from "@openuidev/react-lang";
-import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { z } from "zod/v4";
+import { BarChart, LineChart, PieChart, Progress } from "./charts";
 
-/** What components reach outside the screen with: the app's action API (see pages/AppView.tsx). */
+/** What components reach outside the screen with: the app's action API (see pages/AppView.tsx). Null in a chat. */
 export type AppApi = { act: (action: string, args: Record<string, unknown>) => Promise<Record<string, unknown> | null> };
-export const AppApiContext = createContext<AppApi>({ act: async () => null });
+export const AppApiContext = createContext<AppApi | null>(null);
 
 const nodes = z.array(z.any());
 const tone = z.enum(["neutral", "success", "warning", "danger"]);
 
 const Screen = defineComponent({
   name: "Screen",
-  description: "The whole app screen: its sections from top to bottom.",
+  description: "The whole screen (an app, or a view in a chat reply): its sections from top to bottom.",
   props: z.object({ children: nodes.describe("Sections, top to bottom") }),
   component: ({ props, renderNode }) => <div className="oui-screen">{renderNode(props.children)}</div>,
 });
@@ -112,6 +112,101 @@ const Table = defineComponent({
   ),
 });
 
+
+const Tab = defineComponent({
+  name: "Tab",
+  description: "One page of Tabs: a title and what it shows.",
+  props: z.object({ title: z.string(), children: nodes }),
+  component: ({ props, renderNode }) => <div className="oui-screen">{renderNode(props.children)}</div>,
+});
+
+const Tabs = defineComponent({
+  name: "Tabs",
+  description: "Pages the user switches between, one shown at a time, e.g. Tabs([Tab(\"This week\", [...]), Tab(\"Next week\", [...])]).",
+  props: z.object({ tabs: z.array(Tab.ref) }),
+  component: function TabsView({ props, renderNode }) {
+    const tabs = (props.tabs ?? []) as unknown as { props?: { title?: string; children?: unknown[] } }[];
+    const [open, setOpen] = useState(0);
+    const at = Math.min(open, Math.max(0, tabs.length - 1));
+    const base = useRef(`oui-tabs-${tabSeq++}`).current;
+    const keys = (e: KeyboardEvent<HTMLButtonElement>) => {
+      const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!d) return;
+      const next = (at + d + tabs.length) % tabs.length;
+      setOpen(next);
+      document.getElementById(`${base}-t${next}`)?.focus();
+    };
+    return (
+      <div className="oui-tabs">
+        <div className="seg" role="tablist">
+          {tabs.map((t, i) => (
+            <button key={i} id={`${base}-t${i}`} className="btn ghost sm" role="tab" aria-selected={i === at} aria-pressed={i === at}
+              aria-controls={`${base}-p${i}`} tabIndex={i === at ? 0 : -1} onClick={() => setOpen(i)} onKeyDown={keys}>
+              {t?.props?.title ?? `Tab ${i + 1}`}
+            </button>
+          ))}
+        </div>
+        {tabs[at] && (
+          <div role="tabpanel" id={`${base}-p${at}`} aria-labelledby={`${base}-t${at}`}>
+            <div className="oui-screen">{renderNode(tabs[at].props?.children ?? [])}</div>
+          </div>
+        )}
+      </div>
+    );
+  },
+});
+let tabSeq = 0;
+
+const Collapsible = defineComponent({
+  name: "Collapsible",
+  description: "A section the user opens to see more (details, the full list, the method). Closed unless open is true.",
+  props: z.object({ title: z.string(), children: nodes, open: z.boolean().optional() }),
+  component: ({ props, renderNode }) => (
+    <details className="oui-collapsible" open={props.open ?? false}>
+      <summary>{props.title}</summary>
+      <div className="oui-screen">{renderNode(props.children ?? [])}</div>
+    </details>
+  ),
+});
+
+const List = defineComponent({
+  name: "List",
+  description:
+    "Rows of items with a title, an optional note under it and an optional badge on the right, " +
+    "e.g. List([{title: \"Dentist\", note: \"Tue 9:30\", badge: \"Booked\", tone: \"success\"}]).",
+  props: z.object({
+    items: z.array(z.object({ title: z.string(), note: z.string().optional(), badge: z.string().optional(), tone: tone.optional() })),
+  }),
+  component: ({ props }) =>
+    (props.items ?? []).length ? (
+      <ul className="oui-list">
+        {props.items.map((it, i) => (
+          <li key={i}>
+            <span className="grow"><span className="title">{it.title}</span>{it.note && <span className="hint">{it.note}</span>}</span>
+            {it.badge && <span className={`badge ${it.tone && it.tone !== "neutral" ? it.tone : "plain"}`}>{it.badge}</span>}
+          </li>
+        ))}
+      </ul>
+    ) : <p className="hint">Nothing here yet.</p>,
+});
+
+const Steps = defineComponent({
+  name: "Steps",
+  description: "Numbered steps in order (a plan, a how-to, a timeline); done steps show ticked.",
+  props: z.object({ items: z.array(z.object({ title: z.string(), note: z.string().optional(), done: z.boolean().optional() })) }),
+  component: ({ props }) => (
+    <ol className="oui-steps">
+      {(props.items ?? []).map((it, i) => (
+        <li key={i} className={it.done ? "done" : ""}>
+          <span className="num" aria-hidden="true">{it.done ? "✓" : i + 1}</span>
+          <span className="grow"><span className="title">{it.title}{it.done && <span className="sr-only"> (done)</span>}</span>
+            {it.note && <span className="hint">{it.note}</span>}</span>
+        </li>
+      ))}
+    </ol>
+  ),
+});
+
 const Button = defineComponent({
   name: "Button",
   description:
@@ -180,6 +275,110 @@ const SelectField = defineComponent({
   },
 });
 
+
+const TextArea = defineComponent({
+  name: "TextArea",
+  description: "A multi-line text box bound to a $variable, for notes or a longer answer.",
+  props: z.object({ label: z.string(), value: reactive(z.string().optional()), placeholder: z.string().optional() }),
+  component: function TextAreaView({ props }) {
+    const field = useStateField(fieldId(props.label), props.value);
+    return (
+      <div className="field">
+        <label htmlFor={fieldId(props.label)}>{props.label}</label>
+        <textarea id={fieldId(props.label)} className="input" rows={4} value={String(field.value ?? "")} placeholder={props.placeholder}
+          maxLength={10000} onChange={(e) => field.setValue(e.target.value)} />
+      </div>
+    );
+  },
+});
+
+const NumberField = defineComponent({
+  name: "NumberField",
+  description: "A number box bound to a $variable, e.g. NumberField(\"Budget\", $budget, 0).",
+  props: z.object({ label: z.string(), value: reactive(z.number().optional()), min: z.number().optional(), max: z.number().optional(), step: z.number().optional() }),
+  component: function NumberFieldView({ props }) {
+    const field = useStateField(fieldId(props.label), props.value);
+    return (
+      <div className="field">
+        <label htmlFor={fieldId(props.label)}>{props.label}</label>
+        <input id={fieldId(props.label)} className="input" type="number" inputMode="decimal" min={props.min} max={props.max} step={props.step ?? "any"}
+          value={field.value == null ? "" : String(field.value)} onChange={(e) => field.setValue(e.target.value === "" ? undefined : Number(e.target.value))} />
+      </div>
+    );
+  },
+});
+
+const DateField = defineComponent({
+  name: "DateField",
+  description: "A date picker bound to a $variable; the value is YYYY-MM-DD.",
+  props: z.object({ label: z.string(), value: reactive(z.string().optional()) }),
+  component: function DateFieldView({ props }) {
+    const field = useStateField(fieldId(props.label), props.value);
+    return (
+      <div className="field">
+        <label htmlFor={fieldId(props.label)}>{props.label}</label>
+        <input id={fieldId(props.label)} className="input" type="date" value={String(field.value ?? "")} onChange={(e) => field.setValue(e.target.value)} />
+      </div>
+    );
+  },
+});
+
+const Checkbox = defineComponent({
+  name: "Checkbox",
+  description: "A yes/no tick box bound to a $variable (true or false).",
+  props: z.object({ label: z.string(), value: reactive(z.boolean().optional()) }),
+  component: function CheckboxView({ props }) {
+    const field = useStateField(fieldId(props.label), props.value);
+    return (
+      <label className="oui-check">
+        <input type="checkbox" checked={!!field.value} onChange={(e) => field.setValue(e.target.checked)} />
+        <span>{props.label}</span>
+      </label>
+    );
+  },
+});
+
+const RadioGroup = defineComponent({
+  name: "RadioGroup",
+  description: "One choice from a few options, all visible (use SelectField for many). options are {value, label} objects.",
+  props: z.object({
+    label: z.string(),
+    options: z.array(z.object({ value: z.string(), label: z.string() })),
+    value: reactive(z.string().optional()),
+  }),
+  component: function RadioGroupView({ props }) {
+    const field = useStateField(fieldId(props.label), props.value);
+    return (
+      <fieldset className="oui-radios">
+        <legend className="label">{props.label}</legend>
+        {(props.options ?? []).map((o) => (
+          <label key={o.value} className={`choice${field.value === o.value ? " on" : ""}`}>
+            <input type="radio" name={fieldId(props.label)} value={o.value} checked={field.value === o.value} onChange={() => field.setValue(o.value)} />
+            <span className="title">{o.label}</span>
+          </label>
+        ))}
+      </fieldset>
+    );
+  },
+});
+
+const Slider = defineComponent({
+  name: "Slider",
+  description: "A slider for a number in a range, bound to a $variable, e.g. Slider(\"Hours a week\", $hours, 0, 40).",
+  props: z.object({ label: z.string(), value: reactive(z.number().optional()), min: z.number(), max: z.number(), step: z.number().optional() }),
+  component: function SliderView({ props }) {
+    const field = useStateField(fieldId(props.label), props.value);
+    const v = typeof field.value === "number" ? field.value : props.min;
+    return (
+      <div className="field oui-slider">
+        <label htmlFor={fieldId(props.label)}>{props.label} <span className="value">{v}</span></label>
+        <input id={fieldId(props.label)} type="range" min={props.min} max={props.max} step={props.step ?? 1} value={v}
+          onChange={(e) => field.setValue(Number(e.target.value))} />
+      </div>
+    );
+  },
+});
+
 type BoardItem = { id: string; title: string; column: string; note?: string; due?: string; done?: boolean };
 type Column = { id: string; title: string; hint?: string };
 
@@ -189,18 +388,21 @@ const Board = defineComponent({
     "Columns of items the user drags between, ticks done and adds to; it reads and saves a JSON file " +
     "{\"items\": [{\"id\", \"title\", \"column\", \"note\"?, \"due\"?, \"done\"?}]} by itself (column is a column id). " +
     "Four columns show as a 2x2 matrix. agentNote, if set, is sent to the agent with each change - only set it when " +
-    "the agent must react, since each change then costs a run.",
+    "the agent must react, since each change then costs a run. Apps only.",
   props: z.object({
     title: z.string(),
     file: z.string().describe("Workspace path of the JSON file, e.g. apps/cockpit/tasks.json"),
     columns: z.array(z.object({ id: z.string(), title: z.string(), hint: z.string().optional() })),
     agentNote: z.string().optional(),
   }),
-  component: ({ props }) => <BoardView {...props} />,
+  component: function BoardComponent({ props }) {
+    const api = useContext(AppApiContext);
+    if (!api) return <div className="oui-notice neutral" role="note">A board works in a personal app, not in a chat.</div>;
+    return <BoardView {...props} act={api.act} />;
+  },
 });
 
-function BoardView({ title, file, columns: cols, agentNote }: { title: string; file: string; columns: Column[]; agentNote?: string }) {
-  const { act } = useContext(AppApiContext);
+function BoardView({ title, file, columns: cols, agentNote, act }: { title: string; file: string; columns: Column[]; agentNote?: string; act: AppApi["act"] }) {
   const [items, setItems] = useState<BoardItem[] | null>(null);
   const [extra, setExtra] = useState<Record<string, unknown>>({});
   const [over, setOver] = useState("");
@@ -297,9 +499,28 @@ function BoardView({ title, file, columns: cols, agentNote }: { title: string; f
   );
 }
 
-export const appLibrary = createLibrary({
+export const openuiLibrary = createLibrary({
   root: "Screen",
-  components: [Screen, Row, Grid, Card, Heading, Text, Stat, Badge, Notice, Table, Button, TextField, SelectField, Board],
+  components: [
+    Screen, Row, Grid, Card, Tabs, Tab, Collapsible, Heading, Text, Stat, Badge, Notice, List, Steps, Table,
+    BarChart, LineChart, PieChart, Progress,
+    Button, TextField, TextArea, NumberField, DateField, SelectField, RadioGroup, Checkbox, Slider, Board,
+  ],
+  componentGroups: [
+    { name: "Layout", components: ["Screen", "Row", "Grid", "Card", "Tabs", "Tab", "Collapsible"] },
+    { name: "Content", components: ["Heading", "Text", "Stat", "Badge", "Notice", "List", "Steps", "Table"] },
+    {
+      name: "Charts",
+      components: ["BarChart", "LineChart", "PieChart", "Progress"],
+      notes: ["Pick the chart for the question: BarChart compares, LineChart shows a trend, PieChart shows shares of a whole, Progress shows how far along."],
+    },
+    {
+      name: "Actions and inputs",
+      components: ["Button", "TextField", "TextArea", "NumberField", "DateField", "SelectField", "RadioGroup", "Checkbox", "Slider"],
+      notes: ["Inputs only hold a $variable; a Button uses it, e.g. Button(\"Plan it\", @ToAssistant(\"Plan a trip for \" + $days + \" days\"))."],
+    },
+    { name: "Apps only", components: ["Board"] },
+  ],
 });
 
 /** The tools an app's Query() and Mutation() can call: the app action API (backend/acf/apps.py). */
@@ -352,21 +573,35 @@ needs = Card("Needs you", [Text(brief.text)])
 todo = Board("To-do", "apps/cockpit/tasks.json", [{id: "do", title: "Do first", hint: "Urgent and important"}, {id: "schedule", title: "Schedule", hint: "Important, not urgent"}, {id: "delegate", title: "Delegate", hint: "Urgent, not important"}, {id: "drop", title: "Drop", hint: "Neither"}])
 actions = Row([Button("Refresh", @ToAssistant("Use the personal-assistant skill to refresh the cockpit."), "primary"), Button("Plan my day", @ToAssistant("Plan my day from the cockpit's Do first and Schedule columns."))])`;
 
-export const APP_RULES = [
-  "The tools above are called by the app screen, not by you: to see a file's shape, read it with your own read tool.",
-  "Write only these components; never HTML, CSS or colours - the app's look comes from the design system.",
-  "Read data with Query(\"read_file\", ...) and a refresh interval (e.g. 10) so the screen follows the files you update.",
+export const CHAT_EXAMPLE = `root = Screen([spend, split, pick])
+$food = 300
+spend = BarChart("Spending by month", ["Aug", "Sep", "Oct"], [{name: "Food", values: [320, 280, 345]}, {name: "Travel", values: [120, 410, 90]}], "EUR")
+split = PieChart("October", [{label: "Food", value: 345}, {label: "Travel", value: 90}, {label: "Home", value: 610}], "EUR")
+pick = Card("Set a budget", [Slider("Monthly food budget", $food, 200, 500, 10), Button("Track it", @ToAssistant("Track my food spending against a budget of " + $food + " EUR a month."), "primary")])`;
+
+export const RULES = [
+  "Write only these components; never HTML, CSS or colours - the look comes from the design system.",
+  "Every program starts with root = Screen([...]) on its first line.",
+  "In a chat reply: write the program in a fenced code block whose language is openui, with your text before or after it. " +
+    "Put the numbers in the program itself; Query, Mutation, @Run and Board do not work in chat. " +
+    "A Button with @ToAssistant(\"...\") sends that text to you in the same chat, as if the user typed it.",
+  "In a personal app: the tools above are called by the app screen, not by you; to see a file's shape, read it with your own read tool. " +
+    "Read data with Query(\"read_file\", ...) and a refresh interval (e.g. 10) so the screen follows the files you update.",
   "Buttons that need judgment, writing or another app's write tools send the work to you with @ToAssistant(\"...\").",
-  "Keep one screen focused on what the user acts on; at most one primary Button.",
+  "Keep a screen focused on what the user acts on; at most one primary Button.",
 ];
 
-export function appPrompt(): string {
-  return appLibrary.prompt({
+/** The OpenUI Lang reference the agent reads (the built-in openui skill's reference.md). */
+export function openuiPrompt(): string {
+  return openuiLibrary.prompt({
     preamble:
-      "Personal apps are written in OpenUI Lang. The file apps/<id>/app.oui holds one program whose root is Screen(...). " +
+      "OpenUI Lang describes a screen built from the components below. It is used in two places: a view inside a chat " +
+      "reply (a fenced ```openui block) and a personal app (the file apps/<id>/app.oui). Both hold one program whose " +
+      "root is Screen(...). The tools listed under Query are available in personal apps only. " +
       "This is the complete reference for the language and the components available.",
     tools: APP_TOOLS,
+    examples: [CHAT_EXAMPLE],
     toolExamples: [COCKPIT_EXAMPLE],
-    additionalRules: APP_RULES,
+    additionalRules: RULES,
   });
 }

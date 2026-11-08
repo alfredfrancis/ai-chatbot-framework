@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type AppDetail } from "../api";
 import { Topbar, useApp } from "../App";
-import { AppApiContext, appLibrary, type AppApi } from "../openui/library";
+import { AppApiContext, openuiLibrary, type AppApi } from "../openui/library";
 
 type Result = Record<string, unknown>;
 
@@ -78,7 +78,7 @@ export default function AppPage() {
 
   const askFix = () =>
     appApi.act("ask_agent", {
-      prompt: `Fix apps/${id}/app.oui so it renders. Read the personal-apps skill's openui.md first.\n\n${problems.join("\n")}`,
+      prompt: `Fix apps/${id}/app.oui so it renders. Read skills/openui/SKILL.md first.\n\n${problems.join("\n")}`,
       event: "The screen has errors.",
     });
 
@@ -114,7 +114,7 @@ export default function AppPage() {
             </div>
           )}
           <AppApiContext.Provider value={appApi}>
-            <Renderer key={id} response={app.source} library={appLibrary} isStreaming={false}
+            <Renderer key={id} response={app.source} library={openuiLibrary} isStreaming={false}
               toolProvider={tools} onAction={onAction} onError={onError} />
           </AppApiContext.Provider>
         </div>

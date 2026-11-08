@@ -170,6 +170,7 @@ async def test_builtin_skills_are_seeded_once(client, user):
         "price-watch",
         "personal-assistant",
         "personal-apps",
+        "openui",
         "cited-research",
         "plain-writing",
     }
