@@ -5,7 +5,7 @@
 <p align="center">A lean, self-hosted AI agent that everyone can use. Each person gets an assistant with
 its own private computer, their files, skills, app connections and scheduled jobs.</p>
 
-![Home](docs/screenshots/e2e/02-home.png)
+![AI Chatbot Framework home: chats, files, skills, tasks, connections and your apps in the sidebar](docs/screenshots/home.webp)
 
 > AI Chatbot Framework used to be an intent/entity NLU chatbot builder. Version 2 rebuilds it as an
 > agent. The old code is in the git history.
