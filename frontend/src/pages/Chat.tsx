@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus } from "../acp";
+import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
-import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Keys, Mark, Wave } from "../components/icons";
+import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -351,6 +351,66 @@ function ArtifactsPanel({ items, onClose }: { items: Artifact[] | null; onClose:
   );
 }
 
+const tokens = (n: number) => n.toLocaleString("en-US");
+const share = (p: number) => `${p < 10 ? p.toFixed(1).replace(/\.0$/, "") : Math.round(p)}%`;
+const MAX_ITEMS = 12;
+
+/** How full the model's context window is, and what fills it: system prompt, tools, skills, messages. */
+function ContextMeter({ usage }: { usage: Usage }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onDown = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
+  }, [open]);
+  const pct = share(usage.percent);
+  const level = usage.percent >= 80 ? " high" : "";
+  const estimated = usage.parts.reduce((n, p) => n + p.tokens, 0) || 1;
+  return (
+    <div className="context" ref={box}>
+      <button className={`btn ghost sm context-toggle${open ? " on" : ""}${level}`} aria-expanded={open} aria-controls="context-usage"
+        aria-label={`Context usage: ${pct} of the context window`} title="Context usage" onClick={() => setOpen(!open)}>
+        <Gauge percent={usage.percent} /><span className="count">{pct}</span>
+      </button>
+      {open && (
+        <div className="context-pop" id="context-usage" role="dialog" aria-label="Context usage">
+          <div className="context-total">
+            <strong>{pct}</strong>
+            <span>{tokens(usage.used)} of {tokens(usage.size)} tokens</span>
+          </div>
+          <div className={`meter${level}`} aria-hidden="true"><span style={{ width: `${Math.min(100, usage.percent)}%` }} /></div>
+          <ul className="context-parts" aria-label="What is in the context">
+            {usage.parts.map((p) => (
+              <li key={p.name}>
+                <div className="row-flex">
+                  <span className="name">{p.name}</span>
+                  <span className="tokens">≈ {tokens(p.tokens)}</span>
+                </div>
+                <div className="meter sm" aria-hidden="true"><span style={{ width: `${(100 * p.tokens) / estimated}%` }} /></div>
+                {p.count != null && <div className="items">{p.count} message{p.count === 1 ? "" : "s"}</div>}
+                {p.items && (
+                  <div className="items">
+                    {p.items.length ? p.items.slice(0, MAX_ITEMS).join(" · ") : "None"}
+                    {p.items.length > MAX_ITEMS && ` and ${p.items.length - MAX_ITEMS} more`}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="hint">
+            {usage.measured ? "Total counted by the model provider after the latest reply; parts are estimates." : "Estimated at about 4 characters a token."}
+            {" "}Older messages are summarised when the chat gets long.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function greeting(name: string) {
   const h = new Date().getHours();
   const part = h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -397,6 +457,7 @@ export default function ChatPage() {
   const [error, setError] = useState("");
   const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
   const [panel, setPanel] = useState(panelPref);
+  const [usage, setUsage] = useState<Usage | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(sid);
   current.current = sid;
@@ -444,6 +505,12 @@ export default function ChatPage() {
     } else if (n.method === "session/update") {
       const u = n.params.update;
       if (u.sessionUpdate === "session_info_update") { refresh(); return; }
+      if (u.sessionUpdate === "usage_update") {
+        const v = u as { used: number; size: number; _meta?: { acf?: UsageMeta } };
+        const meta = v._meta?.acf;
+        setUsage({ used: v.used, size: v.size, percent: meta?.percent ?? (v.size ? (100 * v.used) / v.size : 0), measured: !!meta?.measured, parts: meta?.parts ?? [] });
+        return;
+      }
       if (u.sessionUpdate === "tool_call_update" && (u as { status?: ToolStatus }).status === "completed") loadArtifacts(n.params.sessionId);
       if (u.sessionUpdate === "user_message_chunk") {
         // A queued message was read: its first chunk is its text, or its first file when it has no text.
@@ -477,7 +544,7 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    setEntries([]); setError(""); setQueued([]); setRunning(false); setArtifacts(null);
+    setEntries([]); setError(""); setQueued([]); setRunning(false); setArtifacts(null); setUsage(null);
     if (!sid) return;
     loadArtifacts(sid);
     const pending = (location.state as { pending?: Outgoing } | null)?.pending;
@@ -519,6 +586,7 @@ export default function ChatPage() {
     <>
       <Topbar crumb="Chats" title={title}>
         {running && <span className="badge live"><span className="live-dot" />Working</span>}
+        {usage && <ContextMeter usage={usage} />}
         <button className={`btn ghost sm artifacts-toggle${panel ? " on" : ""}`} aria-label="Artifacts" aria-expanded={panel} aria-controls="artifacts"
           title={panel ? "Hide artifacts" : "Show artifacts"} onClick={togglePanel}>
           <IconPanel />{artifacts?.length ? <span className="count">{artifacts.length}</span> : null}

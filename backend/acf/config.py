@@ -54,6 +54,9 @@ class Settings:
     # providers that take an API key, so a user can't make the server use credentials from its environment
     # (e.g. bedrock with the machine's cloud role). The server's own provider is always allowed.
     llm_providers: str = field(default_factory=lambda: _env("LLM_PROVIDERS").strip() or DEFAULT_PROVIDERS)
+    # The model's context window in tokens, for the chat's context meter (0 = the model's own, from
+    # LangChain's model profile; 128000 when unknown).
+    context_window: int = field(default_factory=lambda: int(_env("CONTEXT_WINDOW", "0")))
     compact_tokens: int = field(default_factory=lambda: int(_env("COMPACT_TOKENS", "120000")))
     compact_keep_tokens: int = field(default_factory=lambda: int(_env("COMPACT_KEEP_TOKENS", "20000")))
     max_agent_steps: int = field(default_factory=lambda: int(_env("MAX_AGENT_STEPS", "40")))

@@ -23,6 +23,7 @@ Rules (applied to the latest user text):
   list tools                  -> replies with the tool names it was given
   anything else               -> "Echo: <text>"
 After a tool result it replies "Result: <tool output>".
+The Anthropic API reports input_tokens = request body size / 4 (OpenAI reports no usage).
 Both APIs stream (SSE) when the request asks for it; text is sent word by word.
 
 Run standalone: python -m tests.fakes.fake_llm --port 9100
@@ -106,6 +107,11 @@ def decide(
     return {"text": f"Echo: {text}"}
 
 
+def input_tokens(body: dict) -> int:
+    """What the fake 'counts' for a request: its system, tools and messages at ~4 characters a token."""
+    return len(json.dumps([body.get("system"), body.get("tools"), body.get("messages")])) // 4
+
+
 def _pieces(text: str) -> list[str]:
     """Split text into word-sized stream deltas (whitespace kept)."""
     return re.findall(r"\s*\S+", text) or [text]
@@ -159,7 +165,7 @@ async def messages(request: Request):
         "content": content,
         "stop_reason": "tool_use" if d.get("calls") else "end_turn",
         "stop_sequence": None,
-        "usage": {"input_tokens": 10, "output_tokens": 10},
+        "usage": {"input_tokens": input_tokens(body), "output_tokens": 10},
     }
     if not body.get("stream"):
         return message
@@ -170,7 +176,7 @@ async def _anthropic_stream(message: dict, word_delay: float) -> AsyncIterator[s
     def ev(data: dict) -> str:
         return f"event: {data['type']}\ndata: {json.dumps(data)}\n\n"
 
-    start = {**message, "content": [], "stop_reason": None, "usage": {"input_tokens": 10, "output_tokens": 1}}
+    start = {**message, "content": [], "stop_reason": None, "usage": {**message["usage"], "output_tokens": 1}}
     yield ev({"type": "message_start", "message": start})
     for i, block in enumerate(message["content"]):
         kind = block["type"]
@@ -211,7 +217,7 @@ async def _anthropic_stream(message: dict, word_delay: float) -> AsyncIterator[s
             )
         yield ev({"type": "content_block_stop", "index": i})
     delta = {"stop_reason": message["stop_reason"], "stop_sequence": None}
-    yield ev({"type": "message_delta", "delta": delta, "usage": {"output_tokens": 10}})
+    yield ev({"type": "message_delta", "delta": delta, "usage": message["usage"]})
     yield ev({"type": "message_stop"})
 
 

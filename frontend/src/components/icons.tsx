@@ -65,3 +65,14 @@ export const IconTrash = () => <Svg size={18}><path d="M4 7h16M10 11v6M14 11v6M6
 export function Keys({ keys }: { keys: string[] }) {
   return <span className="keys">{keys.map((k) => <span key={k} className="kbd">{k}</span>)}</span>;
 }
+
+/** A small ring filled to `percent` (the chat's context meter). */
+export function Gauge({ percent }: { percent: number }) {
+  const r = 7, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, percent));
+  return (
+    <svg aria-hidden="true" className="gauge" width="18" height="18" viewBox="0 0 18 18" fill="none" strokeWidth={1.75}>
+      <circle cx="9" cy="9" r={r} className="track" />
+      <circle cx="9" cy="9" r={r} stroke="currentColor" strokeLinecap="round" strokeDasharray={`${(c * p) / 100} ${c}`} transform="rotate(-90 9 9)" />
+    </svg>
+  );
+}

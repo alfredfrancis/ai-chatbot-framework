@@ -48,6 +48,7 @@ async def test_load_replays_the_history(client, user):
         ("tool_call", "pending"),
         ("tool_call_update", "completed"),
         ("agent_message_chunk", None),
+        ("usage_update", None),  # the context usage after the latest model call
     ]
 
 
