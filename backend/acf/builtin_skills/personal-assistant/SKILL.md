@@ -152,14 +152,13 @@ Offer it at the end of the set-up interview (and once later if they never answer
 menu with the brief and an Eisenhower matrix of their to-dos they can drag around. If they say yes, read
 the personal-apps skill and create `apps/cockpit/`:
 
-- `app.json`: title "Cockpit", order 1, blocks: a markdown block "Needs you" (`apps/cockpit/brief.md`),
-  a board "To-do" (`apps/cockpit/tasks.json`) with four columns - `do` "Do first" (urgent and
-  important), `schedule` "Schedule" (important, not urgent), `delegate` "Delegate" (urgent, not
-  important), `drop` "Drop" (neither) - and buttons: "Refresh" (ask_agent: `Use the personal-assistant
-  skill to refresh the cockpit: rewrite apps/cockpit/brief.md and update apps/cockpit/tasks.json.`)
-  and "Plan my day" (ask_agent: `Use the personal-assistant skill to plan my day from the cockpit's
-  Do first and Schedule columns.`). Set the board's `on_change` to `If a task moved to Delegate, draft
-  a hand-off message for it and say so; otherwise reply "Noted."`.
+- `app.json`: `{"title": "Cockpit", "description": "What needs you today", "order": 1}`.
+- `app.oui`: use the Cockpit example in the personal-apps skill's `openui.md` - stats, a "Needs you"
+  card with `brief.md`, a Board "To-do" over `tasks.json` with four columns (`do` "Do first": urgent and
+  important, `schedule` "Schedule": important, not urgent, `delegate` "Delegate": urgent, not important,
+  `drop` "Drop": neither), and buttons "Refresh" (`@ToAssistant("Use the personal-assistant skill to
+  refresh the cockpit.")`) and "Plan my day". Add an `agentNote` to the Board only if the user wants you
+  to react to every move (e.g. draft a hand-off when a task moves to Delegate).
 - `brief.md`: the "Needs you" and "Today" parts of the brief, at most one screen.
 - `tasks.json`: every open to-do (move the ones from `assistant/todo.md` and delete that file), each
   with `id`, `title`, `column`, `due`, a short `note` with its source, and `done`.

@@ -26,7 +26,7 @@ backend/acf/
   scan.py            prompt-injection check for memory.md, skills and skill uploads
   acp.py             Agent Client Protocol over WebSocket (/api/acp): the chat interface for web + external apps
   acp_bridge.py      stdio <-> ACP WebSocket bridge for editor-style clients
-  apps.py            personal apps: apps/<id>/app.json + one action API (update_file, ask_agent, run, mcp)
+  apps.py            personal apps: apps/<id>/app.json + app.oui (OpenUI Lang) + one action API
   artifacts.py       a chat's artifacts: files attached to it and files the agent made in it
   skills.py          skill discovery, upload (zip / SKILL.md), built-in skills (builtin_skills/), archiving
   workspace.py       per-user folder, path safety
@@ -38,7 +38,7 @@ backend/acf/
   scheduler.py       cron tasks
   api/routes.py      every HTTP endpoint
 backend/tests/       pytest; fakes/ = scripted model server + stdio MCP + OAuth MCP servers
-frontend/src/        React + Vite; pages/ per screen; styles.css (components) + tokens.css (generated)
+frontend/src/        React + Vite; pages/ per screen; openui/ = the component library personal apps are written in; styles.css (components) + tokens.css (generated)
 design/              tokens.json (source of truth), README.md (brand book), components.css
 frontend/e2e/        Playwright specs; they also write docs/screenshots/e2e/*.png
 sandbox/Dockerfile   the sandbox image
@@ -104,4 +104,7 @@ make lint         # ruff + tsc
   before the cut.
 - All chat traffic is ACP (`acp.py`, `frontend/src/acp.ts`); there are no chat REST/SSE endpoints. Backend
   tests drive it in-process with `tests/acp_client.py` (`send()` / `prompt()` in conftest).
+- Personal apps are OpenUI Lang rendered by `frontend/src/openui/library.tsx`. Changing that library
+  regenerates `backend/acf/builtin_skills/personal-apps/openui.md` (`npm run build`); commit both.
+  Install with `OPENUI_TELEMETRY_DISABLED=1` (`@openuidev/lang-core` pings PostHog on install otherwise).
 - The E2E Playwright version is pinned to the preinstalled browser build (1.63.0).

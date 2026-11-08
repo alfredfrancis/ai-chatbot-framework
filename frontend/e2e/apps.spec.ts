@@ -1,25 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
 import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 
-const COLUMNS = [
-  { id: "do", title: "Do first", hint: "Urgent and important" },
-  { id: "schedule", title: "Schedule", hint: "Important, not urgent" },
-  { id: "delegate", title: "Delegate", hint: "Urgent, not important" },
-  { id: "drop", title: "Drop", hint: "Neither" },
-];
-const COCKPIT = {
-  title: "Cockpit",
-  description: "What needs you today",
-  order: 1,
-  blocks: [
-    { type: "markdown", title: "Needs you", file: "apps/cockpit/brief.md" },
-    { type: "board", title: "To-do", file: "apps/cockpit/tasks.json", columns: COLUMNS, on_change: "run: echo synced-$((40+2))" },
-    { type: "buttons", buttons: [
-      { label: "Refresh", action: "ask_agent", args: { prompt: "write: apps/cockpit/brief.md | Brief refreshed by the agent." } },
-      { label: "Count tasks", action: "run", args: { script: "count" }, confirm: "Count the open tasks?" },
-    ] },
-  ],
-};
+const COCKPIT = { title: "Cockpit", description: "What needs you today", order: 1 };
+const SCREEN = `root = Screen([summary, needs, todo, actions, notes])
+brief = Query("read_file", {path: "apps/cockpit/brief.md"}, {text: ""}, 2)
+tasks = Query("read_file", {path: "apps/cockpit/tasks.json"}, {data: {items: []}}, 2)
+summary = Grid([Stat("Open to-dos", @Count(@Filter(tasks.data.items, "done", "==", false))), Stat("Do first", @Count(@Filter(tasks.data.items, "column", "==", "do")))], 2)
+needs = Card("Needs you", [Text(brief.text)])
+todo = Board("To-do", "apps/cockpit/tasks.json", [{id: "do", title: "Do first", hint: "Urgent and important"}, {id: "schedule", title: "Schedule", hint: "Important, not urgent"}, {id: "delegate", title: "Delegate", hint: "Urgent, not important"}, {id: "drop", title: "Drop", hint: "Neither"}], "run: echo synced-$((40+2))")
+count = Mutation("run", {script: "count"})
+actions = Row([Button("Refresh", @ToAssistant("write: apps/cockpit/brief.md | Brief refreshed by the agent."), "primary"), Button("Count tasks", @Run(count), "secondary", "Count the open tasks?"), counted])
+counted = count.status == "success" ? Badge("Open: " + count.data.output, "success") : null
+note = Query("read_file", {path: "apps/cockpit/note.md"}, {text: ""})
+saveNote = Mutation("update_file", {path: "apps/cockpit/note.md", content: $note})
+notes = Card("Notes", [Text(note.text), TextField("Quick note", $note, "Write something…"), Button("Save note", Action([@Run(saveNote), @Run(note), @Reset($note)]))])`;
 const TASKS = {
   items: [
     { id: "1", title: "Book flights", column: "do", due: "Fri", note: "email from Ana", done: false },
@@ -30,12 +24,14 @@ const TASKS = {
 const write = (path: string, content: string) => `tool: write ${JSON.stringify({ path, content })}`;
 
 /** The agent makes the Cockpit, the way the personal-assistant skill does. */
-async function makeCockpit(page: Page) {
+async function makeCockpit(page: Page, ...more: string[]) {
   await say(page, [
     write("apps/cockpit/app.json", JSON.stringify(COCKPIT, null, 2)),
+    write("apps/cockpit/app.oui", SCREEN),
     write("apps/cockpit/tasks.json", JSON.stringify(TASKS, null, 2)),
     write("apps/cockpit/brief.md", "**Book flights** before Friday - Ana is waiting."),
     write("apps/cockpit/actions/count.sh", "grep -c '\"done\": false' apps/cockpit/tasks.json || true\n"),
+    ...more,
   ].join("\n"));
   await expect(lastAssistant(page)).toContainText("Result:");
 }
@@ -53,6 +49,8 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await expect(page.getByRole("region", { name: "Needs you" })).toContainText("Book flights before Friday");
   await expect(quadrant(page, "Do first").getByTestId("item-Book flights")).toContainText("Fri · email from Ana");
   await expect(quadrant(page, "Drop")).toContainText("Newsletter");
+  await expect(page.getByText("Open to-dos")).toBeVisible();
+  await expect(page.locator(".oui-stat").first()).toContainText("3");
   await shot(page, "40-app-cockpit");
 
   // Move with the menu (keyboard and phone), then by dragging.
@@ -81,14 +79,23 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await expect(page.getByRole("region", { name: "Needs you" })).toContainText("Brief refreshed by the agent.");
   await expect(page.getByRole("status")).toHaveCount(0);
 
-  // A sandbox script, behind a confirmation.
+  // Stats follow the file through their Query: 3 open (one ticked done, one added).
+  await expect(page.locator(".oui-stat").first()).toContainText("3");
+
+  // A sandbox script via Mutation("run"), behind a confirmation.
   await page.getByRole("button", { name: "Count tasks" }).click();
   await expect(page.getByRole("alertdialog")).toContainText("Count the open tasks?");
   await page.getByRole("button", { name: "Yes, count tasks" }).click();
-  await expect(page.getByRole("region", { name: "Result" })).toContainText("3");
+  await expect(page.getByText("Open: 3")).toBeVisible();
+
+  // A form: $binding + Mutation("update_file") + refetching the Query.
+  await page.getByLabel("Quick note").fill("Pick up dry cleaning");
+  await page.getByRole("button", { name: "Save note" }).click();
+  await expect(page.getByRole("region", { name: "Notes" })).toContainText("Pick up dry cleaning");
+  await expect(page.getByLabel("Quick note")).toHaveValue("");
   await shot(page, "41-app-cockpit-moved");
 
-  // The board's on_change and the button reached the agent in the app's own chat.
+  // The board's agentNote and the button reached the agent in the app's own chat.
   await page.getByRole("link", { name: "Open chat" }).click();
   await expect(page.locator(".topbar .here")).toHaveText("Cockpit app");
   await expect(page.getByTestId("assistant-msg").filter({ hasText: "synced-42" }).first()).toBeVisible();
@@ -101,14 +108,23 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await expect(page).toHaveURL(/\/apps\/cockpit$/);
 });
 
-test("a broken app.json shows an error; phone and light layouts work", async ({ browser }) => {
+test("a broken screen shows its problems and the agent is asked to fix it; phone and light layouts work", async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
   await signUp(page);
-  await makeCockpit(page);
-  await say(page, write("apps/notes/app.json", "{ not json"));
-  await expect(lastAssistant(page)).toContainText("Result:");
+  await makeCockpit(page,
+    write("apps/notes/app.json", JSON.stringify({ title: "Notes" })),
+    write("apps/notes/app.oui", 'root = Screen([Chart("x")])'),
+    write("apps/broken/app.json", "{ not json"));
+
+  await page.goto("/apps/broken");
+  await expect(page.getByRole("alert")).toContainText("apps/broken/app.json is not valid");
   await page.goto("/apps/notes");
-  await expect(page.getByRole("alert")).toContainText("apps/notes/app.json is not valid");
+  await expect(page.getByRole("alert")).toContainText("Chart");
+  await shot(page, "43-app-problems");
+  await page.getByRole("button", { name: "Ask the agent to fix it" }).click();
+  await page.getByRole("link", { name: "Open chat" }).click();
+  await expect(page.getByText(/\[App: Notes, apps\/notes\/app.json\] The screen has errors\./)).toBeVisible();
+
   await page.goto("/apps/cockpit");
   await expect(quadrant(page, "Do first")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -116,6 +132,6 @@ test("a broken app.json shows an error; phone and light layouts work", async ({ 
   await expect(quadrant(page, "Drop").getByTestId("item-Book flights")).toBeVisible();
   await shot(page, "42-app-cockpit-phone-light");
   await page.getByRole("button", { name: "Open menu" }).click();
-  await expect(nav(page).getByRole("group", { name: "Apps" }).getByRole("link")).toHaveText(["notes", "Cockpit"]);
+  await expect(nav(page).getByRole("group", { name: "Apps" }).getByRole("link")).toHaveText(["broken", "Cockpit", "Notes"]);
   await page.close();
 });

@@ -1,6 +1,8 @@
 # AI Chatbot Framework app image: API + built web UI in one container.
 FROM node:22-slim AS web
 WORKDIR /web
+# @openuidev/lang-core reports installs to PostHog unless this is set.
+ENV OPENUI_TELEMETRY_DISABLED=1
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./

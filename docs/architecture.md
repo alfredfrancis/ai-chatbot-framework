@@ -104,22 +104,30 @@ deleted). Each `read` of a `SKILL.md` is recorded there too; at the start of a t
 configured → PKCE authorize in a popup → `/oauth/callback` page posts code and state → token exchange →
 automatic refresh.
 
-## Personal apps (`backend/acf/apps.py`)
+## Personal apps (`backend/acf/apps.py`, `frontend/src/openui/`)
 
-An app is `apps/<id>/app.json` in the workspace (validated with pydantic; an invalid one is listed with
-its error so the agent can fix it). The menu shows at most 5, by `order` then id. `GET /api/apps/{id}`
-returns the blocks with the contents of their files; the page polls it, so changes the agent makes show up
-without a push channel. Every interaction is `POST /api/apps/{id}/actions`:
+An app is `apps/<id>/app.json` (title, description, order, extra `files`; validated with pydantic, an
+invalid one is listed with its error) plus `apps/<id>/app.oui`, a screen in OpenUI Lang. The menu shows at
+most 5, by `order` then id.
 
-- `update_file` writes inside `apps/<id>/` (not `app.json`) or a file listed in `files`, through
-  `workspace.resolve`.
+Generative UI without generated HTML: the web app renders `app.oui` with `@openuidev/react-lang` and our own
+component library (`frontend/src/openui/library.tsx`), whose components use the design system's classes and
+tokens. The agent learns the language from a reference generated from that library
+(`frontend/scripts/build-app-prompt.mjs` → `builtin_skills/personal-apps/openui.md`, rebuilt by
+`npm run build`; CI checks it is current), so it can only use components that exist. Parse errors show on
+the page with a button that sends them to the agent. We don't use OpenUI's own component package
+(`@openuidev/react-ui`): it brings its own styling.
+
+The page polls `GET /api/apps/{id}` for the source and the agent's state. Every call the screen makes —
+`Query`/`Mutation` tools, `@ToAssistant` buttons, the Board — is `POST /api/apps/{id}/actions`:
+
+- `read_file` / `update_file` inside `apps/<id>/` (not `app.json` or `app.oui`) or a file listed in
+  `files`, through `workspace.resolve`.
 - `ask_agent` starts or steers a run in the app's own chat (its id kept in `.acf/apps.json`); the message
   starts with `[App: <title>, apps/<id>/app.json] <event>` so the agent knows where it came from.
 - `run` executes `apps/<id>/actions/<name>.sh` through `Sandbox.exec`, with the input JSON as `$1`.
 - `mcp` opens an `McpHub` and calls a tool only if it is annotated read-only; writes must go through the
   agent, which asks the user first.
-
-The format is taught to the agent by the built-in `personal-apps` skill, not by a new tool.
 
 ## Scheduled tasks (`backend/acf/scheduler.py`)
 

@@ -49,8 +49,10 @@ its own private computer, their files, skills, app connections and scheduled job
   slow down every turn.
 - **Personal apps** – the agent (or a skill) can add up to 5 small apps to the menu, right under New chat,
   e.g. the personal assistant's **Cockpit**: the day's brief and an Eisenhower matrix of to-dos you drag
-  around. An app is just files: `apps/<id>/app.json` lays out blocks (`markdown`, `board`, `buttons`) over
-  workspace files. There is no app backend; the page uses one action API, `POST /api/apps/{id}/actions`:
+  around. An app is just files: `apps/<id>/app.json` (menu entry) and `apps/<id>/app.oui`, a screen in
+  [OpenUI Lang](https://openui.com) that the web app renders with its own design-system components
+  (`frontend/src/openui/library.tsx`) — the agent never writes HTML. There is no app backend: the screen's
+  `Query`/`Mutation` calls and buttons use one action API, `POST /api/apps/{id}/actions`: `read_file` and
   `update_file` (the app's folder and files it lists), `ask_agent` (a message to the agent in the app's own
   chat, answered in the background), `run` (an `apps/<id>/actions/<name>.sh` script in the sandbox) and
   `mcp` (read-only tools of connected apps; anything that changes things goes through the agent).

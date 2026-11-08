@@ -8,26 +8,18 @@ import json
 from acf import workspace
 from tests.conftest import send
 
-COCKPIT = {
-    "title": "Cockpit",
-    "description": "What needs you",
-    "files": ["assistant/todo.md"],
-    "blocks": [
-        {"type": "markdown", "title": "Brief", "file": "apps/cockpit/brief.md"},
-        {
-            "type": "board",
-            "title": "To-do",
-            "file": "apps/cockpit/tasks.json",
-            "columns": [{"id": "do", "title": "Do first"}, {"id": "schedule", "title": "Schedule"}],
-        },
-        {"type": "buttons", "buttons": [{"label": "Refresh", "action": "ask_agent", "args": {"prompt": "hi"}}]},
-    ],
-}
+COCKPIT = {"title": "Cockpit", "description": "What needs you", "files": ["assistant/todo.md"]}
+SCREEN = """root = Screen([needs, todo])
+brief = Query("read_file", {path: "apps/cockpit/brief.md"}, {text: ""}, 10)
+needs = Card("Needs you", [Text(brief.text)])
+todo = Board("To-do", "apps/cockpit/tasks.json", [{id: "do", title: "Do first"}])
+"""
 TASKS = {"items": [{"id": "1", "title": "Book flights", "column": "do"}]}
 
 
 def _install(user_id: int, app_id: str = "cockpit", spec: dict | None = None) -> None:
     workspace.write_file(user_id, f"apps/{app_id}/app.json", json.dumps(spec or {**COCKPIT, "title": app_id.title()}))
+    workspace.write_file(user_id, f"apps/{app_id}/app.oui", SCREEN)
 
 
 async def _action(client, app_id: str, action: str, **args):
@@ -46,18 +38,29 @@ async def _wait_idle(client, app_id: str) -> dict:
 async def test_agent_creates_an_app_that_the_menu_lists(client, user):
     chat = (await client.post("/api/chats", json={})).json()
     await send(client, chat["id"], "write: apps/cockpit/app.json | " + json.dumps(COCKPIT))
-    workspace.write_file(user["id"], "apps/cockpit/brief.md", "# Today\nNothing needs you.")
-    workspace.write_file(user["id"], "apps/cockpit/tasks.json", json.dumps(TASKS))
+    assert (await client.get("/api/apps")).json()[0]["error"] == (
+        "apps/cockpit/app.oui is missing: write the screen in OpenUI Lang."
+    )
+    await send(client, chat["id"], "write: apps/cockpit/app.oui | " + SCREEN)
 
     assert (await client.get("/api/apps")).json() == [
         {"id": "cockpit", "title": "Cockpit", "description": "What needs you", "error": None}
     ]
     app = (await client.get("/api/apps/cockpit")).json()
     assert app["title"] == "Cockpit" and app["error"] is None and app["running"] is False
-    brief, board, buttons = app["blocks"]
-    assert brief["text"] == "# Today\nNothing needs you."
-    assert board["data"] == TASKS
-    assert buttons["buttons"][0]["label"] == "Refresh"
+    assert app["source"] == SCREEN.strip()
+
+
+async def test_read_file_returns_text_and_json(client, user):
+    _install(user["id"])
+    workspace.write_file(user["id"], "apps/cockpit/brief.md", "# Today")
+    workspace.write_file(user["id"], "apps/cockpit/tasks.json", json.dumps(TASKS))
+    r = (await _action(client, "cockpit", "read_file", path="apps/cockpit/brief.md")).json()
+    assert r["text"] == "# Today" and r["data"] is None
+    r = (await _action(client, "cockpit", "read_file", path="apps/cockpit/tasks.json")).json()
+    assert r["data"] == TASKS
+    assert (await _action(client, "cockpit", "read_file", path="apps/cockpit/none.md")).json()["text"] == ""
+    assert (await _action(client, "cockpit", "read_file", path="memory.md")).status_code == 400
 
 
 async def test_at_most_five_apps_and_bad_specs_are_reported(client, user):
@@ -73,12 +76,10 @@ async def test_at_most_five_apps_and_bad_specs_are_reported(client, user):
     assert (await client.get("/api/apps/..%2Fskills")).status_code == 404
 
 
-async def test_ordering_and_missing_data_files(client, user):
+async def test_ordering(client, user):
     _install(user["id"], "zed", {**COCKPIT, "title": "Zed", "order": 1})
     _install(user["id"], "abc", {**COCKPIT, "title": "Abc", "order": 2})
     assert [a["id"] for a in (await client.get("/api/apps")).json()] == ["zed", "abc"]
-    app = (await client.get("/api/apps/zed")).json()
-    assert app["blocks"][0]["text"] == "" and app["blocks"][1]["data"] == {"items": []}
 
 
 async def test_update_file_writes_the_app_folder_and_declared_files_only(client, user):
@@ -89,7 +90,14 @@ async def test_update_file_writes_the_app_folder_and_declared_files_only(client,
     r = await _action(client, "cockpit", "update_file", path="assistant/todo.md", content="- [ ] call mum\n")
     assert r.status_code == 200
     assert workspace.read_file(user["id"], "assistant/todo.md") == "- [ ] call mum\n"
-    for path in ["memory.md", "apps/other/app.json", "apps/cockpit/../../memory.md", "../escape"]:
+    for path in [
+        "memory.md",
+        "apps/cockpit/app.json",
+        "apps/cockpit/app.oui",
+        "apps/other/app.json",
+        "apps/cockpit/../../memory.md",
+        "../escape",
+    ]:
         r = await _action(client, "cockpit", "update_file", path=path, content="x")
         assert r.status_code == 400, path
     assert "x" != workspace.read_file(user["id"], "memory.md")
@@ -103,7 +111,7 @@ async def test_ask_agent_runs_in_the_apps_own_chat(client, user):
     chat_id = r.json()["chat_id"]
     app = await _wait_idle(client, "cockpit")
     assert app["chat_id"] == chat_id
-    assert app["blocks"][0]["text"] == "Updated by the agent"
+    assert workspace.read_file(user["id"], "apps/cockpit/brief.md") == "Updated by the agent"
     msgs = (await client.get(f"/api/chats/{chat_id}")).json()["messages"]
     first = msgs[0]["content"]
     assert first.startswith("[App: Cockpit, apps/cockpit/app.json]") and 'Moved "Book flights"' in first
@@ -119,7 +127,7 @@ async def test_mcp_action_runs_read_only_tools_only(client, user):
     _install(user["id"])
     r = await _action(client, "cockpit", "mcp", server="system", tool="list_tasks", arguments={})
     assert r.status_code == 200, r.text
-    assert json.loads(r.json()["output"]) == []
+    assert r.json()["data"] == [] and r.json()["text"].strip() == "[]"
     r = await _action(
         client,
         "cockpit",
@@ -164,3 +172,11 @@ async def test_system_prompt_tells_the_agent_about_apps(client, user):
     chat = (await client.post("/api/chats", json={})).json()
     text = (await send(client, chat["id"], "show system")).final
     assert "apps/" in text and "personal-apps" in text
+
+
+async def test_the_skill_ships_the_openui_reference(client, user):
+    ref = workspace.read_file(user["id"], "skills/personal-apps/openui.md")
+    assert "Generated from frontend/src/openui/library.tsx" in ref
+    for signature in ("Screen(children", "Board(title: string, file: string", "Query(", "Mutation(", "@ToAssistant"):
+        assert signature in ref, signature
+    assert "openui.md" in workspace.read_file(user["id"], "skills/personal-apps/SKILL.md")

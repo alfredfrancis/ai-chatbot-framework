@@ -1,14 +1,15 @@
 """Personal apps: small screens the agent (or a skill) makes for the user, shown in the menu.
 
-An app is a folder in the workspace, apps/<id>/, with an app.json that lays out blocks:
-- markdown: a Markdown file shown as text (e.g. a brief the agent rewrites)
-- board:    a JSON file {"items": [{"id", "title", "column", ...}]} shown as columns the user moves items
-            between (e.g. an Eisenhower matrix); `on_change` asks the agent to react to a move
-- buttons:  buttons that run an action
+An app is a folder in the workspace, apps/<id>/:
+- app.json: {"title", "description", "order", "files"} - how it shows in the menu, and the files outside
+  its folder it may use
+- app.oui:  the screen, in OpenUI Lang (https://openui.com). The web app renders it with its own component
+  library (frontend/src/openui/library.tsx), so an app is built from design-system components, never HTML.
 
-There is no app backend: the state is the files. The UI changes them, and reaches the agent, connected
-apps and the sandbox, through one action API (`run_action`):
-- update_file {path, content}            write a file in the app's folder or one it lists in `files`
+There is no app backend: the state is the files. The screen's Query()/Mutation() calls and buttons reach
+the files, the agent, connected apps and the sandbox through one action API (`run_action`):
+- read_file   {path}                     a file of the app: {text}, plus {data} if it is JSON
+- update_file {path, content}            write a file in the app's folder (not app.json) or one in `files`
 - ask_agent   {prompt, event?}           a message to the agent in the app's own chat (returns at once)
 - run         {script, input?}           run apps/<id>/actions/<script>.sh in the sandbox, input as JSON in $1
 - mcp         {server, tool, arguments}  call a read-only tool of a connected app; changes go via ask_agent
@@ -40,7 +41,9 @@ STATE_FILE = ".acf/apps.json"  # {"<app id>": {"chat_id": n}}
 OUTPUT_LIMIT = 20_000
 RUN_TIMEOUT = 60
 
-Action = Literal["update_file", "ask_agent", "run", "mcp"]
+Action = Literal["read_file", "update_file", "ask_agent", "run", "mcp"]
+SCREEN = "app.oui"
+MAX_SCREEN = 100_000
 
 
 class AppError(ValueError):
@@ -51,35 +54,11 @@ class NotFound(AppError):
     pass
 
 
-class Column(BaseModel):
-    id: str = Field(min_length=1, max_length=40)
-    title: str = Field(min_length=1, max_length=80)
-    hint: str = Field("", max_length=200)
-
-
-class Button(BaseModel):
-    label: str = Field(min_length=1, max_length=60)
-    action: Action
-    args: dict[str, Any] = Field(default_factory=dict)
-    confirm: str = Field("", max_length=300)
-
-
-class Block(BaseModel):
-    type: Literal["markdown", "board", "buttons"]
-    title: str = Field("", max_length=80)
-    file: str = Field("", max_length=300)
-    text: str = Field("", max_length=20_000)
-    columns: list[Column] = Field(default_factory=list, max_length=8)
-    on_change: str = Field("", max_length=4000)
-    buttons: list[Button] = Field(default_factory=list, max_length=8)
-
-
 class Spec(BaseModel):
     title: str = Field(min_length=1, max_length=40)
     description: str = Field("", max_length=200)
     order: int = 100
     files: list[str] = Field(default_factory=list, max_length=20)
-    blocks: list[Block] = Field(default_factory=list, max_length=20)
 
 
 @dataclass
@@ -109,6 +88,8 @@ def _load(user_id: int, app_id: str) -> App:
         detail = e.errors(include_url=False)[0] if isinstance(e, ValidationError) else None
         where = ".".join(str(p) for p in detail["loc"]) + ": " + detail["msg"] if detail else str(e)
         return App(app_id, None, f"{rel} is not valid: {where}")
+    if not workspace.resolve(user_id, f"{APPS_DIR}/{app_id}/{SCREEN}").is_file():
+        return App(app_id, spec, f"{APPS_DIR}/{app_id}/{SCREEN} is missing: write the screen in OpenUI Lang.")
     return App(app_id, spec, None)
 
 
@@ -147,25 +128,17 @@ def _allowed(user_id: int, app: App, path: str) -> str:
             listed.add(workspace.relative(user_id, f))
         except ValueError:
             continue
-    if not (rel.startswith(folder) and rel != f"{folder}app.json") and rel not in listed:
+    own = rel.startswith(folder) and rel not in (f"{folder}app.json", f"{folder}{SCREEN}")
+    if not own and rel not in listed:
         raise AppError(f"{app.title} can only change files in {folder} and the files listed in its app.json")
     return rel
 
 
-def _read(user_id: int, app: App, path: str) -> str:
+def _json(text: str) -> Any:
     try:
-        return workspace.read_file(user_id, _allowed(user_id, app, path))
-    except AppError:
-        return ""
-
-
-def _board_data(text: str) -> dict[str, Any]:
-    try:
-        data = json.loads(text) if text.strip() else {}
+        return json.loads(text) if text.strip() else None
     except ValueError:
-        data = {}
-    items = data.get("items") if isinstance(data, dict) else None
-    return {**data, "items": [i for i in items if isinstance(i, dict)] if isinstance(items, list) else []}
+        return None
 
 
 def _state(user_id: int) -> dict[str, Any]:
@@ -183,21 +156,12 @@ def _chat_id(user_id: int, app_id: str) -> int | None:
 
 
 def detail(user_id: int, app_id: str) -> dict[str, Any]:
-    """The app as the UI shows it: its blocks with the contents of their files."""
+    """The app as the UI shows it: its OpenUI Lang source, and whether the agent works on it."""
     app = get(user_id, app_id)
     chat_id = _chat_id(user_id, app_id)
     run = agent.RUNS.get(chat_id) if chat_id else None
-    out = {**app.summary(), "blocks": [], "chat_id": chat_id, "running": bool(run and not run.done)}
-    if not app.spec:
-        return out
-    for b in app.spec.blocks:
-        block = b.model_dump()
-        if b.type == "markdown" and b.file:
-            block["text"] = _read(user_id, app, b.file)
-        elif b.type == "board":
-            block["data"] = _board_data(_read(user_id, app, b.file) if b.file else "")
-        out["blocks"].append(block)
-    return out
+    source = workspace.read_file(user_id, f"{APPS_DIR}/{app_id}/{SCREEN}")[:MAX_SCREEN] if app.spec else ""
+    return {**app.summary(), "source": source, "chat_id": chat_id, "running": bool(run and not run.done)}
 
 
 # ------------------------------------------------------------------ actions
@@ -236,6 +200,10 @@ async def run_action(user: User, app_id: str, action: Action, args: dict[str, An
     app = get(user.id, app_id)
     if not app.spec:
         raise AppError(app.error or "This app is not valid")
+    if action == "read_file":
+        rel = _allowed(user.id, app, _text(args, "path", 300))
+        text = workspace.read_file(user.id, rel)
+        return {"ok": True, "path": rel, "text": text, "data": _json(text) if rel.endswith(".json") else None}
     if action == "update_file":
         rel = _allowed(user.id, app, _text(args, "path", 300))
         workspace.write_file(user.id, rel, _text(args, "content", workspace.MAX_FILE_BYTES, required=False))
@@ -268,4 +236,5 @@ async def run_action(user: User, app_id: str, action: Action, args: dict[str, An
         result = await hub.call(server, tool, arguments)
     if result.is_error:
         raise AppError(result.content[:2000])
-    return {"ok": True, "output": result.content[:OUTPUT_LIMIT]}
+    text = result.content[:OUTPUT_LIMIT]
+    return {"ok": True, "text": text, "data": _json(text)}
