@@ -43,7 +43,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from acf import config, workspace
+from acf import config, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
 from acf.agent.tools import tool_kind, tool_title
@@ -86,7 +86,7 @@ def _text(text: str) -> dict[str, str]:
 def user_blocks(text: str) -> list[dict[str, Any]]:
     """A stored user message as ACP content blocks: its text, then a resource_link per attached file."""
     links = [{"type": "resource_link", "uri": uri, "name": name} for name, uri in workspace.ATTACHED_RE.findall(text)]
-    rest = workspace.ATTACHED_RE.sub("", text).strip()
+    rest = skills.strip_references(workspace.ATTACHED_RE.sub("", text)).strip()
     return ([_text(rest)] if rest or not links else []) + links
 
 
@@ -493,7 +493,7 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
 
 async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
     chat_id = conn._own_chat(params)
-    text = prompt_text(params.get("prompt"))
+    text = skills.reference(conn.user_id, prompt_text(params.get("prompt")))  # /name calls a skill
     conn._watch(chat_id)
     run, queued = agent.start(conn._user(), chat_id, text)
     task = conn._follow(run, chat_id, skip_user=None if queued else text)

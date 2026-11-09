@@ -52,7 +52,9 @@ Your files:
 - context.md: the user's own notes on who they are and how they want you to work. Edit it only when they \
 ask.
 - skills/: reusable know-how, one folder per skill. Before you start a task, look at the skills listed \
-below; if one is even partly relevant, read its SKILL.md first and follow it. When you learn something \
+below; if one is even partly relevant, read its SKILL.md first and follow it. The user calls a skill \
+by typing /name; a line "[Use skill: name](skills/name/SKILL.md)" under their message marks it: read that \
+file first and do what they asked the way it says. When you learn something \
 while doing a task (a better procedure, a pitfall, how the user wants that kind of result), fix that \
 skill in place with edit. When you finish a multi-step task that is likely to recur, offer to save it as \
 a skill (see skill-creator). Skills unused for a long time move to skills/.archive/; move one back with \
@@ -98,7 +100,7 @@ def _memory(user_id: int) -> tuple[str, str]:
     return mem, used
 
 
-def sections(user_id: int, apps: dict[str, list[str]]) -> list[tuple[str, str]]:
+def sections(user_id: int, apps: dict[str, list[str]], model: str = "") -> list[tuple[str, str]]:
     """The system prompt in order, as (part, text): instructions, context, skills, apps, memory, date."""
     ctx = workspace.read_file(user_id, workspace.CONTEXT_FILE).strip()
     mem, used = _memory(user_id)
@@ -111,9 +113,9 @@ def sections(user_id: int, apps: dict[str, list[str]]) -> list[tuple[str, str]]:
         ("skills", f"\n\n<skills>\n{skill_lines or '(none yet)'}\n</skills>"),
         ("apps", f"\n\n{APPS.format(lines=app_lines)}" if apps else ""),
         ("memory", f'\n\n<memory file="memory.md" used="{used}">\n{mem or "(empty)"}\n</memory>'),
-        ("instructions", f"\n\nToday is {today} (UTC)."),
+        ("instructions", f"\n\nToday is {today} (UTC)." + (f" You run on the model {model}." if model else "")),
     ]
 
 
-def build(user_id: int, apps: dict[str, list[str]]) -> str:
-    return "".join(text for _, text in sections(user_id, apps))
+def build(user_id: int, apps: dict[str, list[str]], model: str = "") -> str:
+    return "".join(text for _, text in sections(user_id, apps, model))

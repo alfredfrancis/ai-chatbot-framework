@@ -5,7 +5,7 @@ test("home, chat, sandbox commands and history", async ({ page }) => {
   await signUp(page);
   // What the agent has, as links to where each part lives; no "0 connections".
   const has = page.getByRole("navigation", { name: "What your agent has" });
-  await expect(has).toHaveText(/Private computer.*3 files.*10 skills.*Connect an app/);
+  await expect(has).toHaveText(/Private computer.*3 files.*11 skills.*Connect an app/);
   await expect(has.getByRole("link", { name: "Connect an app" })).toHaveAttribute("href", "/connections");
   await shot(page, "02-home");
 

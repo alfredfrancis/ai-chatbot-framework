@@ -112,7 +112,12 @@ client alone would leave the command running). It needs only `sh` and `/proc` in
 
 ## Skills (`backend/acf/skills.py`)
 
-`skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`). Uploads accept a `.zip`/`.skill`
+`skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`). A message calls a skill with
+`/name` (the chat's message box offers them after `/`): `skills.reference`, applied in `agent.start`,
+stores the message with a line `[Use skill: name](skills/name/SKILL.md)` for each one that exists, which
+the prompt tells the agent to read first; clients get the message without those lines.
+`council-of-llms` is a built-in skill over sub-agents: the same brief to several models at once, then the
+main agent compares the reports and answers. Uploads accept a `.zip`/`.skill`
 (the shallowest `SKILL.md` is the root; path traversal and `__MACOSX` are dropped; 20 MB limit) or a
 single `SKILL.md`; every Markdown file in an upload goes through the injection check. Built-in skills
 (`acf/builtin_skills/`) are copied in once each (`.acf/skills.json` remembers which, so a deleted one stays

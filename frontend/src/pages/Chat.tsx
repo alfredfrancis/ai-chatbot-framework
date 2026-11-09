@@ -3,7 +3,7 @@ import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type AgentInfo, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
-import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
+import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
@@ -269,6 +269,12 @@ function Thread({ entries, running, queued, onPrompt }: { entries: Entry[]; runn
 }
 
 type Pending = { id: string; name: string; file?: Attachment; error?: string };
+/** The "/name" being typed just before the caret: where it starts and what was typed after the slash. */
+const slashAt = (text: string, caret: number) => {
+  const m = text.slice(0, caret).match(/(?:^|\s)\/([a-z0-9-]*)$/i);
+  return m ? { start: caret - m[1].length - 1, query: m[1].toLowerCase() } : null;
+};
+const MAX_SKILL_CHOICES = 6;
 let pendingSeq = 0;
 
 function Composer({ onSend, onStop, running, background = false, placeholder, initial = "" }: {
@@ -280,6 +286,29 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
   const ref = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
+  // Typing "/" offers the skills; picking one puts "/name" in the message, which calls that skill.
+  const [skills, setSkills] = useState<Skill[] | null>(null);
+  const [slash, setSlash] = useState<{ start: number; query: string } | null>(null);
+  const [choice, setChoice] = useState(0);
+  const choices = slash && skills
+    ? [...skills.filter((s) => s.name.startsWith(slash.query)), ...skills.filter((s) => !s.name.startsWith(slash.query) && s.name.includes(slash.query))].slice(0, MAX_SKILL_CHOICES)
+    : [];
+  const track = (value: string, caret: number) => {
+    const at = slashAt(value, caret);
+    if (at?.start !== slash?.start || at?.query !== slash?.query) setChoice(0);
+    setSlash(at);
+    if (at && !skills) api.get<Skill[]>("/skills").then(setSkills).catch(() => setSkills([]));
+  };
+  const pick = (s: Skill) => {
+    if (!slash) return;
+    const el = ref.current;
+    const end = el?.selectionStart ?? text.length;
+    const next = `${text.slice(0, slash.start)}/${s.name} ${text.slice(end).replace(/^ /, "")}`;
+    setText(next);
+    setSlash(null);
+    const caret = slash.start + s.name.length + 2;
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(caret, caret); });
+  };
   const uploading = pending.some((p) => !p.file && !p.error);
   const files = pending.flatMap((p) => (p.file ? [p.file] : []));
   const ready = (!!text.trim() || files.length > 0) && !uploading;
@@ -302,11 +331,18 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
     if (!ready) return;
     const t = text.trim();
     setText("");
+    setSlash(null);
     setPending([]);
     if (ref.current) ref.current.style.height = "auto";
     onSend(t, files);
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (choices.length) {
+      const move = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+      if (move) { e.preventDefault(); setChoice((c) => (c + move + choices.length) % choices.length); return; }
+      if ((e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) || e.key === "Tab") { e.preventDefault(); pick(choices[choice]); return; }
+      if (e.key === "Escape") { e.preventDefault(); setSlash(null); return; }
+    }
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
     if (e.key === "Escape" && (running || background) && onStop) { e.preventDefault(); onStop(); }
   };
@@ -328,10 +364,29 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
           ))}
         </ul>
       )}
+      {choices.length > 0 && (
+        <ul className="skill-menu" role="listbox" id="skill-menu" aria-label="Skills">
+          {choices.map((s, i) => (
+            <li key={s.name} id={`skill-${s.name}`} role="option" aria-selected={i === choice}
+              onMouseDown={(e) => { e.preventDefault(); pick(s); }} onMouseMove={() => { if (i !== choice) setChoice(i); }}>
+              <span className="name">/{s.name}</span>
+              <span className="about">{s.description}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <label htmlFor="composer" className="sr-only">Message</label>
       <textarea id="composer" ref={ref} rows={1} value={text} onKeyDown={onKey}
+        aria-autocomplete="list" aria-controls={choices.length ? "skill-menu" : undefined}
+        aria-activedescendant={choices.length ? `skill-${choices[choice].name}` : undefined}
         placeholder={running ? "Add to the conversation…" : placeholder ?? "Ask anything"}
-        onChange={(e) => { setText(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${e.target.scrollHeight}px`; }} />
+        onBlur={() => setSlash(null)}
+        onSelect={(e) => { if (slash) track(e.currentTarget.value, e.currentTarget.selectionStart); }}
+        onChange={(e) => {
+          setText(e.target.value);
+          track(e.target.value, e.target.selectionStart);
+          e.target.style.height = "auto"; e.target.style.height = `${e.target.scrollHeight}px`;
+        }} />
       <div className="bar">
         <button type="button" className="btn ghost icon attach" aria-label="Attach files" title="Attach files" onClick={() => picker.current?.click()}>
           <IconPaperclip />
@@ -341,7 +396,7 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
         <span className="hints row-flex">
           {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
             : background ? <>Commands are running in the background · <Keys keys={["Esc"]} /> stop them</>
-            : <><Keys keys={["↵"]} /> send <Keys keys={["⇧", "↵"]} /> new line</>}
+            : <><Keys keys={["↵"]} /> send <Keys keys={["⇧", "↵"]} /> new line <Keys keys={["/"]} /> skills</>}
         </span>
         {showStop ? (
           <button className="send stop" type="button" aria-label="Stop" onClick={onStop}><span className="square" /></button>

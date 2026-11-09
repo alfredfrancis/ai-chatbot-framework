@@ -41,7 +41,10 @@ its own private computer, their files, skills, app connections and scheduled job
   moment can show up too. `context.md`, `memory.md`, hidden files and deleted files are not listed.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
-  Built in: `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research`,
+  Type `/` in a chat to pick one: a message with `/name` in it (also a task's prompt) makes the agent
+  use that skill.
+  Built in: `council-of-llms` (one question to several models as sub-agents; the agent compares their
+  answers and gives the best one), `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research`,
   `plain-writing`, `personal-assistant` (a proactive assistant over email, calendar and other apps, with
   a first-run interview that saves preferences to `assistant/profile.md`, and an optional Cockpit app),
   `openui` (views in chat answers, below) and `personal-apps` (how to build apps, below). Skills unused for

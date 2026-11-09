@@ -366,7 +366,7 @@ class Run:
                 self.emit({"type": "notice", "text": f"Moved the unused skill “{name}” to skills/.archive/."})
             # One system prompt for the whole turn: the same prefix every step, so the provider's cache holds.
             apps = hub.catalog()
-            sections = prompt.sections(self.user.id, apps)
+            sections = prompt.sections(self.user.id, apps, LLMConfig.for_user(self.user).model)
             self.system = "".join(text for _, text in sections)
             skill_names = [sk.name for sk in skills.list_skills(self.user.id)]
             window = usage.window(base_model)
@@ -550,6 +550,7 @@ def _submit(user: User, chat_id: int, item: dict[str, Any], steer: str | None = 
 
 def start(user: User, chat_id: int, text: str) -> tuple[bus.Feed, bool]:
     """Send a message: start a run, or steer the active one. Returns (its feed, queued)."""
+    text = skills.reference(user.id, text)  # "/name" calls a skill, also from a task or a personal app
     return _submit(user, chat_id, _text_item(text), steer=text)
 
 

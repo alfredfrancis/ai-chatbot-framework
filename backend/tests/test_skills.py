@@ -24,6 +24,7 @@ def make_zip(files: dict[str, bytes]) -> bytes:
 BUILTIN = {
     "action-items",
     "cited-research",
+    "council-of-llms",
     "openui",
     "pdf",
     "personal-apps",
@@ -101,3 +102,51 @@ async def test_agent_can_create_a_skill(client, user):
     md = "---\\nname: greet\\ndescription: Say hello. Use when greeting.\\n---\\n# Greet"
     await send(client, chat_id, f'tool: write {{"path": "skills/greet/SKILL.md", "content": "{md}"}}')
     assert "greet" in [s["name"] for s in (await client.get("/api/skills")).json()]
+
+
+# ------------------------------------------------------------------ /skill-name in a message
+
+
+async def test_slash_reference_makes_the_agent_use_the_skill(client, user):
+    from tests.acp_client import acp_connect
+    from tests.conftest import send
+
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    turn = await send(client, chat_id, "/weekly-review plan my week")
+    assert [c["title"] for c in turn.of("tool_call")] == ["Used skill weekly-review"]  # it read the SKILL.md first
+    assert "# Weekly review" in turn.results[0]["text"]
+    # The chat is named after what the user typed, and a reload shows exactly that.
+    assert (await client.get(f"/api/chats/{chat_id}")).json()["title"] == "/weekly-review plan my week"
+    async with acp_connect(client) as acp:
+        await acp.request("session/load", {"sessionId": str(chat_id), "cwd": "/", "mcpServers": []})
+        users = [u["content"]["text"] for u in acp.updates(str(chat_id)) if u["sessionUpdate"] == "user_message_chunk"]
+    assert users == ["/weekly-review plan my week"]
+
+
+async def test_only_existing_skills_are_references(client, user):
+    from acf import skills
+
+    uid = user["id"]
+    line = "[Use skill: pdf](skills/pdf/SKILL.md)"
+    assert skills.reference(uid, "make a report, /pdf.") == f"make a report, /pdf.\n\n{line}"
+    both = skills.reference(uid, "/pdf then /plain-writing, and /pdf again")
+    assert both.splitlines()[-2:] == [line, "[Use skill: plain-writing](skills/plain-writing/SKILL.md)"]
+    assert skills.reference(uid, both) == both  # adding them twice changes nothing
+    for text in ("/nope do it", "cat /etc/passwd", "see /pdf/SKILL.md", "https://x.test/pdf", "a/pdf", "/pdf.txt"):
+        assert skills.reference(uid, text) == text
+    assert skills.strip_references(both) == "/pdf then /plain-writing, and /pdf again"
+
+
+async def test_council_of_llms_is_a_builtin_skill(client, user):
+    from acf import skills, workspace
+    from tests.conftest import send
+
+    listed = {s["name"]: s for s in (await client.get("/api/skills")).json()}
+    assert listed["council-of-llms"]["builtin"] is True and "sub-agent" in listed["council-of-llms"]["description"]
+    text = workspace.read_file(user["id"], "skills/council-of-llms/SKILL.md")
+    assert skills.parse_frontmatter(text)["name"] == "council-of-llms"
+    assert "`agent` call per member" in text and "different `model`" in text
+    # the agent is told which model it runs on, so it can pick different ones for the council
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    system = (await send(client, chat_id, "show system")).final
+    assert "You run on the model " in system and "[Use skill: " in system

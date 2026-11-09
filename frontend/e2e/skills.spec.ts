@@ -54,3 +54,37 @@ test("upload a single SKILL.md", async ({ page }) => {
   await page.getByTestId("skill-upload").setInputFiles({ name: "SKILL.md", mimeType: "text/markdown", buffer: Buffer.from(SKILL) });
   await expect(page.getByTestId("skill-charts")).toContainText("1 file");
 });
+
+test("typing / offers the skills, and /name makes the agent use one", async ({ page }) => {
+  await signUp(page);
+  const box = page.getByLabel("Message");
+  await box.fill("/");
+  const menu = page.getByRole("listbox", { name: "Skills" });
+  await expect(menu.getByRole("option").first()).toBeVisible();
+  await box.pressSequentially("coun");
+  await expect(menu.getByRole("option")).toHaveText([/^\/council-of-llms.*several models/]);
+  await shot(page, "11-skill-menu");
+  await box.press("Enter"); // picks the skill; the message is not sent yet
+  await expect(box).toHaveValue("/council-of-llms ");
+  await expect(menu).toBeHidden();
+  await box.pressSequentially("is 91 a prime number?");
+  await box.press("Enter");
+  await expect(page.getByTestId("user-msg")).toHaveText("/council-of-llms is 91 a prime number?");
+  const step = page.getByTestId("tool-step");
+  await expect(step).toContainText("Used skill");
+  await expect(step).toContainText("council-of-llms");
+  await expect(lastAssistant(page)).toContainText("Council of LLMs");
+
+  // Arrow keys choose, Escape closes without stopping anything, and a path is not a skill.
+  await box.fill("then /p");
+  await expect(menu.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  await box.press("ArrowDown");
+  await expect(menu.getByRole("option").nth(1)).toHaveAttribute("aria-selected", "true");
+  await box.press("Escape");
+  await expect(menu).toBeHidden();
+  await box.fill("cat /etc/pass");
+  await expect(menu).toBeHidden();
+
+  await page.reload();
+  await expect(page.getByTestId("user-msg")).toHaveText("/council-of-llms is 91 a prime number?");
+});

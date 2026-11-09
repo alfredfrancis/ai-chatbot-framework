@@ -19,6 +19,7 @@ Rules (applied to the latest user text):
   think: <text>               -> thinks "Considering: <text>", then "Echo: <text>"
   [background job …          -> "Background done: <the note>" (a background command finished)
   [App: …] <event>\n<rest>     -> a message from a personal app: the rules apply to <rest>
+  … [Use skill: n](path)      -> a message that calls a skill with /n (its last line): reads that SKILL.md
   reply: <text>               -> replies with <text> verbatim (newlines kept), e.g. an ```openui view
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
@@ -64,6 +65,9 @@ def decide(
     low = text.lower()
     if text.startswith("[App:") and "\n" in text:
         return decide(text.split("\n", 1)[1], tool_result, system, tool_names, history_users, model)
+    used = re.fullmatch(r"\[Use skill: [^\]]+\]\(([^)]+)\)", text.splitlines()[-1]) if text else None
+    if used:
+        return {"calls": [("read", {"path": used.group(1)})], "text": ""}
     if low.startswith("summarise the conversation"):
         return {"text": f"SUMMARY of {len(history_users or [])} user messages: " + " | ".join(history_users or [])}
     if text.startswith("[Review]"):
