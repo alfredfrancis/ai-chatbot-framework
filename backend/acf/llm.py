@@ -7,15 +7,18 @@ OpenAI-compatible server (Ollama, OpenRouter, vLLM, LiteLLM).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage
 
 from acf import config
 
 DEFAULT_MODELS = {"anthropic": "claude-opus-5-5", "openai": "gpt-4.1-mini"}
+# What "fast" means for a sub-agent, per provider (ACF_SUBAGENT_FAST_MODEL overrides it).
+FAST_MODELS = {"anthropic": "claude-haiku-5-5", "openai": "gpt-4.1-mini"}
 # Claude models that accept output_config.effort.
 _EFFORT_MODELS = ("claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-5", "claude-opus-4-8")
 
@@ -57,6 +60,17 @@ class LLMConfig:
             base_url=base_url,
         )
 
+    def with_model(self, choice: str) -> LLMConfig:
+        """These settings for a sub-agent: "inherit" (or nothing) keeps the model, "fast" is the provider's
+        small model, anything else is a model id. The provider, address and key never change, so a model
+        the main agent names can't send the key anywhere else."""
+        choice = (choice or "inherit").strip()
+        if choice == "inherit":
+            return self
+        if choice == "fast":
+            choice = config.settings.subagent_fast_model or FAST_MODELS.get(self.provider) or self.model
+        return replace(self, model=choice)
+
 
 def make_model(cfg: LLMConfig) -> BaseChatModel:
     if not config.settings.provider_allowed(cfg.provider):
@@ -97,6 +111,26 @@ def friendly_error(e: BaseException) -> str:
     if status:
         return f"Model error ({status}): {msg[:300]}"
     return f"Model error: {msg[:300]}"
+
+
+def text_of(ai: AIMessage) -> str:
+    """The visible text of a model answer (no thinking, no tool calls)."""
+    if isinstance(ai.content, str):
+        return ai.content.strip()
+    return "\n".join(b.get("text", "") for b in ai.content if isinstance(b, dict) and b.get("type") == "text").strip()
+
+
+def calls_of(ai: AIMessage) -> list[dict[str, Any]]:
+    """The tool calls of a model answer; one with arguments that didn't parse carries an `error`."""
+    return list(ai.tool_calls) + [
+        {
+            "id": c.get("id") or f"invalid_{i}",
+            "name": c.get("name") or "unknown",
+            "args": {},
+            "error": c.get("error") or "Invalid arguments",
+        }
+        for i, c in enumerate(ai.invalid_tool_calls)
+    ]
 
 
 def estimate_tokens(obj: Any) -> int:

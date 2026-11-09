@@ -172,6 +172,7 @@ async def test_builtin_skills_are_seeded_once(client, user):
         "personal-apps",
         "openui",
         "cited-research",
+        "council-of-llms",
         "plain-writing",
     }
     assert set(skills.builtin_names()) == names

@@ -25,6 +25,7 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Injection checks | `acf/scan.py` flags planted instructions ("ignore previous instructions", "don't tell the user", sending secrets with curl, bidi/tag characters). Writes of such text to `memory.md` or `skills/**/*.md` are refused, uploaded skills containing it are rejected, and a `memory.md` containing it is left out of the prompt. Narrow on purpose; the sandbox is the real boundary. |
 | Progressive disclosure | Skills appear as one line each (`name: description (path)`); the agent reads `SKILL.md` when needed. MCP tools appear as names per connected app; each tool's definition (description and input schema) is written to `.acf/mcp/<server>/<tool>.json` when the run connects, and one `mcp_call` tool (`server`, `tool`, `arguments`) runs them. Binding every MCP schema instead costs tens of thousands of prompt tokens per step. |
 | Parallel tools | All calls in one model answer run at the same time; results keep the call order. A call waits only for earlier calls on the same resource (a file path for `read`/`write`/`edit`, the app for `mcp_call`) when one of them writes. The prompt tells the model to batch only independent steps. |
+| Sub-agents | The `agent` tool (`agent/subagents.py`; `description`, `prompt`, `model`) hands one part of a job to a helper, like the Task tool in Cursor and Claude Code. A sub-agent starts with a fresh context: the turn's system prompt plus a short role note, and the prompt the main agent wrote — nothing of the chat. It has the main agent's tools except `agent` (no nesting) and background commands. Calls in one answer run at the same time (at most `ACF_SUBAGENTS` per run; the rest wait), and each result is that sub-agent's last message, so the main agent fans out and then combines the reports. `model` is `inherit` (the default), `fast` (`ACF_SUBAGENT_FAST_MODEL`, or the provider's small model) or a model id; the provider, address and key stay the user's (`LLMConfig.with_model`). A sub-agent lives in memory inside the run: its messages are not stored, only the tool result with `raw.agent` = model, tokens and steps. The same record goes out as `agent` events while it works. A provider error or the step limit is an error result, not a failed run; Stop cancels the sub-agents with the run. A built-in tool because it needs the loop itself: MCP calls to one app are serialised and can't reach the run. |
 | Background commands | `bash` with `background: true` returns at once ("Started in the background as job bg-…") and runs as a job of the chat (up to 8 per chat, 1 hour max). Its output is saved as a user-role note (`raw.background` = job id, `tool_call_id` = the call that started it): a run that is still working reads it at its next step; otherwise it starts a new run. Stop ends jobs too (the note says so; it doesn't wake the agent). A job lost in a server restart gets a closing note. |
 | Recoverable errors | Failed commands, bad arguments and unknown tools come back as error results, never crashes. |
 | Small context | Tool output above 30k characters keeps head and tail; the full text is saved to `.acf/outputs/` for the agent to read. |
@@ -63,7 +64,7 @@ WebSocket at `/api/acp`. A session is a chat; `session/prompt` calls `agent.star
 while the agent works becomes steering. Run events become `session/update` notifications: a stored
 assistant message → `agent_message_chunk` + one `tool_call` (pending) per call; `tool_start` →
 `tool_call_update` (in_progress); a tool result → `tool_call_update` (completed/failed, with output and
-`_meta.acf.durationMs`); a `delta` → `agent_message_chunk` / `agent_thought_chunk` with the stream's id
+`_meta.acf.durationMs`); a sub-agent's `agent` event → `tool_call_update` (in_progress) with `_meta.acf.agent` = `{model, tokens, steps: [{title, ok}]}`, and the update that completes the call carries the final one; a `delta` → `agent_message_chunk` / `agent_thought_chunk` with the stream's id
 as `_meta.acf.messageId` (the stored message then sends only its tool calls, since its text was streamed). A background command's tool call stays `in_progress` (`_meta.acf.background`) until its note arrives as a `tool_call_update` (completed/failed, with output). Connections that loaded or prompted a session hear about runs a finished job starts there through `_acf/turn_start`, then follow them. `session/load` registers a listener on the running agent *before* reading the
 history, replays the stored messages, then forwards only newer events — including the deltas of an answer
 still being written — so a reloaded page neither misses nor duplicates anything. When a run ends, every connection following it gets `_acf/turn_end`; the
@@ -111,7 +112,12 @@ client alone would leave the command running). It needs only `sh` and `/proc` in
 
 ## Skills (`backend/acf/skills.py`)
 
-`skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`). Uploads accept a `.zip`/`.skill`
+`skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`). A message calls a skill with
+`/name` (the chat's message box offers them after `/`): `skills.reference`, applied in `agent.start`,
+stores the message with a line `[Use skill: name](skills/name/SKILL.md)` for each one that exists, which
+the prompt tells the agent to read first; clients get the message without those lines.
+`council-of-llms` is a built-in skill over sub-agents: the same brief to several models at once, then the
+main agent compares the reports and answers. Uploads accept a `.zip`/`.skill`
 (the shallowest `SKILL.md` is the root; path traversal and `__MACOSX` are dropped; 20 MB limit) or a
 single `SKILL.md`; every Markdown file in an upload goes through the injection check. Built-in skills
 (`acf/builtin_skills/`) are copied in once each (`.acf/skills.json` remembers which, so a deleted one stays

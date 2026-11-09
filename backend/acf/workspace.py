@@ -25,7 +25,7 @@ ATTACHED_RE = re.compile(r"^\[Attached file: ([^\]\n]+)\]\((file:///workspace/[^
 
 def message_title(text: str) -> str:
     """First line of a user message for a chat title; attached files show by name."""
-    first = (text.strip().splitlines() or [""])[0]
+    first = (text.strip().splitlines() or [""])[0]  # a "[Use skill: …]" line is never first: it is added last
     m = ATTACHED_RE.fullmatch(first)
     return (m.group(1) if m else first)[:60] or "New chat"
 

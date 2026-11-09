@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
-import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
+import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type AgentInfo, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
+import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
@@ -23,6 +23,7 @@ const TRY: { kind: string; text: string; prompt: string }[] = [
 type ToolCall = {
   id: string; title: string; tool?: string; input: Record<string, unknown>; status: ToolStatus; output?: string; durationMs?: number | null;
   background?: string; // job id of a command that runs in the background
+  agent?: AgentInfo; // a sub-agent: what it runs on and what it has done so far
 };
 const inBackground = (c: ToolCall) => !!c.background && (c.status === "pending" || c.status === "in_progress");
 type Entry =
@@ -87,7 +88,8 @@ function reduce(entries: Entry[], u: SessionUpdate): Entry[] {
         const output = t.content ? t.content.map((c) => textOf(c.content)).join("\n") : e.call.output;
         const durationMs = t._meta?.acf?.durationMs ?? e.call.durationMs;
         const background = t._meta?.acf?.background ?? e.call.background;
-        return { ...e, call: { ...e.call, status: t.status ?? e.call.status, title: t.title ?? e.call.title, output, durationMs, background } };
+        const agent = t._meta?.acf?.agent ?? e.call.agent;
+        return { ...e, call: { ...e.call, status: t.status ?? e.call.status, title: t.title ?? e.call.title, output, durationMs, background, agent } };
       });
     }
   }
@@ -106,6 +108,7 @@ function describe(call: ToolCall): { verb: string; detail: string; mono: boolean
       return m ? { verb: "Used skill", detail: m[1], mono: false } : { verb: "Read", detail: p, mono: true };
     }
     case "mcp_call": return { verb: "Used", detail: `${a.server} · ${a.tool}`, mono: false };
+    case "agent": return { verb: "Sub-agent", detail: a.description ?? "", mono: false };
   }
   const m = call.tool?.match(/^mcp__(.+?)__(.+)$/);
   if (m) return { verb: "Used", detail: `${m[1]} · ${m[2]}`, mono: false };
@@ -114,6 +117,26 @@ function describe(call: ToolCall): { verb: string; detail: string; mono: boolean
 }
 
 const secs = (ms: number | null | undefined) => (ms == null ? "" : `${(ms / 1000).toFixed(1)}s`);
+const plural = (n: number, word: string) => `${n.toLocaleString("en")} ${word}${n === 1 ? "" : "s"}`;
+
+/** What a sub-agent did: its model, its steps so far and, once it is done, its report. */
+function AgentDetails({ call, finished }: { call: ToolCall; finished: boolean }) {
+  const a = call.agent;
+  const facts = a ? [a.model, plural(a.steps.length, "step"), ...(a.tokens ? [plural(a.tokens, "token")] : [])] : [];
+  return (
+    <div className="step-agent" role="group" aria-label={call.title}>
+      {a && <div className="meta">{facts.join(" · ")}</div>}
+      {a && a.steps.length > 0 && (
+        <ol>
+          {a.steps.map((s, i) => (
+            <li key={i} className={s.ok === false ? "fail" : s.ok == null && !finished ? "live" : ""}>{s.title}</li>
+          ))}
+        </ol>
+      )}
+      {finished && <pre className="step-output">{call.output}</pre>}
+    </div>
+  );
+}
 
 function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const [open, setOpen] = useState(false);
@@ -122,17 +145,23 @@ function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const bg = inBackground(call);
   const busy = bg || (!finished && running);
   const failed = call.status === "failed" || (!finished && !busy);
+  const isAgent = call.tool === "agent";
+  // A sub-agent can be opened while it works, to watch its steps; its row shows the latest one.
+  const doing = isAgent && busy && !finished ? call.agent?.steps.filter((s) => s.ok == null).pop()?.title : undefined;
+  const note = isAgent && call.agent ? [call.agent.model, secs(call.durationMs)].filter(Boolean).join(" · ") : secs(call.durationMs);
   return (
     <>
-      <button className={`step${busy && !finished ? " live" : ""}`} onClick={() => finished && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
+      <button className={`step${busy && !finished ? " live" : ""}`} onClick={() => (finished || isAgent) && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
         <span className={`state${finished ? (failed ? " fail" : " ok") : busy ? " live" : " fail"}`}>
           {finished ? (failed ? <IconX /> : <IconCheck />) : busy ? <Wave label={bg ? "Running in background" : "Working"} /> : <IconX />}
         </span>
         <span className="verb">{d.verb}</span>{" "}
         <span className={`detail${d.mono ? "" : " name"}`}>{d.detail}</span>
-        {" "}<span className="time">{finished ? secs(call.durationMs) : bg ? "In background" : ""}</span>
+        {doing && <span className="doing">{doing}</span>}
+        {" "}<span className="time">{finished ? note : bg ? "In background" : isAgent ? call.agent?.model ?? "" : ""}</span>
       </button>
-      {open && finished && <pre className="step-output">{call.output}</pre>}
+      {open && isAgent && <AgentDetails call={call} finished={finished} />}
+      {open && finished && !isAgent && <pre className="step-output">{call.output}</pre>}
     </>
   );
 }
@@ -240,6 +269,12 @@ function Thread({ entries, running, queued, onPrompt }: { entries: Entry[]; runn
 }
 
 type Pending = { id: string; name: string; file?: Attachment; error?: string };
+/** The "/name" being typed just before the caret: where it starts and what was typed after the slash. */
+const slashAt = (text: string, caret: number) => {
+  const m = text.slice(0, caret).match(/(?:^|\s)\/([a-z0-9-]*)$/i);
+  return m ? { start: caret - m[1].length - 1, query: m[1].toLowerCase() } : null;
+};
+const MAX_SKILL_CHOICES = 6;
 let pendingSeq = 0;
 
 function Composer({ onSend, onStop, running, background = false, placeholder, initial = "" }: {
@@ -251,6 +286,29 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
   const ref = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
+  // Typing "/" offers the skills; picking one puts "/name" in the message, which calls that skill.
+  const [skills, setSkills] = useState<Skill[] | null>(null);
+  const [slash, setSlash] = useState<{ start: number; query: string } | null>(null);
+  const [choice, setChoice] = useState(0);
+  const choices = slash && skills
+    ? [...skills.filter((s) => s.name.startsWith(slash.query)), ...skills.filter((s) => !s.name.startsWith(slash.query) && s.name.includes(slash.query))].slice(0, MAX_SKILL_CHOICES)
+    : [];
+  const track = (value: string, caret: number) => {
+    const at = slashAt(value, caret);
+    if (at?.start !== slash?.start || at?.query !== slash?.query) setChoice(0);
+    setSlash(at);
+    if (at && !skills) api.get<Skill[]>("/skills").then(setSkills).catch(() => setSkills([]));
+  };
+  const pick = (s: Skill) => {
+    if (!slash) return;
+    const el = ref.current;
+    const end = el?.selectionStart ?? text.length;
+    const next = `${text.slice(0, slash.start)}/${s.name} ${text.slice(end).replace(/^ /, "")}`;
+    setText(next);
+    setSlash(null);
+    const caret = slash.start + s.name.length + 2;
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(caret, caret); });
+  };
   const uploading = pending.some((p) => !p.file && !p.error);
   const files = pending.flatMap((p) => (p.file ? [p.file] : []));
   const ready = (!!text.trim() || files.length > 0) && !uploading;
@@ -273,11 +331,18 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
     if (!ready) return;
     const t = text.trim();
     setText("");
+    setSlash(null);
     setPending([]);
     if (ref.current) ref.current.style.height = "auto";
     onSend(t, files);
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (choices.length) {
+      const move = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+      if (move) { e.preventDefault(); setChoice((c) => (c + move + choices.length) % choices.length); return; }
+      if ((e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) || e.key === "Tab") { e.preventDefault(); pick(choices[choice]); return; }
+      if (e.key === "Escape") { e.preventDefault(); setSlash(null); return; }
+    }
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
     if (e.key === "Escape" && (running || background) && onStop) { e.preventDefault(); onStop(); }
   };
@@ -299,10 +364,29 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
           ))}
         </ul>
       )}
+      {choices.length > 0 && (
+        <ul className="skill-menu" role="listbox" id="skill-menu" aria-label="Skills">
+          {choices.map((s, i) => (
+            <li key={s.name} id={`skill-${s.name}`} role="option" aria-selected={i === choice}
+              onMouseDown={(e) => { e.preventDefault(); pick(s); }} onMouseMove={() => { if (i !== choice) setChoice(i); }}>
+              <span className="name">/{s.name}</span>
+              <span className="about">{s.description}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <label htmlFor="composer" className="sr-only">Message</label>
       <textarea id="composer" ref={ref} rows={1} value={text} onKeyDown={onKey}
+        aria-autocomplete="list" aria-controls={choices.length ? "skill-menu" : undefined}
+        aria-activedescendant={choices.length ? `skill-${choices[choice].name}` : undefined}
         placeholder={running ? "Add to the conversation…" : placeholder ?? "Ask anything"}
-        onChange={(e) => { setText(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${e.target.scrollHeight}px`; }} />
+        onBlur={() => setSlash(null)}
+        onSelect={(e) => { if (slash) track(e.currentTarget.value, e.currentTarget.selectionStart); }}
+        onChange={(e) => {
+          setText(e.target.value);
+          track(e.target.value, e.target.selectionStart);
+          e.target.style.height = "auto"; e.target.style.height = `${e.target.scrollHeight}px`;
+        }} />
       <div className="bar">
         <button type="button" className="btn ghost icon attach" aria-label="Attach files" title="Attach files" onClick={() => picker.current?.click()}>
           <IconPaperclip />
@@ -312,7 +396,7 @@ function Composer({ onSend, onStop, running, background = false, placeholder, in
         <span className="hints row-flex">
           {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
             : background ? <>Commands are running in the background · <Keys keys={["Esc"]} /> stop them</>
-            : <><Keys keys={["↵"]} /> send <Keys keys={["⇧", "↵"]} /> new line</>}
+            : <><Keys keys={["↵"]} /> send <Keys keys={["⇧", "↵"]} /> new line <Keys keys={["/"]} /> skills</>}
         </span>
         {showStop ? (
           <button className="send stop" type="button" aria-label="Stop" onClick={onStop}><span className="square" /></button>

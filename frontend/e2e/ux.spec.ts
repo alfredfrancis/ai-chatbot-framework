@@ -32,7 +32,7 @@ test("every page has at most one filled button, and the sidebar hides zero count
   // Zero counts read like errors: Tasks and Connections show none, Files and Skills show theirs.
   await expect(nav(page).getByRole("link", { name: "Tasks" })).toHaveText("Tasks");
   await expect(nav(page).getByRole("link", { name: "Connections" })).toHaveText("Connections");
-  await expect(nav(page).getByRole("link", { name: /^Skills/ })).toHaveText("Skills10");
+  await expect(nav(page).getByRole("link", { name: /^Skills/ })).toHaveText("Skills11");
   // New chat is a plain button with its shortcut; sign out lives in Settings.
   await expect(nav(page).getByRole("link", { name: "New chat C", exact: true })).toBeVisible();
   await expect(nav(page).getByRole("button", { name: "Sign out" })).toHaveCount(0);
@@ -72,7 +72,7 @@ test("skills: yours apart from the built-in ones, drop anywhere, actions in a me
   const mine = page.getByRole("region", { name: /Yours/ });
   const builtin = page.getByRole("region", { name: /Built in/ });
   await expect(mine).toContainText("Skills you upload, or ask the agent to write, show up here.");
-  await expect(builtin.getByRole("heading")).toHaveText("Built in 10");
+  await expect(builtin.getByRole("heading")).toHaveText("Built in 11");
   // Rows lead with their text: no decorative letter tiles.
   await expect(builtin.locator(".tile")).toHaveCount(0);
   // Readable names; the id stays as the tooltip.
@@ -121,7 +121,7 @@ test("files: the agent's own files explain themselves, and one click asks for a 
   await nav(page).getByRole("link", { name: "Files" }).click();
   const list = page.getByRole("list", { name: "Files" });
   await expect(list.getByRole("button", { name: /context\.md/ })).toContainText("What your agent knows about you");
-  await expect(list.getByRole("button", { name: /^skills/ })).toContainText("10 items");
+  await expect(list.getByRole("button", { name: /^skills/ })).toContainText("11 items");
   await list.getByRole("button", { name: /context\.md/ }).click();
   await shot(page, "63-files");
   await page.getByRole("button", { name: "Ask the agent to edit this" }).click();

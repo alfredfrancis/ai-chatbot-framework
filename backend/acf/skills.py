@@ -91,6 +91,33 @@ def _save_state(user_id: int, data: dict) -> None:
     workspace.write_file(user_id, STATE_FILE, json.dumps(data, indent=1, sort_keys=True))
 
 
+# A message can call a skill by name: "/pdf turn this into a report". The message is stored with one line
+# per skill called, which tells the agent where the skill is; clients show the message as it was typed.
+USE = "[Use skill: {name}](skills/{name}/SKILL.md)"
+USE_RE = re.compile(r"^\[Use skill: ([a-z0-9-]+)\]\(skills/\1/SKILL\.md\)$\n?", re.MULTILINE)
+# "/name" on its own: not part of a path or a URL (/etc/passwd, a/b, /pdf/SKILL.md, /pdf.txt).
+REFERENCE_RE = re.compile(r"(?<![\w/.:-])/([a-z0-9][a-z0-9-]{0,63})(?!\.?[\w/-])")
+
+
+def reference(user_id: int, text: str) -> str:
+    """`text` with a "[Use skill: …]" line for every /name in it that is one of the user's skills."""
+    called = list(dict.fromkeys(REFERENCE_RE.findall(USE_RE.sub("", text))))
+    if not called:
+        return text
+    have = {s.name for s in list_skills(user_id)}
+    lines = [USE.format(name=n) for n in called if n in have]
+    lines = [line for line in lines if line not in text.splitlines()]
+    if not lines:
+        return text
+    sep = "\n" if USE_RE.search(text) else "\n\n"
+    return text.rstrip() + sep + "\n".join(lines)
+
+
+def strip_references(text: str) -> str:
+    """A stored message as the user typed it."""
+    return USE_RE.sub("", text).strip() if "[Use skill: " in text else text
+
+
 def builtin_names() -> list[str]:
     return sorted(p.parent.name for p in BUILTIN.glob("*/SKILL.md"))
 

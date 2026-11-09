@@ -248,6 +248,15 @@ details.tools ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; color: 
 .step .time { margin-left: auto; font-size: 13px; color: var(--text-faint); font-variant-numeric: tabular-nums; padding-left: var(--space-3); flex-shrink: 0; }
 .step-output { margin: 2px var(--space-3) var(--space-3); max-height: 320px; overflow: auto; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md);
   padding: 10px 12px; font-size: 13px; line-height: 20px; white-space: pre-wrap; }
+/* A sub-agent: its latest step in the row; opened, its model, steps and report. */
+.step .doing { font-family: var(--font-mono); font-size: 14px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.step-agent { margin: 2px var(--space-3) var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.step-agent .meta { font-size: 13px; line-height: 18px; color: var(--text-faint); overflow-wrap: anywhere; }
+.step-agent ol { margin: 0; padding: 0 0 0 var(--space-3); list-style: none; border-left: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--space-1); }
+.step-agent li { font-family: var(--font-mono); font-size: 14px; line-height: 20px; color: var(--text-muted); overflow-wrap: anywhere; }
+.step-agent li.live { color: var(--text); }
+.step-agent li.fail { color: var(--danger); }
+.step-agent .step-output { margin: 0; }
 .working { display: flex; align-items: center; gap: var(--space-2); font-size: 16px; color: var(--text-muted); }
 .notice { font-size: 14px; color: var(--text-faint); text-align: center; }
 
@@ -255,6 +264,14 @@ details.tools ul { margin: 8px 0 0; padding-left: 18px; font-size: 14px; color: 
 .composer { width: 100%; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-2); background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 12px 12px 12px 18px; box-shadow: var(--shadow-composer); }
 .composer:focus-within { border-color: var(--border-strong); }
+/* Skills offered while typing "/name": a list above the message box. */
+.composer { position: relative; }
+.skill-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + var(--space-2)); z-index: 20; margin: 0; padding: var(--space-1); list-style: none;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); }
+.skill-menu li { display: flex; align-items: baseline; gap: var(--space-3); min-height: 40px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); cursor: pointer; }
+.skill-menu li[aria-selected="true"] { background: var(--bg-selected); }
+.skill-menu .name { font-family: var(--font-mono); font-size: 14px; flex-shrink: 0; }
+.skill-menu .about { font-size: 14px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .composer textarea { border: 0; background: transparent; color: var(--text); font-size: 17px; line-height: 26px; resize: none; outline: none; max-height: 220px; padding: 2px 0; }
 .composer textarea::placeholder { color: var(--text-faint); }
 .composer .bar { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; color: var(--text-faint); min-height: 40px; }

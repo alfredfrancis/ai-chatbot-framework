@@ -19,9 +19,12 @@ Rules (applied to the latest user text):
   think: <text>               -> thinks "Considering: <text>", then "Echo: <text>"
   [background job …          -> "Background done: <the note>" (a background command finished)
   [App: …] <event>\n<rest>     -> a message from a personal app: the rules apply to <rest>
+  … [Use skill: n](path)      -> a message that calls a skill with /n (its last line): reads that SKILL.md
   reply: <text>               -> replies with <text> verbatim (newlines kept), e.g. an ```openui view
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
+  show model                  -> replies with the model the request asked for
+A request for the model "missing-model" gets a 404, as a provider answers for an unknown model.
   anything else               -> "Echo: <text>"
 After a tool result it replies "Result: <tool output>".
 The Anthropic API reports input_tokens = request body size / 4 (OpenAI reports no usage).
@@ -41,7 +44,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 app = FastAPI()
 REQUESTS: list[dict[str, Any]] = []
@@ -53,6 +56,7 @@ def decide(
     system: str,
     tool_names: list[str],
     history_users: list[str] | None = None,
+    model: str = "",
 ) -> dict:
     """Return {"text": str} and optionally {"calls": [(name, args), ...]}."""
     if last_user is None and tool_result is not None:
@@ -60,7 +64,10 @@ def decide(
     text = (last_user or "").strip()
     low = text.lower()
     if text.startswith("[App:") and "\n" in text:
-        return decide(text.split("\n", 1)[1], tool_result, system, tool_names, history_users)
+        return decide(text.split("\n", 1)[1], tool_result, system, tool_names, history_users, model)
+    used = re.fullmatch(r"\[Use skill: [^\]]+\]\(([^)]+)\)", text.splitlines()[-1]) if text else None
+    if used:
+        return {"calls": [("read", {"path": used.group(1)})], "text": ""}
     if low.startswith("summarise the conversation"):
         return {"text": f"SUMMARY of {len(history_users or [])} user messages: " + " | ".join(history_users or [])}
     if text.startswith("[Review]"):
@@ -103,6 +110,8 @@ def decide(
         return {"text": f"Background done: {text[:2000]}"}
     if low == "show system":
         return {"text": system}
+    if low == "show model":
+        return {"text": f"Model: {model}"}
     if low == "list tools":
         return {"text": "Tools: " + ", ".join(tool_names)}
     if low == "show messages":
@@ -137,6 +146,9 @@ def _texts(content) -> list[str]:
 async def messages(request: Request):
     body = await request.json()
     REQUESTS.append({"api": "anthropic", "headers": dict(request.headers), "body": body})
+    if body["model"] == "missing-model":
+        error = {"type": "not_found_error", "message": "model: missing-model"}
+        return JSONResponse({"type": "error", "error": error}, status_code=404)
     msgs = body["messages"]
     last = msgs[-1]
     blocks = last["content"] if isinstance(last["content"], list) else [{"type": "text", "text": last["content"]}]
@@ -151,7 +163,7 @@ async def messages(request: Request):
     system = body.get("system") or ""
     if isinstance(system, list):
         system = " ".join(b.get("text", "") for b in system)
-    d = decide(last_user, tool_result, system, [t["name"] for t in body.get("tools", [])], users)
+    d = decide(last_user, tool_result, system, [t["name"] for t in body.get("tools", [])], users, body["model"])
     await asyncio.sleep(d.get("delay", 0))
     content: list[dict] = [
         {"type": "thinking", "thinking": d.get("thinking", ""), "signature": "sig-" + uuid.uuid4().hex[:8]}
@@ -239,7 +251,8 @@ async def chat_completions(request: Request):
     tool_result = last["content"] if last["role"] == "tool" else None
     last_user = " ".join(_texts(last["content"])) if last["role"] == "user" else None
     users = [" ".join(_texts(m["content"])) for m in msgs if m["role"] == "user"]
-    d = decide(last_user, tool_result, system, [t["function"]["name"] for t in body.get("tools", [])], users)
+    tool_names = [t["function"]["name"] for t in body.get("tools", [])]
+    d = decide(last_user, tool_result, system, tool_names, users, body.get("model", ""))
     await asyncio.sleep(d.get("delay", 0))
     message: dict[str, Any] = {"role": "assistant", "content": d.get("text") or None}
     if d.get("calls"):

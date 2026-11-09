@@ -6,6 +6,7 @@ user's sandbox. Memory and context files are plain files edited with these same 
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -27,6 +28,7 @@ class ToolResult:
     content: str
     is_error: bool = False
     background: str | None = None  # the job id, when the call started a background job
+    agent: dict[str, Any] | None = None  # a sub-agent's model, steps and tokens (see agent/subagents.py)
 
 
 # start_job(label, work) -> job id: runs `work()` after the call returns and reports its result later.
@@ -37,6 +39,8 @@ StartJob = Callable[[str, Callable[[], Awaitable[ToolResult]]], str]
 class ToolContext:
     user_id: int
     start_job: StartJob | None = None
+    # Runs a sub-agent for an `agent` call; None where there are none (inside a sub-agent, in a review).
+    subagent: Callable[[dict[str, Any]], Awaitable[ToolResult]] | None = None
 
 
 @dataclass
@@ -72,6 +76,77 @@ def truncate(text: str, ctx: ToolContext, keep_tail: bool = True) -> str:
         f"{text[:head]}\n\n… [{omitted} characters omitted — full output saved to {rel}; "
         f"read it with offset/limit or grep it] …\n\n{text[-tail:]}"
     )
+
+
+async def call_tool(call: dict[str, Any], tools: dict[str, Tool], ctx: ToolContext) -> ToolResult:
+    """Run one tool call of a model answer. Bad arguments, unknown tools and tool errors become error
+    results the model can recover from; the output is cut to size."""
+    tool = tools.get(call["name"])
+    if "error" in call:
+        result = ToolResult(f"Could not parse the arguments: {call['error']}. Send valid JSON.", True)
+    elif tool is None:
+        result = ToolResult(f"Unknown tool {call['name']}. Available: {', '.join(tools)}", True)
+    else:
+        try:
+            result = await tool.run(call["args"], ctx)
+        except KeyError as e:
+            result = ToolResult(f"Missing argument: {e}", True)
+        except (ValueError, OSError, TypeError) as e:
+            result = ToolResult(str(e), True)
+    # Safety net for tools (e.g. MCP) that don't cut their own output.
+    if "characters omitted" not in result.content[:40_000]:
+        result.content = truncate(result.content, ctx)
+    return result
+
+
+async def gather_calls[T](
+    calls: list[dict[str, Any]],
+    tools: dict[str, Tool],
+    one: Callable[[dict[str, Any], list[asyncio.Future]], Awaitable[T]],
+) -> list[T]:
+    """Run `one(call, wait)` for every call of a model answer at the same time; results keep the order of
+    the calls. `wait` holds the earlier calls on the same resource that this one must let finish first:
+    all of them when it writes, the writers when it only reads (read then edit a file, two edits of it)."""
+    started: list[tuple[str | None, bool, asyncio.Future]] = []
+    for c in calls:
+        tool = tools.get(c["name"])
+        res = tool.resource(c["args"]) if tool and "error" not in c else None
+        ro = bool(tool and tool.read_only(c["args"]))
+        wait = [f for r, r_ro, f in started if res is not None and r == res and not (ro and r_ro)]
+        started.append((res, ro, asyncio.ensure_future(one(c, wait))))
+    try:
+        return list(await asyncio.gather(*(f for _, _, f in started)))
+    except BaseException:
+        for _, _, f in started:
+            f.cancel()
+        raise
+
+
+def tool_kind(name: str) -> str:
+    """The ACP kind of a tool call."""
+    return {"read": "read", "write": "edit", "edit": "edit", "bash": "execute"}.get(name, "other")
+
+
+def tool_title(name: str, args: dict[str, Any]) -> str:
+    """One line saying what a tool call does, as chat clients show it."""
+    path = str(args.get("path", ""))
+    if name == "bash":
+        return f"Ran {str(args.get('command', '')).splitlines()[0][:200] if args.get('command') else ''}".strip()
+    if name == "read":
+        parts = path.split("/")
+        if len(parts) == 3 and parts[0] == "skills" and parts[2] == "SKILL.md":
+            return f"Used skill {parts[1]}"
+        return f"Read {path}"
+    if name in ("write", "edit"):
+        return f"{'Wrote' if name == 'write' else 'Edited'} {path}"
+    if name == "mcp_call":
+        return f"Used {args.get('server', '')} · {args.get('tool', '')}"
+    if name == "agent":
+        return f"Sub-agent: {str(args.get('description') or 'task')[:200]}"
+    if name.startswith("mcp__") and "__" in name[5:]:
+        server, tool = name[5:].split("__", 1)
+        return f"Used {server} · {tool}"
+    return f"Used {name}"
 
 
 def _guard(user_id: int, rel: str, old: str, new: str) -> str | None:
