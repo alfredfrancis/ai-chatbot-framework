@@ -23,12 +23,18 @@ async function dropFile(page: Page, testId: string, name: string, text: string) 
 
 test("every page has at most one filled button, and the sidebar hides zero counts", async ({ page }) => {
   await signUp(page);
+  // Selection is a fill, not a side stripe; nothing glows.
+  const chats = nav(page).getByRole("link", { name: "Chats" });
+  expect(await chats.evaluate((el) => getComputedStyle(el).boxShadow)).toBe("none");
+  // Section labels are sentence case in the UI sans.
+  await say(page, "hello");
+  await expect(nav(page).getByText("Recent", { exact: true })).toHaveCSS("text-transform", "none");
   // Zero counts read like errors: Tasks and Connections show none, Files and Skills show theirs.
   await expect(nav(page).getByRole("link", { name: "Tasks" })).toHaveText("Tasks");
   await expect(nav(page).getByRole("link", { name: "Connections" })).toHaveText("Connections");
   await expect(nav(page).getByRole("link", { name: /^Skills/ })).toHaveText("Skills10");
   // New chat is a plain button with its shortcut; sign out lives in Settings.
-  await expect(nav(page).getByRole("link", { name: "New chat" })).toContainText("C");
+  await expect(nav(page).getByRole("link", { name: "New chat C", exact: true })).toBeVisible();
   await expect(nav(page).getByRole("button", { name: "Sign out" })).toHaveCount(0);
 
   for (const path of ["/", "/files", "/skills", "/tasks", "/connections", "/settings"]) {
@@ -42,7 +48,7 @@ test("an empty Tasks page explains itself and a template fills in the form", asy
   await signUp(page);
   await nav(page).getByRole("link", { name: "Tasks" }).click();
   await expect(page.getByRole("heading", { name: "Put your agent on a schedule" })).toBeVisible();
-  const templates = page.getByRole("region", { name: "Start from a template" });
+  const templates = page.getByRole("region", { name: "Or start from one of these" });
   await expect(templates.getByRole("button")).toHaveCount(3);
   await shot(page, "60-tasks-empty");
 
@@ -66,7 +72,9 @@ test("skills: yours apart from the built-in ones, drop anywhere, actions in a me
   const mine = page.getByRole("region", { name: /Yours/ });
   const builtin = page.getByRole("region", { name: /Built in/ });
   await expect(mine).toContainText("Skills you upload, or ask the agent to write, show up here.");
-  await expect(builtin.getByRole("heading")).toHaveText("Built in · 10");
+  await expect(builtin.getByRole("heading")).toHaveText("Built in 10");
+  // Rows lead with their text: no decorative letter tiles.
+  await expect(builtin.locator(".tile")).toHaveCount(0);
   // Readable names; the id stays as the tooltip.
   await expect(builtin.getByTestId("skill-pdf").locator(".title")).toHaveText("PDF");
   await expect(builtin.getByTestId("skill-action-items").locator(".title")).toHaveText("Action items");
@@ -74,7 +82,7 @@ test("skills: yours apart from the built-in ones, drop anywhere, actions in a me
   await dropFile(page, "skills-page", "SKILL.md", SKILL);
   await expect(page.getByRole("status")).toHaveText("Added “weekly-update”.");
   await expect(mine.getByTestId("skill-weekly-update")).toContainText("Weekly update");
-  await expect(mine.getByRole("heading")).toHaveText("Yours · 1");
+  await expect(mine.getByRole("heading")).toHaveText("Yours 1");
   await shot(page, "61-skills");
 
   // The menu works from the keyboard and closes with Escape without doing anything.

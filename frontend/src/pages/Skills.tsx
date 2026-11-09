@@ -17,13 +17,12 @@ export const readable = (name: string) => {
 function SkillRow({ s, onRemove }: { s: Skill; onRemove: (s: Skill) => Promise<void> }) {
   return (
     <div className="lrow" data-testid={`skill-${s.name}`}>
-      <div className={`tile${s.builtin ? " builtin" : ""}`} aria-hidden="true">{s.name[0]}</div>
       <div className="grow">
         <span className="title" title={s.name}>{readable(s.name)}</span>
         <span className="meta">{s.description}</span>
       </div>
       <div className="side">
-        <span className="badge plain">{s.files} file{s.files === 1 ? "" : "s"}</span>
+        <span className="files">{s.files} file{s.files === 1 ? "" : "s"}</span>
         <MoreMenu label={`More actions for ${s.name}`}
           items={[{ label: "Remove skill", confirm: "Yes, remove this skill", onSelect: () => onRemove(s) }]} />
       </div>
@@ -86,7 +85,7 @@ export default function SkillsPage() {
           {skills && (
             <>
               <section className="stack" aria-labelledby="my-skills">
-                <h2 className="subhead" id="my-skills">Yours · {mine.length}</h2>
+                <h2 className="subhead" id="my-skills">Yours <span className="n">{mine.length}</span></h2>
                 <div className="list skill-list">
                   {mine.length === 0
                     ? <div className="empty">Skills you upload, or ask the agent to write, show up here.</div>
@@ -96,7 +95,7 @@ export default function SkillsPage() {
               {builtin.length > 0 && (
                 <section className="stack" aria-labelledby="builtin-skills">
                   <div className="row-flex between wrap">
-                    <h2 className="subhead" id="builtin-skills">Built in · {builtin.length}</h2>
+                    <h2 className="subhead" id="builtin-skills">Built in <span className="n">{builtin.length}</span></h2>
                     <span className="hint">Included with every account. You can change or remove them.</span>
                   </div>
                   <div className="list skill-list">{builtin.map((s) => <SkillRow key={s.name} s={s} onRemove={remove} />)}</div>

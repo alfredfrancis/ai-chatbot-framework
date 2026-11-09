@@ -32,7 +32,7 @@ textarea.acf-input { height: auto; padding: 10px var(--space-3); resize: vertica
 
 /* Kbd */
 .acf-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-faint); font: 500 12px/1 var(--font-sans); }
+  border: 1px solid var(--border); background: var(--bg-raised); color: var(--text-faint); font: 500 13px/1 var(--font-sans); }
 
 /* Badge */
 .acf-badge { display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 8px; border-radius: var(--radius-sm);
