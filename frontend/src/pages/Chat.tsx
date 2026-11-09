@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps, type FormEvent, type KeyboardEvent } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -7,16 +7,16 @@ import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } 
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
-import { IconArrowUp, IconCheck, IconClock, IconDownload, IconDrawer, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
+import { IconArrowUp, IconCheck, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
 
 /** Suggestions on the empty chat; each says which part of the agent it shows off. */
-const TRY: { icon: ReactNode; kind: string; text: string; prompt: string }[] = [
-  { icon: <IconDrawer />, kind: "Uses your files", text: "Summarise the spreadsheets in my files", prompt: "Look at the files in my workspace and summarise any spreadsheets you find." },
-  { icon: <IconClock />, kind: "Becomes a task", text: "Every weekday at 8:00, plan my day", prompt: "Help me set up a task that writes my plan for the day every weekday at 8:00." },
-  { icon: <IconSpark />, kind: "Becomes a skill", text: "Learn how I write my weekly update", prompt: "Make a skill for writing my weekly status update." },
+const TRY: { kind: string; text: string; prompt: string }[] = [
+  { kind: "Uses your files", text: "Summarise the spreadsheets in my files", prompt: "Look at the files in my workspace and summarise any spreadsheets you find." },
+  { kind: "Becomes a task", text: "Every weekday at 8:00, plan my day", prompt: "Help me set up a task that writes my plan for the day every weekday at 8:00." },
+  { kind: "Becomes a skill", text: "Learn how I write my weekly update", prompt: "Make a skill for writing my weekly status update." },
 ];
 
 /** A tool call as the chat knows it from ACP tool_call / tool_call_update notifications. */
@@ -447,10 +447,8 @@ function Home({ onStart, draft = "" }: { onStart: (t: string, files?: Attachment
     <>
       <Topbar title="New chat" phoneOnly />
       <div className="home">
-        <div className="hero" aria-hidden="true">
-          <span className="glow" /><span className="ring" /><Mark size={56} />
-        </div>
         <div className="hello">
+          <div className="hero" aria-hidden="true"><Mark size={40} /></div>
           <h1>{greeting(user.name || "there")}</h1>
           <p className="sub">What should your agent work on?</p>
         </div>
@@ -467,13 +465,16 @@ function Home({ onStart, draft = "" }: { onStart: (t: string, files?: Attachment
               : <Link to="/connections" className="cta">Connect an app</Link>}
           </nav>
         </div>
-        <div className="try" role="group" aria-label="Suggestions">
-          {TRY.map((t) => (
-            <button key={t.text} onClick={() => onStart(t.prompt)}>
-              <span className="kind">{t.icon}{t.kind}</span>{t.text}
-            </button>
-          ))}
-        </div>
+        <section className="try" aria-labelledby="try-label">
+          <h2 className="subhead" id="try-label">Try one of these</h2>
+          <div className="list">
+            {TRY.map((t) => (
+              <button key={t.text} className="try-row" onClick={() => onStart(t.prompt)}>
+                <span className="text">{t.text}</span><span className="kind">{t.kind}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     </>
   );

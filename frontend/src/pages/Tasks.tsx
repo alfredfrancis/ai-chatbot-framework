@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type Task } from "../api";
 import { PageHeader, Topbar, useApp } from "../App";
-import { IconCalendar, IconClock, IconGlobe, IconNote, IconPlus } from "../components/icons";
+import { IconPlus } from "../components/icons";
 import { MoreMenu } from "../components/Menu";
 import { Toggle } from "../components/Toggle";
 
@@ -62,17 +62,17 @@ function when(iso: string | null): string {
   return fmt;
 }
 
-type Template = { name: string; prompt: string; freq: Freq; time: string; day: number; blurb: string; when: string; icon: ReactNode };
+type Template = { name: string; prompt: string; freq: Freq; time: string; day: number; blurb: string; when: string };
 
 /** Starting points on the empty Tasks page: each opens the form filled in, to change before saving. */
 const TEMPLATES: Template[] = [
-  { name: "Plan my day", freq: "weekdays", time: "08:00", day: 1, when: "Weekdays · 08:00", icon: <IconCalendar />,
+  { name: "Plan my day", freq: "weekdays", time: "08:00", day: 1, when: "Weekdays · 08:00",
     blurb: "A short plan for the day from your notes and files.",
     prompt: "Look at my notes and files and write a short plan for today: the three things that matter most, then the rest. Save it to notes/today.md." },
-  { name: "Weekly review", freq: "weekly", time: "16:00", day: 5, when: "Fridays · 16:00", icon: <IconNote />,
+  { name: "Weekly review", freq: "weekly", time: "16:00", day: 5, when: "Fridays · 16:00",
     blurb: "What changed this week, what's done and what's next.",
     prompt: "Review what changed in my files this week. Write what got done, what is still open and what's next. Save it to notes/weekly-review.md." },
-  { name: "Watch a web page", freq: "hourly", time: "00:00", day: 1, when: "Every hour", icon: <IconGlobe />,
+  { name: "Watch a web page", freq: "hourly", time: "00:00", day: 1, when: "Every hour",
     blurb: "Tells you when a price or a page you care about changes.",
     prompt: "Check https://example.com and tell me if anything important changed since the last check. Replace the address with the page to watch." },
 ];
@@ -210,24 +210,27 @@ export default function TasksPage() {
             onDone={() => { setCreating(false); load(); refresh(); }} />}
           {tasks && tasks.length === 0 && !creating && (
             <>
-              <section className="list empty-state" aria-labelledby="no-tasks">
-                <span className="badge-icon" aria-hidden="true"><IconClock /></span>
+              <section className="empty-state" aria-labelledby="no-tasks">
                 <div>
                   <h2 id="no-tasks">Put your agent on a schedule</h2>
-                  <p>Describe the job and when it should run, in plain words. You'll find each result in Chats.</p>
+                  <p>Say what to do and when, in plain words. The agent runs it in your sandbox and leaves the result in Chats.</p>
                 </div>
-                <button className="btn primary lg" onClick={() => create()}><IconPlus />New task</button>
+                <button className="btn primary" onClick={() => create()}><IconPlus />New task</button>
               </section>
               <section className="stack" aria-labelledby="task-templates">
-                <h2 className="subhead" id="task-templates">Start from a template</h2>
-                <div className="cards">
+                <h2 className="subhead" id="task-templates">Or start from one of these</h2>
+                <div className="list">
                   {TEMPLATES.map((t) => (
-                    <button key={t.name} className="card-btn" onClick={() => create(t)} aria-label={`Use template: ${t.name}`}>
-                      {t.icon}<span className="title">{t.name}</span><span className="meta">{t.blurb}</span>
-                      <span className="badge plain">{t.when}</span>
-                    </button>
+                    <div className="lrow" key={t.name}>
+                      <div className="grow"><span className="title">{t.name}</span><span className="meta">{t.blurb}</span></div>
+                      <div className="side">
+                        <span className="when">{t.when}</span>
+                        <button className="btn sm" onClick={() => create(t)} aria-label={`Use template: ${t.name}`}>Use</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
+                <p className="hint">A template fills in the form; change anything before you save.</p>
               </section>
             </>
           )}

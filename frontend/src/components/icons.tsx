@@ -61,10 +61,6 @@ export const IconX = () => <Svg size={16}><path d="M6 6l12 12M18 6 6 18" /></Svg
 export const IconMenu = () => <Svg><path d="M4 7h16M4 12h16M4 17h16" /></Svg>;
 export const IconApp = () => <Svg><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></Svg>;
 export const IconMore = () => <Svg><circle cx="6" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="18" cy="12" r="1" /></Svg>;
-export const IconCalendar = () => <Svg><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></Svg>;
-export const IconNote = () => <Svg><path d="M5 4h14v16H5z" /><path d="M9 9h6M9 13h6M9 17h3" /></Svg>;
-export const IconGlobe = () => <Svg><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></Svg>;
-export const IconPencil = () => <Svg size={18}><path d="M4 20h4L19 9l-4-4L4 16z" /></Svg>;
 export const IconTrash = () => <Svg size={18}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></Svg>;
 
 export function Keys({ keys }: { keys: string[] }) {

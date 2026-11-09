@@ -10,17 +10,21 @@ because the people using it are not power users, and comfort beats density.
 
 1. **Quiet chrome, loud content.** Surfaces step by lightness (`bg` → `bg-raised` → `bg-elevated`)
    and structure comes from 1px `border` hairlines. Shadows only where they mean something:
-   `shadow-pop` (command menu, menus), `shadow-composer`, `shadow-glow` (the one primary action and the
-   empty-chat composer) and `shadow-card` (cards and file tiles on hover; in light it replaces the
-   lightness steps).
+   `shadow-pop` (command menu, menus), `shadow-composer` and `shadow-card` (cards on hover; in light it
+   replaces the lightness steps). Every shadow has an offset and a soft blur; nothing glows.
 2. **One accent, from the logo.** The logo's green ring (`brand-signal`, #4a946a) sets the palette;
    `accent` is that green stepped lighter for dark and deeper for light so it passes contrast. It marks the single primary action on a screen, focus, the
-   selected indicator (a 2px inset bar on `accent-subtle`), live dots and the agent's wave. Everything
+   selected indicator (the selected row fills with `bg-selected` and its icon turns `accent-text`; no side
+   stripes), live dots and the agent's wave. Everything
    else is neutral. `accent-2` (teal) is a second *data* colour for chart bars and file-type tags, never
    an action. Success uses `accent-text`; errors `danger`; attention `warning`.
-6. **Alive, not busy.** Motion says something is happening. The signal grid (`grid-line`) and the
-   logo's glow (`glow`) and orbit appear only on the empty-chat screen. Elsewhere only live things move:
-   the wave on a running step, the shimmer on its verb, the ring on a `live-dot`.
+6. **Alive, not busy.** Motion says something is happening, and only live things move: the wave on a
+   running step, the shimmer on its verb, the ring on a `live-dot`. Nothing moves for decoration, the
+   empty-chat screen included.
+7. **Lists before cards.** Equivalent items (templates, suggestions, apps, skills) are rows in a list,
+   led by their text. No decorative tiles or icons above headings; an icon appears only when it tells
+   the kind of thing (a folder, a file type). Section labels are sentence case in the UI sans, and
+   numbers use tabular figures.
 3. **Keyboard first, mouse friendly.** Every primary action has a shortcut shown as a `Kbd`
    (`⌘K` command menu, `C` new chat, `G then F` files…). Targets are still ≥ 40px.
 4. **Show the work.** Agent tool calls are rows (`ToolStep`) with a state, a plain verb, a mono

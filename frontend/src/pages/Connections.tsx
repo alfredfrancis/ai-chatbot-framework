@@ -198,7 +198,6 @@ function ServerRow({ s, editable, onChange, onEdit, onDelete }: {
   const where = s.transport === "stdio" ? "Runs in your sandbox" : "Remote";
   return (
     <div className="lrow" data-testid={`server-${s.name}`}>
-      <div className="tile" aria-hidden="true">{s.name[0]}</div>
       <div className="grow">
         <div className="title">{s.name}</div>
         <div className="meta">
@@ -239,14 +238,13 @@ function PresetCard({ p, onAdd }: { p: McpPreset; onAdd: (p: McpPreset) => Promi
     try { await onAdd(p); } finally { setBusy(false); }
   };
   return (
-    <div className="app-card" data-testid={`preset-${p.id}`}>
-      <div className="who">
-        <div className="tile" aria-hidden="true">{p.name[0]}</div>
-        <div className="text"><span className="title">{p.name}</span><span className="meta">{p.description}</span></div>
+    <div className="lrow" data-testid={`preset-${p.id}`}>
+      <div className="grow"><span className="title">{p.name}</span><span className="meta">{p.description}</span></div>
+      <div className="side">
+        {p.added
+          ? <span className="badge success">Added</span>
+          : <button className="btn sm" onClick={add} disabled={busy} aria-label={`Connect ${p.name}`}>{busy ? "Connecting…" : "Connect"}</button>}
       </div>
-      {p.added
-        ? <span className="badge success">Added</span>
-        : <button className="btn" onClick={add} disabled={busy} aria-label={`Connect ${p.name}`}>{busy ? "Connecting…" : "Connect"}</button>}
     </div>
   );
 }
@@ -361,7 +359,7 @@ export default function ConnectionsPage() {
                   <span className="hint">You sign in with your own account. No API keys.</span>
                 </div>
                 {presetError && <div className="banner" role="alert">{presetError}</div>}
-                <div className="app-grid">{presets.map((p) => <PresetCard key={p.id} p={p} onAdd={addPreset} />)}</div>
+                <div className="list app-list">{presets.map((p) => <PresetCard key={p.id} p={p} onAdd={addPreset} />)}</div>
               </section>
             )}
 
