@@ -272,7 +272,7 @@ async def test_anthropic_request_shape(client, user, fake_llm_url):
         assert set(block) <= allowed[block["type"]] | {"cache_control"}, block
     assert assistant["content"][-1]["input"] == {"command": "echo hi"}
     assert second["messages"][-1]["content"][0]["type"] == "tool_result"
-    assert {t["name"] for t in second["tools"]} == {"read", "write", "edit", "bash", "mcp_call"}
+    assert {t["name"] for t in second["tools"]} == {"read", "write", "edit", "bash", "agent", "mcp_call"}
 
 
 async def test_openai_compatible_provider(client, user, fake_llm_url):

@@ -21,6 +21,7 @@ backend/acf/
   llm.py             LangChain init_chat_model, friendly errors, token estimate
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
   agent/tools.py     read / write / edit / bash + output truncation
+  agent/subagents.py the `agent` tool: sub-agents with a fresh context and their own model, run in parallel
   agent/prompt.py    system prompt (built once per turn): instructions + context.md + skills + apps + memory.md
   agent/review.py    background review every N user messages: updates memory.md and skills
   agent/transcripts.py  past chats as .acf/chats/<id>.md for the agent to grep
@@ -67,7 +68,7 @@ make lint         # ruff + tsc
    Backend logic also gets a pytest. Never weaken or skip a test to make it pass.
 2. **No real model or network calls in tests.** Extend `backend/tests/fakes/fake_llm.py` (rules like
    `run: …`, `read: a b`, `edit: p | old | new`, `tool: <name> <json>`, `show system`, `show messages`).
-3. **Keep the harness lean.** Prefer a file + the four tools over a new tool. A new built-in tool needs a
+3. **Keep the harness lean.** Prefer a file + the four tools (and `agent` for sub-agents) over a new tool. A new built-in tool needs a
    strong reason; MCP and skills are the extension points. No custom UI editors for context files — the
    agent edits files; the UI browses them.
 4. **Model access goes through LangChain** (`acf.llm.make_model`). Don't import provider SDKs elsewhere.

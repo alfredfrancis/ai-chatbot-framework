@@ -60,6 +60,12 @@ class Settings:
     compact_tokens: int = field(default_factory=lambda: int(_env("COMPACT_TOKENS", "120000")))
     compact_keep_tokens: int = field(default_factory=lambda: int(_env("COMPACT_KEEP_TOKENS", "20000")))
     max_agent_steps: int = field(default_factory=lambda: int(_env("MAX_AGENT_STEPS", "40")))
+    # Sub-agents (the `agent` tool): how many of a run's sub-agents work at the same time; the rest wait
+    # their turn (0 = no sub-agents).
+    subagents: int = field(default_factory=lambda: int(_env("SUBAGENTS", "8")))
+    # The model a sub-agent gets when the main agent asks for "fast" (unset: a small model of the user's
+    # provider when one is known, else the user's own model).
+    subagent_fast_model: str = field(default_factory=lambda: _env("SUBAGENT_FAST_MODEL").strip())
     # memory.md goes into every system prompt; writes past this many characters are refused.
     memory_limit: int = field(default_factory=lambda: int(_env("MEMORY_LIMIT", "4000")))
     # Every N user messages in a chat, a background pass reviews it and updates memory.md and skills (0 = off).

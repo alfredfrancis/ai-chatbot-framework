@@ -130,6 +130,7 @@ class Message(Base):
             "is_error": self.is_error,
             "duration_ms": (self.raw or {}).get("duration_ms") if self.role == "tool" or self.background else None,
             "background": self.background,
+            "agent": (self.raw or {}).get("agent") if self.role == "tool" else None,
             "created_at": self.created_at.isoformat() + "Z",
         }
 

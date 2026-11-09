@@ -26,6 +26,9 @@ After every model call a `usage_update` (used, size) reports how full the contex
 agent/usage). session/load ends its replay with the latest one.
 A background command's tool call stays `in_progress` (`_meta.acf.background` = job id) after its turn;
 when the command ends, a `tool_call_update` completes it with the output.
+A sub-agent (the `agent` tool) is one tool call: while it works, `tool_call_update`s carry
+`_meta.acf.agent` = {model, tokens, steps: [{title, ok}]} (`ok` is null for a step that is running); the
+update that completes it has the sub-agent's report as its content and the final `_meta.acf.agent`.
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from acf import config, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
+from acf.agent.tools import tool_kind, tool_title
 from acf.auth import COOKIE, user_for_acp_token, user_for_session
 from acf.bus import Feed
 from acf.db import Chat, Message, User, session_scope, utcnow
@@ -77,29 +81,6 @@ class RpcError(Exception):
 
 def _text(text: str) -> dict[str, str]:
     return {"type": "text", "text": text}
-
-
-def tool_kind(name: str) -> str:
-    return {"read": "read", "write": "edit", "edit": "edit", "bash": "execute"}.get(name, "other")
-
-
-def tool_title(name: str, args: dict[str, Any]) -> str:
-    path = str(args.get("path", ""))
-    if name == "bash":
-        return f"Ran {str(args.get('command', '')).splitlines()[0][:200] if args.get('command') else ''}".strip()
-    if name == "read":
-        parts = path.split("/")
-        if len(parts) == 3 and parts[0] == "skills" and parts[2] == "SKILL.md":
-            return f"Used skill {parts[1]}"
-        return f"Read {path}"
-    if name in ("write", "edit"):
-        return f"{'Wrote' if name == 'write' else 'Edited'} {path}"
-    if name == "mcp_call":
-        return f"Used {args.get('server', '')} · {args.get('tool', '')}"
-    if name.startswith("mcp__") and "__" in name[5:]:
-        server, tool = name[5:].split("__", 1)
-        return f"Used {server} · {tool}"
-    return f"Used {name}"
 
 
 def user_blocks(text: str) -> list[dict[str, Any]]:
@@ -148,6 +129,8 @@ def tool_result_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
         meta["background"] = m["background"]
         if m["role"] == "tool":
             status = "in_progress"  # started; the note with its output completes it
+    if m.get("agent"):
+        meta["agent"] = m["agent"]
     return [
         {
             "sessionUpdate": "tool_call_update",
@@ -421,6 +404,9 @@ class Connection:
                     await self._emit(
                         sid, [{"sessionUpdate": "tool_call_update", "toolCallId": e["id"], "status": "in_progress"}]
                     )
+                elif kind == "agent" and e["id"] not in answered:
+                    update = {"sessionUpdate": "tool_call_update", "toolCallId": e["id"], "status": "in_progress"}
+                    await self._emit(sid, [{**update, "_meta": {"acf": {"agent": e["agent"]}}}])
                 elif kind == "usage":
                     await self._emit(sid, [context_usage.update(e["usage"])])
                 elif kind == "notice":

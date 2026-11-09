@@ -17,6 +17,8 @@ Design (borrowing from pi, Hermes and Claude Code):
 - MCP tools are not bound one by one: the prompt lists their names, their definitions are files in
   .acf/mcp/, and one `mcp_call` tool runs them (see mcp_client). Binding every schema costs tens of
   thousands of prompt tokens per step.
+- Sub-agents (the `agent` tool, see subagents.py): helpers with a fresh context and a model the main agent
+  picks. Several calls in one answer work side by side; each result is that helper's report.
 - Tool errors, bad arguments and unknown tools become error results the model can recover from.
 - Outputs are truncated with the full text spilled to a file (see tools.truncate).
 - The system prompt is built once per turn and reused for every step, so the provider's prompt cache
@@ -54,10 +56,11 @@ from langchain_core.messages import (
 )
 
 from acf import bus, config, skills, workspace
-from acf.agent import prompt, review, transcripts, usage
-from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, truncate
+from acf.agent import prompt, review, subagents, transcripts, usage
+from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, call_tool, gather_calls
 from acf.db import Chat, Message, User, session_scope, utcnow
-from acf.llm import LLMConfig, LLMError, estimate_tokens, friendly_error, make_model
+from acf.llm import LLMConfig, LLMError, calls_of, estimate_tokens, friendly_error, make_model
+from acf.llm import text_of as _text_of
 from acf.mcp_client import McpHub
 from acf.sandbox import get_sandbox
 
@@ -87,12 +90,6 @@ def _save(chat_id: int, **fields) -> dict[str, Any]:
             chat.updated_at = utcnow()
         db.flush()
         return msg.to_dict()
-
-
-def _text_of(ai: AIMessage) -> str:
-    if isinstance(ai.content, str):
-        return ai.content.strip()
-    return "\n".join(b.get("text", "") for b in ai.content if isinstance(b, dict) and b.get("type") == "text").strip()
 
 
 def _strip_thinking(ai: AIMessage) -> AIMessage:
@@ -225,6 +222,7 @@ class Run:
         self.error: str | None = None
         self.system: str | None = None  # the system prompt of the latest turn (reused by the review)
         self.usage: dict[str, Any] | None = None  # context usage after the latest model call (see usage)
+        self._agents = asyncio.Semaphore(max(config.settings.subagents, 1))  # sub-agents working at once
 
     # -- events
     def emit(self, event: dict[str, Any]) -> None:
@@ -359,7 +357,8 @@ class Run:
             for st in hub.status():
                 if st["state"] in ("error", "needs_auth"):
                     self.emit({"type": "notice", "text": f"{st['name']}: {st['error'] or 'sign-in required'}"})
-            tools: dict[str, Tool] = {t.name: t for t in [*BUILTIN_TOOLS, hub.tool()] if t}
+            agent_tool = subagents.TOOL if config.settings.subagents > 0 else None
+            tools: dict[str, Tool] = {t.name: t for t in [*BUILTIN_TOOLS, agent_tool, hub.tool()] if t}
             schemas = [t.schema() for t in tools.values()]
             model = base_model.bind_tools(schemas)
             skills.seed(self.user.id)  # built-in skills added since the account was made
@@ -389,15 +388,7 @@ class Run:
                     self.error = self.final_text
                     self.emit({"type": "error", "error": self.final_text})
                     return
-                calls = list(ai.tool_calls) + [
-                    {
-                        "id": c.get("id") or f"invalid_{i}",
-                        "name": c.get("name") or "unknown",
-                        "args": {},
-                        "error": c.get("error") or "Invalid arguments",
-                    }
-                    for i, c in enumerate(ai.invalid_tool_calls)
-                ]
+                calls = calls_of(ai)
                 text = _text_of(ai)
                 history.append(ai)
                 self.usage = usage.measure(sections, schemas, skill_names, apps, history, ai, window)
@@ -484,30 +475,31 @@ class Run:
         async def one(call: dict, wait: list[asyncio.Future]) -> ToolMessage:
             if wait:
                 await asyncio.gather(*wait, return_exceptions=True)
+
+            async def subagent(args: dict[str, Any]) -> ToolResult:
+                def progress(info: dict[str, Any]) -> None:
+                    self.emit({"type": "agent", "id": call["id"], "agent": info})
+
+                async with self._agents:
+                    return await subagents.run(self.user, self.system or "", tools, args, progress)
+
             ctx = ToolContext(
                 self.user.id,
                 start_job=lambda label, work: start_job(self.user, self.chat_id, call, label, work),
+                subagent=subagent,
             )
             tool = tools.get(call["name"])
             label = tool.label(call["args"]) if tool else call["name"]
             self.emit({"type": "tool_start", "id": call["id"], "name": call["name"], "label": label})
             started = time.monotonic()
-            if "error" in call:
-                result = ToolResult(f"Could not parse the arguments: {call['error']}. Send valid JSON.", True)
-            elif tool is None:
-                result = ToolResult(f"Unknown tool {call['name']}. Available: {', '.join(tools)}", True)
-            else:
-                try:
-                    result = await tool.run(call["args"], ctx)
-                except KeyError as e:
-                    result = ToolResult(f"Missing argument: {e}", True)
-                except (ValueError, OSError, TypeError) as e:
-                    result = ToolResult(str(e), True)
-            # Safety net for tools (e.g. MCP) that don't cut their own output.
-            content = (
-                result.content if "characters omitted" in result.content[:40_000] else truncate(result.content, ctx)
-            )
+            result = await call_tool(call, tools, ctx)
+            content = result.content
             ms = int((time.monotonic() - started) * 1000)
+            raw: dict[str, Any] = {"duration_ms": ms}
+            if result.background:
+                raw["background"] = result.background
+            if result.agent:
+                raw["agent"] = result.agent
             saved = _save(
                 self.chat_id,
                 role="tool",
@@ -515,7 +507,7 @@ class Run:
                 tool_call_id=call["id"],
                 name=call["name"],
                 is_error=result.is_error,
-                raw={"duration_ms": ms, **({"background": result.background} if result.background else {})},
+                raw=raw,
             )
             self.emit({"type": "message", "message": saved})
             return ToolMessage(
@@ -526,19 +518,7 @@ class Run:
 
         # Everything runs at once, except that a call waits for earlier calls on the same resource when
         # either one writes (read then edit the same file, two edits of one file).
-        started: list[tuple[str | None, bool, asyncio.Future]] = []
-        for c in calls:
-            tool = tools.get(c["name"])
-            res = tool.resource(c["args"]) if tool and "error" not in c else None
-            ro = bool(tool and tool.read_only(c["args"]))
-            wait = [f for r, r_ro, f in started if res is not None and r == res and not (ro and r_ro)]
-            started.append((res, ro, asyncio.ensure_future(one(c, wait))))
-        try:
-            return list(await asyncio.gather(*(f for _, _, f in started)))
-        except BaseException:
-            for _, _, f in started:
-                f.cancel()
-            raise
+        return await gather_calls(calls, tools, one)
 
 
 RUNS: dict[int, Run] = {}  # runs this process is running, by chat

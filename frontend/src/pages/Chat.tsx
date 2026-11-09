@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
+import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type AgentInfo, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
@@ -23,6 +23,7 @@ const TRY: { kind: string; text: string; prompt: string }[] = [
 type ToolCall = {
   id: string; title: string; tool?: string; input: Record<string, unknown>; status: ToolStatus; output?: string; durationMs?: number | null;
   background?: string; // job id of a command that runs in the background
+  agent?: AgentInfo; // a sub-agent: what it runs on and what it has done so far
 };
 const inBackground = (c: ToolCall) => !!c.background && (c.status === "pending" || c.status === "in_progress");
 type Entry =
@@ -87,7 +88,8 @@ function reduce(entries: Entry[], u: SessionUpdate): Entry[] {
         const output = t.content ? t.content.map((c) => textOf(c.content)).join("\n") : e.call.output;
         const durationMs = t._meta?.acf?.durationMs ?? e.call.durationMs;
         const background = t._meta?.acf?.background ?? e.call.background;
-        return { ...e, call: { ...e.call, status: t.status ?? e.call.status, title: t.title ?? e.call.title, output, durationMs, background } };
+        const agent = t._meta?.acf?.agent ?? e.call.agent;
+        return { ...e, call: { ...e.call, status: t.status ?? e.call.status, title: t.title ?? e.call.title, output, durationMs, background, agent } };
       });
     }
   }
@@ -106,6 +108,7 @@ function describe(call: ToolCall): { verb: string; detail: string; mono: boolean
       return m ? { verb: "Used skill", detail: m[1], mono: false } : { verb: "Read", detail: p, mono: true };
     }
     case "mcp_call": return { verb: "Used", detail: `${a.server} · ${a.tool}`, mono: false };
+    case "agent": return { verb: "Sub-agent", detail: a.description ?? "", mono: false };
   }
   const m = call.tool?.match(/^mcp__(.+?)__(.+)$/);
   if (m) return { verb: "Used", detail: `${m[1]} · ${m[2]}`, mono: false };
@@ -114,6 +117,26 @@ function describe(call: ToolCall): { verb: string; detail: string; mono: boolean
 }
 
 const secs = (ms: number | null | undefined) => (ms == null ? "" : `${(ms / 1000).toFixed(1)}s`);
+const plural = (n: number, word: string) => `${n.toLocaleString("en")} ${word}${n === 1 ? "" : "s"}`;
+
+/** What a sub-agent did: its model, its steps so far and, once it is done, its report. */
+function AgentDetails({ call, finished }: { call: ToolCall; finished: boolean }) {
+  const a = call.agent;
+  const facts = a ? [a.model, plural(a.steps.length, "step"), ...(a.tokens ? [plural(a.tokens, "token")] : [])] : [];
+  return (
+    <div className="step-agent" role="group" aria-label={call.title}>
+      {a && <div className="meta">{facts.join(" · ")}</div>}
+      {a && a.steps.length > 0 && (
+        <ol>
+          {a.steps.map((s, i) => (
+            <li key={i} className={s.ok === false ? "fail" : s.ok == null && !finished ? "live" : ""}>{s.title}</li>
+          ))}
+        </ol>
+      )}
+      {finished && <pre className="step-output">{call.output}</pre>}
+    </div>
+  );
+}
 
 function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const [open, setOpen] = useState(false);
@@ -122,17 +145,23 @@ function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const bg = inBackground(call);
   const busy = bg || (!finished && running);
   const failed = call.status === "failed" || (!finished && !busy);
+  const isAgent = call.tool === "agent";
+  // A sub-agent can be opened while it works, to watch its steps; its row shows the latest one.
+  const doing = isAgent && busy && !finished ? call.agent?.steps.filter((s) => s.ok == null).pop()?.title : undefined;
+  const note = isAgent && call.agent ? [call.agent.model, secs(call.durationMs)].filter(Boolean).join(" · ") : secs(call.durationMs);
   return (
     <>
-      <button className={`step${busy && !finished ? " live" : ""}`} onClick={() => finished && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
+      <button className={`step${busy && !finished ? " live" : ""}`} onClick={() => (finished || isAgent) && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
         <span className={`state${finished ? (failed ? " fail" : " ok") : busy ? " live" : " fail"}`}>
           {finished ? (failed ? <IconX /> : <IconCheck />) : busy ? <Wave label={bg ? "Running in background" : "Working"} /> : <IconX />}
         </span>
         <span className="verb">{d.verb}</span>{" "}
         <span className={`detail${d.mono ? "" : " name"}`}>{d.detail}</span>
-        {" "}<span className="time">{finished ? secs(call.durationMs) : bg ? "In background" : ""}</span>
+        {doing && <span className="doing">{doing}</span>}
+        {" "}<span className="time">{finished ? note : bg ? "In background" : isAgent ? call.agent?.model ?? "" : ""}</span>
       </button>
-      {open && finished && <pre className="step-output">{call.output}</pre>}
+      {open && isAgent && <AgentDetails call={call} finished={finished} />}
+      {open && finished && !isAgent && <pre className="step-output">{call.output}</pre>}
     </>
   );
 }

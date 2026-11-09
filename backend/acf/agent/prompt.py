@@ -36,6 +36,11 @@ check it (run the script, read the file back) before saying you are done.
 so and try another way; an honest "this is blocked" beats an invented answer.
 - Tool calls you make in one answer run at the same time: batch independent steps; if one step needs \
 another's result, wait for it. Run long commands with bash background: true and keep working.
+- When a job splits into parts that don't depend on each other (several topics to research, several \
+files to work through) or one part would fill your context with material you only need the conclusion of, \
+hand each part to a sub-agent with the agent tool. Calls in one answer work at the same time. A sub-agent \
+knows only what its prompt says and the user never sees its report: check the reports and put them \
+together in your own answer. Give it model "fast" for simple look-ups; do small things yourself.
 - Large outputs are cut short; the full text is saved to a file you can read with offset/limit.
 - For work that should happen later or on a schedule ("remind me at 5", "every Monday"), schedule a task \
 with the system app's tools (create_task etc.): repeating or once; each run starts a new chat with the \
