@@ -22,7 +22,7 @@ backend/acf/
   agent/loop.py      Run: steering, stop, parallel tools, compaction, events, history repair
   agent/tools.py     read / write / edit / bash + output truncation
   agent/subagents.py the `agent` tool: sub-agents with a fresh context and their own model, run in parallel
-  agent/prompt.py    system prompt (built once per turn): instructions + context.md + skills + apps + memory.md
+  agent/prompt.py    system prompt (built once per turn): instructions + context.md + skills + apps + project + memory.md
   agent/review.py    background review every N user messages: updates memory.md and skills
   agent/transcripts.py  past chats as .acf/chats/<id>.md for the agent to grep
   bus.py             run state shared by app processes: chat leases, inbox, run feeds, signals, locks (memory or Redis)
@@ -38,6 +38,7 @@ backend/acf/
   secrets_box.py     encryption at rest for secret DB columns (db.EncryptedText, ACF_SECRET_KEY)
   mcp_client.py      config parsing, McpHub (one asyncio task per server connection), mcp_call + .acf/mcp/ files
   oauth.py           OAuth client for remote MCP servers
+  projects.py        projects: instructions + an optional workspace folder; chats and tasks belong to one via project_id
   scheduler.py       tasks: repeating (cron) or one-off (run_at)
   system_mcp.py      built-in `system` MCP server: app features for the agent (tasks)
   api/routes.py      every HTTP endpoint

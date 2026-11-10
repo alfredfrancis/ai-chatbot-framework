@@ -117,7 +117,11 @@ class AcpClient {
 
 export const acp = new AcpClient();
 
-export const newSession = () => acp.request<{ sessionId: string }>("session/new", { cwd: "/workspace", mcpServers: [] });
+/** A new chat; with `projectId`, a chat in that project. */
+export const newSession = (projectId?: number) =>
+  acp.request<{ sessionId: string }>("session/new", {
+    cwd: "/workspace", mcpServers: [], ...(projectId ? { _meta: { acf: { projectId } } } : {}),
+  });
 export const loadSession = (sessionId: string) =>
   acp.request<{ _meta?: { acf?: { running?: boolean; title?: string; parent?: ParentSession } } } | null>("session/load", { sessionId, cwd: "/workspace", mcpServers: [] });
 /** A file in the workspace, sent as an ACP resource_link (file:///workspace/<path>). */

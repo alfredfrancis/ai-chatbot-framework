@@ -72,6 +72,6 @@ def test_a_database_from_before_migrations_is_adopted_and_upgraded(tmp_path):
         assert conn.execute(sa.text("SELECT name, run_at FROM tasks")).all() == [("Old", None)]
         assert conn.execute(sa.text("SELECT title, parent_id FROM chats")).all() == [("Old chat", None)]
         assert conn.execute(sa.text("SELECT content FROM messages")).all() == [("hello",)]
-        assert MigrationContext.configure(conn).get_current_revision() == "0003"
+        assert MigrationContext.configure(conn).get_current_revision() == "0004"
     db.migrate(engine)  # running again changes nothing
     engine.dispose()

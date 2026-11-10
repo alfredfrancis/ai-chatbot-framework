@@ -82,12 +82,29 @@ class AcpToken(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class Project(Base):
+    """A named piece of ongoing work: instructions for the agent and, optionally, a folder in the workspace.
+    Chats and tasks belong to it through their project_id (see acf.projects)."""
+
+    __tablename__ = "projects"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(String(500), default="")
+    instructions: Mapped[str] = mapped_column(Text, default="")
+    folder: Mapped[str] = mapped_column(String(500), default="")  # relative to the workspace; "" = none
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Chat(Base):
     __tablename__ = "chats"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(200), default="New chat")
     task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
+    # The project this chat belongs to. Like parent_id it has no foreign key; deleting a project clears it.
+    project_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     # A sub-agent's session: the chat whose run started it. Kept out of chat lists, read-only, deleted with it
     # (by the API: no foreign key, as adding one to an existing SQLite table means copying the table).
     parent_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
@@ -152,6 +169,7 @@ class Task(Base):
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_status: Mapped[str] = mapped_column(String(20), default="")  # ok | error | running
     last_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)  # its runs are chats in it
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

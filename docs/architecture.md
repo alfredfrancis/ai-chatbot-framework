@@ -163,6 +163,19 @@ The page polls `GET /api/apps/{id}` for the source and the agent's state. Every 
 - `mcp` opens an `McpHub` and calls a tool only if it is annotated read-only; writes must go through the
   agent, which asks the user first.
 
+## Projects (`backend/acf/projects.py`)
+
+A project is a row: a name, a description, instructions and an optional folder (a path inside the
+workspace, checked with `workspace.resolve` and made if missing). Chats and tasks point at it with
+`project_id`. Each turn, `Run._turn` loads the chat's project and `prompt.sections` adds a `<project>`
+part (after the connected apps, before `memory.md`): the instructions, where the folder is, and the id to
+pass to `create_task`. Because the prompt is built per turn, editing a project reaches its existing chats;
+there is no new tool and no change to how paths or `bash` work — the folder is a place the agent is told to
+use, not a second root. A task with a `project_id` creates its run's chat in that project. Over ACP,
+`session/new` takes `_meta.acf.projectId`, `session/list` marks project sessions with it and `session/load`
+answers with `_meta.acf.project` = `{id, name}`. Deleting a project clears `project_id` on its chats and
+tasks; nothing else is removed.
+
 ## Scheduled tasks (`backend/acf/scheduler.py`)
 
 Cron + time zone, or a single time (`run_at`) for a one-off task. `tick()` starts due tasks (next run is

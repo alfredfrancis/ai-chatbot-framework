@@ -68,6 +68,9 @@ its own private computer, their files, skills, app connections and scheduled job
   ` ```openui ` block written with the same components (bar, line and pie charts, progress, lists, steps,
   tabs, sliders, choices, buttons). A button sends its text back into the chat, so the user can pick
   instead of typing.
+- **Projects** – ongoing work with its own instructions and, optionally, a folder in your files. A chat started
+  in a project follows its instructions and keeps its files in that folder; a task made in a project runs as a
+  chat there. Deleting a project keeps its chats, tasks and files.
 - **Scheduled tasks** – repeating ("every weekday at 08:00 …") or once ("tomorrow at 17:00"); each run becomes a
   chat, and a one-off task turns itself off after its run. Set them up on the Tasks page or just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
   `delete_task` and `run_task` (the server name `system` is reserved).

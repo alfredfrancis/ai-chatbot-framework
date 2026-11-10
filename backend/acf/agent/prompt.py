@@ -1,9 +1,10 @@
-"""System prompt: short instructions + the user's context file + the skills index + connected apps + memory.
+"""System prompt: short instructions + the user's context file + the skills index + connected apps + the
+chat's project + memory.
 
 Built once per turn and reused for every model call in it, so providers can cache it (see loop.Run._turn).
 Ordered from most to least stable, so a change near the end keeps the cached prefix before it: the fixed
-instructions, context.md (the user edits it rarely), the skills index, connected apps, memory.md (the agent
-edits it often), and the date.
+instructions, context.md (the user edits it rarely), the skills index, connected apps, the project the chat
+belongs to (if any), memory.md (the agent edits it often), and the date.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from acf import config, scan, skills, workspace
+from acf.db import Project
 
 BASE = """You are the assistant in AI Chatbot Framework: a capable agent working for one person, who may \
 not be technical.
@@ -83,6 +85,29 @@ read .acf/mcp/<server>/<tool>.json with read for its arguments.
 </connected apps>"""
 
 
+PROJECT = """<project id="{id}" name="{name}">
+This chat is part of the user's project "{name}". Follow the instructions the user wrote for it, below; \
+where they differ from context.md, they win in this chat.{folder}
+A task you schedule for this project gets project_id {id} (create_task), so each run is a chat in the project.
+<instructions>
+{instructions}
+</instructions>
+</project>"""
+
+PROJECT_FOLDER = """
+The project's folder is /workspace/{folder}: look there first, and keep the files you make for this \
+project in it."""
+
+
+def _project(p: Project) -> str:
+    return PROJECT.format(
+        id=p.id,
+        name=" ".join(p.name.split()).replace('"', "'"),
+        folder=PROJECT_FOLDER.format(folder=p.folder) if p.folder else "",
+        instructions=p.instructions.strip() or "(none yet)",
+    )
+
+
 def _memory(user_id: int) -> tuple[str, str]:
     """memory.md as it goes into the prompt, and its usage line."""
     limit = config.settings.memory_limit
@@ -100,8 +125,10 @@ def _memory(user_id: int) -> tuple[str, str]:
     return mem, used
 
 
-def sections(user_id: int, apps: dict[str, list[str]], model: str = "") -> list[tuple[str, str]]:
-    """The system prompt in order, as (part, text): instructions, context, skills, apps, memory, date."""
+def sections(
+    user_id: int, apps: dict[str, list[str]], model: str = "", project: Project | None = None
+) -> list[tuple[str, str]]:
+    """The system prompt in order, as (part, text): instructions, context, skills, apps, project, memory, date."""
     ctx = workspace.read_file(user_id, workspace.CONTEXT_FILE).strip()
     mem, used = _memory(user_id)
     skill_lines = "\n".join(f"- {s.name}: {s.description} ({s.path})" for s in skills.list_skills(user_id))
@@ -112,10 +139,11 @@ def sections(user_id: int, apps: dict[str, list[str]], model: str = "") -> list[
         ("context", f'\n\n<context file="context.md">\n{ctx or "(empty)"}\n</context>'),
         ("skills", f"\n\n<skills>\n{skill_lines or '(none yet)'}\n</skills>"),
         ("apps", f"\n\n{APPS.format(lines=app_lines)}" if apps else ""),
+        ("project", f"\n\n{_project(project)}" if project else ""),
         ("memory", f'\n\n<memory file="memory.md" used="{used}">\n{mem or "(empty)"}\n</memory>'),
         ("instructions", f"\n\nToday is {today} (UTC)." + (f" You run on the model {model}." if model else "")),
     ]
 
 
-def build(user_id: int, apps: dict[str, list[str]], model: str = "") -> str:
-    return "".join(text for _, text in sections(user_id, apps, model))
+def build(user_id: int, apps: dict[str, list[str]], model: str = "", project: Project | None = None) -> str:
+    return "".join(text for _, text in sections(user_id, apps, model, project))

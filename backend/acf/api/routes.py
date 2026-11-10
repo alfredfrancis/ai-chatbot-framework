@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import apps, artifacts, config, mcp_presets, oauth, scheduler, skills, workspace
+from acf import apps, artifacts, config, mcp_presets, oauth, projects, scheduler, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import transcripts
 from acf.auth import (
@@ -25,7 +25,7 @@ from acf.auth import (
     hash_password,
     verify_password,
 )
-from acf.db import AcpToken, Chat, Message, Task, User, get_db, session_scope
+from acf.db import AcpToken, Chat, Message, Project, Task, User, get_db, session_scope
 from acf.mcp_client import ConfigError, McpHub, parse_config
 from acf.sandbox import get_sandbox
 
@@ -119,6 +119,92 @@ def me(user: User = Depends(current_user)) -> dict:
     return {"user": _user_dict(user)}
 
 
+# ------------------------------------------------------------------ projects (see acf.projects)
+
+
+class ProjectIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field("", max_length=500)
+    instructions: str = Field("", max_length=20_000)
+    folder: str = Field("", max_length=500)  # relative to the workspace; made if missing; "" = none
+
+
+class ProjectPatch(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=500)
+    instructions: str | None = Field(None, max_length=20_000)
+    folder: str | None = Field(None, max_length=500)
+
+
+def _own_project(db: Session, user: User, project_id: int) -> Project:
+    try:
+        return projects.own(db, user.id, project_id)
+    except ValueError as e:
+        raise HTTPException(404, "Project not found") from e
+
+
+@router.get("/projects")
+def list_projects(db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> list[dict]:
+    counts = projects.counts(db, user.id)
+    rows = db.query(Project).filter_by(user_id=user.id).order_by(Project.updated_at.desc(), Project.id.desc()).all()
+    return [projects.as_dict(p, counts.get(p.id)) for p in rows]
+
+
+@router.post("/projects")
+def create_project(
+    body: ProjectIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
+    try:
+        return projects.as_dict(projects.create(db, user.id, body.model_dump()))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.get("/projects/{project_id}")
+def get_project(
+    project_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
+    """A project with its chats (newest first) and tasks."""
+    p = _own_project(db, user, project_id)
+    chats = (
+        db.query(Chat)
+        .filter_by(user_id=user.id, project_id=p.id, parent_id=None)
+        .order_by(Chat.updated_at.desc())
+        .limit(200)
+        .all()
+    )
+    tasks = db.query(Task).filter_by(user_id=user.id, project_id=p.id).order_by(Task.id).all()
+    return {
+        "project": projects.as_dict(p, projects.counts(db, user.id).get(p.id)),
+        "chats": [_chat_dict(c) for c in chats],
+        "tasks": [scheduler.as_dict(t) for t in tasks],
+    }
+
+
+@router.patch("/projects/{project_id}")
+def update_project(
+    project_id: int,
+    body: ProjectPatch,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(current_user),
+) -> dict:
+    p = _own_project(db, user, project_id)
+    try:
+        projects.update(p, body.model_dump(exclude_none=True))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return projects.as_dict(p, projects.counts(db, user.id).get(p.id))
+
+
+@router.delete("/projects/{project_id}")
+def delete_project(
+    project_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
+    """Remove a project; its chats, tasks and files are kept."""
+    projects.delete(db, _own_project(db, user, project_id))
+    return {"ok": True}
+
+
 # ------------------------------------------------------------------ chats
 
 
@@ -127,6 +213,7 @@ def _chat_dict(c: Chat) -> dict[str, Any]:
         "id": c.id,
         "title": c.title,
         "task_id": c.task_id,
+        "project_id": c.project_id,
         "parent_id": c.parent_id,  # set on a sub-agent's session
         "updated_at": _iso(c.updated_at),
     }
@@ -147,13 +234,15 @@ def list_chats(db: Session = Depends(get_db, scope="function"), user: User = Dep
 
 class ChatIn(BaseModel):
     title: str = "New chat"
+    project_id: int | None = None  # on create: start the chat in this project
 
 
 @router.post("/chats")
 def create_chat(
     body: ChatIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
 ) -> dict:
-    chat = Chat(user_id=user.id, title=body.title[:200] or "New chat")
+    project = _own_project(db, user, body.project_id) if body.project_id is not None else None
+    chat = Chat(user_id=user.id, title=body.title[:200] or "New chat", project_id=project.id if project else None)
     db.add(chat)
     db.flush()
     return _chat_dict(chat)
@@ -623,6 +712,7 @@ class TaskIn(BaseModel):
     run_at: str | None = Field(None, max_length=40)  # one-off: ISO date-time, local to `timezone` without offset
     timezone: str = Field("UTC", max_length=64)
     enabled: bool = True
+    project_id: int | None = None  # its runs are chats in this project
 
 
 class TaskPatch(BaseModel):

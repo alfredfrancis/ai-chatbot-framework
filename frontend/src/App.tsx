@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { acp } from "./acp";
-import { api, type AppSummary, type ChatSummary, type User } from "./api";
+import { api, type AppSummary, type ChatSummary, type Project, type User } from "./api";
 import {
-  IconApp, IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconMore, IconPlug, IconPlus, IconSearch, IconSpark, Keys, Lockup,
+  IconApp, IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconMore, IconPlug, IconPlus, IconProject, IconSearch, IconSpark, Keys, Lockup,
 } from "./components/icons";
 import AppPage from "./pages/AppView";
 import AppsPage, { CREATE_APP_PROMPT } from "./pages/Apps";
@@ -12,13 +12,15 @@ import ChatPage from "./pages/Chat";
 import ConnectionsPage from "./pages/Connections";
 import FilesPage from "./pages/Files";
 import OAuthCallback from "./pages/OAuthCallback";
+import ProjectPage from "./pages/Project";
+import ProjectsPage from "./pages/Projects";
 import SettingsPage from "./pages/Settings";
 import SkillsPage from "./pages/Skills";
 import TasksPage from "./pages/Tasks";
 
 type Counts = { files: number; skills: number; tasks: number; connections: number };
 type AppCtx = {
-  user: User; chats: ChatSummary[]; apps: AppSummary[]; counts: Counts; refresh: () => void; openNav: () => void; openCommands: () => void;
+  user: User; chats: ChatSummary[]; apps: AppSummary[]; projects: Project[]; counts: Counts; refresh: () => void; openNav: () => void; openCommands: () => void;
   signOut: () => void;
 };
 const Ctx = createContext<AppCtx | null>(null);
@@ -26,6 +28,7 @@ export const useApp = () => useContext(Ctx)!;
 
 const GO = [
   { key: "c", to: "/", label: "Chats", icon: <IconChat /> },
+  { key: "p", to: "/projects", label: "Projects", icon: <IconProject /> },
   { key: "f", to: "/files", label: "Files", icon: <IconDrawer /> },
   { key: "s", to: "/skills", label: "Skills", icon: <IconSpark /> },
   { key: "t", to: "/tasks", label: "Tasks", icon: <IconClock /> },
@@ -35,12 +38,14 @@ const GO = [
 
 /** Top bar: breadcrumb on the left, actions on the right, menu button on phones.
  *  `phoneOnly` pages carry their title in a PageHeader instead, so the bar only shows on phones (for the menu button). */
-export function Topbar({ crumb, title, children, phoneOnly = false }: { crumb?: string; title: string; children?: ReactNode; phoneOnly?: boolean }) {
+export function Topbar({ crumb, crumbTo, title, children, phoneOnly = false }: {
+  crumb?: string; crumbTo?: string; title: string; children?: ReactNode; phoneOnly?: boolean;
+}) {
   const { openNav } = useApp();
   return (
     <header className={`topbar${phoneOnly ? " phone-only" : ""}`}>
       <button className="btn ghost icon menu-btn" aria-label="Open menu" onClick={openNav}><IconMenu /></button>
-      {crumb && <><span className="crumb">{crumb}</span><span className="crumb">/</span></>}
+      {crumb && <>{crumbTo ? <Link className="crumb" to={crumbTo}>{crumb}</Link> : <span className="crumb">{crumb}</span>}<span className="crumb">/</span></>}
       <span className="here">{title}</span>
       {children && <span className="actions">{children}</span>}
     </header>
@@ -113,6 +118,7 @@ const typing = (t: EventTarget | null) =>
 function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [apps, setApps] = useState<AppSummary[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [counts, setCounts] = useState<Counts>({ files: 0, skills: 0, tasks: 0, connections: 0 });
   const [sandbox, setSandbox] = useState<string>("");
   const [navOpen, setNavOpen] = useState(false);
@@ -123,6 +129,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const refresh = useCallback(() => {
     api.get<ChatSummary[]>("/chats").then(setChats).catch(() => {});
     api.get<AppSummary[]>("/apps").then(setApps).catch(() => {});
+    api.get<Project[]>("/projects").then(setProjects).catch(() => {});
     api.get<{ state: string }>("/sandbox").then((r) => setSandbox(r.state)).catch(() => {});
     Promise.all([
       api.get<{ entries: unknown[] }>("/files").then((r) => r.entries.length).catch(() => 0),
@@ -161,6 +168,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
 
   const commands: Command[] = [
     { id: "new-chat", group: "Actions", label: "New chat", icon: <IconPlus />, keys: ["C"], run: () => navigate("/") },
+    { id: "new-project", group: "Actions", label: "New project", icon: <IconProject />, run: () => navigate("/projects?new=1") },
     { id: "new-task", group: "Actions", label: "New task", icon: <IconClock />, run: () => navigate("/tasks?new=1") },
     { id: "upload-skill", group: "Actions", label: "Upload a skill", icon: <IconSpark />, run: () => navigate("/skills") },
     { id: "sign-out", group: "Actions", label: "Sign out", icon: <IconLogout />, run: signOut },
@@ -168,6 +176,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
     { id: "create-app", group: "Actions", label: "Create an app", icon: <IconApp />, run: () => navigate("/", { state: { draft: CREATE_APP_PROMPT } }) },
     { id: "all-apps", group: "Your apps", label: "See all apps", icon: <IconApp />, run: () => navigate("/apps") },
     ...apps.map((a) => ({ id: `app-${a.id}`, group: "Your apps", label: a.title, icon: <IconApp />, run: () => navigate(`/apps/${a.id}`) })),
+    ...projects.map((p) => ({ id: `project-${p.id}`, group: "Projects", label: p.name, icon: <IconProject />, run: () => navigate(`/projects/${p.id}`) })),
     ...chats.slice(0, 8).map((c) => ({ id: `chat-${c.id}`, group: "Recent chats", label: c.title, icon: <IconChat />, run: () => navigate(`/c/${c.id}`) })),
   ];
 
@@ -180,7 +189,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   const onChat = location.pathname === "/" || location.pathname.startsWith("/c/");
 
   return (
-    <Ctx.Provider value={{ user, chats, apps, counts, refresh, openNav: () => setNavOpen(true), openCommands: () => setCmdOpen(true), signOut }}>
+    <Ctx.Provider value={{ user, chats, apps, projects, counts, refresh, openNav: () => setNavOpen(true), openCommands: () => setCmdOpen(true), signOut }}>
       <div className="shell">
         {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
         <nav className={`sidebar${navOpen ? " open" : ""}`} aria-label="Main">
@@ -190,6 +199,7 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
           </button>
           <Link to="/" className="btn new-chat"><IconPlus />New chat<span className="kbd">C</span></Link>
           <NavLink to="/" end className={() => `nav${onChat ? " active" : ""}`}><IconChat />Chats</NavLink>
+          {nav("/projects", "Projects", <IconProject />, projects.length)}
           {nav("/files", "Files", <IconDrawer />, counts.files)}
           {nav("/skills", "Skills", <IconSpark />, counts.skills)}
           {nav("/tasks", "Tasks", <IconClock />, counts.tasks)}
@@ -248,6 +258,8 @@ export default function App() {
               <Route path="/c/:id" element={<ChatPage />} />
               <Route path="/apps" element={<AppsPage />} />
               <Route path="/apps/:id" element={<AppPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/projects/:id" element={<ProjectPage />} />
               <Route path="/files" element={<FilesPage />} />
               <Route path="/skills" element={<SkillsPage />} />
               <Route path="/tasks" element={<TasksPage />} />

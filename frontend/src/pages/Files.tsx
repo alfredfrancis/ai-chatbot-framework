@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatSize as size, rawUrl as raw, uploadFile, type FileEntry } from "../api";
 import { PageHeader, Topbar, useApp } from "../App";
 import { IconDownload, IconFile, IconFolder, IconUploadSm } from "../components/icons";
@@ -33,7 +33,10 @@ export default function FilesPage() {
     setEntries(r.entries);
     setPreview(null);
   }, []);
-  useEffect(() => { open(""); }, [open]);
+  // /files?path=<folder> opens that folder (a project's folder links here); a folder that is gone opens the top.
+  const [params] = useSearchParams();
+  const start = params.get("path") ?? "";
+  useEffect(() => { open(start).catch(() => open("")); }, [open, start]);
 
   const show = async (e: FileEntry) => {
     if (e.type === "dir") return open(e.path);

@@ -2,7 +2,18 @@ export type User = { id: number; email: string; name: string };
 export type FileEntry = { name: string; path: string; type: "dir" | "file"; size?: number; items?: number };
 export type Artifact = { path: string; name: string; kind: "uploaded" | "produced"; size: number; modified_at: string };
 export type Skill = { name: string; description: string; path: string; files: number; builtin: boolean };
-export type ChatSummary = { id: number; title: string; task_id: number | null; updated_at: string };
+export type ChatSummary = { id: number; title: string; task_id: number | null; project_id: number | null; updated_at: string };
+/** Ongoing work with its own instructions and, optionally, a folder in the workspace ("" = none). */
+export type Project = {
+  id: number;
+  name: string;
+  description: string;
+  instructions: string;
+  folder: string;
+  chats: number;
+  tasks: number;
+  updated_at: string;
+};
 export type AppSummary = { id: string; title: string; description: string; error: string | null };
 export type AppDetail = AppSummary & { source: string; chat_id: number | null; running: boolean };
 export type Task = {
@@ -17,6 +28,7 @@ export type Task = {
   last_run_at: string | null;
   last_status: string;
   last_chat_id: number | null;
+  project_id: number | null; // its runs are chats in this project
 };
 export type McpServer = {
   name: string;

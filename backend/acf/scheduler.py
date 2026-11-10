@@ -1,5 +1,6 @@
 """Tasks: a prompt + when to run it, either a cron schedule (recurring) or a single time (`run_at`, one-off).
 Each run creates a new chat with the result. A one-off task turns itself off once it has started.
+A task made for a project (`project_id`) runs as a chat in that project, with the project's instructions.
 
 Every app process runs the scheduler. A due task is claimed by moving its next_run_at with a
 compare-and-set update, so exactly one process starts it."""
@@ -15,7 +16,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from croniter import croniter
 from sqlalchemy.orm import Session
 
-from acf import bus, config
+from acf import bus, config, projects
 from acf.agent import loop as agent
 from acf.db import Chat, Task, User, session_scope, utcnow
 
@@ -88,6 +89,7 @@ def as_dict(t: Task) -> dict[str, Any]:
         "last_run_at": _iso(t.last_run_at),
         "last_status": t.last_status,
         "last_chat_id": t.last_chat_id,
+        "project_id": t.project_id,
     }
 
 
@@ -96,6 +98,8 @@ def create(db: Session, user_id: int, fields: dict[str, Any]) -> Task:
     fields = dict(fields)
     tz = fields.get("timezone") or "UTC"
     run_at = fields.pop("run_at", None)
+    if fields.get("project_id") is not None:
+        projects.own(db, user_id, fields["project_id"])
     task = Task(
         user_id=user_id,
         **{
@@ -140,7 +144,8 @@ async def run_task(task_id: int) -> int | None:
                 return None
             user = db.get(User, task.user_id)
             stamp = datetime.now(ZoneInfo(task.timezone)).strftime("%d %b %H:%M")
-            chat = Chat(user_id=task.user_id, title=f"{task.name[:180]} · {stamp}", task_id=task.id)
+            title = f"{task.name[:180]} · {stamp}"
+            chat = Chat(user_id=task.user_id, title=title, task_id=task.id, project_id=task.project_id)
             db.add(chat)
             task.last_status = "running"
             task.last_run_at = utcnow()
