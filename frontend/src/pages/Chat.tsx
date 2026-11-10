@@ -2,12 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type AgentInfo, type Attachment, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
+import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type AgentInfo, type Attachment, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
-import { IconArrowUp, IconCheck, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
+import { IconArrowUp, IconChat, IconCheck, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -125,7 +125,12 @@ function AgentDetails({ call, finished }: { call: ToolCall; finished: boolean })
   const facts = a ? [a.model, plural(a.steps.length, "step"), ...(a.tokens ? [plural(a.tokens, "token")] : [])] : [];
   return (
     <div className="step-agent" role="group" aria-label={call.title}>
-      {a && <div className="meta">{facts.join(" · ")}</div>}
+      {a && (
+        <div className="meta">
+          <span>{facts.join(" · ")}</span>
+          {a.session && <Link to={`/c/${a.session}`} aria-label={`Open session: ${call.title}`}>Open session</Link>}
+        </div>
+      )}
       {a && a.steps.length > 0 && (
         <ol>
           {a.steps.map((s, i) => (
@@ -578,6 +583,8 @@ export default function ChatPage() {
   const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
   const [panel, setPanel] = useState(panelPref);
   const [usage, setUsage] = useState<Usage | null>(null);
+  // A sub-agent's session: read-only, with the chat it belongs to and what the sub-agent was for.
+  const [sub, setSub] = useState<{ title: string; parent: ParentSession } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(sid);
   current.current = sid;
@@ -599,7 +606,10 @@ export default function ChatPage() {
     setEntries([]);
     try {
       const r = await loadSession(target);
-      if (current.current === target) setRunning(!!r?._meta?.acf?.running);
+      if (current.current !== target) return;
+      const meta = r?._meta?.acf;
+      setRunning(!!meta?.running);
+      setSub(meta?.parent ? { title: meta.title ?? "Sub-agent", parent: meta.parent } : null);
     } catch {
       if (current.current === target) navigate("/", { replace: true });
     }
@@ -664,7 +674,7 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    setEntries([]); setError(""); setQueued([]); setRunning(false); setArtifacts(null); setUsage(null);
+    setEntries([]); setError(""); setQueued([]); setRunning(false); setArtifacts(null); setUsage(null); setSub(null);
     if (!sid) return;
     loadArtifacts(sid);
     const pending = (location.state as { pending?: Outgoing } | null)?.pending;
@@ -702,7 +712,8 @@ export default function ChatPage() {
 
   return (
     <>
-      <Topbar crumb="Chats" title={title}>
+      <Topbar crumb={sub ? sub.parent.title || "Chat" : "Chats"} title={sub ? sub.title : title}>
+        {sub && <span className="badge plain">Sub-agent</span>}
         {running && <span className="badge live"><span className="live-dot" />Working</span>}
         {usage && <ContextMeter usage={usage} />}
         <button className={`btn ghost sm artifacts-toggle${panel ? " on" : ""}`} aria-label="Artifacts" aria-expanded={panel} aria-controls="artifacts"
@@ -711,18 +722,27 @@ export default function ChatPage() {
         </button>
         <MoreMenu label="Chat actions" items={[
           { label: panel ? "Hide artifacts" : "Show artifacts", icon: <IconPanel />, phoneOnly: true, onSelect: togglePanel },
-          { label: "Delete chat", icon: <IconTrash />, confirm: "Yes, delete this chat", onSelect: remove },
+          sub
+            ? { label: "Back to the chat", icon: <IconChat />, onSelect: () => navigate(`/c/${sub.parent.sessionId}`) }
+            : { label: "Delete chat", icon: <IconTrash />, confirm: "Yes, delete this chat", onSelect: remove },
         ]} />
       </Topbar>
       <div className="chat-layout">
         <div className="chat-col">
           <div className="chat-scroll" ref={scroller}>
-            <Thread entries={entries} running={running} queued={queued} onPrompt={(t) => send(t, sid)} />
+            <Thread entries={entries} running={running} queued={queued} onPrompt={(t) => { if (!sub) send(t, sid); }} />
             {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
           </div>
           <div className="composer-wrap">
-            <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running}
-              background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
+            {sub ? (
+              <div className="read-only" role="note" aria-label="Read-only session">
+                <span>A sub-agent’s session. You can read it, not write in it.</span>
+                <Link className="btn sm" to={`/c/${sub.parent.sessionId}`}>Back to the chat</Link>
+              </div>
+            ) : (
+              <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running}
+                background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
+            )}
           </div>
         </div>
         {panel && <ArtifactsPanel items={artifacts} onClose={togglePanel} />}

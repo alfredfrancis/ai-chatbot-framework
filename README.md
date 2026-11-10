@@ -20,7 +20,8 @@ its own private computer, their files, skills, app connections and scheduled job
   the running command otherwise); **Stop** at any time.
 - **Sub-agents** – for a job that splits into parts, the agent starts helpers that work side by side, each
   with its own goal, a fresh context and a model the agent picks (its own, a fast one, or any model id),
-  then puts their reports together. The chat shows what each one is doing.
+  then puts their reports together. The chat shows what each one is doing, and each one's own session opens
+  read-only (also while it works) from its step in the chat.
 - **One private sandbox per user** – a Docker container with a persistent `/workspace`, resource limits
   and no Linux capabilities. Commands and local MCP servers run there.
 - **Files, not forms** – `context.md` (about you) and `memory.md` (what the agent remembers) are plain

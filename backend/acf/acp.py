@@ -29,6 +29,9 @@ when the command ends, a `tool_call_update` completes it with the output.
 A sub-agent (the `agent` tool) is one tool call: while it works, `tool_call_update`s carry
 `_meta.acf.agent` = {model, tokens, steps: [{title, ok}]} (`ok` is null for a step that is running); the
 update that completes it has the sub-agent's report as its content and the final `_meta.acf.agent`.
+`_meta.acf.agent.session` is the sub-agent's own session: session/load replays it (and follows it while it
+works) and answers with `_meta.acf.parent` = {sessionId, title} of the session it belongs to. It is
+read-only (session/prompt and session/cancel are refused) and session/list leaves it out.
 """
 
 from __future__ import annotations
@@ -58,6 +61,7 @@ PROTOCOL_VERSION = 1
 MAX_PROMPT = 100_000
 WORKSPACE = "/workspace"
 SUMMARY_NOTICE = "Earlier messages were summarised to keep things fast."
+READ_ONLY = "A sub-agent's session is read-only. Send your message to the chat it belongs to."
 
 # JSON-RPC error codes
 PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS, INTERNAL_ERROR = -32700, -32600, -32601, -32602, -32603
@@ -298,7 +302,7 @@ class Connection:
     async def _notification(self, method: str, params: dict[str, Any]) -> None:
         if method == "session/cancel":
             with contextlib.suppress(RpcError):
-                agent.stop(self._own_chat(params))
+                agent.stop(self._own_chat(params, write=True))
 
     # -- helpers
     def _watch(self, chat_id: int) -> None:
@@ -325,7 +329,8 @@ class Connection:
                 raise RpcError(INVALID_REQUEST, "This account no longer exists")
             return user
 
-    def _own_chat(self, params: dict[str, Any]) -> int:
+    def _own_chat(self, params: dict[str, Any], write: bool = False) -> int:
+        """The user's chat for `sessionId`. `write`: for sending to it, which a sub-agent's session refuses."""
         sid = params.get("sessionId")
         if not isinstance(sid, str) or not sid.isdigit():
             raise RpcError(INVALID_PARAMS, "sessionId must be a session id from session/new or session/list")
@@ -333,6 +338,8 @@ class Connection:
             chat = db.get(Chat, int(sid))
             if not chat or chat.user_id != self.user_id:
                 raise RpcError(NOT_FOUND, f"Session {sid} not found")
+            if write and chat.parent_id is not None:
+                raise RpcError(INVALID_REQUEST, READ_ONLY)
             return chat.id
 
     def _follow(
@@ -458,7 +465,13 @@ async def session_new(conn: Connection, params: dict[str, Any]) -> dict[str, Any
 
 async def session_list(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
     with session_scope() as db:
-        rows = db.query(Chat).filter_by(user_id=conn.user_id).order_by(Chat.updated_at.desc()).limit(200).all()
+        rows = (
+            db.query(Chat)
+            .filter_by(user_id=conn.user_id, parent_id=None)
+            .order_by(Chat.updated_at.desc())
+            .limit(200)
+            .all()
+        )
         sessions = [
             {"sessionId": str(c.id), "cwd": WORKSPACE, "title": c.title, "updatedAt": c.updated_at.isoformat() + "Z"}
             for c in rows
@@ -471,7 +484,12 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
     sid = str(chat_id)
     run = agent.active(chat_id)
     gate = asyncio.Event()
+    meta: dict[str, Any] = {"running": run is not None}
     with session_scope() as db:
+        chat = db.get(Chat, chat_id)
+        parent = db.get(Chat, chat.parent_id) if chat and chat.parent_id else None
+        if chat and parent:  # a sub-agent's session
+            meta.update(title=chat.title, parent={"sessionId": str(parent.id), "title": parent.title})
         stored = db.query(Message).filter_by(chat_id=chat_id).order_by(Message.id).all()
         rows = [m.to_dict() for m in stored]
         last_usage = next(
@@ -488,11 +506,11 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
         await conn._emit(sid, message_updates(m))
     if last_usage:
         await conn._emit(sid, [context_usage.update(last_usage)])
-    return _Reply({"_meta": {"acf": {"running": run is not None}}}, after=gate.set)
+    return _Reply({"_meta": {"acf": meta}}, after=gate.set)
 
 
 async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
-    chat_id = conn._own_chat(params)
+    chat_id = conn._own_chat(params, write=True)
     text = skills.reference(conn.user_id, prompt_text(params.get("prompt")))  # /name calls a skill
     conn._watch(chat_id)
     run, queued = agent.start(conn._user(), chat_id, text)

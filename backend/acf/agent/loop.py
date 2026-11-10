@@ -18,7 +18,8 @@ Design (borrowing from pi, Hermes and Claude Code):
   .acf/mcp/, and one `mcp_call` tool runs them (see mcp_client). Binding every schema costs tens of
   thousands of prompt tokens per step.
 - Sub-agents (the `agent` tool, see subagents.py): helpers with a fresh context and a model the main agent
-  picks. Several calls in one answer work side by side; each result is that helper's report.
+  picks. Several calls in one answer work side by side; each result is that helper's report. Each has a
+  session of its own (a chat with a parent) that can be opened read-only.
 - Tool errors, bad arguments and unknown tools become error results the model can recover from.
 - Outputs are truncated with the full text spilled to a file (see tools.truncate).
 - The system prompt is built once per turn and reused for every step, so the provider's prompt cache
@@ -481,7 +482,7 @@ class Run:
                     self.emit({"type": "agent", "id": call["id"], "agent": info})
 
                 async with self._agents:
-                    return await subagents.run(self.user, self.system or "", tools, args, progress)
+                    return await subagents.run(self.user, self.chat_id, self.system or "", tools, args, progress)
 
             ctx = ToolContext(
                 self.user.id,

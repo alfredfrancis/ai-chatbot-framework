@@ -11,23 +11,27 @@ The main agent hands a part of a job to a helper, as Cursor and Claude Code do w
   provider) or a model id. The provider, address and key are always the user's own (LLMConfig.with_model).
 - A sub-agent has the main agent's tools except `agent` (no sub-agents of sub-agents) and background
   commands (nothing would read their output).
-- It lives in memory, inside the run that started it: its messages are not stored. The chat keeps the tool
-  result (the report) and, with it, the model, the steps it took and the tokens it used; the same record
-  goes to clients while it works (`agent` events), so the chat shows what each one is doing.
+- The chat keeps the tool result (the report) and, with it, the model, the steps it took and the tokens it
+  used; the same record goes to clients while it works (`agent` events), so the chat shows what each one is
+  doing.
+- Each one has a session of its own (`Session`): a chat with `parent_id` set, holding its messages. It is
+  kept out of the chat list and nobody can send to it, but a client can open it like any chat (session/load),
+  also while the sub-agent works: it holds its chat's lease and publishes its events to a feed.
 - Stopping the run stops its sub-agents: they are awaited by the tool call, so the cancel reaches them.
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable
 from typing import Any
 
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage, message_to_dict
 
-from acf import config
+from acf import bus, config
 from acf.agent.tools import Tool, ToolContext, ToolResult, call_tool, gather_calls, tool_title
-from acf.db import User
+from acf.db import Chat, Message, User, session_scope
 from acf.llm import LLMConfig, LLMError, calls_of, friendly_error, make_model, text_of
 
 NAME = "agent"
@@ -83,23 +87,77 @@ TOOL = Tool(
 )
 
 
+class Session:
+    """A sub-agent's own chat: its messages, stored as they come, and a feed of its events while it works."""
+
+    def __init__(self, user_id: int, parent_id: int, title: str):
+        with session_scope() as db:
+            chat = Chat(user_id=user_id, parent_id=parent_id, title=title.strip()[:200] or "Sub-agent")
+            db.add(chat)
+            db.flush()
+            self.chat_id: int = chat.id
+        self.run_id = bus.new_id()
+        bus.current().claim(self.chat_id, self.run_id)
+        self.feed = bus.current().feed(self.chat_id, self.run_id, local=True)
+
+    def emit(self, event: dict[str, Any]) -> None:
+        bus.current().publish(self.feed, event)
+
+    def save(self, **fields: Any) -> None:
+        with session_scope() as db:
+            msg = Message(chat_id=self.chat_id, **fields)
+            db.add(msg)
+            db.flush()
+            saved = msg.to_dict()
+        self.emit({"type": "message", "message": saved})
+
+    def close(self, stop_reason: str) -> None:
+        bus.current().release(self.chat_id, self.run_id)
+        self.emit({"type": "done", "stop_reason": stop_reason, "error": None, "ok": True, "final_text": ""})
+
+
 async def run(
     user: User,
+    chat_id: int,
     system: str,
     tools: dict[str, Tool],
     args: dict[str, Any],
     progress: Callable[[dict[str, Any]], None],
 ) -> ToolResult:
     """Work on `args["prompt"]` in a fresh context until the model answers without tools; the answer is the
-    result. `tools` are the main agent's; `progress` gets the record of the sub-agent after every change."""
+    result. `chat_id` is the chat of the run that asked; `tools` are the main agent's; `progress` gets the
+    record of the sub-agent after every change."""
+    session = Session(user.id, chat_id, str(args.get("description") or ""))
+    stop_reason = "end_turn"
+    try:
+        return await _work(user, session, system, tools, args, progress)
+    except asyncio.CancelledError:
+        stop_reason = "cancelled"
+        raise
+    finally:
+        session.close(stop_reason)
+
+
+async def _work(
+    user: User,
+    session: Session,
+    system: str,
+    tools: dict[str, Tool],
+    args: dict[str, Any],
+    progress: Callable[[dict[str, Any]], None],
+) -> ToolResult:
     cfg = LLMConfig.for_user(user).with_model(str(args.get("model") or ""))
-    info: dict[str, Any] = {"model": cfg.model, "tokens": 0, "steps": []}
+    info: dict[str, Any] = {"model": cfg.model, "tokens": 0, "steps": [], "session": str(session.chat_id)}
 
     def report() -> dict[str, Any]:
         return {**info, "steps": [dict(s) for s in info["steps"]]}
 
     def failed(why: str) -> ToolResult:
-        return ToolResult(f"The sub-agent could not finish: {why}", True, agent=report())
+        text = f"The sub-agent could not finish: {why}"
+        session.save(role="note", content=text)  # shown as a notice to whoever opens the session
+        return ToolResult(text, True, agent=report())
+
+    session.save(role="user", content=str(args["prompt"]))
 
     tools = {name: t for name, t in tools.items() if name != NAME}
     try:
@@ -115,8 +173,18 @@ async def run(
         step = {"title": tool_title(call["name"], call["args"]), "ok": None}
         info["steps"].append(step)
         progress(report())
+        session.emit({"type": "tool_start", "id": call["id"], "name": call["name"]})
+        started = time.monotonic()
         result = await call_tool(call, tools, ctx)
         step["ok"] = not result.is_error
+        session.save(
+            role="tool",
+            content=result.content,
+            tool_call_id=call["id"],
+            name=call["name"],
+            is_error=result.is_error,
+            raw={"duration_ms": int((time.monotonic() - started) * 1000)},
+        )
         progress(report())
         return ToolMessage(
             content=result.content or "(no output)",
@@ -144,6 +212,12 @@ async def run(
         info["tokens"] += int((ai.usage_metadata or {}).get("total_tokens") or 0)
         text = text_of(ai) or text
         calls = calls_of(ai)
+        session.save(
+            role="assistant",
+            content=text_of(ai),
+            tool_calls=[{"id": c["id"], "name": c["name"], "arguments": c["args"]} for c in calls] or None,
+            raw={"lc": message_to_dict(ai)},
+        )
         if not calls:
             return ToolResult(text or "(The sub-agent finished without a report.)", agent=report())
         history.extend(await gather_calls(calls, tools, one))
