@@ -154,3 +154,74 @@ async def test_sub_agents_can_be_switched_off(client, user, monkeypatch):
     monkeypatch.setattr(config.settings, "subagents", 0)
     turn = await send(client, await new_chat(client), "list tools")
     assert "agent" not in turn.final.removeprefix("Tools: ").split(", ")
+
+
+async def test_each_sub_agent_has_its_own_read_only_session(client, user):
+    from tests.acp_client import RpcError
+
+    chat_id = await new_chat(client)
+    turn = await send(client, chat_id, agent("Say hi", "run: echo hi-from-sub"))
+    sub = agent_meta(turn, turn.of("tool_call")[0]["toolCallId"])["session"]
+    assert sub != str(chat_id)
+
+    async with acp_connect(client) as acp:
+        # opening it replays what the sub-agent was asked, did and answered
+        loaded = await acp.request("session/load", {"sessionId": sub, "cwd": "/", "mcpServers": []})
+        assert loaded["_meta"]["acf"]["running"] is False and loaded["_meta"]["acf"]["title"] == "Say hi"
+        assert loaded["_meta"]["acf"]["parent"]["sessionId"] == str(chat_id)
+        ups = [u for u in acp.updates(sub) if u["sessionUpdate"] != "agent_message_chunk"]
+        assert [u["sessionUpdate"] for u in ups] == ["user_message_chunk", "tool_call", "tool_call_update"]
+        assert ups[0]["content"]["text"] == "run: echo hi-from-sub"
+        assert ups[1]["title"] == "Ran echo hi-from-sub"
+        assert ups[2]["status"] == "completed" and "hi-from-sub" in ups[2]["content"][0]["content"]["text"]
+        assert acp.updates(sub)[-1]["content"]["text"].startswith("Result: hi-from-sub")
+        # ...but nobody can send to it, and the chat lists leave it out
+        for text in ("hello", "show messages"):
+            try:
+                await acp.request("session/prompt", {"sessionId": sub, "prompt": [{"type": "text", "text": text}]})
+                raise AssertionError("a sub-agent's session took a message")
+            except RpcError as e:
+                assert "read-only" in e.message
+        listed = [s["sessionId"] for s in (await acp.request("session/list", {}))["sessions"]]
+        assert listed == [str(chat_id)]
+    assert [c["id"] for c in (await client.get("/api/chats")).json()] == [chat_id]
+    assert (await client.get(f"/api/chats/{sub}")).json()["parent_id"] == chat_id
+    with session_scope() as db:
+        assert [m.role for m in db.query(Message).filter_by(chat_id=int(sub)).order_by(Message.id)] == [
+            "user",
+            "assistant",
+            "tool",
+            "assistant",
+        ]
+    # it goes when its chat goes
+    assert (await client.delete(f"/api/chats/{chat_id}")).status_code == 200
+    assert (await client.get(f"/api/chats/{sub}")).status_code == 404
+
+
+async def test_a_sub_agents_session_can_be_watched_while_it_works(client, user):
+    chat_id = await new_chat(client)
+    async with acp_connect(client) as acp, acp_connect(client) as viewer:
+        task = asyncio.create_task(prompt(acp, chat_id, agent("Slow", "run: sleep 1.5; echo slow-done")))
+        meta = lambda n: n.get("params", {}).get("update", {}).get("_meta", {}).get("acf", {})  # noqa: E731
+        note = await acp.wait_for(lambda n: meta(n).get("agent", {}).get("steps"))
+        sub = note["params"]["update"]["_meta"]["acf"]["agent"]["session"]
+        loaded = await viewer.request("session/load", {"sessionId": sub, "cwd": "/", "mcpServers": []})
+        assert loaded["_meta"]["acf"]["running"] is True
+        end = await viewer.wait_for(lambda n: n.get("method") == "_acf/turn_end")
+        assert end["params"] == {"sessionId": sub, "stopReason": "end_turn"}
+        kinds = [u["sessionUpdate"] for u in viewer.updates(sub)]
+        assert kinds.count("user_message_chunk") == 1 and kinds.count("tool_call") == 1
+        done = [u for u in viewer.updates(sub) if u["sessionUpdate"] == "tool_call_update"][-1]
+        assert done["status"] == "completed" and "slow-done" in done["content"][0]["content"]["text"]
+        assert viewer.updates(sub)[-1]["content"]["text"].startswith("Result: slow-done")
+        await task
+
+
+async def test_a_failed_sub_agents_session_says_why(client, user):
+    chat_id = await new_chat(client)
+    turn = await send(client, chat_id, agent("Broken", "show model", "missing-model"))
+    sub = agent_meta(turn, turn.of("tool_call")[0]["toolCallId"])["session"]
+    async with acp_connect(client) as acp:
+        await acp.request("session/load", {"sessionId": sub, "cwd": "/", "mcpServers": []})
+        notices = [n["params"]["text"] for n in acp.notifications if n.get("method") == "_acf/notice"]
+    assert len(notices) == 1 and notices[0].startswith("The sub-agent could not finish")

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, say, shot, signUp } from "./helpers";
 
 const agent = (description: string, prompt: string, model?: string) =>
   `tool: agent ${JSON.stringify(model ? { description, prompt, model } : { description, prompt })}`;
@@ -60,4 +60,44 @@ test("stop ends the sub-agents too", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
   await say(page, "hello again");
   await expect(lastAssistant(page)).toHaveText("Echo: hello again");
+});
+
+test("a sub-agent's session opens read-only, while it works and afterwards", async ({ page }) => {
+  await signUp(page);
+  await say(page, agent("Check the sales file", "run: sleep 5; echo sales-ok"));
+  const step = page.getByTestId("tool-step");
+  await expect(step).toContainText("Ran sleep 5; echo sales-ok");
+  await step.click();
+  await page.getByRole("link", { name: "Open session: Sub-agent: Check the sales file" }).click();
+
+  // Its own session: what it was asked and what it is doing right now. Nothing to type in.
+  await expect(page.getByTestId("user-msg")).toHaveText("run: sleep 5; echo sales-ok");
+  await expect(page.locator(".topbar .here")).toHaveText("Check the sales file");
+  await expect(page.locator(".topbar").getByText("Working")).toBeVisible();
+  await expect(page.getByTestId("tool-step")).toContainText("sleep 5; echo sales-ok");
+  await expect(page.getByLabel("Working", { exact: true })).toHaveCount(1);
+  const note = page.getByRole("note", { name: "Read-only session" });
+  await expect(note).toBeVisible();
+  await expect(page.getByLabel("Message")).toHaveCount(0);
+  await shot(page, "10b-sub-agent-session");
+
+  // It finishes in front of the reader.
+  await expect(lastAssistant(page)).toContainText("Result: sales-ok", { timeout: 20_000 });
+  await expect(page.getByTestId("tool-step").locator(".ok")).toBeVisible();
+  await expect(page.locator(".topbar").getByText("Working")).toHaveCount(0);
+  // It is not a chat of its own in the sidebar.
+  await expect(nav(page).locator('a[href^="/c/"]')).toHaveCount(1);
+
+  // After a reload it is all still there, and still read-only.
+  await page.reload();
+  await expect(page.getByTestId("user-msg")).toHaveText("run: sleep 5; echo sales-ok");
+  await expect(lastAssistant(page)).toContainText("Result: sales-ok");
+  await expect(note).toBeVisible();
+  await expect(page.getByLabel("Message")).toHaveCount(0);
+
+  // Back in the chat it belongs to, the message box is there again.
+  await note.getByRole("link", { name: "Back to the chat" }).click();
+  await expect(page.getByLabel("Message")).toBeVisible();
+  await expect(page.getByTestId("tool-step")).toContainText("Sub-agent");
+  await expect(lastAssistant(page)).toHaveText(/^Result: /);
 });

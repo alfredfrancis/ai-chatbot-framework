@@ -123,7 +123,13 @@ def me(user: User = Depends(current_user)) -> dict:
 
 
 def _chat_dict(c: Chat) -> dict[str, Any]:
-    return {"id": c.id, "title": c.title, "task_id": c.task_id, "updated_at": _iso(c.updated_at)}
+    return {
+        "id": c.id,
+        "title": c.title,
+        "task_id": c.task_id,
+        "parent_id": c.parent_id,  # set on a sub-agent's session
+        "updated_at": _iso(c.updated_at),
+    }
 
 
 def _own_chat(db: Session, user: User, chat_id: int) -> Chat:
@@ -135,7 +141,7 @@ def _own_chat(db: Session, user: User, chat_id: int) -> Chat:
 
 @router.get("/chats")
 def list_chats(db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> list[dict]:
-    rows = db.query(Chat).filter_by(user_id=user.id).order_by(Chat.updated_at.desc()).limit(200).all()
+    rows = db.query(Chat).filter_by(user_id=user.id, parent_id=None).order_by(Chat.updated_at.desc()).limit(200).all()
     return [_chat_dict(c) for c in rows]
 
 
@@ -182,7 +188,10 @@ def rename_chat(
 def delete_chat(
     chat_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
 ) -> dict:
-    db.delete(_own_chat(db, user, chat_id))
+    chat = _own_chat(db, user, chat_id)
+    for sub in db.query(Chat).filter_by(parent_id=chat.id).all():  # its sub-agents' sessions
+        db.delete(sub)
+    db.delete(chat)
     transcripts.delete(user.id, chat_id)
     return {"ok": True}
 

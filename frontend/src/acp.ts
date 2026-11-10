@@ -6,8 +6,11 @@
 
 export type ContentBlock = { type: "text"; text: string } | { type: string; [k: string]: unknown };
 export type ToolStatus = "pending" | "in_progress" | "completed" | "failed";
-/** A sub-agent (the `agent` tool): its model, the tokens it used and its steps (`ok` is null while one runs). */
-export type AgentInfo = { model: string; tokens: number; steps: { title: string; ok: boolean | null }[] };
+/** A sub-agent (the `agent` tool): its model, the tokens it used, its steps (`ok` is null while one runs) and
+ *  its own session, which opens read-only. */
+export type AgentInfo = { model: string; tokens: number; steps: { title: string; ok: boolean | null }[]; session?: string };
+/** The session a sub-agent's session belongs to. */
+export type ParentSession = { sessionId: string; title: string };
 type Meta = { _meta?: { acf?: { messageId?: number | string; tool?: string; durationMs?: number | null; background?: string; agent?: AgentInfo } } };
 export type SessionUpdate = Meta & (
   | { sessionUpdate: "user_message_chunk" | "agent_message_chunk" | "agent_thought_chunk"; content: ContentBlock }
@@ -116,7 +119,7 @@ export const acp = new AcpClient();
 
 export const newSession = () => acp.request<{ sessionId: string }>("session/new", { cwd: "/workspace", mcpServers: [] });
 export const loadSession = (sessionId: string) =>
-  acp.request<{ _meta?: { acf?: { running?: boolean } } } | null>("session/load", { sessionId, cwd: "/workspace", mcpServers: [] });
+  acp.request<{ _meta?: { acf?: { running?: boolean; title?: string; parent?: ParentSession } } } | null>("session/load", { sessionId, cwd: "/workspace", mcpServers: [] });
 /** A file in the workspace, sent as an ACP resource_link (file:///workspace/<path>). */
 export type Attachment = { name: string; uri: string };
 export const WORKSPACE_URI = "file:///workspace/";
