@@ -48,7 +48,7 @@ def measure(
     tool_names = [t["function"]["name"] for t in tools]
     app_tools = [f"{server}: {', '.join(names)}" for server, names in apps.items()]  # used through mcp_call
     parts = [
-        {"name": "System prompt", "tokens": part("instructions", "context", "memory")},
+        {"name": "System prompt", "tokens": part("instructions", "context", "project", "memory")},
         {"name": "Tools", "tokens": estimate_tokens(tools) + part("apps"), "items": tool_names + app_tools},
         {"name": "Skills", "tokens": part("skills"), "items": skill_names},
         {"name": "Messages", "tokens": sum(_message_tokens(m) for m in history), "count": len(history)},

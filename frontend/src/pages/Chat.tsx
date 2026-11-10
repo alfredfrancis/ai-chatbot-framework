@@ -282,7 +282,7 @@ const slashAt = (text: string, caret: number) => {
 const MAX_SKILL_CHOICES = 6;
 let pendingSeq = 0;
 
-function Composer({ onSend, onStop, running, background = false, placeholder, initial = "" }: {
+export function Composer({ onSend, onStop, running, background = false, placeholder, initial = "" }: {
   onSend: (text: string, files: Attachment[]) => void; onStop?: () => void; running: boolean; background?: boolean; placeholder?: string;
   initial?: string;
 }) {
@@ -575,7 +575,7 @@ export default function ChatPage() {
   const sid = chatId ? String(chatId) : null;
   const navigate = useNavigate();
   const location = useLocation();
-  const { refresh, chats } = useApp();
+  const { refresh, chats, projects } = useApp();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [running, setRunning] = useState(false);
   const [queued, setQueued] = useState<Outgoing[]>([]);
@@ -709,10 +709,11 @@ export default function ChatPage() {
   const first = entries.find((e) => e.kind === "user");
   const firstUser = (first?.text || first?.files[0]?.name || "").split("\n")[0].slice(0, 60);
   const title = summary?.title && summary.title !== "New chat" ? summary.title : firstUser;
+  const project = sub ? undefined : projects.find((p) => p.id === summary?.project_id);
 
   return (
     <>
-      <Topbar crumb={sub ? sub.parent.title || "Chat" : "Chats"} title={sub ? sub.title : title}>
+      <Topbar crumb={sub ? sub.parent.title || "Chat" : project?.name ?? "Chats"} crumbTo={project && `/projects/${project.id}`} title={sub ? sub.title : title}>
         {sub && <span className="badge plain">Sub-agent</span>}
         {running && <span className="badge live"><span className="live-dot" />Working</span>}
         {usage && <ContextMeter usage={usage} />}

@@ -37,9 +37,9 @@ export function describe(cron: string): string {
 }
 
 /** A one-off task whose run has started: it is done and won't run again unless given a new time. */
-const isDone = (t: Task) => !!t.run_at && !t.enabled && !!t.last_run_at;
+export const isDone = (t: Task) => !!t.run_at && !t.enabled && !!t.last_run_at;
 
-function schedule(t: Task): string {
+export function schedule(t: Task): string {
   if (!t.run_at) return describe(t.schedule);
   const d = new Date(t.run_at);
   return `Once on ${d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
@@ -53,7 +53,7 @@ function tomorrowAt9(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
 }
 
-function when(iso: string | null): string {
+export function when(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   const diff = d.getTime() - Date.now();
@@ -77,7 +77,8 @@ const TEMPLATES: Template[] = [
     prompt: "Check https://example.com and tell me if anything important changed since the last check. Replace the address with the page to watch." },
 ];
 
-function TaskForm({ initial, onDone, onCancel }: { initial?: Template; onDone: () => void; onCancel: () => void }) {
+/** The new-task form. With `projectId` the task belongs to that project: its runs are chats in it. */
+export function TaskForm({ initial, projectId, onDone, onCancel }: { initial?: Template; projectId?: number; onDone: () => void; onCancel: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [prompt, setPrompt] = useState(initial?.prompt ?? "");
   const [freq, setFreq] = useState<Freq>(initial?.freq ?? "daily");
@@ -92,7 +93,7 @@ function TaskForm({ initial, onDone, onCancel }: { initial?: Template; onDone: (
     setError("");
     try {
       const timing = freq === "once" ? { run_at: runAt } : { schedule: toCron(freq, time, day, custom) };
-      await api.post("/tasks", { name, prompt, ...timing, timezone: localTz });
+      await api.post("/tasks", { name, prompt, ...timing, timezone: localTz, project_id: projectId ?? null });
       onDone();
     } catch (err) {
       setError((err as Error).message);
@@ -153,7 +154,7 @@ function TaskForm({ initial, onDone, onCancel }: { initial?: Template; onDone: (
           </div>
         )}
       </div>
-      <span className="hint">Times are in your time zone ({localTz}). Each run appears as a new chat.</span>
+      <span className="hint">Times are in your time zone ({localTz}). Each run appears as a new chat{projectId ? " in this project" : ""}.</span>
       {error && <div className="banner" role="alert">{error}</div>}
       <div className="row-flex end">
         <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>
@@ -170,7 +171,8 @@ export default function TasksPage() {
   const [template, setTemplate] = useState<Template | undefined>(undefined);
   const create = (t?: Template) => { setTemplate(t); setCreating(true); };
   const navigate = useNavigate();
-  const { refresh } = useApp();
+  const { refresh, projects } = useApp();
+  const projectOf = (t: Task) => projects.find((p) => p.id === t.project_id);
 
   const load = () => api.get<Task[]>("/tasks").then(setTasks);
   useEffect(() => { load(); }, []);
@@ -242,6 +244,7 @@ export default function TasksPage() {
                   <div className="grow">
                     <span className="title">{t.name}</span>
                     <span className="meta">
+                      {projectOf(t) && <><Link to={`/projects/${t.project_id}`}>{projectOf(t)!.name}</Link> · </>}
                       {schedule(t)}
                       {t.enabled ? (t.next_run_at ? ` · Next ${when(t.next_run_at)}` : "") : isDone(t) ? "" : " · Paused"}
                     </span>

@@ -59,7 +59,7 @@ from langchain_core.messages import (
 from acf import bus, config, skills, workspace
 from acf.agent import prompt, review, subagents, transcripts, usage
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, call_tool, gather_calls
-from acf.db import Chat, Message, User, session_scope, utcnow
+from acf.db import Chat, Message, Project, User, session_scope, utcnow
 from acf.llm import LLMConfig, LLMError, calls_of, estimate_tokens, friendly_error, make_model
 from acf.llm import text_of as _text_of
 from acf.mcp_client import McpHub
@@ -345,6 +345,7 @@ class Run:
             if chat and chat.title in ("", "New chat") and first:
                 chat.title = workspace.message_title(str(first.content))
                 self.emit({"type": "title", "title": chat.title})
+            project = db.get(Project, chat.project_id) if chat and chat.project_id else None
 
         try:
             base_model = make_model(LLMConfig.for_user(self.user))
@@ -367,7 +368,7 @@ class Run:
                 self.emit({"type": "notice", "text": f"Moved the unused skill “{name}” to skills/.archive/."})
             # One system prompt for the whole turn: the same prefix every step, so the provider's cache holds.
             apps = hub.catalog()
-            sections = prompt.sections(self.user.id, apps, LLMConfig.for_user(self.user).model)
+            sections = prompt.sections(self.user.id, apps, LLMConfig.for_user(self.user).model, project)
             self.system = "".join(text for _, text in sections)
             skill_names = [sk.name for sk in skills.list_skills(self.user.id)]
             window = usage.window(base_model)

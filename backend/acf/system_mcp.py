@@ -41,6 +41,9 @@ RunAt = Annotated[
         description="Once: local date and time in `timezone`, e.g. '2026-11-09T14:30'. Must be in the future.",
     ),
 ]
+ProjectId = Annotated[
+    int, Field(description="The project this task belongs to (the id in <project id=…>); its runs are chats in it")
+]
 Timezone = Annotated[str, Field(max_length=64, description="IANA time zone of the schedule, e.g. 'Europe/Lisbon'")]
 
 _READ = ToolAnnotations(read_only_hint=True, destructive_hint=False)
@@ -81,11 +84,13 @@ def server(user_id: int) -> MCPServer:
         schedule: Schedule | None = None,
         run_at: RunAt | None = None,
         enabled: bool = True,
+        project_id: ProjectId | None = None,
     ) -> str:
         """Schedule a task: give `schedule` for a repeating task or `run_at` for one that runs once (a
         reminder, "in 2 hours", "tomorrow at 9"). On each run the agent gets `prompt` in a new chat, without
         the current conversation, so write the prompt so it stands on its own. Ask the user for their time
-        zone if you do not know it. A one-off task turns itself off after its run."""
+        zone if you do not know it. A one-off task turns itself off after its run. In a project's chat, pass
+        its `project_id` when the task is part of that project."""
         fields = {
             "name": name,
             "prompt": prompt,
@@ -93,6 +98,7 @@ def server(user_id: int) -> MCPServer:
             "run_at": run_at,
             "timezone": timezone,
             "enabled": enabled,
+            "project_id": project_id,
         }
         with session_scope() as db, _invalid_as_error():
             return json.dumps(scheduler.as_dict(scheduler.create(db, user_id, fields)), indent=2)

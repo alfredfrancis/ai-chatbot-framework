@@ -32,6 +32,9 @@ update that completes it has the sub-agent's report as its content and the final
 `_meta.acf.agent.session` is the sub-agent's own session: session/load replays it (and follows it while it
 works) and answers with `_meta.acf.parent` = {sessionId, title} of the session it belongs to. It is
 read-only (session/prompt and session/cancel are refused) and session/list leaves it out.
+Projects: session/new with `_meta.acf.projectId` starts the session in that project (its instructions and
+folder reach the agent); session/list marks such sessions with `_meta.acf.projectId` and session/load
+answers with `_meta.acf.project` = {id, name}.
 """
 
 from __future__ import annotations
@@ -46,13 +49,13 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from acf import config, skills, workspace
+from acf import config, projects, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
 from acf.agent.tools import tool_kind, tool_title
 from acf.auth import COOKIE, user_for_acp_token, user_for_session
 from acf.bus import Feed
-from acf.db import Chat, Message, User, session_scope, utcnow
+from acf.db import Chat, Message, Project, User, session_scope, utcnow
 
 log = logging.getLogger("acf.acp")
 router = APIRouter()
@@ -456,8 +459,14 @@ async def authenticate(conn: Connection, params: dict[str, Any]) -> dict[str, An
 async def session_new(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
     # `cwd` and `mcpServers` are accepted and ignored: the agent works in its own sandbox, with the
     # connections configured in the web app.
+    project_id = ((params.get("_meta") or {}).get("acf") or {}).get("projectId")
     with session_scope() as db:
-        chat = Chat(user_id=conn.user_id, title="New chat")
+        if project_id is not None:
+            try:
+                projects.own(db, conn.user_id, project_id if isinstance(project_id, int) else -1)
+            except ValueError as e:
+                raise RpcError(INVALID_PARAMS, "Project not found") from e
+        chat = Chat(user_id=conn.user_id, title="New chat", project_id=project_id)
         db.add(chat)
         db.flush()
         return {"sessionId": str(chat.id)}
@@ -473,7 +482,13 @@ async def session_list(conn: Connection, params: dict[str, Any]) -> dict[str, An
             .all()
         )
         sessions = [
-            {"sessionId": str(c.id), "cwd": WORKSPACE, "title": c.title, "updatedAt": c.updated_at.isoformat() + "Z"}
+            {
+                "sessionId": str(c.id),
+                "cwd": WORKSPACE,
+                "title": c.title,
+                "updatedAt": c.updated_at.isoformat() + "Z",
+                **({"_meta": {"acf": {"projectId": c.project_id}}} if c.project_id else {}),
+            }
             for c in rows
         ]
     return {"sessions": sessions, "nextCursor": None}
@@ -490,6 +505,9 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
         parent = db.get(Chat, chat.parent_id) if chat and chat.parent_id else None
         if chat and parent:  # a sub-agent's session
             meta.update(title=chat.title, parent={"sessionId": str(parent.id), "title": parent.title})
+        project = db.get(Project, chat.project_id) if chat and chat.project_id else None
+        if project:
+            meta["project"] = {"id": project.id, "name": project.name}
         stored = db.query(Message).filter_by(chat_id=chat_id).order_by(Message.id).all()
         rows = [m.to_dict() for m in stored]
         last_usage = next(
