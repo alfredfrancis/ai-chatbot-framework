@@ -2,95 +2,112 @@
 
 <h1 align="center">AI Chatbot Framework</h1>
 
-<p align="center">A lean, self-hosted AI agent that everyone can use. Each person gets an assistant with
-its own private computer, their files, skills, app connections and scheduled jobs.</p>
+<p align="center">
+  A self-hosted AI agent for everyone on your team.<br>
+  Each person gets an assistant with its own private computer, files, skills, app connections and scheduled tasks.
+</p>
 
-![AI Chatbot Framework home: chats, files, skills, tasks, connections and your apps in the sidebar](docs/screenshots/home.webp)
+<p align="center">
+  <a href="https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/ci.yml"><img src="https://github.com/alfredfrancis/ai-chatbot-framework/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="License.txt"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
 
-> AI Chatbot Framework used to be an intent/entity NLU chatbot builder. Version 2 rebuilds it as an
-> agent. The old code is in the git history.
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#deploy">Deploy</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="docs/architecture.md">Architecture</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
+
+![AI Chatbot Framework home screen: chats, projects, files, skills, tasks, connections and personal apps in the sidebar, and the message box in the middle](docs/screenshots/home.webp)
+
+> **Version 2.** AI Chatbot Framework used to be an intent/entity NLU chatbot builder. Version 2 rebuilds it
+> as an agent. The old code is in the git history.
+
+## Why
+
+Most agent tools are built for developers. This one is built for people who just want work done: they type
+what they need, and the agent reads their files, runs code, uses their apps and remembers how they like
+things. You run it on your own server, with the model of your choice, and every user's work stays in
+their own locked-down sandbox.
 
 ## Features
 
-- **Any model through LangChain** – Claude (default), OpenAI, any OpenAI-compatible server (Ollama,
-  OpenRouter, vLLM, LiteLLM) or any other LangChain chat provider.
-- **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus `mcp_call` for MCP tools; the calls
-  of one answer run in parallel; long commands run in the background and report back when done; long outputs truncated and saved to a file; context compaction; **steering** (type
-  while the agent works; it picks your message up without stopping — right away while it thinks, after
-  the running command otherwise); **Stop** at any time.
-- **Sub-agents** – for a job that splits into parts, the agent starts helpers that work side by side, each
-  with its own goal, a fresh context and a model the agent picks (its own, a fast one, or any model id),
-  then puts their reports together. The chat shows what each one is doing, and each one's own session opens
-  read-only (also while it works) from its step in the chat.
-- **One private sandbox per user** – a Docker container with a persistent `/workspace`, resource limits
-  and no Linux capabilities. Commands and local MCP servers run there.
-- **Files, not forms** – `context.md` (about you) and `memory.md` (what the agent remembers) are plain
-  files the agent reads every turn and edits itself. The UI is a read-only file browser with preview,
-  upload and download; to change anything, you ask the agent. `memory.md` has a size limit
-  (`ACF_MEMORY_LIMIT`) so it stays a short list of facts that matter in every chat.
-- **Learns as it goes** – every few messages (`ACF_REVIEW_INTERVAL`) a background pass looks back at the
-  chat and updates `memory.md` and the skills (a corrected format, a method that worked); the chat shows a
-  line saying what changed. Past chats are saved as Markdown in `.acf/chats/` so the agent can search them.
-  Text that looks like planted instructions is kept out of memory and skills.
-- **Attach files in chat** – the paperclip (or drag and drop) saves files to `uploads/` in the workspace
-  (never overwriting: a second `report.csv` becomes `report (1).csv`) and sends them with the message.
-  The agent reads them with its tools; the chat shows each attachment as a link to the file.
-- **Artifacts panel** – each chat has a side panel (the panel button in its top bar) listing the files
-  attached to it and the files the agent made in it, to open or download (`GET /api/chats/{id}/artifacts`).
-  "Made" means written or edited by the agent, or changed in the workspace while one of the chat's commands
-  was running. That last part goes by file modification time, so a file another chat changes at the same
-  moment can show up too. `context.md`, `memory.md`, hidden files and deleted files are not listed.
-- **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
-  or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
-  Type `/` in a chat to pick one: a message with `/name` in it (also a task's prompt) makes the agent
-  use that skill.
-  Built in: `council-of-llms` (one question to several models as sub-agents; the agent compares their
-  answers and gives the best one), `skill-creator`, `pdf`, `action-items`, `weekly-review`, `price-watch`, `cited-research`,
-  `plain-writing`, `personal-assistant` (a proactive assistant over email, calendar and other apps, with
-  a first-run interview that saves preferences to `assistant/profile.md`, and an optional Cockpit app),
-  `openui` (views in chat answers, below) and `personal-apps` (how to build apps, below). Skills unused for
-  `ACF_SKILL_ARCHIVE_DAYS` move to `skills/.archive/`.
-- **MCP** – Claude-Desktop-style JSON config. Local servers run inside the sandbox; remote servers use
-  Streamable HTTP with **OAuth sign-in** in a browser popup. Only tool names are in the prompt; each tool's
-  definition is a file in `.acf/mcp/` that the agent reads before its first call, so a large server doesn't
-  slow down every turn.
-- **Personal apps** – the agent (or a skill) can add up to 5 small apps to the menu, right under New chat,
-  e.g. the personal assistant's **Cockpit**: the day's brief and an Eisenhower matrix of to-dos you drag
-  around. An app is just files: `apps/<id>/app.json` (menu entry) and `apps/<id>/app.oui`, a screen in
-  [OpenUI Lang](https://openui.com) that the web app renders with its own design-system components
-  (`frontend/src/openui/library.tsx`) — the agent never writes HTML. There is no app backend: the screen's
-  `Query`/`Mutation` calls and buttons use one action API, `POST /api/apps/{id}/actions`: `read_file` and
-  `update_file` (the app's folder and files it lists), `ask_agent` (a message to the agent in the app's own
-  chat, answered in the background), `run` (an `apps/<id>/actions/<name>.sh` script in the sandbox) and
-  `mcp` (read-only tools of connected apps; anything that changes things goes through the agent).
-  Diagrams: [docs/personal-apps.md](docs/personal-apps.md).
-- **Views in chat** – the agent can answer with a chart, a plan, tabs or a small form inside its reply: an
-  ` ```openui ` block written with the same components (bar, line and pie charts, progress, lists, steps,
-  tabs, sliders, choices, buttons). A button sends its text back into the chat, so the user can pick
-  instead of typing.
-- **Projects** – ongoing work with its own instructions and, optionally, a folder in your files. A chat started
-  in a project follows its instructions and keeps its files in that folder; a task made in a project runs as a
-  chat there. Deleting a project keeps its chats, tasks and files.
-- **Scheduled tasks** – repeating ("every weekday at 08:00 …") or once ("tomorrow at 17:00"); each run becomes a
-  chat, and a one-off task turns itself off after its run. Set them up on the Tasks page or just ask the agent: the built-in `system` MCP server gives it `list_tasks`, `create_task`, `update_task`,
-  `delete_task` and `run_task` (the server name `system` is reserved).
-- **Agent Client Protocol (ACP)** – the chat speaks [ACP](https://agentclientprotocol.com) over a
-  WebSocket, and so can your own apps and editors. Create an optional access token in
-  **Settings → External apps** to let them in.
-- A calm, keyboard-friendly interface (⌘K command menu, shortcuts), dark and light themes, phone layout,
-  built from a documented design system whose tokens live in `design/tokens.json`.
+- **Any model.** Claude by default; OpenAI, Ollama, OpenRouter, vLLM, LiteLLM or any other
+  [LangChain](https://python.langchain.com) chat provider. Users can bring their own key.
+- **A private computer per user.** One Docker sandbox with a persistent `/workspace`, resource limits and
+  no Linux capabilities. Commands and local MCP servers run there.
+- **A small, fast agent loop.** Four tools (`read`, `write`, `edit`, `bash`), parallel tool calls,
+  background commands, context compaction, and **steering**: type while the agent works and it picks your
+  message up without stopping.
+- **Sub-agents.** The agent splits a big job into parts and runs helpers side by side, each with a fresh
+  context and its own model. You can watch each one work.
+- **Memory in plain files.** `context.md` (about you) and `memory.md` (what the agent remembers) are files
+  the agent reads every turn and edits itself. Every few messages a background pass updates memory and
+  skills from the chat.
+- **Skills.** The open Agent Skills format (`skills/<name>/SKILL.md`). Upload one, let the agent write one,
+  or type `/` in a chat to pick one. Eleven come built in, from `pdf` and `cited-research` to
+  `council-of-llms` and `personal-assistant`.
+- **App connections (MCP).** Local servers run in the sandbox; remote servers sign in with OAuth.
+  One-click setup for Linear, Notion, Jira, Sentry, Stripe and more.
+- **Personal apps.** The agent can build small apps for you, like a daily **Cockpit** or a grocery list,
+  that show up in the sidebar. Chat replies can include charts, tabs and buttons too.
+- **Projects and scheduled tasks.** Group chats under shared instructions and a folder. Run a prompt
+  "every weekday at 08:00" or once "tomorrow at 17:00"; each run becomes a chat.
+- **Files and artifacts.** Attach files to a message; each chat lists the files it used and made.
+- **Open protocol.** The chat speaks the [Agent Client Protocol](https://agentclientprotocol.com) over
+  WebSocket, so editors and your own apps can talk to the agent too.
+- **Built to scale.** Stateless app processes behind Caddy, with PostgreSQL and Redis. Add or remove
+  processes at any time.
+- **A calm interface.** Keyboard-first (⌘K, shortcuts), dark and light themes, works on a phone.
+
+Every feature in detail: [docs/features.md](docs/features.md).
+
+## Screenshots
 
 | Steering while it works | Skills | Connections (OAuth) |
 |---|---|---|
-| ![](docs/screenshots/e2e/04-steering-queued.png) | ![](docs/screenshots/e2e/07-skills.png) | ![](docs/screenshots/e2e/09-connections-connected.png) |
-| **Files** | **Command menu (⌘K)** | **Phone, light** |
-| ![](docs/screenshots/e2e/06-files.png) | ![](docs/screenshots/e2e/15-command-menu.png) | ![](docs/screenshots/e2e/14-phone-light-chat.png) |
-| **Cockpit app** | **Cockpit, phone** | |
-| ![](docs/screenshots/e2e/41-app-cockpit-moved.png) | ![](docs/screenshots/e2e/42-app-cockpit-phone-light.png) | |
+| ![Steering: a message queued while the agent works](docs/screenshots/e2e/04-steering-queued.png) | ![Skills page](docs/screenshots/e2e/07-skills.png) | ![Connections page with a connected app](docs/screenshots/e2e/09-connections-connected.png) |
+| **Files** | **Command menu (⌘K)** | **Phone, light theme** |
+| ![Files page](docs/screenshots/e2e/06-files.png) | ![Command menu](docs/screenshots/e2e/15-command-menu.png) | ![Chat on a phone in light theme](docs/screenshots/e2e/14-phone-light-chat.png) |
+| **Cockpit app** | **Sub-agents** | **Charts in a personal app** |
+| ![Cockpit personal app](docs/screenshots/e2e/41-app-cockpit-moved.png) | ![Sub-agents working in parallel](docs/screenshots/e2e/09-sub-agents-working.png) | ![Personal app with charts](docs/screenshots/e2e/52-app-charts.png) |
 
-All screenshots are taken by the end-to-end tests (`docs/screenshots/e2e/`).
+The end-to-end tests take these screenshots on every run ([`docs/screenshots/e2e/`](docs/screenshots/e2e)).
 
-## Run it in production (Docker)
+## Quick start
+
+Try it on your machine with Docker. A scripted fake model answers, so you don't need an API key:
+
+```sh
+git clone https://github.com/alfredfrancis/ai-chatbot-framework.git
+cd ai-chatbot-framework
+docker compose -f docker-compose.dev.yml up --build   # or: make up-dev
+```
+
+Open http://localhost:5173 and create an account. Try `run: ls` or `show system` in a chat.
+
+To use a real model:
+
+```sh
+ACF_LLM_BASE_URL= ANTHROPIC_API_KEY=sk-ant-... make up-dev
+```
+
+<details>
+<summary>Ports, database and running without Docker</summary>
+
+The web app is on :5173 and the API on :8000 (API only; use 5173). Both reload when you save. PostgreSQL is
+on host port 55432 (`postgresql://acf:acf@localhost:55432/acf`). If a port is taken, set
+`ACF_DEV_WEB_PORT`, `ACF_DEV_API_PORT` or `ACF_DEV_DB_PORT`. Agents run in real sandboxes.
+
+Without Docker, `make setup && make dev` runs the same thing on your machine (set `ACF_SANDBOX=local`;
+it is **not isolated**, so use it for development only).
+
+</details>
+
+## Deploy
 
 On a server with Docker and a domain pointing at it:
 
@@ -101,52 +118,46 @@ cp .env.example .env        # set ACF_DOMAIN, POSTGRES_PASSWORD, ACF_SECRET_KEY 
 docker compose up -d        # or: make up
 ```
 
-Set `ACF_ADMIN_EMAIL` and `ACF_ADMIN_PASSWORD` in `.env` to create your account at startup (sign-ups are
-then closed unless `ACF_ALLOW_SIGNUP=true`). Without them, open `https://<ACF_DOMAIN>` and create the first
-account, then set `ACF_ALLOW_SIGNUP=false`.
-[Caddy](https://caddyserver.com) gets and renews the HTTPS certificate; ports 80 and 443 must be open.
-Other host ports: `ACF_HTTP_PORT` / `ACF_HTTPS_PORT` (e.g. `127.0.0.1:8088` behind a tunnel or another proxy).
-When that tunnel or proxy terminates HTTPS (e.g. Cloudflare Tunnel), also set `ACF_CADDY_ADDRESS=:80` so Caddy
-serves plain HTTP.
-The stack pulls the published images (`ACF_REGISTRY`/`ACF_VERSION` in `.env`); to build from source
-instead (needed until the first release publishes images), run `docker compose up -d --build`. The
-database is PostgreSQL in its own container (volume `postgres-data`); workspaces live in `./data`, or
+> [!IMPORTANT]
+> Set up the host as described in [deploy/README.md](deploy/README.md) before going public.
+
+**Your account.** Set `ACF_ADMIN_EMAIL` and `ACF_ADMIN_PASSWORD` in `.env` to create your account at
+startup; sign-ups are then closed unless `ACF_ALLOW_SIGNUP=true`. Without them, open
+`https://<ACF_DOMAIN>`, create the first account, then set `ACF_ALLOW_SIGNUP=false`.
+
+**HTTPS.** [Caddy](https://caddyserver.com) gets and renews the certificate; ports 80 and 443 must be open.
+To use other host ports, set `ACF_HTTP_PORT` / `ACF_HTTPS_PORT` (e.g. `127.0.0.1:8088` behind a tunnel or
+another proxy). When that tunnel or proxy terminates HTTPS (e.g. Cloudflare Tunnel), also set
+`ACF_CADDY_ADDRESS=:80` so Caddy serves plain HTTP.
+
+**Images.** The stack pulls published images (`ACF_REGISTRY` / `ACF_VERSION` in `.env`). To build from
+source instead (needed until the first release publishes images), run `docker compose up -d --build`.
+
+**Data.** PostgreSQL runs in its own container (volume `postgres-data`); workspaces live in `./data`, or
 `ACF_DATA_PATH`. Back up both. Logs are rotated and the app has a health check.
 
-Each user gets one sandbox container. The app runs as a non-root user and never touches the Docker
-socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containers with fixed, locked-down
-settings. Sandboxes run under gVisor, as a non-root user, on their own network, behind an egress firewall
-on the host. **Set up the host as described in [deploy/README.md](deploy/README.md) before going public.**
+**Security.** Each user gets one sandbox container. The app runs as a non-root user and never touches the
+Docker socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containers with fixed,
+locked-down settings. Sandboxes run under gVisor, as a non-root user, on their own network, behind an
+egress firewall on the host.
 
-### Scale out and in
+### Scaling
 
-The app is stateless between requests: run state is shared through Redis (in the stack), so you can run
-as many app processes as you like and add or remove them at any time:
+Run state is shared through Redis, so you can run as many app processes as you like and add or remove
+them at any time:
 
 ```sh
 docker compose up -d --scale app=3
 ```
 
 Caddy spreads requests and chat connections over them and picks up new ones within seconds. Any process
-serves any chat; each user still has one sandbox and one workspace. A process that is stopped lets its
-running agents finish first (`ACF_SHUTDOWN_GRACE`, default 20 s); its clients reconnect to another one and
-keep following. One that crashes frees its chats after `ACF_BUS_TTL` (30 s). Across several machines,
-every app process needs the same PostgreSQL, Redis and Docker proxy, and the data folder at the same path
-(shared storage), because sandboxes mount workspaces from the Docker host. How it works:
+serves any chat; each user still has one sandbox and one workspace. A stopping process lets its running
+agents finish first (`ACF_SHUTDOWN_GRACE`, default 20 s), and its clients reconnect to another one. A
+crashed process frees its chats after `ACF_BUS_TTL` (30 s).
+
+Across several machines, every app process needs the same PostgreSQL, Redis and Docker proxy, and the data
+folder at the same path (shared storage), because sandboxes mount workspaces from the Docker host. Details:
 [architecture](docs/architecture.md#several-app-processes-backendacfbuspy).
-
-## Develop in Docker
-
-```sh
-docker compose -f docker-compose.dev.yml up --build   # or: make up-dev
-```
-
-Web app on http://localhost:5173, API on :8000, both reloading when you save. PostgreSQL is on
-host port 55432 (`postgresql://acf:acf@localhost:55432/acf`). If a port is taken, set
-`ACF_DEV_WEB_PORT`, `ACF_DEV_API_PORT` or `ACF_DEV_DB_PORT`. Port 8000 is only the API; use 5173. Agents run in real
-sandboxes, and a scripted fake model answers so no API key is needed (try `run: ls`, `show system`).
-To use a real model: `ACF_LLM_BASE_URL= ANTHROPIC_API_KEY=sk-ant-... make up-dev`.
-Without Docker, `make setup && make dev` runs the same thing on your machine.
 
 ## Configuration
 
@@ -189,7 +200,7 @@ Environment variables (users can override the model in **Settings**):
 
 Other LangChain providers need their package installed (`pip install langchain-ollama`, …).
 
-### MCP configuration
+### App connections (MCP)
 
 Add, edit, turn off or delete connections from the form on the **Connections** page. Switch to **JSON** there
 to edit the whole configuration directly (same format as Claude Desktop; needed for extra keys like `oauth`,
@@ -238,7 +249,7 @@ Upload it as a `.zip` (or just the `SKILL.md`) on the Skills page, or ask the ag
 every workspace starts with a `skill-creator` skill that teaches it how, plus a few general skills
 (`backend/acf/builtin_skills/`). Each built-in skill is added once; one you delete stays deleted.
 
-### External apps (ACP)
+### Editors and external apps (ACP)
 
 The agent is reachable over the [Agent Client Protocol](https://agentclientprotocol.com): JSON-RPC 2.0, one
 message per WebSocket text frame, at `ws(s)://<host>/api/acp`. The web chat uses the same endpoint (with its
@@ -263,7 +274,11 @@ Clients that start agents as a subprocess over stdio (most editors) can use the 
 ACF_ACP_TOKEN=acp_… python -m acf.acp_bridge --url wss://agent.example.com/api/acp
 ```
 
-## Development
+## Contributing
+
+Contributions are welcome. Read [AGENTS.md](AGENTS.md) first: it covers the layout, the rules (every
+feature is tested end to end, including the UI) and the workflow. The design of the agent loop is in
+[docs/architecture.md](docs/architecture.md).
 
 ```sh
 make setup          # Python venv + npm install
@@ -275,13 +290,11 @@ make e2e-docker     # the same with real Docker sandboxes (what CI runs)
 make lint
 ```
 
-Design tokens: edit `design/tokens.json` (mirrors the design system in Claude Design), then
+Tests never call a real model: `backend/tests/fakes/` has a scripted model server (Anthropic and OpenAI
+APIs), a dependency-free stdio MCP server and an OAuth-protected HTTP MCP server.
+
+Design tokens live in `design/tokens.json` (mirroring the design system in Claude Design);
 `cd frontend && npm run tokens` regenerates `src/tokens.css`.
-
-Tests never call a real model: `backend/tests/fakes/` has a scripted model server (Anthropic and
-OpenAI APIs), a dependency-free stdio MCP server and an OAuth-protected HTTP MCP server.
-
-Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architecture.md](docs/architecture.md).
 
 ## Known limitations
 
@@ -290,4 +303,4 @@ Read [AGENTS.md](AGENTS.md) before contributing. Architecture: [docs/architectur
 
 ## License
 
-MIT, see [License.txt](License.txt).
+MIT. See [License.txt](License.txt).
