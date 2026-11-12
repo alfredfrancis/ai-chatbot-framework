@@ -161,21 +161,25 @@ folder at the same path (shared storage), because sandboxes mount workspaces fro
 
 ## Configuration
 
-Environment variables (users can override the model in **Settings**):
+Environment variables. Users choose models in **Settings → Models**: their own key and address per provider,
+which models are on in the chat's model picker, a token window per model, and a default model and effort.
+Each chat can switch model and effort from its message box.
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `ACF_LLM_PROVIDER` | `anthropic` | Any LangChain provider id: `anthropic`, `openai`, `ollama`, `google_genai`, … |
 | `ACF_LLM_PROVIDERS` | providers that take an API key | Providers users may choose (comma-separated, `*` = any). The server's own is always allowed |
 | `ACF_LLM_MODEL` | `claude-opus-5-5` / `gpt-4.1-mini` | Default model |
+| `ACF_MODELS_FILE` | built-in list | JSON list of the models users can pick, with their effort levels, default effort and token window (see below) |
+| `ACF_CUSTOM_MODELS` | `true` | Users may add models of their own; `false` limits everyone to the models list |
 | `ACF_LLM_API_KEY` | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Server-wide key, used by every user without their own. Only sent to the server's provider and `ACF_LLM_BASE_URL` |
 | `ACF_SECRET_KEY` | generated in `ACF_DATA_DIR/secret.key` | Encrypts API keys, MCP configs and OAuth tokens in the database. Required by the production stack |
 | `ACF_LLM_BASE_URL` | provider default | e.g. `http://localhost:11434/v1` with `openai` for Ollama |
 | `ACF_MAX_AGENT_STEPS` | `40` | Model calls per message (and per sub-agent) |
 | `ACF_SUBAGENTS` | `8` | Sub-agents of one run working at the same time; more wait their turn (`0` = no sub-agents) |
 | `ACF_SUBAGENT_FAST_MODEL` | provider's small model | The model a sub-agent gets when the agent asks for `fast` (Claude: `claude-haiku-5-5`, OpenAI: `gpt-4.1-mini`, others: the user's model) |
-| `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep |
-| `ACF_CONTEXT_WINDOW` | model's own | Context window size (tokens) for the chat's context meter; default comes from LangChain's model profile, `128000` if unknown |
+| `ACF_COMPACT_TOKENS` / `ACF_COMPACT_KEEP_TOKENS` | `120000` / `20000` | When to summarise old messages, and how much recent history to keep. A model with a token window set (models file or the user's settings) compacts at 80% of that window instead |
+| `ACF_CONTEXT_WINDOW` | model's own | Context window size (tokens) for the chat's context meter when the model has no token window set; default comes from LangChain's model profile, `128000` if unknown |
 | `ACF_MEMORY_LIMIT` | `4000` | Characters of `memory.md` (it goes into every prompt); the agent's writes past it are refused |
 | `ACF_REVIEW_INTERVAL` | `10` | User messages per chat between background reviews that update memory and skills (`0` = off) |
 | `ACF_SKILL_ARCHIVE_DAYS` | `30` | Skills not read for this many days move to `skills/.archive/` (`0` = never; `pinned: true` in a skill's frontmatter keeps it) |
@@ -197,6 +201,26 @@ Environment variables (users can override the model in **Settings**):
 | `ACF_REDIS_PREFIX` | `acf` | Key prefix, to share one Redis between deployments |
 | `ACF_BUS_TTL` | `30` | Seconds before a dead process's chats, locks and background commands are freed |
 | `ACF_SHUTDOWN_GRACE` | `20` | Seconds a stopping process gives its running agents to finish |
+
+### Models
+
+The models users can pick come from a built-in list (Claude Opus/Sonnet/Haiku/Fable, GPT-5, GPT-5 mini,
+GPT-4.1 mini), or from `ACF_MODELS_FILE`, which replaces it:
+
+```json
+[
+  {"provider": "anthropic", "id": "claude-opus-5-5", "name": "Claude Opus 5.5",
+   "efforts": ["low", "medium", "high", "max"], "effort": "medium",
+   "context_window": 200000, "max_context_window": 1000000},
+  {"provider": "openai", "id": "gpt-5", "efforts": ["minimal", "low", "medium", "high"], "effort": "medium"}
+]
+```
+
+`efforts` are the effort levels the model accepts (left out: no effort setting) and `effort` the default;
+effort goes to Claude as `output_config.effort` and to OpenAI as `reasoning_effort`. `context_window` is the
+token window the context meter and compaction use (left out: the model's own); users may set their own up to
+`max_context_window`. Only models of providers in `ACF_LLM_PROVIDERS` are offered. In a user's list, models
+whose provider has a key (theirs, or the server's for the server's own provider) start out on.
 
 Other LangChain providers need their package installed (`pip install langchain-ollama`, …).
 
@@ -258,7 +282,9 @@ the access token from **Settings → External apps**. External access is off unt
 token is shown once, stored hashed, and can be replaced or revoked at any time.
 
 Supported: `initialize`, `session/new`, `session/load` (replays the history, then follows a running agent),
-`session/list`, `session/prompt` (text, resource links and embedded text resources) and `session/cancel`.
+`session/list`, `session/prompt` (text, resource links and embedded text resources), `session/cancel` and
+`session/set_config_option`: `session/new` and `session/load` return the chat's `configOptions`, a `model`
+select (the user's models that are on) and, for models that have one, an `effort` select (`thought_level`).
 A resource link to `file:///workspace/<path>` is an attached workspace file: `session/load` replays it as a
 `resource_link` chunk after the message's text (upload the file first with `POST /api/files`, `keep=true`).
 Each session is a chat in the web app. Updates are `user_message_chunk`, `agent_message_chunk` and

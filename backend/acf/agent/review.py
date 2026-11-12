@@ -136,7 +136,7 @@ async def _review(user: User, chat_id: int, users: int, system: str) -> None:
 
     before = _snapshot(user.id)
     try:
-        model = make_model(LLMConfig.for_user(user)).bind_tools([t.schema() for t in TOOLS.values()])
+        model = make_model(LLMConfig.for_chat(user, chat_id)).bind_tools([t.schema() for t in TOOLS.values()])
         ctx = ToolContext(user.id)
         sys = SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}])
         messages: list[BaseMessage] = [sys, *loop.load_history(chat_id), HumanMessage(REVIEW_PROMPT)]

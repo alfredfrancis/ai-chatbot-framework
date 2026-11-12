@@ -46,13 +46,31 @@ export type McpPreset = {
   url: string;
   added: boolean;
 };
-export type Settings = {
+/** A model in the user's list: from the server's list, or one they added. */
+export type ModelEntry = {
+  key: string; // "provider:model id"
   provider: string;
-  model: string;
-  base_url: string;
-  has_api_key: boolean;
-  providers: string[];
-  defaults: { provider: string; model: string; base_url: string; has_api_key: boolean };
+  id: string;
+  name: string;
+  efforts: string[];
+  effort: string; // its default effort ("" = none)
+  context_window: number; // the server's token window (0 = the model's own)
+  max_context_window: number; // the most a user may set (0 = no limit)
+  window: number; // the window in use: the user's, else the server's (0 = the model's own)
+  custom: boolean;
+  enabled: boolean;
+  has_key: boolean;
+};
+/** The user's key and address for one provider. */
+export type ProviderEntry = { id: string; name: string; base_url: string; has_api_key: boolean; server: boolean };
+export type Settings = {
+  model: string; // the default model ("" = the server's)
+  effort: string; // the default effort ("" = each model's own)
+  custom_models: boolean;
+  allowed_providers: string[];
+  providers: ProviderEntry[];
+  models: ModelEntry[];
+  defaults: { model: string; provider: string; base_url: string; has_api_key: boolean };
 };
 /** A file size people can read: 812 B, 4.2 KB, 1.3 MB. */
 export const formatSize = (n?: number) =>

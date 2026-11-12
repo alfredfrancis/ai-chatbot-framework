@@ -24,6 +24,8 @@ Rules (applied to the latest user text):
   show system                 -> replies with the system prompt
   list tools                  -> replies with the tool names it was given
   show model                  -> replies with the model the request asked for
+  show effort                 -> replies with the effort the request asked for (Anthropic output_config.effort,
+                                 OpenAI reasoning_effort; "none" without one)
 A request for the model "missing-model" gets a 404, as a provider answers for an unknown model.
   anything else               -> "Echo: <text>"
 After a tool result it replies "Result: <tool output>".
@@ -57,6 +59,7 @@ def decide(
     tool_names: list[str],
     history_users: list[str] | None = None,
     model: str = "",
+    effort: str = "",
 ) -> dict:
     """Return {"text": str} and optionally {"calls": [(name, args), ...]}."""
     if last_user is None and tool_result is not None:
@@ -64,7 +67,7 @@ def decide(
     text = (last_user or "").strip()
     low = text.lower()
     if text.startswith("[App:") and "\n" in text:
-        return decide(text.split("\n", 1)[1], tool_result, system, tool_names, history_users, model)
+        return decide(text.split("\n", 1)[1], tool_result, system, tool_names, history_users, model, effort)
     used = re.fullmatch(r"\[Use skill: [^\]]+\]\(([^)]+)\)", text.splitlines()[-1]) if text else None
     if used:
         return {"calls": [("read", {"path": used.group(1)})], "text": ""}
@@ -112,6 +115,8 @@ def decide(
         return {"text": system}
     if low == "show model":
         return {"text": f"Model: {model}"}
+    if low == "show effort":
+        return {"text": f"Effort: {effort or 'none'}"}
     if low == "list tools":
         return {"text": "Tools: " + ", ".join(tool_names)}
     if low == "show messages":
@@ -163,7 +168,8 @@ async def messages(request: Request):
     system = body.get("system") or ""
     if isinstance(system, list):
         system = " ".join(b.get("text", "") for b in system)
-    d = decide(last_user, tool_result, system, [t["name"] for t in body.get("tools", [])], users, body["model"])
+    effort = (body.get("output_config") or {}).get("effort", "")
+    d = decide(last_user, tool_result, system, [t["name"] for t in body.get("tools", [])], users, body["model"], effort)
     await asyncio.sleep(d.get("delay", 0))
     content: list[dict] = [
         {"type": "thinking", "thinking": d.get("thinking", ""), "signature": "sig-" + uuid.uuid4().hex[:8]}
@@ -252,7 +258,9 @@ async def chat_completions(request: Request):
     last_user = " ".join(_texts(last["content"])) if last["role"] == "user" else None
     users = [" ".join(_texts(m["content"])) for m in msgs if m["role"] == "user"]
     tool_names = [t["function"]["name"] for t in body.get("tools", [])]
-    d = decide(last_user, tool_result, system, tool_names, users, body.get("model", ""))
+    d = decide(
+        last_user, tool_result, system, tool_names, users, body.get("model", ""), body.get("reasoning_effort", "")
+    )
     await asyncio.sleep(d.get("delay", 0))
     message: dict[str, Any] = {"role": "assistant", "content": d.get("text") or None}
     if d.get("calls"):

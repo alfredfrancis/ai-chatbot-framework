@@ -17,8 +17,11 @@ from acf.llm import estimate_tokens
 DEFAULT_WINDOW = 128_000
 
 
-def window(model: Any) -> int:
-    """The context window: ACF_CONTEXT_WINDOW, else the model's profile, else a common default."""
+def window(model: Any, own: int = 0) -> int:
+    """The context window: the model's token window from the models list or the user's settings (`own`), else
+    ACF_CONTEXT_WINDOW, else the model's profile, else a common default."""
+    if own > 0:
+        return own
     if config.settings.context_window > 0:
         return config.settings.context_window
     profile = getattr(model, "profile", None) or {}

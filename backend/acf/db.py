@@ -55,11 +55,15 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(200), default="")
     password_hash: Mapped[str] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    # Per-user LLM settings; empty values fall back to server defaults.
+    # Per-user model settings (see acf.models); empty values fall back to server defaults.
+    # The default model: provider + model id (empty model = the server's default model).
     llm_provider: Mapped[str] = mapped_column(String(64), default="")
     llm_model: Mapped[str] = mapped_column(Text, default="")
-    llm_base_url: Mapped[str] = mapped_column(Text, default="")
-    llm_api_key: Mapped[str] = mapped_column(EncryptedText, default="")
+    llm_effort: Mapped[str] = mapped_column(String(16), default="")
+    # JSON {provider: {"api_key": …, "base_url": …}}: the user's key and address for each provider.
+    llm_connections: Mapped[str] = mapped_column(EncryptedText, default="{}")
+    # {model key: {"enabled": bool, "context_window": int, "custom": bool}}: the user's model list.
+    llm_models: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     mcp_config: Mapped[str] = mapped_column(EncryptedText, default='{\n  "mcpServers": {}\n}\n')
 
 
@@ -108,6 +112,9 @@ class Chat(Base):
     # A sub-agent's session: the chat whose run started it. Kept out of chat lists, read-only, deleted with it
     # (by the API: no foreign key, as adding one to an existing SQLite table means copying the table).
     parent_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    # The model ("provider:model") and effort this chat runs on; "" = the user's default.
+    model: Mapped[str] = mapped_column(String(300), default="")
+    effort: Mapped[str] = mapped_column(String(16), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

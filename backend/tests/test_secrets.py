@@ -15,15 +15,16 @@ def raw(table: str, col: str, row_id: int) -> str:
 
 
 async def test_api_key_and_mcp_config_are_encrypted(client, user):
-    await client.put("/api/settings", json={"api_key": "sk-very-secret"})
+    await client.put("/api/settings/providers/anthropic", json={"api_key": "sk-very-secret"})
     cfg = {"mcpServers": {"crm": {"url": "https://crm.example/mcp", "headers": {"Authorization": "Bearer tok-123"}}}}
     await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})
 
-    stored_key, stored_cfg = raw("users", "llm_api_key", user["id"]), raw("users", "mcp_config", user["id"])
+    stored_key, stored_cfg = raw("users", "llm_connections", user["id"]), raw("users", "mcp_config", user["id"])
     assert stored_key.startswith(secrets_box.PREFIX) and "sk-very-secret" not in stored_key
     assert stored_cfg.startswith(secrets_box.PREFIX) and "tok-123" not in stored_cfg
     # the app still reads plain values
-    assert (await client.get("/api/settings")).json()["has_api_key"]
+    providers = (await client.get("/api/settings")).json()["providers"]
+    assert next(p for p in providers if p["id"] == "anthropic")["has_api_key"]
     assert json.loads((await client.get("/api/mcp/config")).json()["config"]) == cfg
 
 
@@ -44,18 +45,18 @@ async def test_oauth_tokens_are_encrypted(client, user):
 
 async def test_plain_values_from_earlier_versions_are_encrypted_at_startup(client, user):
     with db._engine.begin() as conn:
-        conn.execute(text("UPDATE users SET llm_api_key = 'sk-legacy' WHERE id = :id"), {"id": user["id"]})
+        conn.execute(text("UPDATE users SET mcp_config = 'sk-legacy' WHERE id = :id"), {"id": user["id"]})
     with db.session_scope() as s:  # still readable before the migration
-        assert s.get(User, user["id"]).llm_api_key == "sk-legacy"
+        assert s.get(User, user["id"]).mcp_config == "sk-legacy"
     assert db.encrypt_existing() >= 1
-    assert raw("users", "llm_api_key", user["id"]).startswith(secrets_box.PREFIX)
+    assert raw("users", "mcp_config", user["id"]).startswith(secrets_box.PREFIX)
     with db.session_scope() as s:
-        assert s.get(User, user["id"]).llm_api_key == "sk-legacy"
+        assert s.get(User, user["id"]).mcp_config == "sk-legacy"
     assert db.encrypt_existing() == 0  # nothing left to do
 
 
 async def test_wrong_key_refuses_to_start(client, user, monkeypatch):
-    await client.put("/api/settings", json={"api_key": "sk-very-secret"})
+    await client.put("/api/settings/providers/anthropic", json={"api_key": "sk-very-secret"})
     monkeypatch.setattr(config.settings, "secret_key", "another-key-that-is-long-enough-for-the-check")
     with pytest.raises(secrets_box.SecretKeyError):
         db.encrypt_existing()

@@ -96,6 +96,7 @@ class Session:
             db.add(chat)
             db.flush()
             self.chat_id: int = chat.id
+        self.parent_id = parent_id
         self.run_id = bus.new_id()
         bus.current().claim(self.chat_id, self.run_id)
         self.feed = bus.current().feed(self.chat_id, self.run_id, local=True)
@@ -146,7 +147,7 @@ async def _work(
     args: dict[str, Any],
     progress: Callable[[dict[str, Any]], None],
 ) -> ToolResult:
-    cfg = LLMConfig.for_user(user).with_model(str(args.get("model") or ""))
+    cfg = LLMConfig.for_chat(user, session.parent_id).with_model(str(args.get("model") or ""))
     info: dict[str, Any] = {"model": cfg.model, "tokens": 0, "steps": [], "session": str(session.chat_id)}
 
     def report() -> dict[str, Any]:

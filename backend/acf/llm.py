@@ -14,13 +14,10 @@ from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
 
-from acf import config
+from acf import config, models
 
-DEFAULT_MODELS = {"anthropic": "claude-opus-5-5", "openai": "gpt-4.1-mini"}
 # What "fast" means for a sub-agent, per provider (ACF_SUBAGENT_FAST_MODEL overrides it).
 FAST_MODELS = {"anthropic": "claude-haiku-5-5", "openai": "gpt-4.1-mini"}
-# Claude models that accept output_config.effort.
-_EFFORT_MODELS = ("claude-opus-5", "claude-sonnet-5", "claude-fable-5", "claude-haiku-5", "claude-opus-4-8")
 
 
 # Sent instead of a key when the user has none for their own provider or server.
@@ -37,28 +34,53 @@ class LLMConfig:
     model: str
     api_key: str
     base_url: str
+    effort: str = ""  # "" = the provider's own default
+    context_window: int = 0  # the token window for the context meter and compaction (0 = the model's own)
+
+    @property
+    def key(self) -> str:
+        return f"{self.provider}:{self.model}"
 
     @classmethod
-    def for_user(cls, user: Any) -> LLMConfig:
-        """The user's model settings over the server's.
+    def for_user(cls, user: Any, model: str = "", effort: str = "") -> LLMConfig:
+        """Settings for a model key ("provider:model"; "" = the user's default) and effort ("" = the user's,
+        else the model's default).
 
-        The server's API key is only ever sent to the server's own provider and address. A user who points
-        at another provider or server must bring a key; without one a placeholder is sent, so provider
-        libraries can't pick up the server's key from the environment either.
+        The key and address come from the user's settings for that provider. The server's API key is only ever
+        sent to the server's own provider and address. For any other provider or server the user must bring a
+        key; without one a placeholder is sent, so provider libraries can't pick up the server's key from the
+        environment either.
         """
         s = config.settings
-        provider = user.llm_provider or s.llm_provider
-        own_server = provider == s.llm_provider and user.llm_base_url.rstrip("/") in ("", s.llm_base_url.rstrip("/"))
-        if own_server:  # empty server key: the provider library's own credentials, as the operator set up
-            api_key, base_url = user.llm_api_key or s.llm_api_key, s.llm_base_url
+        key = model or models.user_default(user)
+        provider, model_id = models.split(key)
+        conn = models.connections(user).get(provider, {})
+        own_key, own_url = conn.get("api_key", ""), conn.get("base_url", "")
+        if models.uses_server_key(provider, own_url):  # empty server key: the provider library's own credentials
+            api_key, base_url = own_key or s.llm_api_key, s.llm_base_url
         else:
-            api_key, base_url = user.llm_api_key or NO_KEY, user.llm_base_url
+            api_key, base_url = own_key or NO_KEY, own_url
         return cls(
             provider=provider,
-            model=user.llm_model or s.llm_model or DEFAULT_MODELS.get(provider, ""),
+            model=model_id or models.DEFAULT_MODELS.get(provider, ""),
             api_key=api_key,
             base_url=base_url,
+            effort=models.resolve_effort(key, effort or user.llm_effort or ""),
+            context_window=models.window_for(user, key),
         )
+
+    @classmethod
+    def for_chat(cls, user: Any, chat_id: int | None) -> LLMConfig:
+        """Settings for a chat: its own model and effort, else the user's."""
+        from acf.db import Chat, session_scope
+
+        model = effort = ""
+        if chat_id is not None:
+            with session_scope() as db:
+                chat = db.get(Chat, chat_id)
+                if chat is not None:
+                    model, effort = chat.model, chat.effort
+        return cls.for_user(user, model, effort)
 
     def with_model(self, choice: str) -> LLMConfig:
         """These settings for a sub-agent: "inherit" (or nothing) keeps the model, "fast" is the provider's
@@ -69,7 +91,13 @@ class LLMConfig:
             return self
         if choice == "fast":
             choice = config.settings.subagent_fast_model or FAST_MODELS.get(self.provider) or self.model
-        return replace(self, model=choice)
+        key = f"{self.provider}:{choice}"
+        return replace(
+            self,
+            model=choice,
+            effort=models.resolve_effort(key, self.effort),
+            context_window=models.info(key).context_window,
+        )
 
 
 def make_model(cfg: LLMConfig) -> BaseChatModel:
@@ -77,6 +105,8 @@ def make_model(cfg: LLMConfig) -> BaseChatModel:
         raise LLMError(f"The provider '{cfg.provider}' is not available on this server. Choose another in Settings.")
     if not cfg.model:
         raise LLMError(f"No model set for provider '{cfg.provider}'. Choose one in Settings.")
+    if not models.allowed(cfg.provider, cfg.model):
+        raise LLMError(f"The model '{cfg.model}' is not available on this server. Choose another in Settings.")
     kwargs: dict[str, Any] = {"max_retries": 2}
     if cfg.api_key:
         kwargs["api_key"] = cfg.api_key
@@ -85,10 +115,12 @@ def make_model(cfg: LLMConfig) -> BaseChatModel:
     if cfg.provider == "anthropic":
         kwargs["max_tokens"] = 16000
         kwargs["default_request_timeout"] = 600
-        if cfg.model.startswith(_EFFORT_MODELS):
-            kwargs["output_config"] = {"effort": "medium"}
+        if cfg.effort:
+            kwargs["output_config"] = {"effort": cfg.effort}
     elif cfg.provider == "openai":
         kwargs["timeout"] = 600
+        if cfg.effort:
+            kwargs["reasoning_effort"] = cfg.effort
     try:
         return init_chat_model(cfg.model, model_provider=cfg.provider, **kwargs)
     except ImportError as e:

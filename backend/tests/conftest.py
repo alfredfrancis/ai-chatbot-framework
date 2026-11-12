@@ -101,6 +101,21 @@ async def user(client):
     return r.json()["user"]
 
 
+async def use_model(client, key: str, base_url: str | None = None, api_key: str | None = None):
+    """Make `key` ("provider:model") the user's default model, with the provider's address and key if given."""
+    provider, _, model = key.partition(":")
+    if base_url is not None or api_key is not None:
+        r = await client.put(
+            f"/api/settings/providers/{provider}", json={"base_url": base_url or "", "api_key": api_key}
+        )
+        assert r.status_code == 200, r.text
+    r = await client.post("/api/settings/models", json={"provider": provider, "id": model})
+    assert r.status_code == 200, r.text
+    r = await client.put("/api/settings", json={"model": key})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 async def prompt(acp, chat_id: int | str, text: str):
     """Send a prompt over an open ACP connection; returns the Turn it produced."""
     from tests.acp_client import RpcError, Turn

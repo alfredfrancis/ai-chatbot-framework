@@ -54,9 +54,15 @@ class Settings:
     # providers that take an API key, so a user can't make the server use credentials from its environment
     # (e.g. bedrock with the machine's cloud role). The server's own provider is always allowed.
     llm_providers: str = field(default_factory=lambda: _env("LLM_PROVIDERS").strip() or DEFAULT_PROVIDERS)
+    # The models users can pick (JSON list; see acf/models.py). Unset: a built-in list.
+    models_file: str = field(default_factory=lambda: _env("MODELS_FILE").strip())
+    # Users may add models of their own to their list; false limits everyone to the models above.
+    custom_models: bool = field(default_factory=lambda: _env("CUSTOM_MODELS", "true").strip().lower() != "false")
     # The model's context window in tokens, for the chat's context meter (0 = the model's own, from
     # LangChain's model profile; 128000 when unknown).
     context_window: int = field(default_factory=lambda: int(_env("CONTEXT_WINDOW", "0")))
+    # Earlier messages are summarised when a chat grows past this many tokens; a model with a token window
+    # set (in the models file or by the user) compacts at 80% of that window instead.
     compact_tokens: int = field(default_factory=lambda: int(_env("COMPACT_TOKENS", "120000")))
     compact_keep_tokens: int = field(default_factory=lambda: int(_env("COMPACT_KEEP_TOKENS", "20000")))
     max_agent_steps: int = field(default_factory=lambda: int(_env("MAX_AGENT_STEPS", "40")))
@@ -128,11 +134,6 @@ class Settings:
     def allowed_providers(self) -> list[str]:
         allowed = [p.strip() for p in self.llm_providers.split(",") if p.strip()]
         return allowed if "*" in allowed else sorted({*allowed, self.llm_provider})
-
-    def default_model(self, provider: str) -> str:
-        if self.llm_model:
-            return self.llm_model
-        return "claude-opus-5-5" if provider == "anthropic" else "gpt-4.1-mini"
 
 
 settings = Settings()

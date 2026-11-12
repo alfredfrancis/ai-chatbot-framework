@@ -300,15 +300,16 @@ class Run:
             got = True
         return got
 
-    async def _compact(self, history: list[BaseMessage], model, system: str) -> list[BaseMessage]:
+    async def _compact(self, history: list[BaseMessage], model, system: str, limit: int) -> list[BaseMessage]:
         s = config.settings
-        if estimate_tokens(history) < s.compact_tokens:
+        if estimate_tokens(history) < limit:
             return history
-        # Keep a recent tail that starts at a user message, so tool calls stay paired.
-        keep_from, budget = None, 0
+        # Keep a recent tail that starts at a user message, so tool calls stay paired; at most a sixth of the
+        # limit, so a small token window still has something to summarise.
+        keep_from, budget, keep = None, 0, min(s.compact_keep_tokens, limit // 6)
         for i in range(len(history) - 1, 0, -1):
             budget += estimate_tokens(history[i].content)
-            if isinstance(history[i], HumanMessage) and budget >= s.compact_keep_tokens:
+            if isinstance(history[i], HumanMessage) and budget >= keep:
                 keep_from = i
                 break
         if keep_from is None or keep_from < 2:
@@ -348,7 +349,8 @@ class Run:
             project = db.get(Project, chat.project_id) if chat and chat.project_id else None
 
         try:
-            base_model = make_model(LLMConfig.for_user(self.user))
+            cfg = LLMConfig.for_chat(self.user, self.chat_id)
+            base_model = make_model(cfg)
         except LLMError as e:
             self.ok, self.final_text = False, str(e)
             self.error = self.final_text
@@ -368,15 +370,17 @@ class Run:
                 self.emit({"type": "notice", "text": f"Moved the unused skill “{name}” to skills/.archive/."})
             # One system prompt for the whole turn: the same prefix every step, so the provider's cache holds.
             apps = hub.catalog()
-            sections = prompt.sections(self.user.id, apps, LLMConfig.for_user(self.user).model, project)
+            sections = prompt.sections(self.user.id, apps, cfg.model, project)
             self.system = "".join(text for _, text in sections)
             skill_names = [sk.name for sk in skills.list_skills(self.user.id)]
-            window = usage.window(base_model)
+            window = usage.window(base_model, cfg.context_window)
             system = SystemMessage(
                 content=[{"type": "text", "text": self.system, "cache_control": {"type": "ephemeral"}}]
             )
             try:
-                history = await self._compact(history, base_model, self.system)
+                # A token window set for the model: compact at 80% of it (else ACF_COMPACT_TOKENS).
+                limit = int(cfg.context_window * 0.8) if cfg.context_window else config.settings.compact_tokens
+                history = await self._compact(history, base_model, self.system, limit)
             except Exception as e:  # noqa: BLE001 - compaction is best effort
                 log.warning("compaction failed: %s", e)
 

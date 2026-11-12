@@ -72,6 +72,43 @@ def test_a_database_from_before_migrations_is_adopted_and_upgraded(tmp_path):
         assert conn.execute(sa.text("SELECT name, run_at FROM tasks")).all() == [("Old", None)]
         assert conn.execute(sa.text("SELECT title, parent_id FROM chats")).all() == [("Old chat", None)]
         assert conn.execute(sa.text("SELECT content FROM messages")).all() == [("hello",)]
-        assert MigrationContext.configure(conn).get_current_revision() == "0004"
+        assert MigrationContext.configure(conn).get_current_revision() == "0005"
     db.migrate(engine)  # running again changes nothing
+    engine.dispose()
+
+
+def test_a_users_key_and_address_move_to_their_provider(tmp_path):
+    """0005: the one key and address a user had become their settings for the provider they had chosen."""
+    import json
+
+    from acf import secrets_box
+
+    engine = sa.create_engine(f"sqlite:///{tmp_path / 'keys.db'}")
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0004")
+        for uid, provider, url, key in [
+            (1, "openai", "http://ollama:11434/v1", "sk-old"),
+            (2, "", "", "sk-server"),
+            (3, "", "", ""),
+        ]:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO users (id, email, name, password_hash, created_at, llm_provider, llm_model, "
+                    "llm_base_url, llm_api_key, mcp_config) "
+                    "VALUES (:id, :e, '', 'x', '2026-01-01', :p, 'm', :u, :k, '')"
+                ),
+                {"id": uid, "e": f"{uid}@b.c", "p": provider, "u": url, "k": secrets_box.encrypt(key)},
+            )
+        command.upgrade(cfg, "0005")
+        rows = dict(conn.execute(sa.text("SELECT id, llm_connections FROM users")).all())
+        assert all(v == "{}" or v.startswith(secrets_box.PREFIX) for v in rows.values())
+        got = {uid: json.loads(secrets_box.decrypt(v)) for uid, v in rows.items()}
+        assert got[1] == {"openai": {"api_key": "sk-old", "base_url": "http://ollama:11434/v1"}}
+        assert got[2] == {"anthropic": {"api_key": "sk-server", "base_url": ""}}
+        assert got[3] == {}
+        command.downgrade(cfg, "0004")
+        back = conn.execute(sa.text("SELECT llm_base_url, llm_api_key FROM users WHERE id = 1")).one()
+        assert back[0] == "http://ollama:11434/v1" and secrets_box.decrypt(back[1]) == "sk-old"
     engine.dispose()

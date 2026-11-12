@@ -3,7 +3,7 @@
 from acf import config
 from acf.db import User
 from acf.llm import NO_KEY, LLMConfig
-from tests.conftest import send
+from tests.conftest import send, use_model
 from tests.fakes import fake_llm
 
 
@@ -28,13 +28,13 @@ async def test_server_key_used_for_the_servers_own_model(client, user):
 
 async def test_server_key_is_not_sent_to_another_provider(client, user, fake_llm_url):
     # The server's own address, written differently: still the server's key.
-    r = await client.put("/api/settings", json={"provider": "anthropic", "base_url": f"{fake_llm_url}/"})
+    r = await client.put("/api/settings/providers/anthropic", json={"base_url": f"{fake_llm_url}/"})
     assert r.status_code == 200
     fake_llm.REQUESTS.clear()
     await send(client, await new_chat(client), "hello")
     assert keys_seen() == ["test-key"]
 
-    await client.put("/api/settings", json={"provider": "openai", "model": "m", "base_url": f"{fake_llm_url}/v1"})
+    await use_model(client, "openai:m", base_url=f"{fake_llm_url}/v1")
     fake_llm.REQUESTS.clear()
     await send(client, await new_chat(client), "hello")
     assert keys_seen() == [NO_KEY]
@@ -42,7 +42,7 @@ async def test_server_key_is_not_sent_to_another_provider(client, user, fake_llm
 
 async def test_server_key_is_not_sent_to_another_address_of_the_same_provider(client, user, fake_llm_url):
     other = fake_llm_url.replace("127.0.0.1", "localhost")
-    await client.put("/api/settings", json={"provider": "anthropic", "base_url": other})
+    await client.put("/api/settings/providers/anthropic", json={"base_url": other})
     fake_llm.REQUESTS.clear()
     turn = await send(client, await new_chat(client), "hello")
     assert turn.final == "Echo: hello"
@@ -50,9 +50,7 @@ async def test_server_key_is_not_sent_to_another_address_of_the_same_provider(cl
 
 
 async def test_users_own_key_goes_to_their_server(client, user, fake_llm_url):
-    await client.put(
-        "/api/settings", json={"provider": "openai", "model": "m", "base_url": f"{fake_llm_url}/v1", "api_key": "mine"}
-    )
+    await use_model(client, "openai:m", base_url=f"{fake_llm_url}/v1", api_key="mine")
     fake_llm.REQUESTS.clear()
     await send(client, await new_chat(client), "hello")
     assert keys_seen() == ["mine"]
@@ -60,16 +58,20 @@ async def test_users_own_key_goes_to_their_server(client, user, fake_llm_url):
 
 def test_env_keys_are_not_picked_up_for_another_provider(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "server-env-key")
-    cfg = LLMConfig.for_user(User(llm_provider="openai", llm_model="m", llm_base_url="", llm_api_key=""))
+    cfg = LLMConfig.for_user(User(llm_provider="openai", llm_model="m", llm_effort="", llm_connections="{}"))
     assert cfg.api_key == NO_KEY and cfg.base_url == ""
 
 
 async def test_only_allowed_providers_can_be_chosen(client, user):
-    r = await client.put("/api/settings", json={"provider": "bedrock_converse", "model": "x"})
-    assert r.status_code == 400 and "doesn't offer 'bedrock_converse'" in r.json()["detail"]
-    assert "anthropic" in r.json()["detail"]
+    for r in (
+        await client.put("/api/settings", json={"model": "bedrock_converse:x"}),
+        await client.post("/api/settings/models", json={"provider": "bedrock_converse", "id": "x"}),
+        await client.put("/api/settings/providers/bedrock_converse", json={"api_key": "k"}),
+    ):
+        assert r.status_code == 400 and "doesn't offer 'bedrock_converse'" in r.json()["detail"]
+        assert "anthropic" in r.json()["detail"]
     settings = (await client.get("/api/settings")).json()
-    assert "openai" in settings["providers"] and "bedrock_converse" not in settings["providers"]
+    assert "openai" in settings["allowed_providers"] and "bedrock_converse" not in settings["allowed_providers"]
 
 
 async def test_disallowed_provider_saved_earlier_is_refused_at_run_time(client, user):
@@ -84,14 +86,16 @@ async def test_disallowed_provider_saved_earlier_is_refused_at_run_time(client, 
 
 async def test_any_provider_when_the_operator_allows_it(client, user, monkeypatch):
     monkeypatch.setattr(config.settings, "llm_providers", "*")
-    r = await client.put("/api/settings", json={"provider": "bedrock_converse", "model": "x"})
+    r = await client.put("/api/settings", json={"model": "bedrock_converse:x"})
     assert r.status_code == 200
 
 
 async def test_settings_fields_are_bounded(client, user):
-    r = await client.put("/api/settings", json={"model": "m" * 201})
+    r = await client.put("/api/settings", json={"model": "m" * 301})
     assert r.status_code == 422
-    r = await client.put("/api/settings", json={"base_url": "file:///etc/passwd"})
+    r = await client.post("/api/settings/models", json={"provider": "openai", "id": "m" * 201})
+    assert r.status_code == 422
+    r = await client.put("/api/settings/providers/openai", json={"base_url": "file:///etc/passwd"})
     assert r.status_code == 400
 
 
