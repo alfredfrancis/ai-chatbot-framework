@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import apps, artifacts, config, mcp_presets, models, oauth, projects, scheduler, skills, workspace
+from acf import __version__, apps, artifacts, config, mcp_presets, models, oauth, projects, scheduler, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import transcripts
 from acf.auth import (
@@ -63,7 +63,7 @@ def _set_cookie(resp: Response, token: str) -> None:
 
 @router.get("/health")
 def health() -> dict:
-    return {"ok": True}
+    return {"ok": True, "version": __version__}
 
 
 @router.get("/auth/config")

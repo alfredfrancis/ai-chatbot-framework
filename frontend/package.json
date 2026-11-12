@@ -1,7 +1,7 @@
 {
   "name": "ai-chatbot-framework-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0-beta.1",
   "type": "module",
   "scripts": {
     "dev": "node scripts/build-tokens.mjs && node scripts/build-openui-prompt.mjs && vite",

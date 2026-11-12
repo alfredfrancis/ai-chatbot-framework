@@ -130,8 +130,9 @@ To use other host ports, set `ACF_HTTP_PORT` / `ACF_HTTPS_PORT` (e.g. `127.0.0.1
 another proxy). When that tunnel or proxy terminates HTTPS (e.g. Cloudflare Tunnel), also set
 `ACF_CADDY_ADDRESS=:80` so Caddy serves plain HTTP.
 
-**Images.** The stack pulls published images (`ACF_REGISTRY` / `ACF_VERSION` in `.env`). To build from
-source instead (needed until the first release publishes images), run `docker compose up -d --build`.
+**Images.** The stack pulls published images (`ACF_REGISTRY` / `ACF_VERSION` in `.env`), by default the
+version of the checkout you run it from. To build from source instead, run `docker compose up -d --build`.
+Versions and upgrades: [docs/releasing.md](docs/releasing.md).
 
 **Data.** PostgreSQL runs in its own container (volume `postgres-data`); workspaces live in `./data`, or
 `ACF_DATA_PATH`. Back up both. Logs are rotated and the app has a health check.
