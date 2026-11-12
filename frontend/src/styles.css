@@ -695,5 +695,14 @@ ol.oui-steps { gap: var(--space-3); }
 .composer .bar .picker:focus { color: var(--text); }
 @media (max-width: 640px) { .model-picker { gap: 0; } .composer .bar .picker { max-width: 148px; } .composer .bar .picker.effort { max-width: 104px; } }
 .lrow .meta .mono { font-family: var(--font-mono); font-size: 13px; }
-.model-edit { flex-basis: 100%; display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-2); }
-.grow-input { flex: 1; min-width: 180px; width: auto; }
+/* Settings → Providers: one list per provider, its key in the head row, its models below. */
+.provider .provider-head { background: var(--bg); }
+.provider .provider-head:hover, .provider .add-model:hover { background: transparent; }
+.provider .provider-head .title { margin: 0; font-size: 17px; line-height: 24px; }
+.provider .provider-head .meta { gap: var(--space-2); }
+.provider .model-row { min-height: 56px; }
+.provider .add-model { min-height: 56px; gap: var(--space-2); }
+.provider .add-model .input { flex: 1; min-width: 180px; width: auto; height: var(--control-sm); border-style: dashed; background: transparent; }
+.row-panel { flex-basis: 100%; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-2) 0 var(--space-1); }
+.btn.on { background: var(--bg-selected); color: var(--text); }
+.provider .lrow .grow { min-width: 0; flex-basis: 0; }
