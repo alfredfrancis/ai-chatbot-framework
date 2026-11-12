@@ -4,6 +4,9 @@ A closer look at what AI Chatbot Framework does. The [README](../README.md) has 
 
 - **Any model through LangChain** – Claude (default), OpenAI, any OpenAI-compatible server (Ollama,
   OpenRouter, vLLM, LiteLLM) or any other LangChain chat provider.
+- **Model settings like Cursor** – a key per provider, a model list with on/off switches and models of your own,
+  a token window per model, and a default model and effort; each chat picks its model and effort in the message
+  box. Operators set the allowed models, their effort levels and windows (`ACF_MODELS_FILE`, `ACF_CUSTOM_MODELS`).
 - **A lean, modern agent loop** – four tools (`read`, `write`, `edit`, `bash`) plus `mcp_call` for MCP tools; the calls
   of one answer run in parallel; long commands run in the background and report back when done; long outputs truncated and saved to a file; context compaction; **steering** (type
   while the agent works; it picks your message up without stopping — right away while it thinks, after

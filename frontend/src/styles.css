@@ -685,3 +685,15 @@ ol.oui-steps { gap: var(--space-3); }
 .home .capabilities a.cta { color: var(--accent-text); }
 .home .capabilities .sep { color: var(--text-faint); }
 .page .more-tools .subhead { color: var(--text); }
+
+/* ---------- models: the chat's model picker and the Settings model list ---------- */
+.model-picker { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.composer .bar .picker { width: auto; max-width: 220px; height: var(--control-md); font-size: 14px; color: var(--text-muted); background-color: transparent;
+  border-color: transparent; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 26px 0 var(--space-2);
+  background-position: right 14px center, right 9px center; }
+.composer .bar .picker:hover { background-color: var(--bg-hover); color: var(--text); }
+.composer .bar .picker:focus { color: var(--text); }
+@media (max-width: 640px) { .model-picker { gap: 0; } .composer .bar .picker { max-width: 148px; } .composer .bar .picker.effort { max-width: 104px; } }
+.lrow .meta .mono { font-family: var(--font-mono); font-size: 13px; }
+.model-edit { flex-basis: 100%; display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-2); }
+.grow-input { flex: 1; min-width: 180px; width: auto; }

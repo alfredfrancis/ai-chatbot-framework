@@ -49,7 +49,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from acf import config, projects, skills, workspace
+from acf import config, models, projects, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
 from acf.agent.tools import tool_kind, tool_title
@@ -469,7 +469,8 @@ async def session_new(conn: Connection, params: dict[str, Any]) -> dict[str, Any
         chat = Chat(user_id=conn.user_id, title="New chat", project_id=project_id)
         db.add(chat)
         db.flush()
-        return {"sessionId": str(chat.id)}
+        sid = str(chat.id)
+    return {"sessionId": sid, "configOptions": models.config_options(conn._user())}
 
 
 async def session_list(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
@@ -508,6 +509,7 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
         project = db.get(Project, chat.project_id) if chat and chat.project_id else None
         if project:
             meta["project"] = {"id": project.id, "name": project.name}
+        choice = (chat.model, chat.effort) if chat else ("", "")
         stored = db.query(Message).filter_by(chat_id=chat_id).order_by(Message.id).all()
         rows = [m.to_dict() for m in stored]
         last_usage = next(
@@ -524,7 +526,34 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
         await conn._emit(sid, message_updates(m))
     if last_usage:
         await conn._emit(sid, [context_usage.update(last_usage)])
-    return _Reply({"_meta": {"acf": meta}}, after=gate.set)
+    options = models.config_options(conn._user(), *choice)
+    return _Reply({"configOptions": options, "_meta": {"acf": meta}}, after=gate.set)
+
+
+async def session_set_config_option(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
+    """Choose this chat's model or effort. Applies from the next model call."""
+    chat_id = conn._own_chat(params, write=True)
+    config_id, value = params.get("configId"), params.get("value")
+    user = conn._user()
+    if not isinstance(value, str) or len(value) > 300:
+        raise RpcError(INVALID_PARAMS, "value must be one of the option's values")
+    with session_scope() as db:
+        chat = db.get(Chat, chat_id)
+        current = chat.model or models.user_default(user)
+        if config_id == "model":
+            if value not in {o["value"] for o in models.config_options(user, current)[0]["options"]}:
+                raise RpcError(INVALID_PARAMS, f"Unknown model: {value}")
+            chat.model = value
+            if chat.effort and chat.effort not in models.info(value).efforts:
+                chat.effort = ""
+        elif config_id == "effort":
+            if value not in models.info(current).efforts:
+                raise RpcError(INVALID_PARAMS, f"Unknown effort for this model: {value}")
+            chat.effort = value
+        else:
+            raise RpcError(INVALID_PARAMS, f"Unknown config option: {config_id}")
+        choice = (chat.model, chat.effort)
+    return {"configOptions": models.config_options(user, *choice)}
 
 
 async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
@@ -547,6 +576,7 @@ METHODS = {
     "session/load": session_load,
     "session/list": session_list,
     "session/prompt": session_prompt,
+    "session/set_config_option": session_set_config_option,
 }
 
 

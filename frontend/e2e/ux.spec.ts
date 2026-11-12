@@ -97,12 +97,12 @@ test("settings: sections, cancel, and signing out from Account", async ({ page }
   await signUp(page);
   await nav(page).getByRole("link", { name: "Settings" }).click();
   const sections = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(sections.getByRole("link", { name: "Model" })).toHaveAttribute("aria-current", "true");
+  await expect(sections.getByRole("link", { name: "Models" })).toHaveAttribute("aria-current", "true");
 
   // Cancel puts back what is saved.
-  const model = page.getByLabel("Model", { exact: true });
-  await model.fill("something-else");
-  await expect(page.getByTestId("model-in-use")).toContainText("something-else");
+  const model = page.getByLabel("Default model", { exact: true });
+  await model.selectOption({ label: "Claude Sonnet 5.5" });
+  await expect(page.getByTestId("model-in-use")).toContainText("claude-sonnet-5-5");
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(model).toHaveValue("");
   await expect(page.getByRole("button", { name: "Cancel" })).toBeDisabled();

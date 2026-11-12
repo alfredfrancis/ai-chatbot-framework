@@ -7,12 +7,12 @@ import json
 import re
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import apps, artifacts, config, mcp_presets, oauth, projects, scheduler, skills, workspace
+from acf import apps, artifacts, config, mcp_presets, models, oauth, projects, scheduler, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import transcripts
 from acf.auth import (
@@ -435,25 +435,72 @@ async def app_action(app_id: str, body: AppActionIn, user: User = Depends(curren
 
 
 class SettingsIn(BaseModel):
-    provider: str = Field("", max_length=64)
-    model: str = Field("", max_length=200)
+    model: str = Field("", max_length=300)  # the default model, "provider:model" ("" = the server's)
+    effort: str = Field("", max_length=16)  # "" = each model's own default
+
+
+class ProviderIn(BaseModel):
     base_url: str = Field("", max_length=2000)
     api_key: str | None = Field(None, max_length=4000)  # None = keep, "" = clear
+
+
+class ModelIn(BaseModel):
+    provider: str = Field(max_length=64)
+    id: str = Field(min_length=1, max_length=200)
+
+
+class ModelPatch(BaseModel):
+    key: str = Field(min_length=3, max_length=300)
+    enabled: bool | None = None
+    context_window: int | None = Field(None, ge=0, le=100_000_000)  # 0 = the model's own
+
+
+def _check_provider(provider: str) -> None:
+    if not models.PROVIDER_ID.fullmatch(provider):
+        raise HTTPException(400, "Provider must be a LangChain provider id such as anthropic, openai or ollama")
+    if not config.settings.provider_allowed(provider):
+        names = ", ".join(config.settings.allowed_providers())
+        raise HTTPException(400, f"This server doesn't offer '{provider}'. Available: {names}")
+
+
+def _check_model(key: str) -> None:
+    provider, model_id = models.split(key)
+    _check_provider(provider)
+    if not model_id.strip() or not models.allowed(provider, model_id):
+        raise HTTPException(400, f"This server doesn't offer the model '{model_id}'.")
 
 
 @router.get("/settings")
 def get_settings(user: User = Depends(current_user)) -> dict:
     s = config.settings
+    conns = models.connections(user)
+    shown = [
+        *dict.fromkeys(
+            [p for p in ("anthropic", "openai") if s.provider_allowed(p)]
+            + [s.llm_provider]
+            + [p for p in conns if s.provider_allowed(p)]
+        )
+    ]
     return {
-        "provider": user.llm_provider,
-        "model": user.llm_model,
-        "base_url": user.llm_base_url,
-        "has_api_key": bool(user.llm_api_key),
-        "providers": s.allowed_providers(),
+        "model": models.user_default(user) if user.llm_model else "",
+        "effort": user.llm_effort,
+        "custom_models": s.custom_models,
+        "allowed_providers": s.allowed_providers(),
+        "providers": [
+            {
+                "id": p,
+                "name": models.PROVIDER_NAMES.get(p, p),
+                "base_url": conns.get(p, {}).get("base_url", ""),
+                "has_api_key": bool(conns.get(p, {}).get("api_key")),
+                "server": p == s.llm_provider,
+            }
+            for p in shown
+        ],
+        "models": models.user_models(user),
         "defaults": {
+            "model": models.server_default(),
             "provider": s.llm_provider,
             "base_url": s.llm_base_url,
-            "model": s.default_model(user.llm_provider or s.llm_provider),
             "has_api_key": bool(s.llm_api_key),
         },
     }
@@ -463,19 +510,119 @@ def get_settings(user: User = Depends(current_user)) -> dict:
 def put_settings(
     body: SettingsIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
 ) -> dict:
-    if body.base_url.strip() and not body.base_url.strip().startswith(("http://", "https://")):
-        raise HTTPException(400, "The server address must start with http:// or https://")
-    if body.provider and not re.fullmatch(r"[a-z][a-z0-9_-]{1,40}", body.provider):
-        raise HTTPException(400, "Provider must be a LangChain provider id such as anthropic, openai or ollama")
-    if body.provider and not config.settings.provider_allowed(body.provider):
-        names = ", ".join(config.settings.allowed_providers())
-        raise HTTPException(400, f"This server doesn't offer '{body.provider}'. Available: {names}")
     u = db.get(User, user.id)
-    u.llm_provider, u.llm_model, u.llm_base_url = body.provider, body.model.strip(), body.base_url.strip()
-    if body.api_key is not None:
-        u.llm_api_key = body.api_key.strip()
+    if body.model:
+        _check_model(body.model)
+        u.llm_provider, u.llm_model = models.split(body.model)
+    else:
+        u.llm_provider, u.llm_model = "", ""
+    if body.effort and not re.fullmatch(r"[a-z]{1,16}", body.effort):
+        raise HTTPException(400, "Unknown effort level")
+    u.llm_effort = body.effort
     db.flush()
     return get_settings(u)
+
+
+@router.put("/settings/providers/{provider}")
+def put_provider(
+    provider: str,
+    body: ProviderIn,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(current_user),
+) -> dict:
+    _check_provider(provider)
+    base_url = body.base_url.strip()
+    if base_url and not base_url.startswith(("http://", "https://")):
+        raise HTTPException(400, "The server address must start with http:// or https://")
+    u = db.get(User, user.id)
+    conns = models.connections(u)
+    conn = conns.get(provider, {"api_key": "", "base_url": ""})
+    conn["base_url"] = base_url
+    if body.api_key is not None:
+        conn["api_key"] = body.api_key.strip()
+    if conn["api_key"] or conn["base_url"]:
+        conns[provider] = conn
+    else:
+        conns.pop(provider, None)
+    u.llm_connections = json.dumps(conns)
+    db.flush()
+    return get_settings(u)
+
+
+@router.post("/settings/models")
+def add_model(
+    body: ModelIn, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
+    """Add a model of one's own to the list (on in the model picker)."""
+    _check_provider(body.provider)
+    model_id = body.id.strip()
+    if not model_id or any(c.isspace() for c in model_id):
+        raise HTTPException(400, "A model id has no spaces, e.g. llama3.1:8b")
+    key = f"{body.provider}:{model_id}"
+    u = db.get(User, user.id)
+    listed = models.in_catalogue(body.provider, model_id)
+    if not listed and not config.settings.custom_models:
+        raise HTTPException(400, "This server only offers the models in the list.")
+    prefs = models.prefs(u)
+    prefs[key] = {**prefs.get(key, {}), "enabled": True, "custom": not listed}
+    u.llm_models = prefs
+    db.flush()
+    return get_settings(u)
+
+
+@router.patch("/settings/models")
+def patch_model(
+    body: ModelPatch, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> dict:
+    """Turn a model on or off in the picker, or set its token window."""
+    u = db.get(User, user.id)
+    entry = next((m for m in models.user_models(u) if m["key"] == body.key), None)
+    if entry is None:
+        raise HTTPException(404, "Model not found")
+    pref = dict(models.prefs(u).get(body.key, {}))
+    if body.enabled is not None:
+        if not body.enabled and body.key == models.user_default(u):
+            raise HTTPException(400, "This is your default model. Choose another default first.")
+        pref["enabled"] = body.enabled
+    if body.context_window is not None:
+        cap = entry["max_context_window"]
+        if body.context_window and body.context_window < models.MIN_WINDOW:
+            raise HTTPException(400, f"A token window is at least {models.MIN_WINDOW:,} tokens.")
+        if body.context_window and cap and body.context_window > cap:
+            raise HTTPException(400, f"This model's token window is at most {cap:,} tokens.")
+        pref["context_window"] = body.context_window
+    u.llm_models = {**models.prefs(u), body.key: pref}
+    db.flush()
+    return get_settings(u)
+
+
+@router.delete("/settings/models")
+def delete_model(key: str, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> dict:
+    """Remove a model one added (models from the server's list can only be turned off)."""
+    u = db.get(User, user.id)
+    prefs = models.prefs(u)
+    if not prefs.get(key, {}).get("custom"):
+        raise HTTPException(404, "Model not found")
+    if key == models.user_default(u):
+        raise HTTPException(400, "This is your default model. Choose another default first.")
+    prefs.pop(key)
+    u.llm_models = prefs
+    db.flush()
+    return get_settings(u)
+
+
+@router.get("/models")
+def model_options(
+    model: Annotated[str, Query(max_length=300)] = "",
+    effort: Annotated[str, Query(max_length=16)] = "",
+    user: User = Depends(current_user),
+) -> dict:
+    """The model and effort choices for a new chat (the ACP config options it will have), as they are with
+    `model` and `effort` chosen; a model that isn't on the user's list is ignored."""
+    picker = models.config_options(user)[0]
+    if model not in {o["value"] for o in picker["options"]}:
+        model = ""
+    return {"configOptions": models.config_options(user, model, effort)}
 
 
 def _acp_token_dict(row: AcpToken | None) -> dict | None:

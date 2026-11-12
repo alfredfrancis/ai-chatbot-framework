@@ -117,13 +117,18 @@ class AcpClient {
 
 export const acp = new AcpClient();
 
+/** A session setting the user can choose, such as the model or its effort (ACP session config options). */
+export type ConfigOption = {
+  id: string; name: string; category?: string; type: "select"; currentValue: string;
+  options: { value: string; name: string; description?: string }[];
+};
 /** A new chat; with `projectId`, a chat in that project. */
 export const newSession = (projectId?: number) =>
-  acp.request<{ sessionId: string }>("session/new", {
+  acp.request<{ sessionId: string; configOptions?: ConfigOption[] }>("session/new", {
     cwd: "/workspace", mcpServers: [], ...(projectId ? { _meta: { acf: { projectId } } } : {}),
   });
 export const loadSession = (sessionId: string) =>
-  acp.request<{ _meta?: { acf?: { running?: boolean; title?: string; parent?: ParentSession } } } | null>("session/load", { sessionId, cwd: "/workspace", mcpServers: [] });
+  acp.request<{ configOptions?: ConfigOption[]; _meta?: { acf?: { running?: boolean; title?: string; parent?: ParentSession } } } | null>("session/load", { sessionId, cwd: "/workspace", mcpServers: [] });
 /** A file in the workspace, sent as an ACP resource_link (file:///workspace/<path>). */
 export type Attachment = { name: string; uri: string };
 export const WORKSPACE_URI = "file:///workspace/";
@@ -132,4 +137,7 @@ export const prompt = (sessionId: string, text: string, files: Attachment[] = []
     sessionId,
     prompt: [...(text ? [{ type: "text", text }] : []), ...files.map((f) => ({ type: "resource_link", ...f }))],
   });
+/** Choose a chat's model or effort; returns the options as they are now. */
+export const setConfigOption = (sessionId: string, configId: string, value: string) =>
+  acp.request<{ configOptions: ConfigOption[] }>("session/set_config_option", { sessionId, configId, value });
 export const cancel = (sessionId: string) => acp.notify("session/cancel", { sessionId });

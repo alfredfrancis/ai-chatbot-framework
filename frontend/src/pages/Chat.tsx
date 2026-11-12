@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, WORKSPACE_URI, type AcpNotification, type AgentInfo, type Attachment, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
+import { acp, cancel, loadSession, newSession, prompt, setConfigOption, WORKSPACE_URI, type AcpNotification, type ConfigOption, type AgentInfo, type Attachment, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
@@ -282,9 +282,23 @@ const slashAt = (text: string, caret: number) => {
 const MAX_SKILL_CHOICES = 6;
 let pendingSeq = 0;
 
-export function Composer({ onSend, onStop, running, background = false, placeholder, initial = "" }: {
+/** The chat's model and, for models that have one, its effort: native selects, so they work by keyboard and on phones. */
+function ModelPicker({ options, onChange }: { options: ConfigOption[]; onChange: (id: string, value: string) => void }) {
+  return (
+    <span className="model-picker">
+      {options.map((o) => (
+        <select key={o.id} className={`input picker ${o.id}`} aria-label={o.name} title={o.name} value={o.currentValue}
+          onChange={(e) => onChange(o.id, e.target.value)}>
+          {o.options.map((x) => <option key={x.value} value={x.value}>{x.name}</option>)}
+        </select>
+      ))}
+    </span>
+  );
+}
+
+export function Composer({ onSend, onStop, running, background = false, placeholder, initial = "", options, onOption }: {
   onSend: (text: string, files: Attachment[]) => void; onStop?: () => void; running: boolean; background?: boolean; placeholder?: string;
-  initial?: string;
+  initial?: string; options?: ConfigOption[]; onOption?: (id: string, value: string) => void;
 }) {
   const [text, setText] = useState(initial);
   const [pending, setPending] = useState<Pending[]>([]);
@@ -398,6 +412,7 @@ export function Composer({ onSend, onStop, running, background = false, placehol
         </button>
         <input ref={picker} type="file" multiple hidden data-testid="chat-upload"
           onChange={(e) => { if (e.target.files) attach(e.target.files); e.target.value = ""; }} />
+        {options && onOption && <ModelPicker options={options} onChange={onOption} />}
         <span className="hints row-flex">
           {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
             : background ? <>Commands are running in the background · <Keys keys={["Esc"]} /> stop them</>
@@ -529,8 +544,29 @@ function greeting(name: string) {
   return `${part}, ${name}.`;
 }
 
-function Home({ onStart, draft = "" }: { onStart: (t: string, files?: Attachment[]) => void; draft?: string }) {
+type Choice = Record<string, string>;
+const choiceOf = (options: ConfigOption[]): Choice => Object.fromEntries(options.map((o) => [o.id, o.currentValue]));
+
+function Home({ onStart, draft = "" }: { onStart: (t: string, files: Attachment[], choice: Choice) => void; draft?: string }) {
   const { user, counts } = useApp();
+  // The model and effort the new chat will start on (the user's defaults until they pick others). The choice
+  // is kept here as it is made, so a second pick before the options come back builds on the first.
+  const [options, setOptions] = useState<ConfigOption[] | undefined>();
+  const choice = useRef<Choice>({});
+  const fetchOptions = () => {
+    const asked = choice.current;
+    api.get<{ configOptions: ConfigOption[] }>(`/models?${new URLSearchParams(asked)}`)
+      .then((r) => { if (choice.current === asked) { setOptions(r.configOptions); choice.current = choiceOf(r.configOptions); } })
+      .catch(() => {});
+  };
+  useEffect(() => { fetchOptions(); }, []); // eslint-disable-line
+  const pick = (id: string, value: string) => {
+    const next = { ...choice.current, [id]: value };
+    if (id === "model") delete next.effort; // another model: its own efforts
+    choice.current = next;
+    setOptions((o) => o?.map((x) => (x.id in next ? { ...x, currentValue: next[x.id] } : x)));
+    fetchOptions();
+  };
   const n = (x: number, one: string) => `${x} ${one}${x === 1 ? "" : "s"}`;
   return (
     <>
@@ -542,7 +578,8 @@ function Home({ onStart, draft = "" }: { onStart: (t: string, files?: Attachment
           <p className="sub">What should your agent work on?</p>
         </div>
         <div className="stack">
-          <Composer key={draft} initial={draft} onSend={onStart} running={false} placeholder="Ask anything, or describe a job to do" />
+          <Composer key={draft} initial={draft} onSend={(t, f) => onStart(t, f, choice.current)} running={false}
+            placeholder="Ask anything, or describe a job to do" options={options} onOption={pick} />
           {/* What the agent has to work with; each part links to where it lives. */}
           <nav className="capabilities" aria-label="What your agent has" data-testid="status-line">
             <span className="row-flex"><span className="live-dot" aria-hidden="true" />Private computer</span>
@@ -558,7 +595,7 @@ function Home({ onStart, draft = "" }: { onStart: (t: string, files?: Attachment
           <h2 className="subhead" id="try-label">Try one of these</h2>
           <div className="list">
             {TRY.map((t) => (
-              <button key={t.text} className="try-row" onClick={() => onStart(t.prompt)}>
+              <button key={t.text} className="try-row" onClick={() => onStart(t.prompt, [], choice.current)}>
                 <span className="text">{t.text}</span><span className="kind">{t.kind}</span>
               </button>
             ))}
@@ -583,6 +620,7 @@ export default function ChatPage() {
   const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
   const [panel, setPanel] = useState(panelPref);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [options, setOptions] = useState<ConfigOption[] | undefined>();
   // A sub-agent's session: read-only, with the chat it belongs to and what the sub-agent was for.
   const [sub, setSub] = useState<{ title: string; parent: ParentSession } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -608,6 +646,7 @@ export default function ChatPage() {
       const r = await loadSession(target);
       if (current.current !== target) return;
       const meta = r?._meta?.acf;
+      setOptions(r?.configOptions);
       setRunning(!!meta?.running);
       setSub(meta?.parent ? { title: meta.title ?? "Sub-agent", parent: meta.parent } : null);
     } catch {
@@ -675,6 +714,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     setEntries([]); setError(""); setQueued([]); setRunning(false); setArtifacts(null); setUsage(null); setSub(null);
+    setOptions((location.state as { options?: ConfigOption[] } | null)?.options);
     if (!sid) return;
     loadArtifacts(sid);
     const pending = (location.state as { pending?: Outgoing } | null)?.pending;
@@ -691,10 +731,26 @@ export default function ChatPage() {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [entries, running, queued]);
 
-  const start = async (text: string, files: Attachment[] = []) => {
+  const start = async (text: string, files: Attachment[], choice: Choice) => {
     const s = await newSession();
+    let options = s.configOptions ?? [];
+    // The model first: changing it can change which efforts there are.
+    for (const id of ["model", "effort"]) {
+      const now = options.find((o) => o.id === id);
+      if (now && choice[id] && choice[id] !== now.currentValue && now.options.some((x) => x.value === choice[id])) {
+        options = (await setConfigOption(s.sessionId, id, choice[id])).configOptions;
+      }
+    }
     refresh();
-    navigate(`/c/${s.sessionId}`, { state: { pending: { text, files } } });
+    navigate(`/c/${s.sessionId}`, { state: { pending: { text, files }, options } });
+  };
+  const chooseOption = async (id: string, value: string) => {
+    if (!sid) return;
+    try {
+      setOptions((await setConfigOption(sid, id, value)).configOptions);
+    } catch (err) {
+      setError((err as Error).message);
+    }
   };
   const stop = () => { if (sid) cancel(sid); };
   const remove = async () => {
@@ -741,7 +797,7 @@ export default function ChatPage() {
                 <Link className="btn sm" to={`/c/${sub.parent.sessionId}`}>Back to the chat</Link>
               </div>
             ) : (
-              <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running}
+              <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running} options={options} onOption={chooseOption}
                 background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
             )}
           </div>

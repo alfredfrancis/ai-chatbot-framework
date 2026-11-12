@@ -4,7 +4,7 @@ import httpx
 
 from acf import config, workspace
 from tests.acp_client import acp_connect, joined
-from tests.conftest import prompt, send
+from tests.conftest import prompt, send, use_model
 
 
 async def new_chat(client) -> int:
@@ -276,17 +276,14 @@ async def test_anthropic_request_shape(client, user, fake_llm_url):
 
 
 async def test_openai_compatible_provider(client, user, fake_llm_url):
-    r = await client.put(
-        "/api/settings",
-        json={"provider": "openai", "model": "local-model", "base_url": f"{fake_llm_url}/v1", "api_key": "k"},
-    )
-    assert r.status_code == 200 and r.json()["has_api_key"]
+    r = await use_model(client, "openai:local-model", base_url=f"{fake_llm_url}/v1", api_key="k")
+    assert next(p for p in r["providers"] if p["id"] == "openai")["has_api_key"]
     chat_id = await new_chat(client)
     assert "openai-ok" in (await send(client, chat_id, "run: echo openai-ok")).final
 
 
 async def test_llm_error_is_friendly(client, user):
-    await client.put("/api/settings", json={"provider": "openai", "model": "m", "base_url": "http://127.0.0.1:1/v1"})
+    await use_model(client, "openai:m", base_url="http://127.0.0.1:1/v1")
     chat_id = await new_chat(client)
     turn = await send(client, chat_id, "hi")
     assert turn.stop_reason is None and "Could not reach the model" in turn.error
