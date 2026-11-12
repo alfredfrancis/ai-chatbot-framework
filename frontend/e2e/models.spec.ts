@@ -35,26 +35,33 @@ test("pick a chat's model and effort in the message box", async ({ page }) => {
 test("the model list: turn models on and off, set a token window, choose the default", async ({ page }) => {
   await signUp(page);
   await nav(page).getByRole("link", { name: "Settings" }).click();
-  const list = page.getByRole("region", { name: "Model list" });
-  await expect(list.getByRole("switch", { name: "Use Claude Opus 5.5" })).toBeChecked();
-  await expect(list.getByRole("switch", { name: "Use GPT-5", exact: true })).not.toBeChecked();
-  await expect(list.getByTestId("model-row").filter({ hasText: "GPT-5 mini" })).toContainText("No API key");
+  const anthropic = page.getByRole("region", { name: "Anthropic" });
+  const openai = page.getByRole("region", { name: "OpenAI" });
+  // Each provider holds its own models.
+  await expect(anthropic.getByTestId("model-row")).toHaveCount(4);
+  await expect(anthropic.getByRole("switch", { name: "Use Claude Opus 5.5" })).toBeChecked();
+  await expect(openai.getByRole("switch", { name: "Use GPT-5", exact: true })).not.toBeChecked();
+  await expect(openai).toContainText("No API key");
 
   // Off: gone from the picker.
-  await list.getByRole("switch", { name: "Use Claude Haiku 5.5" }).click();
-  await expect(list.getByRole("switch", { name: "Use Claude Haiku 5.5" })).not.toBeChecked();
+  await anthropic.getByRole("switch", { name: "Use Claude Haiku 5.5" }).click();
+  await expect(anthropic.getByRole("switch", { name: "Use Claude Haiku 5.5" })).not.toBeChecked();
   // The token window: the context meter and compaction follow it.
-  await list.getByRole("button", { name: "Edit Claude Opus 5.5" }).click();
-  await list.getByLabel("Token window").fill("64000");
-  await list.getByRole("button", { name: "Save token window" }).click();
-  await expect(list.getByTestId("model-row").filter({ hasText: "Claude Opus 5.5" })).toContainText("64K token window");
-  // Default model and effort for new chats.
-  await page.getByLabel("Default model", { exact: true }).selectOption({ label: "Claude Opus 5.5" });
+  await anthropic.getByRole("button", { name: "Options for Claude Opus 5.5" }).click();
+  await anthropic.getByLabel("Token window").fill("64000");
+  await anthropic.getByRole("button", { name: "Save token window" }).click();
+  await expect(anthropic.getByTestId("model-row").filter({ hasText: "Claude Opus 5.5" })).toContainText("64K token window");
+  // Default model and effort for new chats: saved as they change.
+  const models = page.getByRole("region", { name: "Models" });
+  await page.getByLabel("Default model", { exact: true }).selectOption({ label: "Claude Sonnet 5.5" });
+  await expect(models.getByRole("status")).toHaveText("Saved");
+  await expect(anthropic.getByTestId("model-row").filter({ hasText: "Claude Sonnet 5.5" })).toContainText("Default");
+  await page.getByLabel("Default model", { exact: true }).selectOption({ label: "Claude Opus 5.5 (server default)" });
   await page.getByLabel("Default effort").selectOption("max");
-  await page.getByRole("form", { name: "Default model settings" }).getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByTestId("model-in-use")).toHaveText("anthropic:claude-opus-5-5 · max");
-  await list.getByLabel("Search models").fill("claude");
-  await expect(list.getByTestId("model-row")).toHaveCount(4);
+  await expect(page.getByLabel("Default effort")).toHaveValue("max");
+  await page.reload();
+  await expect(page.getByLabel("Default model", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Default effort")).toHaveValue("max");
   await shot(page, "71-model-list");
 
   await nav(page).getByRole("link", { name: "New chat" }).click();

@@ -69,11 +69,11 @@ function ExternalApps() {
 }
 
 const SECTIONS = [
-  { id: "model-settings", label: "Models" }, { id: "api-keys", label: "API keys" },
+  { id: "model-settings", label: "Models" }, { id: "providers", label: "Providers" },
   { id: "external-apps", label: "External apps" }, { id: "sandbox", label: "Sandbox" }, { id: "account", label: "Account" },
 ];
 const tokens = (n: number) => (n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(2)}M` : `${Math.round(n / 1000)}K`);
-const levels = (m: ModelEntry) => (m.efforts.length ? `effort ${m.efforts.join(", ")}` : "no effort setting");
+const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
 const trim = (u: string) => u.trim().replace(/\/+$/, "");
 type Update = (r: Settings) => void;
 
@@ -91,70 +91,65 @@ function useStatus() {
       setError((err as Error).message);
     }
   };
-  return { msg, error, run, setError };
+  return { msg, error, run };
 }
 
-/** The model new chats start on, and its effort. Each chat can pick another in its message box. */
+/** The model and effort new chats start on. Saved as soon as they change, like the switches below. */
 function Defaults({ s, onSaved }: { s: Settings; onSaved: Update }) {
-  const [model, setModel] = useState(s.model);
-  const [effort, setEffort] = useState(s.effort);
   const { msg, error, run } = useStatus();
-  useEffect(() => { setModel(s.model); setEffort(s.effort); }, [s.model, s.effort]);
-  const on = s.models.filter((m) => m.enabled);
-  const current = s.models.find((m) => m.key === (model || s.defaults.model));
+  // What the selects show: the latest choice, so a second change before the first is saved builds on it.
+  const [choice, setChoice] = useState({ model: s.model, effort: s.effort });
+  const queue = useRef(Promise.resolve());
+  const current = s.models.find((m) => m.key === (choice.model || s.defaults.model));
   const efforts = current?.efforts ?? [];
-  const changed = model !== s.model || effort !== s.effort;
-  const save = (e: FormEvent) => {
-    e.preventDefault();
-    run(async () => onSaved(await api.put<Settings>("/settings", { model, effort: efforts.includes(effort) ? effort : "" })));
+  const save = (model: string, effort: string) => {
+    const next = s.models.find((m) => m.key === (model || s.defaults.model));
+    const sent = { model, effort: next?.efforts.includes(effort) ? effort : "" };
+    setChoice(sent);
+    // One save at a time, in order, so an earlier one can't land last and undo a later one.
+    queue.current = queue.current.then(() => run(async () => onSaved(await api.put<Settings>("/settings", sent))));
   };
   const serverDefault = s.models.find((m) => m.key === s.defaults.model)?.name ?? s.defaults.model;
   return (
-    <form className="card split" id="model-settings" onSubmit={save} aria-label="Default model settings">
-      <div className="card-head">
-        <div>
-          <h2>Models</h2>
-          <span className="model-name" data-testid="model-in-use">{current ? current.key : model || s.defaults.model}{effort && efforts.includes(effort) ? ` · ${effort}` : ""}</span>
+    <section className="stack" id="model-settings" aria-labelledby="models-title">
+      <div>
+        <div className="row-flex between">
+          <h2 id="models-title">Models</h2>
+          <span className="hint" role="status">{msg}</span>
         </div>
+        <p className="lead">New chats start on these. You can switch model and effort in any chat, next to the message box.</p>
       </div>
-      <div className="card-body">
-        <p className="hint" style={{ margin: 0 }}>New chats start on your default model. Each chat can switch model and effort from its message box.</p>
+      <div className="card">
         <div className="grid-2">
           <div className="field">
             <label htmlFor="default-model">Default model</label>
-            <select id="default-model" className="input" value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="">Server default ({serverDefault})</option>
-              {on.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+            <select id="default-model" className="input" value={choice.model} onChange={(e) => save(e.target.value, choice.effort)}>
+              <option value="">{serverDefault} (server default)</option>
+              {s.models.filter((m) => m.enabled && m.key !== s.defaults.model).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
             </select>
           </div>
           <div className="field">
             <label htmlFor="default-effort">Default effort</label>
-            <select id="default-effort" className="input" value={efforts.includes(effort) ? effort : ""} disabled={!efforts.length}
-              onChange={(e) => setEffort(e.target.value)}>
-              <option value="">{efforts.length ? `Model's default (${current?.effort})` : "This model has no effort setting"}</option>
-              {efforts.map((x) => <option key={x} value={x}>{x[0].toUpperCase() + x.slice(1)}</option>)}
+            <select id="default-effort" className="input" value={efforts.includes(choice.effort) ? choice.effort : ""} disabled={!efforts.length}
+              onChange={(e) => save(choice.model, e.target.value)}>
+              <option value="">{efforts.length ? `${cap(current?.effort || "medium")} (model's default)` : "Not available for this model"}</option>
+              {efforts.map((x) => <option key={x} value={x}>{cap(x)}</option>)}
             </select>
-            <span className="hint">More effort: deeper thinking, slower and costlier answers.</span>
+            <span className="hint">More effort thinks longer: better answers to hard questions, but slower and costlier.</span>
           </div>
         </div>
         {error && <div className="banner" role="alert">{error}</div>}
       </div>
-      <div className="card-foot">
-        <span className="hint">{msg ? <span role="status">{msg}</span> : "Applies to new chats."}</span>
-        <button type="button" className="btn ghost" disabled={!changed} onClick={() => { setModel(s.model); setEffort(s.effort); }}>Cancel</button>
-        <button className="btn primary" type="submit" disabled={!changed}>Save changes</button>
-      </div>
-    </form>
+    </section>
   );
 }
 
-/** One model in the list: on or off in the model picker, and its token window. */
+/** One model: on or off in the chat's model picker; its options hold the token window. */
 function ModelRow({ m, s, onSaved }: { m: ModelEntry; s: Settings; onSaved: Update }) {
   const [open, setOpen] = useState(false);
   const [window, setWindow] = useState(m.window && m.window !== m.context_window ? String(m.window) : "");
   const { error, run } = useStatus();
   const isDefault = m.key === (s.model || s.defaults.model);
-  const provider = s.providers.find((p) => p.id === m.provider)?.name ?? m.provider;
   const toggle = (enabled: boolean) => run(async () => onSaved(await api.patch<Settings>("/settings/models", { key: m.key, enabled })));
   const saveWindow = (e: FormEvent) => {
     e.preventDefault();
@@ -165,30 +160,35 @@ function ModelRow({ m, s, onSaved }: { m: ModelEntry; s: Settings; onSaved: Upda
   };
   const remove = () => run(async () => onSaved(await api.del<Settings>(`/settings/models?key=${encodeURIComponent(m.key)}`)));
   return (
-    <div className="lrow" data-testid="model-row">
+    <div className="lrow model-row" data-testid="model-row">
       <div className="grow">
         <div className="title row-flex wrap">
           {m.name}
           {isDefault && <span className="badge plain">Default</span>}
           {m.custom && <span className="badge plain">Added by you</span>}
-          {!m.has_key && <span className="badge warning">No API key</span>}
         </div>
-        <div className="meta"><span className="mono">{m.id}</span> · {provider} · {m.window ? `${tokens(m.window)} token window` : "model's own token window"} · {levels(m)}</div>
+        {(m.name !== m.id || m.window > 0) && (
+          <div className="meta">
+            {m.name !== m.id && <span className="mono">{m.id}</span>}
+            {m.name !== m.id && m.window > 0 && " · "}
+            {m.window > 0 && `${tokens(m.window)} token window`}
+          </div>
+        )}
       </div>
       <div className="side">
-        <button type="button" className="btn ghost sm" aria-expanded={open} aria-label={`Edit ${m.name}`} onClick={() => setOpen(!open)}>Edit</button>
+        <button type="button" className={`btn ghost sm${open ? " on" : ""}`} aria-expanded={open} aria-label={`Options for ${m.name}`} onClick={() => setOpen(!open)}>Options</button>
         <Toggle label={`Use ${m.name}`} checked={m.enabled} onChange={toggle} />
       </div>
       {open && (
-        <form className="model-edit" onSubmit={saveWindow} aria-label={`${m.name} settings`}>
+        <form className="row-panel" onSubmit={saveWindow} aria-label={`${m.name} options`}>
           <div className="field">
             <label htmlFor={`window-${m.key}`}>Token window</label>
             <input id={`window-${m.key}`} className="input mono" inputMode="numeric" value={window}
               onChange={(e) => setWindow(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder={m.context_window ? String(m.context_window) : "The model's own"} />
             <span className="hint">
-              How much of the conversation the model sees. Older messages are summarised at 80% of it.
-              {m.max_context_window ? ` Up to ${m.max_context_window.toLocaleString("en-US")} tokens.` : ""}
+              How much of the conversation the model keeps in view. Older messages are summarised when a chat fills 80% of it.
+              {m.max_context_window ? ` At most ${m.max_context_window.toLocaleString("en-US")} tokens.` : ""}
             </span>
           </div>
           <div className="row-flex wrap">
@@ -202,103 +202,103 @@ function ModelRow({ m, s, onSaved }: { m: ModelEntry; s: Settings; onSaved: Upda
   );
 }
 
-function ModelList({ s, onSaved }: { s: Settings; onSaved: Update }) {
-  const [query, setQuery] = useState("");
-  const [provider, setProvider] = useState(s.defaults.provider);
-  const [id, setId] = useState("");
-  const { error, run } = useStatus();
-  const q = query.trim().toLowerCase();
-  const shown = s.models.filter((m) => !q || `${m.name} ${m.key}`.toLowerCase().includes(q));
-  const add = (e: FormEvent) => {
+/** A provider: its key (the user's, or the server's), and its models. */
+function Provider({ p, s, onSaved, startOpen = false }: { p: ProviderEntry; s: Settings; onSaved: Update; startOpen?: boolean }) {
+  const [editing, setEditing] = useState(startOpen);
+  const [apiKey, setApiKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState(p.base_url);
+  const [advanced, setAdvanced] = useState(!!p.base_url);
+  const [modelId, setModelId] = useState("");
+  const key = useStatus();
+  const add = useStatus();
+  useEffect(() => setBaseUrl(p.base_url), [p.base_url]);
+  const models = s.models.filter((m) => m.provider === p.id);
+  // The server's key only goes to the server's own provider and address.
+  const serverKey = s.defaults.has_api_key && p.id === s.defaults.provider && ["", trim(s.defaults.base_url)].includes(trim(baseUrl));
+  const ready = p.has_api_key || serverKey;
+  const put = (k: string | null) => api.put<Settings>(`/settings/providers/${p.id}`, { base_url: baseUrl, api_key: k });
+  const saveKey = (e: FormEvent) => {
     e.preventDefault();
-    run(async () => { onSaved(await api.post<Settings>("/settings/models", { provider, id: id.trim() })); setId(""); });
+    key.run(async () => { onSaved(await put(apiKey || null)); setApiKey(""); setEditing(false); });
   };
+  const addModel = (e: FormEvent) => {
+    e.preventDefault();
+    add.run(async () => { onSaved(await api.post<Settings>("/settings/models", { provider: p.id, id: modelId.trim() })); setModelId(""); });
+  };
+  const status = p.has_api_key ? "Your key is saved" : serverKey ? "Uses the server's key" : "Needs an API key before its models can answer";
   return (
-    <section className="stack" aria-labelledby="model-list">
-      <div>
-        <h3 id="model-list">Model list</h3>
-        <p className="lead">Models that are on show up in each chat's model picker.</p>
+    <section className="list provider" aria-label={p.name}>
+      <div className="lrow provider-head">
+        <div className="grow">
+          <h3 className="title">{p.name}</h3>
+          <div className="meta row-flex wrap">
+            {!ready && <span className="badge warning">No API key</span>}
+            <span>{status}{p.base_url ? ` · ${p.base_url}` : ""}</span>
+          </div>
+        </div>
+        <div className="side">
+          {key.msg && <span className="hint" role="status">{key.msg}</span>}
+          <button type="button" className={`btn sm${editing ? " on" : ""}`} aria-expanded={editing} onClick={() => setEditing(!editing)}>
+            {p.has_api_key ? "Change key" : serverKey ? "Use my own key" : "Add key"}
+          </button>
+        </div>
+        {editing && (
+          <form className="row-panel" onSubmit={saveKey} aria-label={`${p.name} key`}>
+            <div className="field">
+              <label htmlFor={`key-${p.id}`}>{p.name} API key</label>
+              <input id={`key-${p.id}`} className="input" type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                placeholder={p.has_api_key ? "•••••••• (saved)" : serverKey ? "Using the server's key" : "Paste your API key"} />
+              <span className="hint">
+                {!p.has_api_key && !serverKey && s.defaults.has_api_key && p.id === s.defaults.provider
+                  ? "The server's key only works with its own model provider and address. Add your own key for this one."
+                  : "Stored encrypted, and only ever sent to this provider."}
+              </span>
+            </div>
+            {advanced || p.id === "openai" ? (
+              <div className="field">
+                <label htmlFor={`url-${p.id}`}>{p.name} server address <span className="hint">(optional)</span></label>
+                <input id={`url-${p.id}`} className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder={p.id === "openai" ? "http://localhost:11434/v1" : "https://…"} />
+                <span className="hint">{p.id === "openai" ? "For any OpenAI-compatible server: Ollama, OpenRouter, vLLM, LiteLLM. " : ""}Leave empty for the provider's own.</span>
+              </div>
+            ) : (
+              <button type="button" className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => setAdvanced(true)}>Use a custom server address</button>
+            )}
+            {key.error && <div className="banner" role="alert">{key.error}</div>}
+            <div className="row-flex wrap">
+              <button className="btn sm" type="submit" disabled={!apiKey && baseUrl === p.base_url}>Save {p.name} key</button>
+              <button type="button" className="btn ghost sm" onClick={() => { setEditing(false); setApiKey(""); setBaseUrl(p.base_url); }}>Cancel</button>
+              {p.has_api_key && <button type="button" className="btn danger sm" onClick={() => key.run(async () => onSaved(await put("")), "Key removed")}>Remove saved key</button>}
+            </div>
+          </form>
+        )}
       </div>
-      <input className="input" type="search" aria-label="Search models" placeholder="Search models" value={query} onChange={(e) => setQuery(e.target.value)} />
-      <div className="list">
-        {shown.map((m) => <ModelRow key={m.key} m={m} s={s} onSaved={onSaved} />)}
-        {!shown.length && <p className="empty">No model matches “{query}”.</p>}
-      </div>
+      {models.map((m) => <ModelRow key={m.key} m={m} s={s} onSaved={onSaved} />)}
       {s.custom_models && (
-        <form className="row-flex wrap" onSubmit={add} aria-label="Add a model">
-          <select className="input" aria-label="Provider of the new model" style={{ width: "auto" }} value={provider} onChange={(e) => setProvider(e.target.value)}>
-            {s.allowed_providers.map((p) => <option key={p} value={p}>{s.providers.find((x) => x.id === p)?.name ?? p}</option>)}
-          </select>
-          <input className="input mono grow-input" aria-label="Model id" placeholder="Model id, e.g. llama3.1:8b" value={id} onChange={(e) => setId(e.target.value)} />
-          <button className="btn" type="submit" disabled={!id.trim()}>Add model</button>
+        <form className="lrow add-model" onSubmit={addModel} aria-label={`Add a model to ${p.name}`}>
+          <label className="sr-only" htmlFor={`new-${p.id}`}>New {p.name} model id</label>
+          <input id={`new-${p.id}`} className="input mono" placeholder={p.id === "openai" ? "Another model id, e.g. llama3.1:8b" : "Another model id"}
+            value={modelId} onChange={(e) => setModelId(e.target.value)} />
+          <button className="btn sm" type="submit" disabled={!modelId.trim()}>Add model</button>
+          {add.error && <div className="banner" role="alert" style={{ flexBasis: "100%" }}>{add.error}</div>}
         </form>
       )}
-      {error && <div className="banner" role="alert">{error}</div>}
     </section>
   );
 }
 
-/** The user's key and, optionally, server address for one provider. */
-function ProviderKey({ p, s, onSaved }: { p: ProviderEntry; s: Settings; onSaved: Update }) {
-  const [apiKey, setApiKey] = useState("");
-  const [baseUrl, setBaseUrl] = useState(p.base_url);
-  const [advanced, setAdvanced] = useState(!!p.base_url);
-  const { msg, error, run } = useStatus();
-  useEffect(() => setBaseUrl(p.base_url), [p.base_url]);
-  // The server's key only goes to the server's own provider and address.
-  const serverKey = s.defaults.has_api_key && p.id === s.defaults.provider && ["", trim(s.defaults.base_url)].includes(trim(baseUrl));
-  const put = (key: string | null) => api.put<Settings>(`/settings/providers/${p.id}`, { base_url: baseUrl, api_key: key });
-  const save = (e: FormEvent) => {
-    e.preventDefault();
-    run(async () => { onSaved(await put(apiKey || null)); setApiKey(""); });
-  };
-  const showAddress = advanced || p.id === "openai" || !!baseUrl;
-  const changed = !!apiKey || baseUrl !== p.base_url;
-  return (
-    <form className="card" onSubmit={save} aria-label={`${p.name} key`}>
-      <div className="card-head">
-        <h3>{p.name}</h3>
-        {p.has_api_key ? <span className="badge success">Key saved</span> : serverKey ? <span className="badge plain">Server's key</span> : null}
-      </div>
-      <div className="field">
-        <label htmlFor={`key-${p.id}`}>{p.name} API key</label>
-        <input id={`key-${p.id}`} className="input" type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-          placeholder={p.has_api_key ? "•••••••• (saved)" : serverKey ? "Using the server's key" : "Paste your API key"} />
-        {!p.has_api_key && !serverKey && s.defaults.has_api_key && p.id === s.defaults.provider &&
-          <span className="hint">The server's key only works with its own model provider and address. Add your own key for this one.</span>}
-      </div>
-      {showAddress ? (
-        <div className="field">
-          <label htmlFor={`url-${p.id}`}>{p.name} server address <span className="hint">(optional)</span></label>
-          <input id={`url-${p.id}`} className="input mono" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={p.id === "openai" ? "http://localhost:11434/v1 (Ollama, OpenRouter, vLLM…)" : "https://…"} />
-          <span className="hint">Only for models served from your own or another company's server.</span>
-        </div>
-      ) : (
-        <button type="button" className="btn ghost" style={{ alignSelf: "flex-start" }} onClick={() => setAdvanced(true)}>Use a custom server address</button>
-      )}
-      {error && <div className="banner" role="alert">{error}</div>}
-      <div className="row-flex end wrap">
-        {msg && <span className="hint" role="status" style={{ marginRight: "auto" }}>{msg}</span>}
-        {p.has_api_key && <button type="button" className="btn ghost sm" onClick={() => run(async () => onSaved(await put("")), "Key removed")}>Remove saved key</button>}
-        <button className="btn" type="submit" disabled={!changed}>Save {p.name} key</button>
-      </div>
-    </form>
-  );
-}
-
-function ApiKeys({ s, onSaved }: { s: Settings; onSaved: Update }) {
+function Providers({ s, onSaved }: { s: Settings; onSaved: Update }) {
   const [extra, setExtra] = useState<string[]>([]);
   const listed = [...s.providers, ...extra.filter((x) => !s.providers.some((p) => p.id === x))
     .map((x) => ({ id: x, name: x, base_url: "", has_api_key: false, server: false }))];
   const more = s.allowed_providers.filter((x) => x !== "*" && !listed.some((p) => p.id === x));
   return (
-    <section className="stack" id="api-keys" aria-labelledby="api-keys-title">
+    <section className="stack" id="providers" aria-labelledby="providers-title">
       <div>
-        <h2 id="api-keys-title">API keys</h2>
-        <p className="lead">Your key for each model provider. Keys are stored encrypted and only sent to that provider.</p>
+        <h2 id="providers-title">Providers</h2>
+        <p className="lead">Switch on the models you want to pick from in chats. A provider's models answer once it has an API key.</p>
       </div>
-      {listed.map((p) => <ProviderKey key={p.id} p={p} s={s} onSaved={onSaved} />)}
+      {listed.map((p) => <Provider key={p.id} p={p} s={s} onSaved={onSaved} startOpen={extra.includes(p.id)} />)}
       {more.length > 0 && (
         <select className="input" aria-label="Add a provider" style={{ alignSelf: "flex-start", width: "auto" }} value=""
           onChange={(e) => { if (e.target.value) setExtra((x) => [...x, e.target.value]); }}>
@@ -357,8 +357,7 @@ export default function SettingsPage() {
       <div className="page-inner">
         <PageHeader title="Settings" lead="Choose the models your agent thinks with, and manage your account." />
         <Defaults s={s} onSaved={setS} />
-        <ModelList s={s} onSaved={setS} />
-        <ApiKeys s={s} onSaved={setS} />
+        <Providers s={s} onSaved={setS} />
 
         <ExternalApps />
 

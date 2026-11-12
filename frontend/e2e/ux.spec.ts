@@ -99,13 +99,14 @@ test("settings: sections, cancel, and signing out from Account", async ({ page }
   const sections = page.getByRole("navigation", { name: "Settings sections" });
   await expect(sections.getByRole("link", { name: "Models" })).toHaveAttribute("aria-current", "true");
 
-  // Cancel puts back what is saved.
-  const model = page.getByLabel("Default model", { exact: true });
-  await model.selectOption({ label: "Claude Sonnet 5.5" });
-  await expect(page.getByTestId("model-in-use")).toContainText("claude-sonnet-5-5");
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(model).toHaveValue("");
-  await expect(page.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  // Cancel puts back what is saved, and closes the key form.
+  const openai = page.getByRole("region", { name: "OpenAI" });
+  await openai.getByRole("button", { name: "Add key" }).click();
+  await openai.getByLabel("OpenAI server address").fill("http://elsewhere.example/v1");
+  await openai.getByRole("button", { name: "Cancel" }).click();
+  await expect(openai.getByRole("form", { name: "OpenAI key" })).toHaveCount(0);
+  await openai.getByRole("button", { name: "Add key" }).click();
+  await expect(openai.getByLabel("OpenAI server address")).toHaveValue("");
 
   await sections.getByRole("link", { name: "Account" }).click();
   await expect(sections.getByRole("link", { name: "Account" })).toHaveAttribute("aria-current", "true");
