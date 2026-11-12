@@ -2,7 +2,7 @@
 PY ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
-.PHONY: help setup dev api web test test-fast e2e e2e-docker e2e-replicas lint format migration build sandbox-image up up-dev down down-dev
+.PHONY: help setup dev api web test test-fast e2e e2e-docker e2e-replicas lint format migration version build sandbox-image up up-dev down down-dev
 
 help:
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -38,6 +38,9 @@ migration: ## Write a migration for model changes: make migration m="add foo to 
 
 e2e-replicas: ## End-to-end tests against two app processes sharing run state (needs redis-server)
 	cd frontend && npm run build && E2E_REPLICAS=2 npm run e2e
+
+version: ## Set the release version everywhere: make version v=2.0.0-beta.2
+	python3 scripts/set_version.py $(v)
 
 lint: ## Lint and typecheck everything
 	cd backend && ../.venv/bin/ruff check . && ../.venv/bin/ruff format --check .

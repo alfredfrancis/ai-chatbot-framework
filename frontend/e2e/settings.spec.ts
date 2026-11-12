@@ -88,3 +88,12 @@ test.describe("phone and light mode", () => {
     expect(overflow).toBe(false);
   });
 });
+
+test("settings show which version is running", async ({ page }) => {
+  await signUp(page);
+  await nav(page).getByRole("link", { name: "Settings" }).click();
+  const version = page.getByTestId("app-version");
+  await expect(version).toHaveText(/^AI Chatbot Framework \d+\.\d+\.\d+/);
+  await version.scrollIntoViewIfNeeded();
+  await shot(page, "73-settings-version");
+});

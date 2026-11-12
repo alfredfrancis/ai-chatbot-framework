@@ -316,10 +316,12 @@ export default function SettingsPage() {
   const [current, setCurrent] = useState(SECTIONS[0].id);
   const page = useRef<HTMLDivElement>(null);
   const [sandbox, setSandbox] = useState<SandboxStatus | null>(null);
+  const [version, setVersion] = useState("");
 
   useEffect(() => {
     api.get<Settings>("/settings").then(setS);
     api.get<SandboxStatus>("/sandbox").then(setSandbox).catch(() => {});
+    api.get<{ version: string }>("/health").then((h) => setVersion(h.version)).catch(() => {});
   }, []);
 
   // The section menu follows the scroll: the last section whose top has passed the top of the page.
@@ -390,6 +392,7 @@ export default function SettingsPage() {
               <button className="btn" onClick={signOut}>Sign out</button>
             </div>
           </div>
+          {version && <p className="hint" data-testid="app-version">AI Chatbot Framework {version}</p>}
         </section>
       </div>
       </div>

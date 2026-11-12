@@ -1,5 +1,7 @@
 name: Release images
 
+# Publishing a GitHub release tagged vX.Y.Z[-beta.N|-rc.N] builds and pushes both images.
+# Pre-releases push only their exact tag; stable releases also move X.Y, X and latest.
 on:
   release:
     types: [published]
@@ -9,20 +11,62 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Tag matches the version in pyproject.toml and package.json
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          pip install packaging
+          python - <<'PY'
+          import json, os, re, sys, tomllib
+          from packaging.version import Version
+          tag = os.environ["TAG"]
+          if not re.fullmatch(r"v\d+\.\d+\.\d+(-(beta|rc)\.\d+)?", tag):
+              sys.exit(f"Tag {tag!r} is not vX.Y.Z, vX.Y.Z-beta.N or vX.Y.Z-rc.N")
+          want = Version(tag[1:])
+          backend = Version(tomllib.load(open("backend/pyproject.toml", "rb"))["project"]["version"])
+          frontend = Version(json.load(open("frontend/package.json"))["version"])
+          if not want == backend == frontend:
+              sys.exit(f"Tag {tag} != backend/pyproject.toml {backend} / frontend/package.json {frontend}")
+          PY
+      - name: Release type matches the tag
+        if: ${{ github.event.release.prerelease != contains(github.event.release.tag_name, '-') }}
+        run: |
+          echo "Tags with -beta/-rc must be published as pre-releases, and only those." && exit 1
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - id: app
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !github.event.release.prerelease }}
+            type=semver,pattern={{major}},enable=${{ !github.event.release.prerelease }}
+            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+      - id: sandbox
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_HUB_USERNAME }}/acf-sandbox
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !github.event.release.prerelease }}
+            type=semver,pattern={{major}},enable=${{ !github.event.release.prerelease }}
+            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/ai-chatbot-framework:latest
+          tags: ${{ steps.app.outputs.tags }}
+          labels: ${{ steps.app.outputs.labels }}
       - uses: docker/build-push-action@v6
         with:
           context: sandbox
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/acf-sandbox:${{ github.event.release.tag_name }},${{ secrets.DOCKER_HUB_USERNAME }}/acf-sandbox:latest
+          tags: ${{ steps.sandbox.outputs.tags }}
+          labels: ${{ steps.sandbox.outputs.labels }}

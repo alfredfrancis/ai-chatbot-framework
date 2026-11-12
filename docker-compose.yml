@@ -15,7 +15,7 @@ x-logging: &logging
 # Sandbox settings, shared by the app and the Docker proxy (which enforces them).
 x-sandbox-env: &sandbox-env
   ACF_DATA_DIR: /data
-  ACF_SANDBOX_IMAGE: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
+  ACF_SANDBOX_IMAGE: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-2.0.0-beta.1}
   ACF_SANDBOX_NETWORK: ${ACF_SANDBOX_NETWORK:-acf-sandbox}
   ACF_SANDBOX_BRIDGE: ${ACF_SANDBOX_BRIDGE:-acf-sbx0}
   # gVisor. Install it on the host first (deploy/README.md); ACF_SANDBOX_RUNTIME=runc opts out.
@@ -29,7 +29,7 @@ x-sandbox-env: &sandbox-env
 services:
   # Makes sure the sandbox image is present before the app starts sandboxes, then exits.
   sandbox-image:
-    image: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-latest}
+    image: ${ACF_REGISTRY:-alfredfrancis}/acf-sandbox:${ACF_VERSION:-2.0.0-beta.1}
     build: ./sandbox
     entrypoint: ["true"]
     restart: "no"
@@ -38,7 +38,7 @@ services:
   # containers; on the host it is ACF_DATA_UID: 10001, or the remap base + 10001 (e.g. 110001) when the
   # Docker daemon remaps user namespaces (deploy/README.md).
   data-init:
-    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-2.0.0-beta.1}
     build: .
     user: "0"
     userns_mode: host
@@ -53,7 +53,7 @@ services:
   # The only service with the Docker socket. It lets the app manage sandboxes and nothing else
   # (acf/docker_proxy.py), so taking over the app doesn't mean root on the host.
   docker-proxy:
-    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-2.0.0-beta.1}
     build: .
     user: "0"
     userns_mode: host # reaches the host's socket when the daemon remaps user namespaces
@@ -104,7 +104,7 @@ services:
 
   # Scale out and in at any time: docker compose up -d --scale app=3
   app:
-    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-latest}
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-2.0.0-beta.1}
     build: .
     depends_on:
       sandbox-image:
