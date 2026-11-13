@@ -215,3 +215,67 @@ async def test_agent_schedules_a_one_off_task(client, user):
     assert '"schedule": ""' in turn.final
     [task] = (await client.get("/api/tasks")).json()
     assert task["run_at"] == f"{day}T17:00:00Z" and task["enabled"]
+
+
+async def _finished(client, task_id: int) -> dict:
+    import asyncio
+
+    for _ in range(100):
+        t = next(x for x in (await client.get("/api/tasks")).json() if x["id"] == task_id)
+        if t["last_status"] in ("ok", "error"):
+            return t
+        await asyncio.sleep(0.05)
+    return t
+
+
+async def test_a_task_runs_on_its_own_model(client, user, fake_llm_url):
+    """A task can name a model (e.g. a small local one for background jobs); its runs use it, chats don't."""
+    await client.patch("/api/settings/models", json={"key": "anthropic:claude-haiku-5-5", "enabled": False})
+    for model in ("anthropic:claude-haiku-5-5", "nope:nothing", "anthropic:not-in-the-list"):
+        bad = await client.post(
+            "/api/tasks", json={"name": "x", "prompt": "y", "schedule": "0 * * * *", "model": model}
+        )
+        assert bad.status_code == 400 and "Unknown model" in bad.text, (model, bad.text)
+
+    # A model of one's own on an OpenAI-compatible server, like llama-server on a Raspberry Pi.
+    await client.put("/api/settings/providers/openai", json={"base_url": f"{fake_llm_url}/v1", "api_key": "k"})
+    await client.post("/api/settings/models", json={"provider": "openai", "id": "qwen3.5-4b"})
+    r = await client.post(
+        "/api/tasks",
+        json={"name": "Hourly", "prompt": "show model", "schedule": "0 * * * *", "model": "openai:qwen3.5-4b"},
+    )
+    assert r.status_code == 200, r.text
+    task = r.json()
+    assert task["model"] == "openai:qwen3.5-4b"
+
+    chat_id = (await client.post(f"/api/tasks/{task['id']}/run")).json()["chat_id"]
+    assert (await _finished(client, task["id"]))["last_status"] == "ok"
+    assert (await client.get(f"/api/chats/{chat_id}")).json()["messages"][-1]["content"] == "Model: qwen3.5-4b"
+    # A plain chat still uses the default model.
+    plain = (await client.post("/api/chats", json={})).json()["id"]
+    assert (await send(client, plain, "show model")).final == "Model: claude-opus-5-5"
+
+    # "" goes back to the user's default; a bad model is refused on a change too.
+    bad = await client.patch(f"/api/tasks/{task['id']}", json={"model": "anthropic:claude-haiku-5-5"})
+    assert bad.status_code == 400 and "Unknown model" in bad.text
+    reset = (await client.patch(f"/api/tasks/{task['id']}", json={"model": ""})).json()
+    assert reset["model"] == ""
+    chat_id = (await client.post(f"/api/tasks/{task['id']}/run")).json()["chat_id"]
+    await _finished(client, task["id"])
+    assert (await client.get(f"/api/chats/{chat_id}")).json()["messages"][-1]["content"] == "Model: claude-opus-5-5"
+
+
+async def test_agent_picks_a_tasks_model(client, user):
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    await send(client, chat_id, "show system")  # connects the system server, which writes its tool files
+    for tool in ("create_task", "update_task"):
+        definition = json.loads(workspace.read_file(user["id"], f".acf/mcp/system/{tool}.json"))
+        assert "model" in definition["input_schema"]["properties"]
+    args = {"name": "Digest", "prompt": "p", "schedule": "0 9 * * *", "timezone": "UTC"}
+    await send(client, chat_id, _call("create_task", **args, model="anthropic:claude-sonnet-5-5"))
+    [task] = (await client.get("/api/tasks")).json()
+    assert task["model"] == "anthropic:claude-sonnet-5-5"
+    bad = await send(client, chat_id, _call("update_task", task_id=task["id"], model="nope:nothing"))
+    assert "Unknown model" in bad.final
+    await send(client, chat_id, _call("update_task", task_id=task["id"], model=""))
+    assert (await client.get("/api/tasks")).json()[0]["model"] == ""

@@ -45,6 +45,14 @@ ProjectId = Annotated[
     int, Field(description="The project this task belongs to (the id in <project id=…>); its runs are chats in it")
 ]
 Timezone = Annotated[str, Field(max_length=64, description="IANA time zone of the schedule, e.g. 'Europe/Lisbon'")]
+Model = Annotated[
+    str,
+    Field(
+        max_length=300,
+        description="Model its runs use, as 'provider:model' from the user's model list (e.g. a small local model "
+        "for frequent background jobs). Leave out, or '' to reset, for the user's default model.",
+    ),
+]
 
 _READ = ToolAnnotations(read_only_hint=True, destructive_hint=False)
 _WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False)
@@ -85,6 +93,7 @@ def server(user_id: int) -> MCPServer:
         run_at: RunAt | None = None,
         enabled: bool = True,
         project_id: ProjectId | None = None,
+        model: Model | None = None,
     ) -> str:
         """Schedule a task: give `schedule` for a repeating task or `run_at` for one that runs once (a
         reminder, "in 2 hours", "tomorrow at 9"). On each run the agent gets `prompt` in a new chat, without
@@ -99,6 +108,7 @@ def server(user_id: int) -> MCPServer:
             "timezone": timezone,
             "enabled": enabled,
             "project_id": project_id,
+            "model": model,
         }
         with session_scope() as db, _invalid_as_error():
             return json.dumps(scheduler.as_dict(scheduler.create(db, user_id, fields)), indent=2)
@@ -112,6 +122,7 @@ def server(user_id: int) -> MCPServer:
         run_at: RunAt | None = None,
         timezone: Timezone | None = None,
         enabled: bool | None = None,
+        model: Model | None = None,
     ) -> str:
         """Change a task. Leave out what stays the same; enabled=false pauses it. Setting `schedule` makes it
         repeating, setting `run_at` makes it run once."""
@@ -122,6 +133,7 @@ def server(user_id: int) -> MCPServer:
             "run_at": run_at,
             "timezone": timezone,
             "enabled": enabled,
+            "model": model,
         }
         with session_scope() as db, _invalid_as_error():
             return json.dumps(scheduler.as_dict(scheduler.update(own(db, task_id), fields)), indent=2)
