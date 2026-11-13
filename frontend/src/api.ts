@@ -29,6 +29,7 @@ export type Task = {
   last_status: string;
   last_chat_id: number | null;
   project_id: number | null; // its runs are chats in this project
+  model: string; // "provider:model" its runs use; "" = the user's default
 };
 export type McpServer = {
   name: string;

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api, type Task } from "../api";
+import { api, type Settings, type Task } from "../api";
 import { PageHeader, Topbar, useApp } from "../App";
 import { IconPlus } from "../components/icons";
 import { MoreMenu } from "../components/Menu";
@@ -62,6 +62,16 @@ export function when(iso: string | null): string {
   return fmt;
 }
 
+/** The models a task can run on: the user's default ("") and every model that is on, with their names. */
+function useTaskModels() {
+  const [s, setS] = useState<Settings | null>(null);
+  useEffect(() => { api.get<Settings>("/settings").then(setS).catch(() => setS(null)); }, []);
+  const def = s ? s.model || s.defaults.model : "";
+  const nameOf = (key: string) => s?.models.find((m) => m.key === key)?.name || key.split(":").slice(1).join(":") || key;
+  const options = s ? s.models.filter((m) => m.enabled && m.key !== def) : [];
+  return { ready: !!s, defaultName: def ? nameOf(def) : "", options, nameOf };
+}
+
 type Template = { name: string; prompt: string; freq: Freq; time: string; day: number; blurb: string; when: string };
 
 /** Starting points on the empty Tasks page: each opens the form filled in, to change before saving. */
@@ -86,14 +96,16 @@ export function TaskForm({ initial, projectId, onDone, onCancel }: { initial?: T
   const [day, setDay] = useState(initial?.day ?? 1);
   const [custom, setCustom] = useState("0 9 * * *");
   const [runAt, setRunAt] = useState(tomorrowAt9);
+  const [model, setModel] = useState("");
   const [error, setError] = useState("");
+  const models = useTaskModels();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     try {
       const timing = freq === "once" ? { run_at: runAt } : { schedule: toCron(freq, time, day, custom) };
-      await api.post("/tasks", { name, prompt, ...timing, timezone: localTz, project_id: projectId ?? null });
+      await api.post("/tasks", { name, prompt, ...timing, timezone: localTz, project_id: projectId ?? null, model });
       onDone();
     } catch (err) {
       setError((err as Error).message);
@@ -154,6 +166,14 @@ export function TaskForm({ initial, projectId, onDone, onCancel }: { initial?: T
           </div>
         )}
       </div>
+      <div className="field">
+        <label htmlFor="task-model">Model</label>
+        <select id="task-model" className="input" value={model} onChange={(e) => setModel(e.target.value)} disabled={!models.ready}>
+          <option value="">Default ({models.defaultName || "your default model"})</option>
+          {models.options.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
+        </select>
+        <span className="hint">A small or local model is enough for many background jobs, and costs less.</span>
+      </div>
       <span className="hint">Times are in your time zone ({localTz}). Each run appears as a new chat{projectId ? " in this project" : ""}.</span>
       {error && <div className="banner" role="alert">{error}</div>}
       <div className="row-flex end">
@@ -173,6 +193,7 @@ export default function TasksPage() {
   const navigate = useNavigate();
   const { refresh, projects } = useApp();
   const projectOf = (t: Task) => projects.find((p) => p.id === t.project_id);
+  const models = useTaskModels();
 
   const load = () => api.get<Task[]>("/tasks").then(setTasks);
   useEffect(() => { load(); }, []);
@@ -246,6 +267,7 @@ export default function TasksPage() {
                     <span className="meta">
                       {projectOf(t) && <><Link to={`/projects/${t.project_id}`}>{projectOf(t)!.name}</Link> · </>}
                       {schedule(t)}
+                      {t.model && ` · ${models.nameOf(t.model)}`}
                       {t.enabled ? (t.next_run_at ? ` · Next ${when(t.next_run_at)}` : "") : isDone(t) ? "" : " · Paused"}
                     </span>
                     {t.last_run_at && (

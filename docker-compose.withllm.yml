@@ -1,0 +1,122 @@
+# A local model for background jobs: llama.cpp's llama-server with Qwen3.5 4B, sized for a Raspberry Pi 5
+# with 8 GB. Runs next to the production stack:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.withllm.yml up -d --build
+#
+# Then in Settings: OpenAI provider, address http://llm:8080/v1, key = ACF_LOCAL_LLM_KEY; add the model
+# qwen3.5-4b with a 32,768-token window, and pick it for the tasks that should run on it.
+# Speeds, memory and tuning: docs/local-model.md.
+
+services:
+  # Downloads the model once into the llm-models volume, then exits. Skipped when the file is there.
+  llm-download:
+    image: python:3.12.12-slim
+    user: "0"
+    environment:
+      LLM_REPO: ${ACF_LOCAL_LLM_REPO:-unsloth/Qwen3.5-4B-MTP-GGUF}
+      LLM_FILE: ${ACF_LOCAL_LLM_FILE:-Qwen3.5-4B-UD-Q4_K_XL.gguf}
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        if [ ! -s "/models/$$LLM_FILE" ]; then
+          pip install --quiet --no-cache-dir huggingface_hub==0.35.3
+          hf download "$$LLM_REPO" "$$LLM_FILE" --local-dir /models
+        fi
+        chown -R 10002:10002 /models
+    volumes:
+      - llm-models:/models
+    restart: "no"
+
+  llm:
+    build:
+      context: ./deploy/llm
+      args:
+        LLAMA_CPP_REF: ${ACF_LOCAL_LLM_LLAMA_CPP:-b10075}
+    image: acf-llama-server:${ACF_LOCAL_LLM_LLAMA_CPP:-b10075}
+    depends_on:
+      llm-download:
+        condition: service_completed_successfully
+    command:
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --model
+      - "/models/${ACF_LOCAL_LLM_FILE:-Qwen3.5-4B-UD-Q4_K_XL.gguf}"
+      - --alias
+      - "${ACF_LOCAL_LLM_ALIAS:-qwen3.5-4b}"
+      - --jinja
+      # One slot: one run at a time, and its prompt cache stays warm from one run to the next.
+      - --parallel
+      - "1"
+      - --ctx-size
+      - "${ACF_LOCAL_LLM_CTX:-32768}"
+      - --threads
+      - "${ACF_LOCAL_LLM_THREADS:-4}"
+      - --flash-attn
+      - "on"
+      - --kv-unified
+      # Prompt caching. The system prompt (instructions, context, skills, memory) is the same from step to
+      # step and nearly the same from run to run, so most of it is not processed again. Qwen3.5 is a hybrid
+      # (recurrent) model: going back to a shared prefix needs a saved checkpoint of its state.
+      - --ctx-checkpoints
+      - "16"
+      - --cache-ram
+      - "${ACF_LOCAL_LLM_CACHE_RAM:-1024}"
+      # Multi-token prediction: the draft head is in the GGUF, ~1.5x faster generation.
+      - --spec-type
+      - "draft-mtp"
+      - --spec-draft-n-max
+      - "3"
+      - --spec-draft-n-min
+      - "0"
+      # Thinking costs minutes per step at ~5 tokens/s; "on" + a budget trades time for better tool choice.
+      - --reasoning
+      - "${ACF_LOCAL_LLM_REASONING:-off}"
+      - --reasoning-budget
+      - "${ACF_LOCAL_LLM_REASONING_BUDGET:-0}"
+      - --temp
+      - "0.6"
+      - --top-p
+      - "0.95"
+      - --top-k
+      - "20"
+      - --min-p
+      - "0"
+      - --metrics
+    environment:
+      LLAMA_API_KEY: ${ACF_LOCAL_LLM_KEY:?Set ACF_LOCAL_LLM_KEY in .env (openssl rand -hex 32)}
+    volumes:
+      - llm-models:/models:ro
+    # Weights ~2.8 GB, KV cache ~1 GB at 32K, prompt cache 1 GB, buffers.
+    mem_limit: ${ACF_LOCAL_LLM_MEMORY:-5g}
+    networks: [llm]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # The app doesn't wait for the model: chats on other models work while it loads, or if it is down.
+  app:
+    networks: [default, docker-api, llm]
+
+networks:
+  # App <-> model only. No internet for the model server, and sandboxes can't reach it.
+  llm:
+    internal: true
+
+volumes:
+  llm-models:

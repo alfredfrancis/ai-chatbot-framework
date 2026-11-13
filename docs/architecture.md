@@ -181,7 +181,9 @@ tasks; nothing else is removed.
 
 Cron + time zone, or a single time (`run_at`) for a one-off task. `tick()` starts due tasks (next run is
 computed first, so a slow run never double-fires; a one-off task is turned off instead); each run is an agent
-run in a new chat.
+run in a new chat. A task's `model` ("" = the user's default) becomes that chat's model, so a frequent
+background job can run on a small local model while chats stay on the default; it must be one the user's
+model picker offers.
 
 The agent manages tasks through the built-in `system` MCP server (`backend/acf/system_mcp.py`): an
 in-process `MCPServer` bound to the user, which `McpHub` connects next to the user's own servers on every

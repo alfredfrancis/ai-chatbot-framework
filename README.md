@@ -55,7 +55,8 @@ their own locked-down sandbox.
 - **Personal apps.** The agent can build small apps for you, like a daily **Cockpit** or a grocery list,
   that show up in the sidebar. Chat replies can include charts, tabs and buttons too.
 - **Projects and scheduled tasks.** Group chats under shared instructions and a folder. Run a prompt
-  "every weekday at 08:00" or once "tomorrow at 17:00"; each run becomes a chat.
+  "every weekday at 08:00" or once "tomorrow at 17:00"; each run becomes a chat, on the model you pick
+  for the task (a small local one is enough for many background jobs).
 - **Files and artifacts.** Attach files to a message; each chat lists the files it used and made.
 - **Open protocol.** The chat speaks the [Agent Client Protocol](https://agentclientprotocol.com) over
   WebSocket, so editors and your own apps can talk to the agent too.
@@ -226,6 +227,10 @@ token window the context meter and compaction use (left out: the model's own); u
 whose provider has a key (theirs, or the server's for the server's own provider) start out on.
 
 Other LangChain providers need their package installed (`pip install langchain-ollama`, …).
+
+**A local model for background jobs.** `docker-compose.withllm.yml` adds llama.cpp's `llama-server` with
+Qwen3.5 4B, sized for a Raspberry Pi 5 with 8 GB, with prompt caching. Pick it as a task's model so hourly
+jobs run on your own hardware: [docs/local-model.md](docs/local-model.md).
 
 ### App connections (MCP)
 

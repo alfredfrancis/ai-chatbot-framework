@@ -1,6 +1,7 @@
 """Tasks: a prompt + when to run it, either a cron schedule (recurring) or a single time (`run_at`, one-off).
 Each run creates a new chat with the result. A one-off task turns itself off once it has started.
 A task made for a project (`project_id`) runs as a chat in that project, with the project's instructions.
+A task with a `model` runs on that model (e.g. a small local one for background jobs); "" = the user's default.
 
 Every app process runs the scheduler. A due task is claimed by moving its next_run_at with a
 compare-and-set update, so exactly one process starts it."""
@@ -16,7 +17,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from croniter import croniter
 from sqlalchemy.orm import Session
 
-from acf import bus, config, projects
+from acf import bus, config, models, projects
 from acf.agent import loop as agent
 from acf.db import Chat, Task, User, session_scope, utcnow
 
@@ -46,6 +47,16 @@ def to_utc(when: datetime | str, tz: str) -> datetime:
     if when.tzinfo is None:
         when = when.replace(tzinfo=_zone(tz))
     return when.astimezone(UTC).replace(tzinfo=None, microsecond=0)
+
+
+def _check_model(db: Session, user_id: int, key: str) -> None:
+    """A task's model must be "" (the user's default) or one the user's model picker offers."""
+    if not key:
+        return
+    user = db.get(User, user_id)
+    picker = models.config_options(user)[0]["options"]
+    if key not in {o["value"] for o in picker}:
+        raise ValueError(f"Unknown model: {key}. Use one that is on in Settings, or leave it empty for the default")
 
 
 def _plan(task: Task) -> None:
@@ -90,6 +101,7 @@ def as_dict(t: Task) -> dict[str, Any]:
         "last_status": t.last_status,
         "last_chat_id": t.last_chat_id,
         "project_id": t.project_id,
+        "model": t.model or "",
     }
 
 
@@ -100,6 +112,8 @@ def create(db: Session, user_id: int, fields: dict[str, Any]) -> Task:
     run_at = fields.pop("run_at", None)
     if fields.get("project_id") is not None:
         projects.own(db, user_id, fields["project_id"])
+    fields["model"] = (fields.get("model") or "").strip()
+    _check_model(db, user_id, fields["model"])
     task = Task(
         user_id=user_id,
         **{
@@ -120,6 +134,14 @@ def update(task: Task, fields: dict[str, Any]) -> Task:
     """Change a task; None values are left as they are. Setting a schedule makes it repeating, setting a run
     time makes it one-off. Raises ValueError if invalid."""
     fields = {k: v for k, v in fields.items() if v is not None}
+    if "model" in fields:
+        fields["model"] = fields["model"].strip()
+        db = Session.object_session(task)
+        if db is None:
+            with session_scope() as db:
+                _check_model(db, task.user_id, fields["model"])
+        else:
+            _check_model(db, task.user_id, fields["model"])
     tz = fields.get("timezone", task.timezone)
     if fields.get("run_at"):
         fields["run_at"] = to_utc(fields["run_at"], tz)
@@ -145,7 +167,9 @@ async def run_task(task_id: int) -> int | None:
             user = db.get(User, task.user_id)
             stamp = datetime.now(ZoneInfo(task.timezone)).strftime("%d %b %H:%M")
             title = f"{task.name[:180]} · {stamp}"
-            chat = Chat(user_id=task.user_id, title=title, task_id=task.id, project_id=task.project_id)
+            chat = Chat(
+                user_id=task.user_id, title=title, task_id=task.id, project_id=task.project_id, model=task.model or ""
+            )
             db.add(chat)
             task.last_status = "running"
             task.last_run_at = utcnow()

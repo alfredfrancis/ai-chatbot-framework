@@ -106,3 +106,28 @@ test("the agent schedules a one-off reminder from the chat", async ({ page }) =>
   await nav(page).getByRole("link", { name: "Tasks" }).click();
   await expect(page.getByTestId("task-Call mum")).toContainText("Once on");
 });
+
+test("a task runs on a model of its own", async ({ page }) => {
+  await signUp(page);
+  await nav(page).getByRole("link", { name: "Tasks" }).click();
+  await page.getByRole("button", { name: "New task" }).click();
+  await page.getByLabel("Name").fill("Hourly digest");
+  await page.getByLabel("What should the agent do?").fill("show model");
+  await page.getByLabel("Repeat").selectOption("hourly");
+  const model = page.getByLabel("Model", { exact: true });
+  await expect(model).toHaveValue("");
+  await expect(model.locator("option").first()).toHaveText("Default (Claude Opus 5.5)");
+  await model.selectOption({ label: "Claude Sonnet 5.5" });
+  await shot(page, "12d-task-model");
+  await page.getByRole("button", { name: "Create task" }).click();
+
+  const row = page.getByTestId("task-Hourly digest");
+  await expect(row).toContainText("Every hour · Claude Sonnet 5.5");
+  await row.getByRole("button", { name: "Run now" }).click();
+  await expect(lastAssistant(page)).toHaveText("Model: claude-sonnet-5-5");
+  await expect(page.getByLabel("Model", { exact: true })).toHaveValue("anthropic:claude-sonnet-5-5");
+
+  // A new chat is still on the default model.
+  await nav(page).getByRole("link", { name: "New chat" }).click();
+  await expect(page.getByLabel("Model", { exact: true })).toHaveValue("anthropic:claude-opus-5-5");
+});

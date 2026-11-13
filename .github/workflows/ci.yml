@@ -123,6 +123,12 @@ jobs:
         run: |
           POSTGRES_PASSWORD=ci ACF_SECRET_KEY=ci-secret-key-that-is-long-enough-000000 docker compose config -q
           docker compose -f docker-compose.dev.yml config -q
+          POSTGRES_PASSWORD=ci ACF_SECRET_KEY=ci-secret-key-that-is-long-enough-000000 ACF_LOCAL_LLM_KEY=ci \
+            docker compose -f docker-compose.yml -f docker-compose.withllm.yml config -q
+      - name: Build the local model server (docker-compose.withllm.yml)
+        run: |
+          docker build -t acf-llama-server:ci deploy/llm
+          docker run --rm acf-llama-server:ci --version
       - name: Build sandbox image
         run: docker build -t acf-sandbox:latest sandbox
       - name: Build app image

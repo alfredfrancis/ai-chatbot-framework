@@ -860,6 +860,7 @@ class TaskIn(BaseModel):
     timezone: str = Field("UTC", max_length=64)
     enabled: bool = True
     project_id: int | None = None  # its runs are chats in this project
+    model: str = Field("", max_length=300)  # "provider:model" its runs use; "" = the user's default
 
 
 class TaskPatch(BaseModel):
@@ -869,6 +870,7 @@ class TaskPatch(BaseModel):
     run_at: str | None = Field(None, max_length=40)
     timezone: str | None = Field(None, max_length=64)
     enabled: bool | None = None
+    model: str | None = Field(None, max_length=300)  # "" = back to the user's default
 
 
 def _own_task(db: Session, user: User, task_id: int) -> Task:
