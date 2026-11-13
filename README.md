@@ -61,7 +61,8 @@ their own locked-down sandbox.
   WebSocket, so editors and your own apps can talk to the agent too.
 - **Built to scale.** Stateless app processes behind Caddy, with PostgreSQL and Redis. Add or remove
   processes at any time.
-- **A calm interface.** Keyboard-first (⌘K, shortcuts), dark and light themes, works on a phone.
+- **A calm interface.** Keyboard-first (⌘K, shortcuts), dark and light themes, works on a phone and
+  installs as an app (PWA).
 
 Every feature in detail: [docs/features.md](docs/features.md).
 
@@ -128,7 +129,8 @@ startup; sign-ups are then closed unless `ACF_ALLOW_SIGNUP=true`. Without them, 
 **HTTPS.** [Caddy](https://caddyserver.com) gets and renews the certificate; ports 80 and 443 must be open.
 To use other host ports, set `ACF_HTTP_PORT` / `ACF_HTTPS_PORT` (e.g. `127.0.0.1:8088` behind a tunnel or
 another proxy). When that tunnel or proxy terminates HTTPS (e.g. Cloudflare Tunnel), also set
-`ACF_CADDY_ADDRESS=:80` so Caddy serves plain HTTP.
+`ACF_CADDY_ADDRESS=:80` so Caddy serves plain HTTP. Browsers only offer to install the web app as an app
+over HTTPS (or on `localhost`).
 
 **Images.** The stack pulls published images (`ACF_REGISTRY` / `ACF_VERSION` in `.env`), by default the
 version of the checkout you run it from. To build from source instead, run `docker compose up -d --build`.

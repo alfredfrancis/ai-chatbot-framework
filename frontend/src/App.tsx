@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { acp } from "./acp";
-import { api, type AppSummary, type ChatSummary, type Project, type User } from "./api";
+import { api, ApiError, type AppSummary, type ChatSummary, type Project, type User } from "./api";
 import {
   IconApp, IconChat, IconClock, IconDrawer, IconGear, IconLogout, IconMenu, IconMore, IconPlug, IconPlus, IconProject, IconSearch, IconSpark, Keys, Lockup,
 } from "./components/icons";
@@ -241,10 +241,30 @@ function Shell({ user, onSignOut }: { user: User; onSignOut: () => void }) {
   );
 }
 
+/** The installed app opened without a network (the service worker serves the page, the API can't answer). */
+function Offline({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="auth">
+      <div className="auth-card">
+        <div className="brand-row"><Lockup size={32} /></div>
+        <h1>You're offline</h1>
+        <p>Reconnect to the internet, then try again.</p>
+        <button className="btn primary lg" type="button" onClick={onRetry}>Try again</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
-  const [user, setUser] = useState<User | null | undefined>(undefined);
-  useEffect(() => { api.get<{ user: User }>("/auth/me").then((r) => setUser(r.user)).catch(() => setUser(null)); }, []);
+  // undefined: loading; null: signed out; "offline": the server couldn't be reached at all.
+  const [user, setUser] = useState<User | null | "offline" | undefined>(undefined);
+  const load = useCallback(() => {
+    api.get<{ user: User }>("/auth/me").then((r) => setUser(r.user))
+      .catch((e) => setUser(e instanceof ApiError ? null : "offline"));
+  }, []);
+  useEffect(load, [load]);
   if (user === undefined) return null;
+  if (user === "offline") return <Offline onRetry={() => { setUser(undefined); load(); }} />;
   return (
     <BrowserRouter>
       <Routes>

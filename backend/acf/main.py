@@ -100,6 +100,20 @@ class SecurityHeaders:
         await self.app(scope, receive, send_with_headers)
 
 
+# The app shell and the service worker must never be served stale, or users stay on an old build.
+REVALIDATE = {"index.html", "sw.js"}
+MEDIA_TYPES = {".webmanifest": "application/manifest+json"}  # not in every system's mime types
+
+
+class ImmutableFiles(StaticFiles):
+    """Vite's /assets: file names carry a content hash, so browsers may keep them for good."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="AI Chatbot Framework", lifespan=lifespan)
     app.add_middleware(SecurityHeaders)
@@ -109,16 +123,17 @@ def create_app() -> FastAPI:
     dist = config.settings.frontend_dist
     if (dist / "index.html").exists():
         if (dist / "assets").exists():
-            app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+            app.mount("/assets", ImmutableFiles(directory=dist / "assets"), name="assets")
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str):
             if path.startswith("api/"):
                 return JSONResponse({"detail": "Not found"}, status_code=404)
             target = (dist / path).resolve()
-            if path and target.is_file() and dist.resolve() in target.parents:
-                return FileResponse(target)
-            return FileResponse(dist / "index.html")
+            if not (path and target.is_file() and dist.resolve() in target.parents):
+                target = dist / "index.html"
+            headers = {"cache-control": "no-cache"} if target.name in REVALIDATE else None
+            return FileResponse(target, media_type=MEDIA_TYPES.get(target.suffix), headers=headers)
 
     return app
 
