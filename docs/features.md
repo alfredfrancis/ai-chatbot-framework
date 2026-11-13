@@ -72,4 +72,9 @@ A closer look at what AI Chatbot Framework does. The [README](../README.md) has 
   **Settings → External apps** to let them in.
 - A calm, keyboard-friendly interface (⌘K command menu, shortcuts), dark and light themes, phone layout,
   built from a documented design system whose tokens live in `design/tokens.json`.
+- **Installable app (PWA)** – install it from the browser (Chrome/Edge: the install icon in the address
+  bar; iPhone: Share → Add to Home Screen) and it opens in its own window with its own icon. A service
+  worker (`frontend/public/sw.js`) keeps the app itself, never your data, so it opens without a network
+  and says you're offline instead of asking you to sign in. Needs HTTPS (or `localhost`). The icons in
+  `frontend/public/icons/` are drawn from the logo by `node frontend/scripts/build-icons.mjs`.
 
