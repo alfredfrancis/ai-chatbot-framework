@@ -45,6 +45,8 @@ backend/acf/
 backend/tests/       pytest; fakes/ = scripted model server + stdio MCP + OAuth MCP servers
 frontend/src/        React + Vite; pages/ per screen; openui/ = the component library personal apps and chat views are written in; styles.css (components) + tokens.css (generated)
 design/              tokens.json (source of truth), README.md (brand book), components.css
+PRODUCT.md           who it's for, purpose, principles, accessibility bar (read before UI or copy work)
+DESIGN.md            generated: tokens.json as DESIGN.md frontmatter + design/README.md (for design tools)
 frontend/e2e/        Playwright specs; they also write docs/screenshots/e2e/*.png
 sandbox/Dockerfile   the sandbox image
 deploy/              Caddyfile, host hardening guide (gVisor, userns-remap), sandbox egress firewall
@@ -81,10 +83,11 @@ make lint         # ruff + tsc
    and exit them in another.
 7. **Design** follows the "AI Chatbot Framework" design system (Claude Design). Its tokens are committed as
    `design/tokens.json` — the single source; `npm run tokens` (also run by `build`/`dev`) generates
-   `frontend/src/tokens.css`, which must never be edited by hand (CI checks it). `design/README.md` is the
-   brand book and `design/components.css` the reference component styles. Dark first, light via the OS;
-   the logo green (`brand-signal`) is for the mark only, `accent` for the one primary action, focus and
-   live state. Text ≥ 16px (caption 13px floor), controls 40px. No new colours or one-off values in
+   `frontend/src/tokens.css` and the root `DESIGN.md`, which must never be edited by hand (CI checks both).
+   `design/README.md` is the brand book (in DESIGN.md's section order) and `design/components.css` the
+   reference component styles. `PRODUCT.md` says who it is for and the accessibility bar (WCAG 2.2 AA).
+   Dark first, light via the OS; the logo green (`brand-signal`) is for the mark only, `accent` for the one
+   primary action, focus and live state. Text ≥ 16px (caption 13px floor), controls 40px. No new colours or one-off values in
    components; inline 1.75px stroke SVG icons in `components/icons.tsx`. Light + dark + 390px wide must
    all work; real buttons/labels (tests select by role and label). Keyboard: ⌘K menu, `C`, `G`+letter.
 8. **Style**: Python 3.12, ruff (line length 120), type hints on public functions; TypeScript strict.

@@ -94,8 +94,8 @@ jobs:
       - name: Build web app (tokens + typecheck + bundle)
         working-directory: frontend
         run: npm run build
-      - name: Generated files are current (tokens.css, openui skill reference)
-        run: git diff --exit-code frontend/src/tokens.css backend/acf/builtin_skills/openui/reference.md
+      - name: Generated files are current (tokens.css, DESIGN.md, openui skill reference)
+        run: git diff --exit-code frontend/src/tokens.css DESIGN.md backend/acf/builtin_skills/openui/reference.md
       - name: Pull sandbox image
         run: docker pull python:3.12-alpine
       # Two app processes behind a round-robin proxy (as when scaled out), sharing run state through Redis.
