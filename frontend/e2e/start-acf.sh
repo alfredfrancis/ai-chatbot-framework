@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Starts AI Chatbot Framework for end-to-end tests with a fresh data dir, pointing at the fake model server.
 set -euo pipefail
+# Settings come from ACF_* variables: drop any the shell or a dev container set (e.g. ACF_LLM_MODEL), so the
+# app runs on the configuration below. ACF_PORT and ACF_SECRET_KEY are read on purpose and kept.
+for name in $(compgen -e | grep '^ACF_' | grep -v -x -e ACF_PORT -e ACF_SECRET_KEY); do unset "$name"; done
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PY="${PYTHON:-$ROOT/.venv/bin/python}"
 [ -x "$PY" ] || PY=python3
