@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 test("browse the workspace, upload, and see the agent's changes", async ({ page }) => {
   await signUp(page);
@@ -30,19 +30,20 @@ test("browse the workspace, upload, and see the agent's changes", async ({ page 
   await say(page, "write: notes/plan.md | # Plan for Friday\n\n- Bake 40 pastéis de nata\n- Call the flour supplier");
   await expect(lastAssistant(page)).toContainText("Result: Wrote notes/plan.md");
   await say(page, "remember: Maya prefers euros");
+  await openSteps(page);
   await expect(page.getByTestId("tool-step").last()).toContainText("memory.md");
   // A Docker sandbox only starts on the first command; once the agent has run one, the sidebar shows it live
   await say(page, "run: echo hi");
   await expect(lastAssistant(page)).toContainText("Result: hi");
 
   await nav(page).getByRole("link", { name: "Files" }).click();
-  await expect(nav(page).getByTestId("sandbox-status")).toHaveText("Sandbox ready");
+  await expect(nav(page).getByTestId("sandbox-status")).toHaveText("Computer ready");
   await list.getByRole("button", { name: /notes/ }).click();
-  await expect(page.getByRole("navigation", { name: "Folder" })).toContainText("workspace/notes");
+  await expect(page.getByRole("navigation", { name: "Folder" })).toContainText("Files/notes");
   await list.getByRole("button", { name: /plan\.md/ }).click();
   await expect(page.getByTestId("preview").getByRole("heading", { name: "Plan for Friday" })).toBeVisible();
   await shot(page, "06-files");
-  await page.getByRole("navigation", { name: "Folder" }).getByRole("button", { name: "workspace" }).click();
+  await page.getByRole("navigation", { name: "Folder" }).getByRole("button", { name: "Files", exact: true }).click();
   await list.getByRole("button", { name: /memory\.md/ }).click();
   await expect(page.getByTestId("preview")).toContainText("Maya prefers euros");
 });

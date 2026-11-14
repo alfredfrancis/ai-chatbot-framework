@@ -10,7 +10,7 @@ test("sidebar keeps full-height rows with many chats, and home lines up", async 
     await expect(page.getByTestId("assistant-msg").last()).toBeVisible();
   }
   const sidebar = nav(page);
-  await expect(sidebar.getByRole("link", { name: /^hello$/ })).toHaveCount(9);
+  await expect(sidebar.getByRole("link", { name: /^hello$/i })).toHaveCount(9);
 
   // No row is squashed: nav items and recent chats stay 40px tall and show their whole text.
   for (const name of ["Files", "Skills", "Tasks", "Connections"]) {

@@ -41,7 +41,7 @@ function AppChat({ title, chatId, session, onSend, onClose }: {
             <p className="hint">A new card, another column, different words. The screen updates as the agent works.</p>
           </div>
         ) : (
-          <Thread entries={entries} running={running} queued={queued} onPrompt={(t) => onSend(t, [])} />
+          <Thread entries={entries} running={running} queued={queued} chatId={chatId ? String(chatId) : null} onPrompt={(t) => onSend(t, [])} />
         )}
         {error && <div className="banner" role="alert">{error}</div>}
       </div>

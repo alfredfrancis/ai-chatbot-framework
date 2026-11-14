@@ -219,7 +219,7 @@ export default function TasksPage() {
       : !t.enabled ? <span className="badge">Paused</span>
       : t.last_status === "error" ? <span className="badge danger">Failed</span>
       : t.last_status === "running" ? <span className="badge warning">Running</span>
-      : <span className="badge success">On</span>;
+      : null; // on and nothing to report: the switch beside it already says so
 
   return (
     <>
@@ -236,7 +236,7 @@ export default function TasksPage() {
               <section className="empty-state" aria-labelledby="no-tasks">
                 <div>
                   <h2 id="no-tasks">Put your agent on a schedule</h2>
-                  <p>Say what to do and when, in plain words. The agent runs it in your sandbox and leaves the result in Chats.</p>
+                  <p>Say what to do and when, in plain words. The agent runs it on its own computer and leaves the result in Chats.</p>
                 </div>
                 <button className="btn primary" onClick={() => create()}><IconPlus />New task</button>
               </section>

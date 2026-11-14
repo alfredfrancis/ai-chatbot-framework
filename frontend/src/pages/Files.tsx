@@ -64,14 +64,14 @@ export default function FilesPage() {
     <Topbar title="Files" phoneOnly />
     <div className="page">
       <div className="page-inner wide">
-        <PageHeader title="Files" lead="Your agent's workspace. To change a file, ask in chat.">
+        <PageHeader title="Files" lead="Everything your agent can open and change. To change a file, ask in chat.">
           <button className="btn primary" onClick={() => input.current?.click()}><IconUploadSm />Upload</button>
           <input ref={input} type="file" multiple className="sr-only" data-testid="upload" aria-label="Upload files" tabIndex={-1}
             onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
         </PageHeader>
         <div className="drive-bar">
           <nav className="pathbar" aria-label="Folder">
-            {parts.length ? <button onClick={() => open("")}>workspace</button> : <span className="here">workspace</span>}
+            {parts.length ? <button onClick={() => open("")}>Files</button> : <span className="here">Files</span>}
             {parts.map((p, i) => (
               <span key={i} className="seg-part">
                 <span className="sep">/</span>

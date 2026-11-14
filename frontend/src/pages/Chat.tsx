@@ -2,12 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, setConfigOption, WORKSPACE_URI, type AcpNotification, type ConfigOption, type AgentInfo, type Attachment, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
+import { acp, cancel, loadSession, newSession, prompt, setConfigOption, WORKSPACE_URI, type AcpNotification, type ConfigOption, type AgentInfo, type Attachment, type Learned, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
-import { IconArrowUp, IconChat, IconCheck, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
+import { IconArrowUp, IconChat, IconCheck, IconChevron, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -30,7 +30,7 @@ type Entry =
   | { kind: "user"; key: string; text: string; files: Attachment[]; messageId?: number | string }
   | { kind: "text"; key: string; text: string; messageId?: number | string }
   | { kind: "tool"; key: string; call: ToolCall }
-  | { kind: "notice"; key: string; text: string };
+  | { kind: "notice"; key: string; text: string; learned?: Learned };
 
 let keySeq = 0;
 const nextKey = () => `e${keySeq++}`;
@@ -117,12 +117,24 @@ function describe(call: ToolCall): { verb: string; detail: string; mono: boolean
 }
 
 const secs = (ms: number | null | undefined) => (ms == null ? "" : `${(ms / 1000).toFixed(1)}s`);
+/** A command's output as people read it: the "[exit code 0]" the model gets for a success is left out. */
+const shownOutput = (out?: string) => (out ?? "").replace(/\n*\[exit code 0\]\s*$/, "");
+
+/** Display names of the models this chat can use, by model id ("claude-haiku-5-5" → "Claude Haiku 5.5"). */
+const ModelNames = createContext<Record<string, string>>({});
+const namesOf = (options?: ConfigOption[]): Record<string, string> =>
+  Object.fromEntries((options?.find((o) => o.id === "model")?.options ?? []).map((x) => [x.value.split(":").pop() ?? x.value, x.name]));
+const useModelName = () => {
+  const names = useContext(ModelNames);
+  return (id?: string) => (id ? names[id] ?? id : "");
+};
 const plural = (n: number, word: string) => `${n.toLocaleString("en")} ${word}${n === 1 ? "" : "s"}`;
 
 /** What a sub-agent did: its model, its steps so far and, once it is done, its report. */
 function AgentDetails({ call, finished }: { call: ToolCall; finished: boolean }) {
   const a = call.agent;
-  const facts = a ? [a.model, plural(a.steps.length, "step"), ...(a.tokens ? [plural(a.tokens, "token")] : [])] : [];
+  const modelName = useModelName();
+  const facts = a ? [modelName(a.model), plural(a.steps.length, "step"), ...(a.tokens ? [plural(a.tokens, "token")] : [])] : [];
   return (
     <div className="step-agent" role="group" aria-label={call.title}>
       {a && (
@@ -138,7 +150,7 @@ function AgentDetails({ call, finished }: { call: ToolCall; finished: boolean })
           ))}
         </ol>
       )}
-      {finished && <pre className="step-output">{call.output}</pre>}
+      {finished && <pre className="step-output">{shownOutput(call.output)}</pre>}
     </div>
   );
 }
@@ -153,7 +165,8 @@ function Step({ call, running }: { call: ToolCall; running: boolean }) {
   const isAgent = call.tool === "agent";
   // A sub-agent can be opened while it works, to watch its steps; its row shows the latest one.
   const doing = isAgent && busy && !finished ? call.agent?.steps.filter((s) => s.ok == null).pop()?.title : undefined;
-  const note = isAgent && call.agent ? [call.agent.model, secs(call.durationMs)].filter(Boolean).join(" · ") : secs(call.durationMs);
+  const modelName = useModelName();
+  const note = isAgent && call.agent ? [modelName(call.agent.model), secs(call.durationMs)].filter(Boolean).join(" · ") : secs(call.durationMs);
   return (
     <>
       <button className={`step${busy && !finished ? " live" : ""}`} onClick={() => (finished || isAgent) && setOpen(!open)} aria-expanded={open} data-testid="tool-step">
@@ -163,23 +176,105 @@ function Step({ call, running }: { call: ToolCall; running: boolean }) {
         <span className="verb">{d.verb}</span>{" "}
         <span className={`detail${d.mono ? "" : " name"}`}>{d.detail}</span>
         {doing && <span className="doing">{doing}</span>}
-        {" "}<span className="time">{finished ? note : bg ? "In background" : isAgent ? call.agent?.model ?? "" : ""}</span>
+        {" "}<span className="time">{finished ? note : bg ? "In background" : isAgent ? modelName(call.agent?.model) : ""}</span>
       </button>
       {open && isAgent && <AgentDetails call={call} finished={finished} />}
-      {open && finished && !isAgent && <pre className="step-output">{call.output}</pre>}
+      {open && finished && !isAgent && <pre className="step-output">{shownOutput(call.output) || "No output."}</pre>}
     </>
   );
 }
 
+/** What a group of finished steps did, in words: "ran 2 commands, wrote 1 file". */
+function tally(calls: ToolCall[]): string {
+  const counts = new Map<string, number>();
+  const add = (k: string) => counts.set(k, (counts.get(k) ?? 0) + 1);
+  const apps = new Set<string>();
+  for (const c of calls) {
+    const d = describe(c);
+    if (c.tool === "bash") add("command");
+    else if (c.tool === "write") add("wrote");
+    else if (c.tool === "edit") add("edited");
+    else if (d.verb === "Used skill") add("skill");
+    else if (c.tool === "read") add("read");
+    else if (c.tool === "agent") add("agent");
+    else if (d.verb === "Used") apps.add(d.detail.split(" · ")[0]);
+    else add("step");
+  }
+  const n = (k: string) => counts.get(k) ?? 0;
+  const parts = [
+    n("read") && `read ${plural(n("read"), "file")}`,
+    n("skill") && `used ${plural(n("skill"), "skill")}`,
+    n("command") && `ran ${plural(n("command"), "command")}`,
+    apps.size && `used ${[...apps].join(", ")}`,
+    n("agent") && plural(n("agent"), "sub-agent"),
+    n("wrote") && `wrote ${plural(n("wrote"), "file")}`,
+    n("edited") && `edited ${plural(n("edited"), "file")}`,
+    n("step") && plural(n("step"), "other step"),
+  ].filter(Boolean) as string[];
+  return parts.join(", ");
+}
+
+/**
+ * A finished group of steps, folded to one line that says how it went and what was done; it opens to the steps.
+ * Live steps are never folded (the work shows as it happens), nor are commands still running in the background.
+ */
+function StepsFold({ calls, running }: { calls: ToolCall[]; running: boolean }) {
+  const [open, setOpen] = useState(false);
+  const failed = calls.filter((c) => c.status === "failed").length;
+  const ms = calls.reduce((t, c) => t + (c.durationMs ?? 0), 0);
+  const took = ms < 1000 ? "under a second" : ms < 60_000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60_000)} min`;
+  return (
+    <div className={`steps-fold${open ? " open" : ""}`}>
+      <button className="fold-head" aria-expanded={open} onClick={() => setOpen(!open)} data-testid="steps-summary">
+        <span className={`state ${failed ? "fail" : "ok"}`}>{failed ? <IconX /> : <IconCheck />}</span>
+        <span className="what">{failed ? `${plural(failed, "step")} failed` : `Done in ${took}`}</span>
+        <span className="tally">{tally(calls.filter((c) => c.status !== "failed"))}</span>
+        <span className="toggle">{open ? "Hide steps" : "Show steps"}<IconChevron /></span>
+      </button>
+      {open && (
+        <div className="steps" data-testid="activity">
+          {calls.map((c) => <Step key={c.id} call={c} running={running} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Files the agent wrote or changed in a finished turn, each as a card to open or download. */
+function TurnFiles({ calls }: { calls: ToolCall[] }) {
+  const paths = [...new Set(calls.filter((c) => (c.tool === "write" || c.tool === "edit") && c.status === "completed")
+    .map((c) => String((c.input as { path?: unknown }).path ?? "")).filter(Boolean))];
+  if (!paths.length) return null;
+  return (
+    <ul className="turn-files" aria-label="Files from this reply">
+      {paths.map((p) => {
+        const name = p.split("/").pop() ?? p;
+        const dir = p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
+        return (
+          <li key={p} className="turn-file">
+            <span className="kind" aria-hidden="true">{IMAGE.test(name) ? <IconImage /> : <IconFile />}</span>
+            <span className="text">
+              <span className="name">{name}</span>
+              <span className="meta">{dir ? `In Files · ${dir}` : "In Files"}</span>
+            </span>
+            <a className="btn ghost icon" href={rawUrl(p, true)} aria-label={`Download ${name}`} title="Download"><IconDownload /></a>
+            <a className="btn" href={rawUrl(p)} target="_blank" rel="noreferrer" aria-label={`Open ${name}`}>Open</a>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 type Block = { kind: "text"; key: string; text: string } | { kind: "steps"; key: string; calls: ToolCall[] };
-type Item = { kind: "user"; key: string; text: string; files: Attachment[] } | { kind: "notice"; key: string; text: string } | { kind: "turn"; key: string; blocks: Block[] };
+type Item = { kind: "user"; key: string; text: string; files: Attachment[] } | { kind: "notice"; key: string; text: string; learned?: Learned } | { kind: "turn"; key: string; blocks: Block[] };
 
 /** User messages, notices, and agent turns where consecutive tool calls share one steps card. */
 function group(entries: Entry[]): Item[] {
   const items: Item[] = [];
   for (const e of entries) {
     if (e.kind === "user") { items.push({ kind: "user", key: e.key, text: e.text, files: e.files }); continue; }
-    if (e.kind === "notice") { items.push({ kind: "notice", key: e.key, text: e.text }); continue; }
+    if (e.kind === "notice") { items.push({ kind: "notice", key: e.key, text: e.text, learned: e.learned }); continue; }
     let turn = items[items.length - 1];
     if (!turn || turn.kind !== "turn") { turn = { kind: "turn", key: e.key, blocks: [] }; items.push(turn); }
     const last = turn.blocks[turn.blocks.length - 1];
@@ -215,6 +310,43 @@ function UserMsg({ text, files, testId }: Outgoing & { testId: string }) {
   );
 }
 
+/** A change a review made, in words: "Made a new skill: greet", "Updated what I remember about you". */
+const learnedLine = (c: Learned["changes"][number]) => {
+  if (c.name === "memory.md") return "Updated what I remember about you";
+  const skill = c.name.startsWith("skills/") ? c.name.slice(7) : c.name;
+  return c.added ? `Made a new skill: ${skill}` : `Updated the skill: ${skill}`;
+};
+
+/** What the agent learned from this chat in the background, with a way to look at it and to take it back. */
+function LearnedNote({ chatId, learned }: { chatId: string | null; learned: Learned }) {
+  const [state, setState] = useState(learned);
+  const [error, setError] = useState("");
+  useEffect(() => setState(learned), [learned]);
+  const undo = async () => {
+    setError("");
+    try {
+      const m = await api.post<{ learned: Omit<Learned, "id"> }>(`/chats/${chatId}/learned/${state.id}/undo`);
+      setState({ ...state, ...m.learned });
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+  const first = state.changes[0];
+  const view = first?.name.startsWith("skills/") ? `/files?path=${encodeURIComponent(first.name)}` : "/files";
+  return (
+    <section className={`learned${state.undone ? " undone" : ""}`} aria-label="Learned from this chat" data-testid="learned">
+      <span className="icon" aria-hidden="true"><IconSpark size={20} /></span>
+      <div className="text">
+        <h3>{state.undone ? "Undone: nothing from this chat is kept" : "Learned from this chat"}</h3>
+        <ul>{state.changes.map((c) => <li key={c.name}>{learnedLine(c)}</li>)}</ul>
+        {error && <p className="error" role="alert">{error}</p>}
+      </div>
+      {!state.undone && <Link className="btn ghost" to={view}>View</Link>}
+      {state.can_undo && chatId && <button className="btn" onClick={undo}>Undo</button>}
+    </section>
+  );
+}
+
 /** What an ```openui block in a reply needs: whether the reply is still streaming, and how to send a message. */
 const ViewContext = createContext<{ live: boolean; onPrompt: (text: string) => void }>({ live: false, onPrompt: () => {} });
 type HastNode = { type?: string; tagName?: string; value?: string; properties?: { className?: unknown }; children?: HastNode[] };
@@ -232,7 +364,9 @@ function Pre({ node, children, ...rest }: ComponentProps<"pre"> & { node?: HastN
 }
 const MD_COMPONENTS: Components = { pre: Pre as Components["pre"] };
 
-export function Thread({ entries, running, queued, onPrompt }: { entries: Entry[]; running: boolean; queued: Outgoing[]; onPrompt: (text: string) => void }) {
+export function Thread({ entries, running, queued, onPrompt, chatId = null }: {
+  entries: Entry[]; running: boolean; queued: Outgoing[]; onPrompt: (text: string) => void; chatId?: string | null;
+}) {
   const items = group(entries);
   const toolBusy = running && entries.some((e) => e.kind === "tool" && !inBackground(e.call) && (e.call.status === "pending" || e.call.status === "in_progress"));
   const streaming = running && entries[entries.length - 1]?.kind === "text"; // the reply itself shows progress
@@ -242,8 +376,11 @@ export function Thread({ entries, running, queued, onPrompt }: { entries: Entry[
     <div className="thread">
       {items.map((it) => {
         if (it.kind === "user") return <UserMsg key={it.key} text={it.text} files={it.files} testId="user-msg" />;
-        if (it.kind === "notice") return <div key={it.key} className="notice">{it.text}</div>;
+        if (it.kind === "notice") return it.learned
+          ? <LearnedNote key={it.key} chatId={chatId} learned={it.learned} />
+          : <div key={it.key} className="notice">{it.text}</div>;
         const live = running && it === last;
+        const calls = it.blocks.flatMap((b) => (b.kind === "steps" ? b.calls : []));
         return (
           <div key={it.key} className="turn">
             <Mark size={24} live={live} />
@@ -252,11 +389,14 @@ export function Thread({ entries, running, queued, onPrompt }: { entries: Entry[
                 <ViewContext.Provider key={b.key} value={{ live, onPrompt }}>
                   <div className="answer" data-testid="assistant-msg"><Markdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{b.text}</Markdown></div>
                 </ViewContext.Provider>
+              ) : !live && !b.calls.some(inBackground) ? (
+                <StepsFold key={b.key} calls={b.calls} running={running} />
               ) : (
                 <div key={b.key} className="steps" data-testid="activity">
                   {b.calls.map((c) => <Step key={c.id} call={c} running={running} />)}
                 </div>
               ))}
+              {!live && <TurnFiles calls={calls} />}
               {live && !toolBusy && !streaming && working}
             </div>
           </div>
@@ -286,11 +426,14 @@ let pendingSeq = 0;
 function ModelPicker({ options, onChange }: { options: ConfigOption[]; onChange: (id: string, value: string) => void }) {
   return (
     <span className="model-picker">
-      {options.map((o) => (
-        <select key={o.id} className={`input picker ${o.id}`} aria-label={o.name} title={o.name} value={o.currentValue}
-          onChange={(e) => onChange(o.id, e.target.value)}>
-          {o.options.map((x) => <option key={x.value} value={x.value}>{x.name}</option>)}
-        </select>
+      {options.map((o, i) => (
+        <span key={o.id} className="row-flex">
+          {i > 0 && <span className="sep" aria-hidden="true">·</span>}
+          <select className={`input picker ${o.id}`} aria-label={o.name} title={o.name} value={o.currentValue}
+            onChange={(e) => onChange(o.id, e.target.value)}>
+            {o.options.map((x) => <option key={x.value} value={x.value}>{x.name}</option>)}
+          </select>
+        </span>
       ))}
     </span>
   );
@@ -398,7 +541,7 @@ export function Composer({ onSend, onStop, running, background = false, placehol
       <textarea id="composer" ref={ref} rows={1} value={text} onKeyDown={onKey}
         aria-autocomplete="list" aria-controls={choices.length ? "skill-menu" : undefined}
         aria-activedescendant={choices.length ? `skill-${choices[choice].name}` : undefined}
-        placeholder={running ? "Add to the conversation…" : placeholder ?? "Ask anything"}
+        placeholder={running ? "Add to the conversation…" : placeholder ?? "Ask anything. Type / to use a skill"}
         onBlur={() => setSlash(null)}
         onSelect={(e) => { if (slash) track(e.currentTarget.value, e.currentTarget.selectionStart); }}
         onChange={(e) => {
@@ -413,11 +556,13 @@ export function Composer({ onSend, onStop, running, background = false, placehol
         <input ref={picker} type="file" multiple hidden data-testid="chat-upload"
           onChange={(e) => { if (e.target.files) attach(e.target.files); e.target.value = ""; }} />
         {options && onOption && <ModelPicker options={options} onChange={onOption} />}
-        <span className="hints row-flex">
-          {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
-            : background ? <>Commands are running in the background · <Keys keys={["Esc"]} /> stop them</>
-            : <><Keys keys={["↵"]} /> send <Keys keys={["⇧", "↵"]} /> new line <Keys keys={["/"]} /> skills</>}
-        </span>
+        {/* Only while something runs: how to add to it or stop it. The idle keys are the usual ones and stay unsaid. */}
+        {(running || background) && (
+          <span className="hints row-flex">
+            {running ? <>Messages you send now are added without stopping · <Keys keys={["Esc"]} /> stop</>
+              : <>Commands are running in the background · <Keys keys={["Esc"]} /> stop them</>}
+          </span>
+        )}
         {showStop ? (
           <button className="send stop" type="button" aria-label="Stop" onClick={onStop}><span className="square" /></button>
         ) : (
@@ -482,9 +627,11 @@ const tokens = (n: number) => n.toLocaleString("en-US");
 const share = (p: number) => `${p < 10 ? p.toFixed(1).replace(/\.0$/, "") : Math.round(p)}%`;
 const MAX_ITEMS = 12;
 
+/** From this share of the context window on, the meter sits in the top bar; below it, the chat's menu opens it. */
+const CONTEXT_SHOW_AT = 50;
+
 /** How full the model's context window is, and what fills it: system prompt, tools, skills, messages. */
-function ContextMeter({ usage }: { usage: Usage }) {
-  const [open, setOpen] = useState(false);
+function ContextMeter({ usage, open, setOpen }: { usage: Usage; open: boolean; setOpen: (open: boolean) => void }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -493,16 +640,18 @@ function ContextMeter({ usage }: { usage: Usage }) {
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
     return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
-  }, [open]);
+  }, [open, setOpen]);
   const pct = share(usage.percent);
   const level = usage.percent >= 80 ? " high" : "";
   const estimated = usage.parts.reduce((n, p) => n + p.tokens, 0) || 1;
   return (
     <div className="context" ref={box}>
-      <button className={`btn ghost sm context-toggle${open ? " on" : ""}${level}`} aria-expanded={open} aria-controls="context-usage"
-        aria-label={`Context usage: ${pct} of the context window`} title="Context usage" onClick={() => setOpen(!open)}>
-        <Gauge percent={usage.percent} /><span className="count">{pct}</span>
-      </button>
+      {usage.percent >= CONTEXT_SHOW_AT && (
+        <button className={`btn ghost sm context-toggle${open ? " on" : ""}${level}`} aria-expanded={open} aria-controls="context-usage"
+          aria-label={`Context usage: ${pct} of the context window`} title="Context usage" onClick={() => setOpen(!open)}>
+          <Gauge percent={usage.percent} /><span className="count">{pct}</span>
+        </button>
+      )}
       {open && (
         <div className="context-pop" id="context-usage" role="dialog" aria-label="Context usage">
           <div className="context-total">
@@ -634,7 +783,7 @@ export function useSession(sid: string | null, events: SessionEvents = {}) {
   const on = useRef(events);
   on.current = events;
 
-  const push = (text: string) => setEntries((e) => [...e, { kind: "notice", key: nextKey(), text }]);
+  const push = (text: string, learned?: Learned) => setEntries((e) => [...e, { kind: "notice", key: nextKey(), text, learned }]);
   const reset = useCallback(() => { setEntries([]); setError(""); setQueued([]); setRunning(false); }, []);
 
   const load = useCallback(async (target: string) => {
@@ -657,7 +806,7 @@ export function useSession(sid: string | null, events: SessionEvents = {}) {
       return;
     }
     if (n.params.sessionId !== current.current) return;
-    if (n.method === "_acf/notice") push(n.params.text);
+    if (n.method === "_acf/notice") push(n.params.text, n.params._meta?.acf?.learned);
     else if (n.method === "_acf/turn_start") setRunning(true); // a background command finished and woke the agent
     else if (n.method === "_acf/turn_end") {
       setRunning(false);
@@ -722,6 +871,7 @@ export default function ChatPage() {
   const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
   const [panel, setPanel] = useState(panelPref);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [options, setOptions] = useState<ConfigOption[] | undefined>();
   // A sub-agent's session: read-only, with the chat it belongs to and what the sub-agent was for.
   const [sub, setSub] = useState<{ title: string; parent: ParentSession } | null>(null);
@@ -756,7 +906,7 @@ export default function ChatPage() {
   });
 
   useEffect(() => {
-    reset(); setArtifacts(null); setUsage(null); setSub(null); setLoadedTitle(null);
+    reset(); setArtifacts(null); setUsage(null); setUsageOpen(false); setSub(null); setLoadedTitle(null);
     setOptions((location.state as { options?: ConfigOption[] } | null)?.options);
     if (!sid) return;
     loadArtifacts(sid);
@@ -817,13 +967,14 @@ export default function ChatPage() {
       <Topbar crumb={sub ? sub.parent.title || "Chat" : project?.name ?? "Chats"} crumbTo={project && `/projects/${project.id}`} title={sub ? sub.title : title}>
         {sub && <span className="badge plain">Sub-agent</span>}
         {running && <span className="badge live"><span className="live-dot" />Working</span>}
-        {usage && <ContextMeter usage={usage} />}
+        {usage && <ContextMeter usage={usage} open={usageOpen} setOpen={setUsageOpen} />}
         <button className={`btn ghost sm artifacts-toggle${panel ? " on" : ""}`} aria-label="Artifacts" aria-expanded={panel} aria-controls="artifacts"
           title={panel ? "Hide artifacts" : "Show artifacts"} onClick={togglePanel}>
           <IconPanel />{artifacts?.length ? <span className="count">{artifacts.length}</span> : null}
         </button>
         <MoreMenu label="Chat actions" items={[
           { label: panel ? "Hide artifacts" : "Show artifacts", icon: <IconPanel />, phoneOnly: true, onSelect: togglePanel },
+          ...(usage ? [{ label: "Context usage", icon: <Gauge percent={usage.percent} />, onSelect: () => setUsageOpen(true) }] : []),
           sub
             ? { label: "Back to the chat", icon: <IconChat />, onSelect: () => navigate(`/c/${sub.parent.sessionId}`) }
             : { label: "Delete chat", icon: <IconTrash />, confirm: "Yes, delete this chat", onSelect: remove },
@@ -832,7 +983,9 @@ export default function ChatPage() {
       <div className="chat-layout">
         <div className="chat-col">
           <div className="chat-scroll" ref={scroller}>
-            <Thread entries={entries} running={running} queued={queued} onPrompt={(t) => { if (!sub) send(t, sid); }} />
+            <ModelNames.Provider value={namesOf(options)}>
+              <Thread entries={entries} running={running} queued={queued} chatId={sid} onPrompt={(t) => { if (!sub) send(t, sid); }} />
+            </ModelNames.Provider>
             {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
           </div>
           <div className="composer-wrap">

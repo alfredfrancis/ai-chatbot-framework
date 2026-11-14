@@ -293,3 +293,39 @@ async def test_long_unknown_tool_name_is_stored(client, user):
     chat_id = await new_chat(client)
     tool = (await send(client, chat_id, "tool: " + "t" * 300 + " {}")).results[0]
     assert tool["status"] == "failed" and "Unknown tool" in tool["text"]
+
+
+async def test_a_new_chat_is_named_after_its_first_reply(client, user, monkeypatch):
+    from acf.agent import titles
+
+    monkeypatch.setattr(config.settings, "auto_titles", True)
+    chat_id = await new_chat(client)
+    async with acp_connect(client) as acp:
+        await acp.request("session/load", {"sessionId": str(chat_id), "cwd": "/", "mcpServers": []})
+        await prompt(acp, str(chat_id), "please summarise the sales sheet in my files and send it to Ana")
+        await titles.wait(chat_id)
+        title = "Please summarise the sales sheet"
+        for _ in range(50):  # the title reaches the open chat as a session_info_update
+            named = [n for n in acp.notifications if n["params"].get("update", {}).get("title") == title]
+            if named:
+                break
+            await asyncio.sleep(0.02)
+        assert named
+    assert (await client.get(f"/api/chats/{chat_id}")).json()["title"] == "Please summarise the sales sheet"
+    # Only the first exchange is named, and a title someone chose is kept.
+    await send(client, chat_id, "and the costs too")
+    await titles.wait(chat_id)
+    assert (await client.get(f"/api/chats/{chat_id}")).json()["title"] == "Please summarise the sales sheet"
+    other = await new_chat(client)
+    await client.patch(f"/api/chats/{other}", json={"title": "My own name"})
+    await send(client, other, "hello there")
+    await titles.wait(other)
+    assert (await client.get(f"/api/chats/{other}")).json()["title"] == "My own name"
+
+
+def test_titles_are_cleaned_up():
+    from acf.agent.titles import clean
+
+    assert clean('"Weekly sales report."') == "Weekly sales report"
+    assert clean("Title: Plan for Friday\nmore text") == "Plan for Friday"
+    assert len(clean("x" * 200)) == 80

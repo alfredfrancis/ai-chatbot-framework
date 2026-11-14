@@ -146,6 +146,16 @@ class Message(Base):
         """Background job id: on the tool result that started it, and on the user-role note with its output."""
         return (self.raw or {}).get("background") if self.role in ("tool", "user") else None
 
+    @property
+    def learned(self) -> dict[str, Any] | None:
+        """On a review's note: what it changed ("skills/<name>" or "memory.md", added or updated) and whether
+        that can be undone or was."""
+        raw = self.raw or {}
+        if self.role != "note" or not raw.get("learned"):
+            return None
+        undone = bool(raw.get("undone"))
+        return {"changes": raw["learned"], "can_undo": "before" in raw and not undone, "undone": undone}
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
@@ -158,6 +168,7 @@ class Message(Base):
             "duration_ms": (self.raw or {}).get("duration_ms") if self.role == "tool" or self.background else None,
             "background": self.background,
             "agent": (self.raw or {}).get("agent") if self.role == "tool" else None,
+            "learned": self.learned,
             "created_at": self.created_at.isoformat() + "Z",
         }
 

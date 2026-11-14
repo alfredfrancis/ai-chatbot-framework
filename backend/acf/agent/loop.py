@@ -58,7 +58,7 @@ from langchain_core.messages import (
 
 from acf import apps as personal_apps
 from acf import bus, config, skills, workspace
-from acf.agent import prompt, review, subagents, transcripts, usage
+from acf.agent import prompt, review, subagents, titles, transcripts, usage
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, call_tool, gather_calls
 from acf.db import Chat, Message, Project, User, session_scope, utcnow
 from acf.llm import LLMConfig, LLMError, calls_of, estimate_tokens, friendly_error, make_model
@@ -288,8 +288,9 @@ class Run:
         if self.stop_reason != "cancelled" and self.ok:
             try:
                 review.maybe_start(self.user, self.chat_id, self.system)
-            except Exception:  # noqa: BLE001 - never let the review break a finished run
-                log.exception("could not start a review")
+                titles.maybe_start(self.user, self.chat_id)
+            except Exception:  # noqa: BLE001 - never let the review or the title break a finished run
+                log.exception("could not start a review or a title")
 
     def _inject_user_messages(self, history: list[BaseMessage]) -> bool:
         got = False

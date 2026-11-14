@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, type ModelEntry, type ProviderEntry, type Settings } from "../api";
+import { api, effortName, type ModelEntry, type ProviderEntry, type Settings } from "../api";
 import { Toggle } from "../components/Toggle";
 import { PageHeader, Topbar, useApp } from "../App";
 
@@ -70,10 +70,9 @@ function ExternalApps() {
 
 const SECTIONS = [
   { id: "model-settings", label: "Models" }, { id: "providers", label: "Providers" },
-  { id: "external-apps", label: "External apps" }, { id: "sandbox", label: "Sandbox" }, { id: "account", label: "Account" },
+  { id: "external-apps", label: "External apps" }, { id: "sandbox", label: "Computer" }, { id: "account", label: "Account" },
 ];
 const tokens = (n: number) => (n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(2)}M` : `${Math.round(n / 1000)}K`);
-const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
 const trim = (u: string) => u.trim().replace(/\/+$/, "");
 type Update = (r: Settings) => void;
 
@@ -132,8 +131,8 @@ function Defaults({ s, onSaved }: { s: Settings; onSaved: Update }) {
             <label htmlFor="default-effort">Default effort</label>
             <select id="default-effort" className="input" value={efforts.includes(choice.effort) ? choice.effort : ""} disabled={!efforts.length}
               onChange={(e) => save(choice.model, e.target.value)}>
-              <option value="">{efforts.length ? `${cap(current?.effort || "medium")} (model's default)` : "Not available for this model"}</option>
-              {efforts.map((x) => <option key={x} value={x}>{cap(x)}</option>)}
+              <option value="">{efforts.length ? `${effortName(current?.effort || "medium")} (model's default)` : "Not available for this model"}</option>
+              {efforts.map((x) => <option key={x} value={x}>{effortName(x)}</option>)}
             </select>
             <span className="hint">More effort thinks longer: better answers to hard questions, but slower and costlier.</span>
           </div>
@@ -340,7 +339,7 @@ export default function SettingsPage() {
   if (!s) return <div className="page" />;
 
   const resetSandbox = async () => {
-    if (!confirm("Restart your sandbox? Running programs stop. Your files are kept.")) return;
+    if (!confirm("Restart your agent's computer? Running programs stop. Your files are kept.")) return;
     await api.post("/sandbox/reset");
     setSandbox(await api.get<SandboxStatus>("/sandbox"));
   };
@@ -364,7 +363,7 @@ export default function SettingsPage() {
         <ExternalApps />
 
         <section className="stack" id="sandbox" aria-labelledby="sandbox-title">
-          <h2 id="sandbox-title">Sandbox</h2>
+          <h2 id="sandbox-title">Your agent's computer</h2>
           <div className="list">
             <div className="lrow">
               {(sandbox?.state === "running" || sandbox?.state === "ready") && <span className="live-dot" aria-hidden="true" />}

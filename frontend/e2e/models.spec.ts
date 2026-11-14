@@ -70,7 +70,8 @@ test("the model list: turn models on and off, set a token window, choose the def
   await expect(page.getByLabel("Effort", { exact: true })).toHaveValue("max");
   await say(page, "show effort");
   await expect(lastAssistant(page)).toHaveText("Effort: max");
-  await page.getByRole("button", { name: /Context usage/ }).click();
+  await page.getByRole("button", { name: "Chat actions" }).click();
+  await page.getByRole("menuitem", { name: "Context usage" }).click();
   await expect(page.getByRole("dialog", { name: "Context usage" })).toContainText("of 64,000 tokens");
 });
 

@@ -45,7 +45,7 @@ test("create a project with instructions and a folder, and chat in it", async ({
   // the chat's breadcrumb leads back to the project, which lists the chat and the folder's files
   await page.locator(".topbar").getByRole("link", { name: "Website relaunch" }).click();
   await expect(page).toHaveURL(/\/projects\/\d+$/);
-  await expect(page.getByRole("list", { name: "Chats in this project" }).getByRole("link", { name: /show system/ })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Chats in this project" }).getByRole("link", { name: /show system/i })).toBeVisible();
   await expect(page.getByTestId("project-folder")).toContainText("plan.md");
   await shot(page, "31-project");
 

@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 const root = new URL("../..", import.meta.url).pathname;
 const py = process.env.PYTHON ?? `${root}.venv/bin/python`;
@@ -75,8 +75,10 @@ test("web chat runs over ACP, and other apps connect with an access token", asyn
     // The same conversation is a chat in the web app, replayed with session/load.
     await page.reload();
     await expect(page.getByTestId("acp-token-status")).toContainText("last used");
-    await nav(page).getByRole("link", { name: "run: echo from-editor" }).click();
+    // named by the model after its first reply
+    await nav(page).getByRole("link", { name: "Echo from-editor" }).click();
     await expect(page.getByTestId("user-msg")).toHaveText("run: echo from-editor");
+    await openSteps(page);
     await expect(page.getByTestId("tool-step")).toContainText("Ran echo from-editor");
     await expect(lastAssistant(page)).toHaveText(/Result: from-editor/);
     await shot(page, "17-chat-from-external-app");

@@ -7,6 +7,10 @@ is reused) plus REVIEW_PROMPT, with read, write and edit limited to memory.md, c
 skills/. Writes go through the same checks as the agent's (memory size limit, injection scan). Nothing it
 says is added to the chat; a note row records the review (`raw.review_at` = user messages so far) and, when
 files changed, says which, so the user sees it in the chat. One review per user at a time.
+
+The note also keeps what the changed files held before (`raw.before`, text files up to UNDO_MAX bytes in all)
+and a hash of what they hold after (`raw.after`), so the user can undo what was learned (`undo`) as long as
+nothing has changed those files since.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from acf.llm import LLMConfig, make_model
 
 log = logging.getLogger("acf.review")
 MAX_STEPS = 8
+UNDO_MAX = 256 * 1024  # bytes of earlier file contents a note keeps for undo
 NOTE = "note"  # Message.role of the review's record
 
 REVIEW_PROMPT = """[Review] This is an automatic background review, not a message from the user. Look back \
@@ -66,15 +71,80 @@ def _restricted(tool: Tool) -> Tool:
 TOOLS: dict[str, Tool] = {t.name: _restricted(t) for t in BUILTIN_TOOLS if t.name in ("read", "write", "edit")}
 
 
-def _snapshot(user_id: int) -> dict[str, str]:
+def _files(user_id: int) -> dict[str, bytes]:
+    """memory.md and every file under skills/ (not archived ones), by path."""
     root = workspace.workspace_dir(user_id)
-    files = [root / workspace.MEMORY_FILE, *(root / "skills").rglob("*")]
     out = {}
-    for p in files:
+    for p in [root / workspace.MEMORY_FILE, *(root / "skills").rglob("*")]:
         rel = p.relative_to(root).as_posix()
         if p.is_file() and not rel.startswith("skills/."):
-            out[rel] = hashlib.sha256(p.read_bytes()).hexdigest()
+            out[rel] = p.read_bytes()
     return out
+
+
+def _hashes(files: dict[str, bytes]) -> dict[str, str]:
+    return {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
+
+
+def _snapshot(user_id: int) -> dict[str, str]:
+    return _hashes(_files(user_id))
+
+
+def _undo_record(before: dict[str, bytes], after: dict[str, bytes]) -> dict[str, Any] | None:
+    """What the changed files held before (None: the file is new) and a hash of each now (None: deleted),
+    or None when the earlier contents are too large or not text."""
+    changed_files = [rel for rel in sorted(set(before) | set(after)) if before.get(rel) != after.get(rel)]
+    old: dict[str, str | None] = {}
+    size = 0
+    for rel in changed_files:
+        data = before.get(rel)
+        if data is None:
+            old[rel] = None
+            continue
+        size += len(data)
+        try:
+            old[rel] = data.decode()
+        except UnicodeDecodeError:
+            return None
+    if size > UNDO_MAX:
+        return None
+    now = {rel: (hashlib.sha256(after[rel]).hexdigest() if rel in after else None) for rel in changed_files}
+    return {"before": old, "after": now}
+
+
+def undo(user_id: int, raw: dict[str, Any]) -> None:
+    """Put the files a review changed back as they were. ValueError if that can't be done safely."""
+    if raw.get("undone"):
+        raise ValueError("Already undone.")
+    if "before" not in raw:
+        raise ValueError("This change can't be undone here. Change the file in Skills or Files instead.")
+    for rel in raw["before"]:
+        if not _allowed(user_id, rel, write=True):
+            raise ValueError(f"Not a memory or skill file: {rel}")
+    lock = f"review:{user_id}"  # not while a review edits the same files
+    if not bus.current().lock(lock):
+        raise ValueError("Still learning from a chat. Try again in a moment.")
+    try:
+        current = _snapshot(user_id)
+        if any(current.get(rel) != digest for rel, digest in raw["after"].items()):
+            raise ValueError("These files changed again since. Change them in Skills or Files instead.")
+        _restore(user_id, raw["before"])
+    finally:
+        bus.current().unlock(lock)
+
+
+def _restore(user_id: int, before: dict[str, str | None]) -> None:
+    root = workspace.workspace_dir(user_id)
+    for rel, text in before.items():
+        path = workspace.resolve(user_id, rel)
+        if text is None:
+            path.unlink(missing_ok=True)
+            parent = path.parent  # a skill the review made: remove its now empty folders
+            while parent != root / "skills" and parent.is_relative_to(root / "skills") and not any(parent.iterdir()):
+                parent.rmdir()
+                parent = parent.parent
+        else:
+            workspace.write_file(user_id, rel, text)
 
 
 def changed(before: dict[str, str], after: dict[str, str]) -> list[str]:
@@ -134,7 +204,8 @@ async def wait(user_id: int) -> None:
 async def _review(user: User, chat_id: int, users: int, system: str) -> None:
     from acf.agent import loop  # loop starts reviews
 
-    before = _snapshot(user.id)
+    before_files = _files(user.id)
+    before = _hashes(before_files)
     try:
         model = make_model(LLMConfig.for_chat(user, chat_id)).bind_tools([t.schema() for t in TOOLS.values()])
         ctx = ToolContext(user.id)
@@ -166,11 +237,17 @@ async def _review(user: User, chat_id: int, users: int, system: str) -> None:
         raise
     except Exception:  # noqa: BLE001 - a review is best effort
         log.exception("review of chat %s failed", chat_id)
-    updated = changed(before, _snapshot(user.id))
+    after_files = _files(user.id)
+    updated = changed(before, _hashes(after_files))
     text = f"Learned from this chat: updated {', '.join(updated)}." if updated else ""
     with session_scope() as db:
         if db.get(Chat, chat_id) is None:
             return  # deleted meanwhile
-    saved = loop._save(chat_id, role=NOTE, content=text, raw={"review_at": users})
+    raw: dict[str, Any] = {"review_at": users}
+    if updated:
+        roots = {rel.split("/")[0] if rel == workspace.MEMORY_FILE else "/".join(rel.split("/")[:2]) for rel in before}
+        raw["learned"] = [{"name": name, "added": name not in roots} for name in updated]
+        raw.update(_undo_record(before_files, after_files) or {})
+    saved = loop._save(chat_id, role=NOTE, content=text, raw=raw)
     if text:
         loop._broadcast(chat_id, {"type": "message", "message": saved})

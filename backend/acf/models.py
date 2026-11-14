@@ -31,6 +31,21 @@ MIN_WINDOW = 1000
 
 _CLAUDE_EFFORTS = ["low", "medium", "high", "max"]
 _OPENAI_EFFORTS = ["minimal", "low", "medium", "high"]
+# What people see for each effort level: how long the model thinks, in plain words.
+EFFORT_NAMES = {
+    "minimal": "Fastest",
+    "low": "Quick",
+    "medium": "Balanced",
+    "high": "Thorough",
+    "xhigh": "Extra thorough",
+    "max": "Deepest",
+}
+
+
+def effort_name(effort: str) -> str:
+    return EFFORT_NAMES.get(effort, effort.capitalize())
+
+
 # Models added by hand get the effort levels of their family.
 _EFFORT_FAMILIES = {
     "anthropic": (
@@ -269,7 +284,7 @@ def config_options(user: Any, model_key: str = "", effort: str = "") -> list[dic
                 "category": "thought_level",
                 "type": "select",
                 "currentValue": resolve_effort(current, effort or user.llm_effort or ""),
-                "options": [{"value": e, "name": e.capitalize()} for e in m.efforts],
+                "options": [{"value": e, "name": effort_name(e)} for e in m.efforts],
             }
         )
     return out

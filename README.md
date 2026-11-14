@@ -187,6 +187,7 @@ Each chat can switch model and effort from its message box.
 | `ACF_CONTEXT_WINDOW` | model's own | Context window size (tokens) for the chat's context meter when the model has no token window set; default comes from LangChain's model profile, `128000` if unknown |
 | `ACF_MEMORY_LIMIT` | `4000` | Characters of `memory.md` (it goes into every prompt); the agent's writes past it are refused |
 | `ACF_REVIEW_INTERVAL` | `10` | User messages per chat between background reviews that update memory and skills (`0` = off) |
+| `ACF_AUTO_TITLES` | `true` | After a chat's first reply, the chat's model names it in a few words (`false`: chats keep their first message as title) |
 | `ACF_SKILL_ARCHIVE_DAYS` | `30` | Skills not read for this many days move to `skills/.archive/` (`0` = never; `pinned: true` in a skill's frontmatter keeps it) |
 | `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
 | `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |

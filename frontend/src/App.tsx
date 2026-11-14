@@ -63,7 +63,7 @@ export function PageHeader({ title, lead, children }: { title: string; lead: Rea
 }
 
 const LIVE = ["ready", "running"];
-const SANDBOX_LABEL: Record<string, string> = { ready: "Sandbox ready", running: "Sandbox ready", missing: "Sandbox starts on first use" };
+const SANDBOX_LABEL: Record<string, string> = { ready: "Computer ready", running: "Computer ready", missing: "Computer starts on first use" };
 
 type Command = { id: string; group: string; label: string; icon: ReactNode; keys?: string[]; run: () => void };
 

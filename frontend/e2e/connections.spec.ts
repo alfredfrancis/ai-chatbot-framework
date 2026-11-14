@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 const echoServer = readFileSync(new URL("../../backend/tests/fakes/echo_mcp.py", import.meta.url));
 
@@ -38,7 +38,7 @@ test("add a local MCP server with the form and use its tools", async ({ page }) 
   await form.getByRole("button", { name: "Add connection" }).click();
 
   const row = page.getByTestId("server-calculator");
-  await expect(row).toContainText("Runs in your sandbox · 3 tools");
+  await expect(row).toContainText("Runs on your agent's computer · 3 tools");
   await expect(row).toContainText("Connected");
   await row.getByText("Show tools").click();
   await expect(row).toContainText("add — Add two numbers");
@@ -53,8 +53,10 @@ test("add a local MCP server with the form and use its tools", async ({ page }) 
 
   await nav(page).getByRole("link", { name: "New chat" }).click();
   await say(page, 'tool: mcp_call {"server": "calculator", "tool": "add", "arguments": {"a": 1234, "b": 4321}}');
-  await expect(page.getByTestId("tool-step")).toContainText("Used calculator · add");
   await expect(lastAssistant(page)).toHaveText("Result: 5555");
+  await expect(page.getByTestId("steps-summary")).toContainText("used calculator");
+  await openSteps(page);
+  await expect(page.getByTestId("tool-step")).toContainText("Used calculator · add");
 });
 
 test("edit, turn off, rename and delete a connection", async ({ page }) => {
