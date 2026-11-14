@@ -76,6 +76,8 @@ class Settings:
     memory_limit: int = field(default_factory=lambda: int(_env("MEMORY_LIMIT", "4000")))
     # Every N user messages in a chat, a background pass reviews it and updates memory.md and skills (0 = off).
     review_interval: int = field(default_factory=lambda: int(_env("REVIEW_INTERVAL", "10")))
+    # After a chat's first reply, the model gives it a short title (false: chats keep their first message as title).
+    auto_titles: bool = field(default_factory=lambda: _env("AUTO_TITLES", "true").lower() == "true")
     # Skills not read for this many days move to skills/.archive/ (0 = never).
     skill_archive_days: int = field(default_factory=lambda: int(_env("SKILL_ARCHIVE_DAYS", "30")))
 

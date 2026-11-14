@@ -121,6 +121,47 @@ async def test_review_updates_skills_and_tells_the_user(client, user, setting):
     assert review.counts(chat_id) == (3, 2)  # the next review waits for 2 more messages
 
 
+async def test_what_a_review_learned_can_be_undone(client, user, setting):
+    setting(review_interval=1)
+    chat_id = await new_chat(client)
+    before = workspace.read_file(user["id"], "memory.md")
+    await send(client, chat_id, "learn: memory.md | # Memory\n- Signs updates Thanks, Maya")
+    await review.wait(user["id"])
+    note = (await client.get(f"/api/chats/{chat_id}")).json()["messages"][-1]
+    assert note["learned"] == {"changes": [{"name": "memory.md", "added": False}], "can_undo": True, "undone": False}
+    assert "Thanks, Maya" in workspace.read_file(user["id"], "memory.md")
+    # Clients get what changed with the notice, to offer the undo.
+    async with acp_connect(client) as acp:
+        await acp.request("session/load", {"sessionId": str(chat_id), "cwd": "/", "mcpServers": []})
+        meta = [n["params"].get("_meta") for n in acp.notifications if n["method"] == "_acf/notice"]
+    assert meta == [{"acf": {"learned": {"id": note["id"], **note["learned"]}}}]
+
+    r = await client.post(f"/api/chats/{chat_id}/learned/{note['id']}/undo")
+    assert r.status_code == 200 and r.json()["learned"]["undone"] and not r.json()["learned"]["can_undo"]
+    assert workspace.read_file(user["id"], "memory.md") == before
+    assert (await client.post(f"/api/chats/{chat_id}/learned/{note['id']}/undo")).status_code == 409
+
+
+async def test_undoing_a_new_skill_removes_it_unless_it_changed_since(client, user, setting):
+    setting(review_interval=1)
+    chat_id = await new_chat(client)
+    md = "---\\nname: greet\\ndescription: Greet people. Use when greeting.\\n---\\n# Greet"
+    await send(client, chat_id, f"learn: skills/greet/SKILL.md | {md}")
+    await review.wait(user["id"])
+    note = (await client.get(f"/api/chats/{chat_id}")).json()["messages"][-1]
+    assert note["learned"]["changes"] == [{"name": "skills/greet", "added": True}]
+    # Changed again since the review: the undo would lose that, so it is refused.
+    workspace.write_file(user["id"], "skills/greet/SKILL.md", "changed by hand")
+    r = await client.post(f"/api/chats/{chat_id}/learned/{note['id']}/undo")
+    assert r.status_code == 409 and "changed again" in r.json()["detail"]
+    workspace.write_file(user["id"], "skills/greet/SKILL.md", md.replace("\\n", "\n"))
+    assert (await client.post(f"/api/chats/{chat_id}/learned/{note['id']}/undo")).status_code == 200
+    assert not (workspace.workspace_dir(user["id"]) / "skills/greet").exists()
+    # Only a review's note can be undone, and only in one's own chat.
+    other = (await client.get(f"/api/chats/{chat_id}")).json()["messages"][0]
+    assert (await client.post(f"/api/chats/{chat_id}/learned/{other['id']}/undo")).status_code == 404
+
+
 async def test_review_can_only_touch_memory_and_skills(client, user, setting, fake_llm_url):
     setting(review_interval=1)
     chat_id = await new_chat(client)

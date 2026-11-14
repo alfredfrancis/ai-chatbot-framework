@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 test("home, chat, sandbox commands and history", async ({ page }) => {
   await signUp(page);
@@ -16,12 +16,14 @@ test("home, chat, sandbox commands and history", async ({ page }) => {
   await expect(nav(page).getByRole("link", { name: "hello there" })).toBeVisible();
 
   await say(page, "run: echo computed-$((6*7))");
+  await expect(lastAssistant(page)).toHaveText(/Result: computed-42/);
+  // Finished steps fold to one line; opened, each step shows its command, time and output.
+  await openSteps(page);
   const step = page.getByTestId("tool-step").last();
   await expect(step).toContainText("Ran echo computed-$((6*7))");
   await expect(step).toContainText(/\d\.\ds/);
-  await expect(lastAssistant(page)).toHaveText(/Result: computed-42/);
   await step.click();
-  await expect(page.locator(".step-output").last()).toContainText("[exit code 0]");
+  await expect(page.locator(".step-output").last()).toHaveText("computed-42");
   await shot(page, "03-chat-with-activity");
 
   await page.reload();
@@ -38,9 +40,11 @@ test("home, chat, sandbox commands and history", async ({ page }) => {
 test("failed commands are marked as failed", async ({ page }) => {
   await signUp(page);
   await say(page, "run: exit 7");
+  await expect(lastAssistant(page)).toContainText("exit code 7");
+  await expect(page.getByTestId("steps-summary")).toContainText("1 step failed");
+  await openSteps(page);
   await expect(page.getByTestId("tool-step")).toContainText("Ran exit 7");
   await expect(page.getByTestId("tool-step").locator(".fail")).toBeVisible();
-  await expect(lastAssistant(page)).toContainText("exit code 7");
 });
 
 test("a follow-up while the model thinks is picked up right away", async ({ page }) => {
@@ -71,6 +75,7 @@ test("steer the agent while it works, then stop it", async ({ page }) => {
   await expect(page.getByTestId("tool-step").last()).toContainText("Ran sleep 30");
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.getByText("Stopped.")).toBeVisible();
+  await openSteps(page);
   await expect(page.getByTestId("tool-step").last().locator(".fail")).toBeVisible();
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
   await shot(page, "05-stopped");

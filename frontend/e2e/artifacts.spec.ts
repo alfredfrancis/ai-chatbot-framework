@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 test("a chat's artifacts panel lists the files attached to it and the files the agent made", async ({ page }) => {
   await signUp(page);
@@ -22,6 +22,7 @@ test("a chat's artifacts panel lists the files attached to it and the files the 
   await say(page, "write: report.md | # Weekly sales");
   await expect(lastAssistant(page)).toContainText("Result: Wrote report.md");
   await say(page, "run: mkdir -p out && echo 'mon 120' > out/chart.txt");
+  await openSteps(page);
   await expect(page.getByTestId("tool-step").last()).toContainText("Ran mkdir");
   const produced = panel.getByRole("list", { name: "Produced files" });
   await expect(produced.getByRole("listitem")).toHaveText([/report\.md/, /chart\.txt\s*out ·/]);

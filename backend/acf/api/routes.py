@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from acf import __version__, apps, artifacts, config, mcp_presets, models, oauth, projects, scheduler, skills, workspace
 from acf.agent import loop as agent
-from acf.agent import transcripts
+from acf.agent import review, transcripts
 from acf.auth import (
     COOKIE,
     SESSION_DAYS,
@@ -262,6 +262,28 @@ def chat_artifacts(
     """Files uploaded to and produced by this chat (see acf.artifacts)."""
     chat = _own_chat(db, user, chat_id)
     return artifacts.chat_artifacts(db, chat.id, user.id)
+
+
+@router.post("/chats/{chat_id}/learned/{message_id}/undo")
+def undo_learned(
+    chat_id: int,
+    message_id: int,
+    db: Session = Depends(get_db, scope="function"),
+    user: User = Depends(current_user),
+) -> dict:
+    """Undo what a background review learned in this chat: its memory and skill files go back as they were."""
+    chat = _own_chat(db, user, chat_id)
+    note = db.query(Message).filter_by(id=message_id, chat_id=chat.id, role=review.NOTE).first()
+    if note is None or not note.learned:
+        raise HTTPException(404, "Nothing learned to undo")
+    raw = dict(note.raw or {})
+    try:
+        review.undo(user.id, raw)
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    raw["undone"] = True
+    note.raw = raw
+    return note.to_dict()
 
 
 @router.patch("/chats/{chat_id}")

@@ -35,3 +35,11 @@ export async function say(page: Page, text: string) {
 
 export const lastAssistant = (page: Page) => page.getByTestId("assistant-msg").last();
 export const nav = (page: Page) => page.getByRole("navigation", { name: "Main" });
+
+/** Once the agent has finished, open every folded group of steps so each step row shows. */
+export async function openSteps(page: Page, scope = page.locator("body")) {
+  await expect(scope.getByTestId("steps-summary").first()).toBeVisible(); // a finished group of steps folds
+  await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0);
+  const folded = scope.locator('[data-testid="steps-summary"][aria-expanded="false"]');
+  while (await folded.count()) await folded.first().click();
+}

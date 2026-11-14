@@ -28,9 +28,11 @@ export type UsagePart = { name: string; tokens: number; items?: string[]; count?
 export type UsageMeta = { percent: number; measured: boolean; parts: UsagePart[] };
 /** The context window after the latest model call. */
 export type Usage = { used: number; size: number } & UsageMeta;
+/** What a background review learned in a chat (a notice's `_meta.acf.learned`): the files it changed, and whether that can be undone. */
+export type Learned = { id: number; changes: { name: string; added: boolean }[]; can_undo: boolean; undone: boolean };
 export type AcpNotification =
   | { method: "session/update"; params: { sessionId: string; update: SessionUpdate } }
-  | { method: "_acf/notice"; params: { sessionId: string; text: string } }
+  | { method: "_acf/notice"; params: { sessionId: string; text: string; _meta?: { acf?: { learned?: Learned } } } }
   | { method: "_acf/turn_end"; params: { sessionId: string; stopReason: string; error?: string } }
   | { method: "_acf/turn_start"; params: { sessionId: string } }
   | { method: "_acf/disconnected"; params: Record<string, never> };

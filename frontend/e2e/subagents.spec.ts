@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 const agent = (description: string, prompt: string, model?: string) =>
   `tool: agent ${JSON.stringify(model ? { description, prompt, model } : { description, prompt })}`;
@@ -21,9 +21,11 @@ test("sub-agents work side by side, each on its own model, and report back", asy
   await expect(steps.nth(1)).toContainText("Ran sleep 3; echo costs-ok");
   await shot(page, "09-sub-agents-working");
 
-  await expect(steps.locator(".ok")).toHaveCount(3, { timeout: 20_000 });
-  await expect(lastAssistant(page)).toHaveText(/^Result: /);
-  await expect(steps.nth(2)).toContainText("claude-sonnet-5-5");
+  await expect(lastAssistant(page)).toHaveText(/^Result: /, { timeout: 20_000 });
+  await expect(page.getByTestId("steps-summary")).toContainText("3 sub-agents");
+  await openSteps(page);
+  await expect(steps.locator(".ok")).toHaveCount(3);
+  await expect(steps.nth(2)).toContainText("Claude Sonnet 5.5"); // the model's name, not its id
 
   // Opening a sub-agent shows its model, its steps and its report.
   await steps.nth(0).click();
@@ -37,6 +39,8 @@ test("sub-agents work side by side, each on its own model, and report back", asy
 
   // A sub-agent starts fresh: none of this chat reaches it.
   await say(page, agent("What do you know", "show messages"));
+  await expect(lastAssistant(page)).toContainText("Messages: show messages");
+  await openSteps(page);
   await expect(steps).toHaveCount(4);
   await expect(steps.nth(3).locator(".ok")).toBeVisible();
   await steps.nth(3).click();
@@ -44,6 +48,8 @@ test("sub-agents work side by side, each on its own model, and report back", asy
 
   // After a reload the steps and reports are still there.
   await page.reload();
+  await expect(page.getByTestId("user-msg")).toHaveCount(2);
+  await openSteps(page);
   await expect(page.getByTestId("tool-step")).toHaveCount(4);
   await page.getByTestId("tool-step").nth(1).click();
   const again = page.getByRole("group", { name: "Sub-agent: Check the costs file" });
@@ -56,6 +62,7 @@ test("stop ends the sub-agents too", async ({ page }) => {
   await say(page, [agent("Slow one", "run: sleep 60"), agent("Slow two", "run: sleep 60")].join("\n"));
   await expect(page.getByLabel("Working", { exact: true })).toHaveCount(2);
   await page.getByRole("button", { name: "Stop" }).click();
+  await openSteps(page);
   await expect(page.getByTestId("tool-step").locator(".fail")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
   await say(page, "hello again");
@@ -83,8 +90,9 @@ test("a sub-agent's session opens read-only, while it works and afterwards", asy
 
   // It finishes in front of the reader.
   await expect(lastAssistant(page)).toContainText("Result: sales-ok", { timeout: 20_000 });
-  await expect(page.getByTestId("tool-step").locator(".ok")).toBeVisible();
   await expect(page.locator(".topbar").getByText("Working")).toHaveCount(0);
+  await openSteps(page);
+  await expect(page.getByTestId("tool-step").locator(".ok")).toBeVisible();
   // It is not a chat of its own in the sidebar.
   await expect(nav(page).locator('a[href^="/c/"]')).toHaveCount(1);
 
@@ -98,6 +106,7 @@ test("a sub-agent's session opens read-only, while it works and afterwards", asy
   // Back in the chat it belongs to, the message box is there again.
   await note.getByRole("link", { name: "Back to the chat" }).click();
   await expect(page.getByLabel("Message")).toBeVisible();
+  await openSteps(page);
   await expect(page.getByTestId("tool-step")).toContainText("Sub-agent");
   await expect(lastAssistant(page)).toHaveText(/^Result: /);
 });

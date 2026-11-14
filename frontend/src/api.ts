@@ -74,6 +74,9 @@ export type Settings = {
   defaults: { model: string; provider: string; base_url: string; has_api_key: boolean };
 };
 /** A file size people can read: 812 B, 4.2 KB, 1.3 MB. */
+/** Effort levels in plain words: how long the model thinks (the same names the server gives the chat's picker). */
+const EFFORT_NAMES: Record<string, string> = { minimal: "Fastest", low: "Quick", medium: "Balanced", high: "Thorough", xhigh: "Extra thorough", max: "Deepest" };
+export const effortName = (e: string) => EFFORT_NAMES[e] ?? (e ? e[0].toUpperCase() + e.slice(1) : e);
 export const formatSize = (n?: number) =>
   n == null ? "" : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
 /** URL of a workspace file: opened in the browser, or downloaded. */

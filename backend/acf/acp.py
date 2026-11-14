@@ -164,7 +164,8 @@ def message_updates(m: dict[str, Any]) -> list[dict[str, Any]]:
     if role == "summary":
         return [{"notice": SUMMARY_NOTICE}]
     if role == "note" and m["content"]:
-        return [{"notice": m["content"]}]
+        learned = m.get("learned")
+        return [{"notice": m["content"], **({"learned": {"id": m["id"], **learned}} if learned else {})}]
     return []
 
 
@@ -231,7 +232,8 @@ class Connection:
     async def _emit(self, sid: str, updates: list[dict[str, Any]]) -> None:
         for u in updates:
             if "notice" in u:
-                await self.notify("_acf/notice", {"sessionId": sid, "text": u["notice"]})
+                learned = {"_meta": {"acf": {"learned": u["learned"]}}} if "learned" in u else {}
+                await self.notify("_acf/notice", {"sessionId": sid, "text": u["notice"], **learned})
             else:
                 await self.notify("session/update", {"sessionId": sid, "update": u})
 
@@ -322,6 +324,13 @@ class Connection:
                     self._follow(agent.feed(chat_id, e["run_id"]), chat_id)
             elif e["type"] == "message":
                 self._spawn(self._emit(sid, message_updates(e["message"])))
+            elif e["type"] == "title":  # named after the run ended (acf.agent.titles)
+                update = {
+                    "sessionUpdate": "session_info_update",
+                    "title": e["title"],
+                    "updatedAt": utcnow().isoformat() + "Z",
+                }
+                self._spawn(self._emit(sid, [update]))
 
         self._chats[chat_id] = agent.watch_chat(chat_id, on_event)
 
