@@ -16,6 +16,11 @@ import uvicorn
 
 FAKES = Path(__file__).parent / "fakes"
 
+# Settings come from ACF_* variables: drop any the shell or a dev container set (e.g. ACF_LLM_MODEL), so the
+# suite runs on its own configuration. ACF_TEST_* select test infrastructure and are kept.
+for _name in [n for n in os.environ if n.startswith("ACF_") and not n.startswith("ACF_TEST_")]:
+    del os.environ[_name]
+
 
 def free_port() -> int:
     with socket.socket() as s:
