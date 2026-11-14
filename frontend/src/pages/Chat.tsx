@@ -725,6 +725,8 @@ export default function ChatPage() {
   const [options, setOptions] = useState<ConfigOption[] | undefined>();
   // A sub-agent's session: read-only, with the chat it belongs to and what the sub-agent was for.
   const [sub, setSub] = useState<{ title: string; parent: ParentSession } | null>(null);
+  // The title session/load gave (null: not loaded yet), for until the chat list has this chat.
+  const [loadedTitle, setLoadedTitle] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(sid);
   current.current = sid;
@@ -744,6 +746,7 @@ export default function ChatPage() {
     onLoaded: (r) => {
       const meta = r?._meta?.acf;
       setOptions(r?.configOptions);
+      setLoadedTitle(meta?.title ?? "New chat");
       setSub(meta?.parent ? { title: meta.title ?? "Sub-agent", parent: meta.parent } : null);
     },
     onLoadFailed: () => navigate("/", { replace: true }),
@@ -753,7 +756,7 @@ export default function ChatPage() {
   });
 
   useEffect(() => {
-    reset(); setArtifacts(null); setUsage(null); setSub(null);
+    reset(); setArtifacts(null); setUsage(null); setSub(null); setLoadedTitle(null);
     setOptions((location.state as { options?: ConfigOption[] } | null)?.options);
     if (!sid) return;
     loadArtifacts(sid);
@@ -803,7 +806,10 @@ export default function ChatPage() {
   const summary: ChatSummary | undefined = chats.find((c) => c.id === chatId);
   const first = entries.find((e) => e.kind === "user");
   const firstUser = (first?.text || first?.files[0]?.name || "").split("\n")[0].slice(0, 60);
-  const title = summary?.title && summary.title !== "New chat" ? summary.title : firstUser;
+  // A chat without a title of its own ("New chat") is named by its first message; until its title is known,
+  // none (not the first message, which a titled chat such as an app's would then flash).
+  const named = summary?.title ?? loadedTitle;
+  const title = named === null ? "" : named && named !== "New chat" ? named : firstUser;
   const project = sub ? undefined : projects.find((p) => p.id === summary?.project_id);
 
   return (

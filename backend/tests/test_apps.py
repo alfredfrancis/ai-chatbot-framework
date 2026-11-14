@@ -255,7 +255,8 @@ async def test_a_client_with_the_apps_chat_open_follows_runs_the_screen_starts(c
     _install(user["id"])
     sid = str((await client.post("/api/apps/cockpit/chat")).json()["chat_id"])
     async with acp_connect(client) as acp:
-        await acp.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+        loaded = await acp.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+        assert loaded["_meta"]["acf"]["title"] == "Cockpit app"  # shown before the chat list has it
         r = await _action(client, "cockpit", "ask_agent", prompt="write: apps/cockpit/brief.md | From the screen")
         assert r.json()["queued"] is False
         await acp.wait_for(lambda n: n.get("method") == "_acf/turn_end" and n["params"]["sessionId"] == sid)

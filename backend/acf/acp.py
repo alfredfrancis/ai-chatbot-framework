@@ -504,8 +504,10 @@ async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
     with session_scope() as db:
         chat = db.get(Chat, chat_id)
         parent = db.get(Chat, chat.parent_id) if chat and chat.parent_id else None
+        if chat:
+            meta["title"] = chat.title
         if chat and parent:  # a sub-agent's session
-            meta.update(title=chat.title, parent={"sessionId": str(parent.id), "title": parent.title})
+            meta["parent"] = {"sessionId": str(parent.id), "title": parent.title}
         project = db.get(Project, chat.project_id) if chat and chat.project_id else None
         if project:
             meta["project"] = {"id": project.id, "name": project.name}
