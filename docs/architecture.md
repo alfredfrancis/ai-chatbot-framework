@@ -153,7 +153,13 @@ The same library renders views in chat replies: Markdown's ` ```openui ` code bl
 the agent puts the data in the program — and a button's `@ToAssistant` sends its text as the user's next
 message in that chat. The view is part of the stored reply, so it comes back on reload and in transcripts.
 
-The page polls `GET /api/apps/{id}` for the source and the agent's state. Every call the screen makes —
+The page polls `GET /api/apps/{id}` for the source and the agent's state. The app's own chat sits in a panel
+on the right (`POST /api/apps/{id}/chat` makes it on first use); the page follows that ACP session whether
+the panel is open or not, and each finished tool call in it reloads the source and bumps a revision that
+re-runs the screen's `Query` statements and boards (typed `$bindings` stay). In that chat the system prompt
+has an `<app>` section (`prompt.sections(..., app=)`, found with `apps.chat_app`), so a plain "make the title
+bigger" changes this app. Runs `ask_agent` starts are announced (`loop.announce`) to clients that have the
+chat open. Every call the screen makes —
 `Query`/`Mutation` tools, `@ToAssistant` buttons, the Board — is `POST /api/apps/{id}/actions`:
 
 - `read_file` / `update_file` inside `apps/<id>/` (not `app.json` or `app.oui`) or a file listed in

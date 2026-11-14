@@ -56,6 +56,8 @@ A closer look at what AI Chatbot Framework does. The [README](../README.md) has 
   `update_file` (the app's folder and files it lists), `ask_agent` (a message to the agent in the app's own
   chat, answered in the background), `run` (an `apps/<id>/actions/<name>.sh` script in the sandbox) and
   `mcp` (read-only tools of connected apps; anything that changes things goes through the agent).
+  Each app has its own chat in a panel on the right of its screen ("Chat" in the top bar): what you ask
+  there changes the app, and the screen updates as each of the agent's edits lands, without a reload.
   Diagrams: [docs/personal-apps.md](personal-apps.md).
 - **Views in chat** – the agent can answer with a chart, a plan, tabs or a small form inside its reply: an
   ` ```openui ` block written with the same components (bar, line and pie charts, progress, lists, steps,

@@ -53,7 +53,8 @@ their own locked-down sandbox.
 - **App connections (MCP).** Local servers run in the sandbox; remote servers sign in with OAuth.
   One-click setup for Linear, Notion, Jira, Sentry, Stripe and more.
 - **Personal apps.** The agent can build small apps for you, like a daily **Cockpit** or a grocery list,
-  that show up in the sidebar. Chat replies can include charts, tabs and buttons too.
+  that show up in the sidebar. Each app has its own chat in a panel on its right: ask for a change there
+  and watch the app update as the agent works. Chat replies can include charts, tabs and buttons too.
 - **Projects and scheduled tasks.** Group chats under shared instructions and a folder. Run a prompt
   "every weekday at 08:00" or once "tomorrow at 17:00"; each run becomes a chat, on the model you pick
   for the task (a small local one is enough for many background jobs).

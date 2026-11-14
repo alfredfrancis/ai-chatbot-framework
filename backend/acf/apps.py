@@ -150,9 +150,34 @@ def _state(user_id: int) -> dict[str, Any]:
 
 
 def _chat_id(user_id: int, app_id: str) -> int | None:
+    """The app's own chat, if it was made and still exists."""
     entry = _state(user_id).get(app_id)
     chat_id = entry.get("chat_id") if isinstance(entry, dict) else None
-    return chat_id if isinstance(chat_id, int) else None
+    if not isinstance(chat_id, int):
+        return None
+    with session_scope() as db:
+        chat = db.get(Chat, chat_id)
+        return chat_id if chat is not None and chat.user_id == user_id else None
+
+
+def forget_chat(user_id: int, chat_id: int) -> None:
+    """A deleted chat is no app's chat any more (ids can be reused)."""
+    state = _state(user_id)
+    kept = {k: v for k, v in state.items() if not (isinstance(v, dict) and v.get("chat_id") == chat_id)}
+    if kept != state:
+        workspace.write_file(user_id, STATE_FILE, json.dumps(kept, indent=2))
+
+
+def chat_app(user_id: int, chat_id: int) -> App | None:
+    """The app whose own chat this is (the chat beside the app's screen), if any."""
+    for app_id, entry in _state(user_id).items():
+        if isinstance(entry, dict) and entry.get("chat_id") == chat_id:
+            try:
+                app = get(user_id, app_id)
+            except NotFound:
+                return None
+            return app if app.spec else None
+    return None
 
 
 def detail(user_id: int, app_id: str) -> dict[str, Any]:
@@ -176,18 +201,27 @@ def _text(args: dict, key: str, limit: int, required: bool = True) -> str:
 
 
 def _app_chat(user: User, app: App) -> int:
-    """The app's own chat (made on first use), where its messages to the agent go."""
+    """The app's own chat (made on first use): the chat beside its screen, where its messages to the agent go."""
     chat_id = _chat_id(user.id, app.id)
+    if chat_id:
+        return chat_id
     with session_scope() as db:
-        chat = db.get(Chat, chat_id) if chat_id else None
-        if chat is None or chat.user_id != user.id:
-            chat = Chat(user_id=user.id, title=f"{app.title} app"[:200])
-            db.add(chat)
-            db.flush()
-            state = _state(user.id)
-            state[app.id] = {"chat_id": chat.id}
-            workspace.write_file(user.id, STATE_FILE, json.dumps(state, indent=2))
-        return chat.id
+        chat = Chat(user_id=user.id, title=f"{app.title} app"[:200])
+        db.add(chat)
+        db.flush()
+        chat_id = chat.id
+    state = _state(user.id)
+    state[app.id] = {"chat_id": chat_id}
+    workspace.write_file(user.id, STATE_FILE, json.dumps(state, indent=2))
+    return chat_id
+
+
+def app_chat(user: User, app_id: str) -> int:
+    """The app's own chat, made if it has none yet; for the chat panel beside the screen."""
+    app = get(user.id, app_id)
+    if not app.spec:
+        raise AppError(app.error or "This app is not valid")
+    return _app_chat(user, app)
 
 
 def ask_agent_message(app: App, prompt: str, event: str = "") -> str:
@@ -210,7 +244,9 @@ async def run_action(user: User, app_id: str, action: Action, args: dict[str, An
     if action == "ask_agent":
         message = ask_agent_message(app, _text(args, "prompt", 20_000), _text(args, "event", 2000, required=False))
         chat_id = _app_chat(user, app)
-        _, queued = agent.start(user, chat_id, message)
+        feed, queued = agent.start(user, chat_id, message)
+        if not queued:
+            agent.announce(chat_id, feed.run_id)  # the app's chat panel follows it
         return {"ok": True, "chat_id": chat_id, "queued": queued}
     if action == "run":
         script = _text(args, "script", 40)

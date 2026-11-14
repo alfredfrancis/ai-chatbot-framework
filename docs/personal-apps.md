@@ -128,6 +128,14 @@ sequenceDiagram
   V->>R: Query refresh interval re-reads files
   R-->>V: new brief and tasks → screen updates
 
+  Note over U,A: The app's chat panel (right side)
+  U->>V: open Chat, type "add a notes card"
+  V->>R: POST /api/apps/cockpit/chat (first time) → chat_id
+  V->>A: ACP session/prompt in that chat; system prompt names the app
+  A->>W: edit apps/cockpit/app.oui
+  A-->>V: tool_call_update completed
+  V->>R: GET /api/apps/cockpit → new source; re-run Queries and boards
+
   Note over U,X: Mutation("run") or Query("mcp")
   U->>V: click "Count tasks" (confirm first)
   V->>R: run {script: count}

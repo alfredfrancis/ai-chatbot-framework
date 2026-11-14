@@ -4,7 +4,8 @@ chat's project + memory.
 Built once per turn and reused for every model call in it, so providers can cache it (see loop.Run._turn).
 Ordered from most to least stable, so a change near the end keeps the cached prefix before it: the fixed
 instructions, context.md (the user edits it rarely), the skills index, connected apps, the project the chat
-belongs to (if any), memory.md (the agent edits it often), and the date.
+belongs to (if any), the personal app it controls (if it is an app's own chat), memory.md (the agent edits it
+often), and the date.
 """
 
 from __future__ import annotations
@@ -108,6 +109,19 @@ The project's folder is /workspace/{folder}: look there first, and keep the file
 project in it."""
 
 
+APP = """<app id="{id}" title="{title}">
+This chat is the app "{title}"'s own chat: the user sees the app's screen beside it, and the screen shows \
+your changes to the app's files as soon as you make them. When they ask for a change ("make the title \
+bigger", "add a notes card"), they mean this app: change apps/{id}/app.oui (the screen) or the files it \
+reads, and keep app.json valid. Read skills/personal-apps/SKILL.md before the first change. Make small \
+edits rather than rewriting the screen, and answer in a line or two: they can see the result.
+</app>"""
+
+
+def _app(app_id: str, title: str) -> str:
+    return APP.format(id=app_id, title=" ".join(title.split()).replace('"', "'"))
+
+
 def _project(p: Project) -> str:
     return PROJECT.format(
         id=p.id,
@@ -135,9 +149,14 @@ def _memory(user_id: int) -> tuple[str, str]:
 
 
 def sections(
-    user_id: int, apps: dict[str, list[str]], model: str = "", project: Project | None = None
+    user_id: int,
+    apps: dict[str, list[str]],
+    model: str = "",
+    project: Project | None = None,
+    app: tuple[str, str] | None = None,
 ) -> list[tuple[str, str]]:
-    """The system prompt in order, as (part, text): instructions, context, skills, apps, project, memory, date."""
+    """The system prompt in order, as (part, text): instructions, context, skills, apps, project, the personal
+    app this chat controls (id, title), memory, date."""
     ctx = workspace.read_file(user_id, workspace.CONTEXT_FILE).strip()
     mem, used = _memory(user_id)
     skill_lines = "\n".join(f"- {s.name}: {s.description} ({s.path})" for s in skills.list_skills(user_id))
@@ -149,10 +168,17 @@ def sections(
         ("skills", f"\n\n<skills>\n{skill_lines or '(none yet)'}\n</skills>"),
         ("apps", f"\n\n{APPS.format(lines=app_lines)}" if apps else ""),
         ("project", f"\n\n{_project(project)}" if project else ""),
+        ("app", f"\n\n{_app(*app)}" if app else ""),
         ("memory", f'\n\n<memory file="memory.md" used="{used}">\n{mem or "(empty)"}\n</memory>'),
         ("instructions", f"\n\nToday is {today} (UTC)." + (f" You run on the model {model}." if model else "")),
     ]
 
 
-def build(user_id: int, apps: dict[str, list[str]], model: str = "", project: Project | None = None) -> str:
-    return "".join(text for _, text in sections(user_id, apps, model, project))
+def build(
+    user_id: int,
+    apps: dict[str, list[str]],
+    model: str = "",
+    project: Project | None = None,
+    app: tuple[str, str] | None = None,
+) -> str:
+    return "".join(text for _, text in sections(user_id, apps, model, project, app))

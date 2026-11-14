@@ -97,8 +97,9 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await expect(page.getByLabel("Quick note")).toHaveValue("");
   await shot(page, "41-app-cockpit-moved");
 
-  // The board's agentNote and the button reached the agent in the app's own chat.
-  await page.getByRole("link", { name: "Open chat" }).click();
+  // The board's agentNote and the button reached the agent in the app's own chat, opened full page from the panel.
+  await page.getByRole("button", { name: "App chat" }).click();
+  await page.getByRole("complementary", { name: "Cockpit chat" }).getByRole("link", { name: "Open chat" }).click();
   await expect(page.locator(".topbar .here")).toHaveText("Cockpit app");
   // The agent ran the board's command. Check its output, not the reply: in a real sandbox the command takes
   // long enough for the later moves to arrive as steering, and the reply then answers those.
@@ -130,10 +131,12 @@ test("a broken screen shows its problems and the agent is asked to fix it; phone
   await expect(page.getByRole("alert")).toContainText("Chart");
   await shot(page, "43-app-problems");
   await page.getByRole("button", { name: "Ask the agent to fix it" }).click();
-  await page.getByRole("link", { name: "Open chat" }).click();
+  await page.getByRole("button", { name: "App chat" }).click();
+  await page.getByRole("complementary", { name: "Notes chat" }).getByRole("link", { name: "Open chat" }).click();
   await expect(page.getByText(/\[App: Notes, apps\/notes\/app.json\] The screen has errors\./)).toBeVisible();
 
   await page.goto("/apps/cockpit");
+  await page.getByRole("button", { name: "Close chat" }).click(); // the panel stays open across visits
   await expect(quadrant(page, "Do first")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.getByLabel("Move Book flights").selectOption({ label: "Drop" });
@@ -170,4 +173,82 @@ test("the sidebar shows three apps and links to all of them; Create app starts a
   await expect(page.getByLabel("Message")).toHaveValue(
     "I want to build an app using the personal-apps skill. Interview me about my app requirements.");
   await shot(page, "45-create-app-prompt");
+});
+
+test("the app's own chat opens beside it and the screen follows what the agent changes", async ({ page }) => {
+  await signUp(page);
+  await makeCockpit(page);
+  await page.goto("/apps/cockpit");
+  await expect(quadrant(page, "Do first")).toBeVisible();
+
+  // The chat is folded away on the right until the user opens it.
+  const toggle = page.getByRole("button", { name: "App chat" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const panel = page.getByRole("complementary", { name: "Cockpit chat" });
+  await expect(panel).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("Tell the agent what to change in Cockpit");
+  await expect(panel.getByRole("link", { name: "Open chat" })).toHaveCount(0); // no chat yet
+
+  // A half-typed note in the screen survives the live updates below.
+  await page.getByLabel("Quick note").fill("half a thought");
+
+  // A plain message in the panel changes the screen: no reload, no "[App: …]" prefix needed.
+  const box = panel.getByLabel("Message");
+  await box.fill("edit: apps/cockpit/app.oui | Needs you | Today's focus");
+  await box.press("Enter");
+  await expect(page.getByRole("region", { name: "Today's focus" })).toContainText("Book flights before Friday");
+  await expect(page.getByRole("region", { name: "Needs you" })).toHaveCount(0);
+  await expect(panel.getByTestId("tool-step").filter({ hasText: "Edited apps/cockpit/app.oui" })).toBeVisible();
+  await expect(panel.getByTestId("user-msg")).toHaveText("edit: apps/cockpit/app.oui | Needs you | Today's focus");
+
+  // Data files the screen reads update too, including a Query without a refresh interval and the board.
+  await box.fill("write: apps/cockpit/note.md | Written from the chat");
+  await box.press("Enter");
+  await expect(page.getByRole("region", { name: "Notes" })).toContainText("Written from the chat", { timeout: 3000 });
+  const tasks = { items: [...TASKS.items, { id: "4", title: "Water the plants", column: "do", done: false }] };
+  await box.fill(write("apps/cockpit/tasks.json", JSON.stringify(tasks)));
+  await box.press("Enter");
+  await expect(quadrant(page, "Do first")).toContainText("Water the plants", { timeout: 3000 });
+  await expect(page.getByLabel("Quick note")).toHaveValue("half a thought");
+  await expect(panel.locator(".working")).toHaveCount(0);
+  await shot(page, "46-app-chat-panel");
+
+  // A button on the screen goes to the same chat, so the panel shows it.
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(panel.getByTestId("user-msg").last()).toContainText("[App: Cockpit, apps/cockpit/app.json] The user pressed a button.");
+  await expect(page.getByRole("region", { name: "Today's focus" })).toContainText("Brief refreshed by the agent.");
+
+  // The panel stays open across visits, and closes from its header.
+  await page.reload();
+  await expect(panel).toBeVisible();
+  await expect(panel.getByTestId("user-msg").first()).toHaveText("edit: apps/cockpit/app.oui | Needs you | Today's focus");
+  await panel.getByRole("button", { name: "Close chat" }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await page.reload();
+  await expect(quadrant(page, "Do first")).toBeVisible();
+  await expect(panel).toHaveCount(0);
+});
+
+test("on a phone the app's chat slides over the screen", async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
+  await signUp(page);
+  await makeCockpit(page);
+  await page.goto("/apps/cockpit");
+  await expect(quadrant(page, "Do first")).toBeVisible();
+  await page.getByRole("button", { name: "App chat" }).click();
+  const panel = page.getByRole("complementary", { name: "Cockpit chat" });
+  await expect(panel).toBeVisible();
+  const box = panel.getByLabel("Message");
+  await box.fill("edit: apps/cockpit/app.oui | Needs you | Today's focus");
+  await box.press("Enter");
+  await expect(panel.getByTestId("tool-step").filter({ hasText: "Edited apps/cockpit/app.oui" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await shot(page, "47-app-chat-phone-light");
+  await panel.getByRole("button", { name: "Close chat" }).click();
+  await expect(page.getByRole("region", { name: "Today's focus" })).toBeVisible();
+  await page.close();
 });

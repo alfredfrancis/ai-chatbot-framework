@@ -43,6 +43,9 @@ All through `Query("<tool>", {args}, {defaults}, refreshSeconds)` (reads, kept l
   recents) and return at once; the screen shows that you are working. Use it for anything that needs
   judgment, writing, or an app's write tools (send, create, delete) - you then ask the user first.
 
+The user also types in that chat directly, from a panel beside the app's screen; the screen reloads after
+each of your tool calls, so they watch your edits land. Prefer small `edit`s to rewriting `app.oui`.
+
 A message from an app starts with `[App: <title>, apps/<id>/app.json] <what the user did>`. Do the work,
 update the app's files, and reply in one or two lines.
 

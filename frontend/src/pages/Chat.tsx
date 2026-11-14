@@ -232,7 +232,7 @@ function Pre({ node, children, ...rest }: ComponentProps<"pre"> & { node?: HastN
 }
 const MD_COMPONENTS: Components = { pre: Pre as Components["pre"] };
 
-function Thread({ entries, running, queued, onPrompt }: { entries: Entry[]; running: boolean; queued: Outgoing[]; onPrompt: (text: string) => void }) {
+export function Thread({ entries, running, queued, onPrompt }: { entries: Entry[]; running: boolean; queued: Outgoing[]; onPrompt: (text: string) => void }) {
   const items = group(entries);
   const toolBusy = running && entries.some((e) => e.kind === "tool" && !inBackground(e.call) && (e.call.status === "pending" || e.call.status === "in_progress"));
   const streaming = running && entries[entries.length - 1]?.kind === "text"; // the reply itself shows progress
@@ -606,53 +606,48 @@ function Home({ onStart, draft = "" }: { onStart: (t: string, files: Attachment[
   );
 }
 
-export default function ChatPage() {
-  const { id } = useParams();
-  const chatId = id ? Number(id) : null;
-  const sid = chatId ? String(chatId) : null;
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { refresh, chats, projects } = useApp();
+type Loaded = Awaited<ReturnType<typeof loadSession>>;
+/** What a page using a session hears about besides the thread itself. */
+export type SessionEvents = {
+  onLoaded?: (r: Loaded) => void;
+  onLoadFailed?: () => void;
+  /** A run ended (or a prompt this page sent came back). */
+  onTurnEnd?: (target: string) => void;
+  /** A tool call finished: files may have changed. */
+  onToolDone?: (target: string) => void;
+  onUsage?: (u: Usage) => void;
+};
+
+/**
+ * One chat session over ACP: its thread, whether the agent runs, messages queued while it does, and how to
+ * send. The chat page and an app's chat panel both use it. `sid` is the session the page shows; nothing is
+ * loaded until the page calls `load` (or `send`, for a message that starts the session).
+ */
+export function useSession(sid: string | null, events: SessionEvents = {}) {
+  const { refresh } = useApp();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [running, setRunning] = useState(false);
   const [queued, setQueued] = useState<Outgoing[]>([]);
   const [error, setError] = useState("");
-  const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
-  const [panel, setPanel] = useState(panelPref);
-  const [usage, setUsage] = useState<Usage | null>(null);
-  const [options, setOptions] = useState<ConfigOption[] | undefined>();
-  // A sub-agent's session: read-only, with the chat it belongs to and what the sub-agent was for.
-  const [sub, setSub] = useState<{ title: string; parent: ParentSession } | null>(null);
-  const scroller = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(sid);
   current.current = sid;
-
-  const loadArtifacts = useCallback(async (target: string) => {
-    try {
-      const r = await api.get<Artifact[]>(`/chats/${target}/artifacts`);
-      if (current.current === target) setArtifacts(r);
-    } catch { /* the chat is gone or not loaded yet */ }
-  }, []);
-  const togglePanel = () => setPanel((v) => {
-    try { localStorage.setItem(PANEL_KEY, v ? "closed" : "open"); } catch { /* storage blocked */ }
-    return !v;
-  });
+  const on = useRef(events);
+  on.current = events;
 
   const push = (text: string) => setEntries((e) => [...e, { kind: "notice", key: nextKey(), text }]);
+  const reset = useCallback(() => { setEntries([]); setError(""); setQueued([]); setRunning(false); }, []);
 
   const load = useCallback(async (target: string) => {
     setEntries([]);
     try {
       const r = await loadSession(target);
       if (current.current !== target) return;
-      const meta = r?._meta?.acf;
-      setOptions(r?.configOptions);
-      setRunning(!!meta?.running);
-      setSub(meta?.parent ? { title: meta.title ?? "Sub-agent", parent: meta.parent } : null);
+      setRunning(!!r?._meta?.acf?.running);
+      on.current.onLoaded?.(r);
     } catch {
-      if (current.current === target) navigate("/", { replace: true });
+      if (current.current === target) on.current.onLoadFailed?.();
     }
-  }, [navigate]);
+  }, []);
 
   // Everything the agent does arrives as ACP notifications on the shared connection.
   useEffect(() => acp.on((n: AcpNotification) => {
@@ -669,7 +664,7 @@ export default function ChatPage() {
       setQueued([]);
       if (n.params.stopReason === "cancelled") push("Stopped.");
       if (n.params.error) setError(n.params.error);
-      loadArtifacts(n.params.sessionId);
+      on.current.onTurnEnd?.(n.params.sessionId);
       refresh();
     } else if (n.method === "session/update") {
       const u = n.params.update;
@@ -677,10 +672,10 @@ export default function ChatPage() {
       if (u.sessionUpdate === "usage_update") {
         const v = u as { used: number; size: number; _meta?: { acf?: UsageMeta } };
         const meta = v._meta?.acf;
-        setUsage({ used: v.used, size: v.size, percent: meta?.percent ?? (v.size ? (100 * v.used) / v.size : 0), measured: !!meta?.measured, parts: meta?.parts ?? [] });
+        on.current.onUsage?.({ used: v.used, size: v.size, percent: meta?.percent ?? (v.size ? (100 * v.used) / v.size : 0), measured: !!meta?.measured, parts: meta?.parts ?? [] });
         return;
       }
-      if (u.sessionUpdate === "tool_call_update" && (u as { status?: ToolStatus }).status === "completed") loadArtifacts(n.params.sessionId);
+      if (u.sessionUpdate === "tool_call_update" && (u as { status?: ToolStatus }).status === "completed") on.current.onToolDone?.(n.params.sessionId);
       if (u.sessionUpdate === "user_message_chunk") {
         // A queued message was read: its first chunk is its text, or its first file when it has no text.
         const content = (u as { content: unknown }).content;
@@ -693,9 +688,10 @@ export default function ChatPage() {
       }
       setEntries((e) => reduce(e, u));
     }
-  }), [load, loadArtifacts, refresh]);
+  }), [load, refresh]);
 
   const send = async (content: string, target: string, files: Attachment[] = []) => {
+    current.current = target; // a session made for this message, before the page shows it
     setError("");
     if (running) setQueued((q) => [...q, { text: content, files }]);
     else {
@@ -708,12 +704,59 @@ export default function ChatPage() {
       if (current.current === target && (err as Error).message !== "Connection lost") setError((err as Error).message);
     }
     if (current.current === target) { setRunning(false); setQueued([]); }
-    loadArtifacts(target);
+    on.current.onTurnEnd?.(target);
     refresh();
   };
+  const stop = () => { if (current.current) cancel(current.current); };
+  const background = entries.some((e) => e.kind === "tool" && inBackground(e.call));
+  return { entries, running, queued, error, setError, load, reset, send, stop, background };
+}
+
+export default function ChatPage() {
+  const { id } = useParams();
+  const chatId = id ? Number(id) : null;
+  const sid = chatId ? String(chatId) : null;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { refresh, chats, projects } = useApp();
+  const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
+  const [panel, setPanel] = useState(panelPref);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [options, setOptions] = useState<ConfigOption[] | undefined>();
+  // A sub-agent's session: read-only, with the chat it belongs to and what the sub-agent was for.
+  const [sub, setSub] = useState<{ title: string; parent: ParentSession } | null>(null);
+  // The title session/load gave (null: not loaded yet), for until the chat list has this chat.
+  const [loadedTitle, setLoadedTitle] = useState<string | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const current = useRef<string | null>(sid);
+  current.current = sid;
+
+  const loadArtifacts = useCallback(async (target: string) => {
+    try {
+      const r = await api.get<Artifact[]>(`/chats/${target}/artifacts`);
+      if (current.current === target) setArtifacts(r);
+    } catch { /* the chat is gone or not loaded yet */ }
+  }, []);
+  const togglePanel = () => setPanel((v) => {
+    try { localStorage.setItem(PANEL_KEY, v ? "closed" : "open"); } catch { /* storage blocked */ }
+    return !v;
+  });
+
+  const { entries, running, queued, error, setError, load, reset, send, stop, background } = useSession(sid, {
+    onLoaded: (r) => {
+      const meta = r?._meta?.acf;
+      setOptions(r?.configOptions);
+      setLoadedTitle(meta?.title ?? "New chat");
+      setSub(meta?.parent ? { title: meta.title ?? "Sub-agent", parent: meta.parent } : null);
+    },
+    onLoadFailed: () => navigate("/", { replace: true }),
+    onTurnEnd: loadArtifacts,
+    onToolDone: loadArtifacts,
+    onUsage: setUsage,
+  });
 
   useEffect(() => {
-    setEntries([]); setError(""); setQueued([]); setRunning(false); setArtifacts(null); setUsage(null); setSub(null);
+    reset(); setArtifacts(null); setUsage(null); setSub(null); setLoadedTitle(null);
     setOptions((location.state as { options?: ConfigOption[] } | null)?.options);
     if (!sid) return;
     loadArtifacts(sid);
@@ -752,7 +795,6 @@ export default function ChatPage() {
       setError((err as Error).message);
     }
   };
-  const stop = () => { if (sid) cancel(sid); };
   const remove = async () => {
     if (!chatId) return;
     await api.del(`/chats/${chatId}`);
@@ -764,7 +806,10 @@ export default function ChatPage() {
   const summary: ChatSummary | undefined = chats.find((c) => c.id === chatId);
   const first = entries.find((e) => e.kind === "user");
   const firstUser = (first?.text || first?.files[0]?.name || "").split("\n")[0].slice(0, 60);
-  const title = summary?.title && summary.title !== "New chat" ? summary.title : firstUser;
+  // A chat without a title of its own ("New chat") is named by its first message; until its title is known,
+  // none (not the first message, which a titled chat such as an app's would then flash).
+  const named = summary?.title ?? loadedTitle;
+  const title = named === null ? "" : named && named !== "New chat" ? named : firstUser;
   const project = sub ? undefined : projects.find((p) => p.id === summary?.project_id);
 
   return (
@@ -798,7 +843,7 @@ export default function ChatPage() {
               </div>
             ) : (
               <Composer key={sid} onSend={(t, f) => send(t, sid, f)} onStop={stop} running={running} options={options} onOption={chooseOption}
-                background={entries.some((e) => e.kind === "tool" && inBackground(e.call))} />
+                background={background} />
             )}
           </div>
         </div>
