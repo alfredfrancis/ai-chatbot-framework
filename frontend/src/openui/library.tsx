@@ -12,8 +12,16 @@ import remarkGfm from "remark-gfm";
 import { z } from "zod/v4";
 import { BarChart, LineChart, PieChart, Progress } from "./charts";
 
-/** What components reach outside the screen with: the app's action API (see pages/AppView.tsx). Null in a chat. */
-export type AppApi = { act: (action: string, args: Record<string, unknown>) => Promise<Record<string, unknown> | null> };
+/**
+ * What components reach outside the screen with: the app's action API (see pages/AppView.tsx). Null in a chat.
+ * `revision` goes up when the agent may have changed the app's files: the screen then reads them again
+ * (its Query statements, named by `queries`, and boards) without losing what the user typed.
+ */
+export type AppApi = {
+  act: (action: string, args: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+  revision?: number;
+  queries?: () => string[];
+};
 export const AppApiContext = createContext<AppApi | null>(null);
 
 const nodes = z.array(z.any());
@@ -23,7 +31,16 @@ const Screen = defineComponent({
   name: "Screen",
   description: "The whole screen (an app, or a view in a chat reply): its sections from top to bottom.",
   props: z.object({ children: nodes.describe("Sections, top to bottom") }),
-  component: ({ props, renderNode }) => <div className="oui-screen">{renderNode(props.children)}</div>,
+  component: function ScreenComponent({ props, renderNode }) {
+    const api = useContext(AppApiContext);
+    const trigger = useTriggerAction();
+    const revision = api?.revision ?? 0;
+    useEffect(() => {
+      const ids = revision ? api?.queries?.() ?? [] : [];
+      if (ids.length) trigger("", undefined, { steps: ids.map((statementId) => ({ type: "run", statementId, refType: "query" })) } as never);
+    }, [revision]); // eslint-disable-line
+    return <div className="oui-screen">{renderNode(props.children)}</div>;
+  },
 });
 
 const Row = defineComponent({
@@ -398,11 +415,13 @@ const Board = defineComponent({
   component: function BoardComponent({ props }) {
     const api = useContext(AppApiContext);
     if (!api) return <div className="oui-notice neutral" role="note">A board works in a personal app, not in a chat.</div>;
-    return <BoardView {...props} act={api.act} />;
+    return <BoardView {...props} act={api.act} revision={api.revision ?? 0} />;
   },
 });
 
-function BoardView({ title, file, columns: cols, agentNote, act }: { title: string; file: string; columns: Column[]; agentNote?: string; act: AppApi["act"] }) {
+function BoardView({ title, file, columns: cols, agentNote, act, revision }: {
+  title: string; file: string; columns: Column[]; agentNote?: string; act: AppApi["act"]; revision: number;
+}) {
   const [items, setItems] = useState<BoardItem[] | null>(null);
   const [extra, setExtra] = useState<Record<string, unknown>>({});
   const [over, setOver] = useState("");
@@ -424,7 +443,7 @@ function BoardView({ title, file, columns: cols, agentNote, act }: { title: stri
     load();
     const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, 4000);
     return () => { live = false; clearInterval(t); };
-  }, [act, file]);
+  }, [act, file, revision]);
 
   const columns = cols?.length ? cols : [{ id: "todo", title: "To-do" }];
   const known = new Set(columns.map((c) => c.id));

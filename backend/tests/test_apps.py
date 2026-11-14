@@ -204,3 +204,64 @@ async def test_system_prompt_points_to_openui_views(client, user):
     chat = (await client.post("/api/chats", json={})).json()
     text = (await send(client, chat["id"], "show system")).final
     assert "skills/openui/SKILL.md" in text
+
+
+async def test_the_apps_chat_is_made_once_and_tells_the_agent_which_app_it_controls(client, user):
+    _install(user["id"])
+    r = await client.post("/api/apps/cockpit/chat")
+    assert r.status_code == 200, r.text
+    chat_id = r.json()["chat_id"]
+    assert (await client.post("/api/apps/cockpit/chat")).json()["chat_id"] == chat_id
+    assert (await client.get("/api/apps/cockpit")).json()["chat_id"] == chat_id
+    assert (await client.get(f"/api/chats/{chat_id}")).json()["title"] == "Cockpit app"
+    # ask_agent from the screen uses the same chat.
+    r = await _action(client, "cockpit", "ask_agent", prompt="reply: ok")
+    assert r.json()["chat_id"] == chat_id
+    await _wait_idle(client, "cockpit")
+
+    # A plain message in the app's chat (the sidebar) knows which app it changes.
+    text = (await send(client, chat_id, "show system")).final
+    assert '<app id="cockpit" title="Cockpit">' in text and "apps/cockpit/app.oui" in text
+    # Other chats don't get the app section.
+    other = (await client.post("/api/chats", json={})).json()
+    assert "<app id=" not in (await send(client, other["id"], "show system")).final
+
+    # The chat follows the app: a plain message edits its screen.
+    new = SCREEN.replace("Needs you", "Today")
+    await send(client, chat_id, "write: apps/cockpit/app.oui | " + new)
+    assert (await client.get("/api/apps/cockpit")).json()["source"] == new.strip()
+
+    assert (await client.post("/api/apps/nope/chat")).status_code == 404
+    workspace.write_file(user["id"], "apps/broken/app.json", "{not json")
+    assert (await client.post("/api/apps/broken/chat")).status_code == 400
+
+
+async def test_a_deleted_app_chat_is_made_again(client, user):
+    _install(user["id"])
+    chat_id = (await client.post("/api/apps/cockpit/chat")).json()["chat_id"]
+    assert (await client.delete(f"/api/chats/{chat_id}")).status_code == 200
+    assert (await client.get("/api/apps/cockpit")).json()["chat_id"] is None
+    # A new chat (which may get the deleted chat's id) is not the app's chat.
+    other = (await client.post("/api/chats", json={})).json()
+    assert "<app id=" not in (await send(client, other["id"], "show system")).final
+    again = (await client.post("/api/apps/cockpit/chat")).json()["chat_id"]
+    assert again != other["id"]
+    assert (await client.get("/api/apps/cockpit")).json()["chat_id"] == again
+
+
+async def test_a_client_with_the_apps_chat_open_follows_runs_the_screen_starts(client, user):
+    from tests.acp_client import acp_connect
+
+    _install(user["id"])
+    sid = str((await client.post("/api/apps/cockpit/chat")).json()["chat_id"])
+    async with acp_connect(client) as acp:
+        await acp.request("session/load", {"sessionId": sid, "cwd": "/", "mcpServers": []})
+        r = await _action(client, "cockpit", "ask_agent", prompt="write: apps/cockpit/brief.md | From the screen")
+        assert r.json()["queued"] is False
+        await acp.wait_for(lambda n: n.get("method") == "_acf/turn_end" and n["params"]["sessionId"] == sid)
+        updates = acp.updates(sid)
+    texts = [u["content"].get("text", "") for u in updates if u["sessionUpdate"] == "user_message_chunk"]
+    assert texts and texts[0].startswith("[App: Cockpit, apps/cockpit/app.json] The user pressed a button.")
+    done = [u for u in updates if u["sessionUpdate"] == "tool_call_update" and u.get("status") == "completed"]
+    assert done, "the panel hears when the agent's write is done"
+    assert workspace.read_file(user["id"], "apps/cockpit/brief.md") == "From the screen"

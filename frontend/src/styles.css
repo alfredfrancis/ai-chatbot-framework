@@ -388,6 +388,28 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
   .artifacts-scrim { display: block; }
 }
 
+/* ---------- an app's own chat: a panel on the right of the app's screen ---------- */
+.app-chat-toggle { gap: var(--space-1); }
+.app-chat-toggle.on { background: var(--bg-selected); color: var(--text); }
+.app-chat { width: var(--panel-width); flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg-raised); display: flex; flex-direction: column; min-height: 0; }
+.app-chat-head { display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4); border-bottom: 1px solid var(--border); }
+.app-chat-head h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+.app-chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+.app-chat-scroll .thread { max-width: none; width: 100%; margin: 0; min-width: 0; }
+.app-chat-empty { margin: auto 0; text-align: center; padding: 0 var(--space-4); }
+.app-chat-composer { padding: 0 var(--space-3) var(--space-3); flex-shrink: 0; }
+.app-chat-composer .composer { padding-left: var(--space-3); }
+.app-chat-composer .composer .bar .hints { display: none; }
+.app-chat-scrim { display: none; }
+@media (max-width: 1100px) {
+  .app-chat { position: fixed; inset: 0 0 0 auto; z-index: 40; max-width: 100%; box-shadow: var(--shadow-pop); border-left-color: var(--border-strong); }
+  .app-chat-scrim { display: block; }
+}
+@media (max-width: 640px) { .app-chat-toggle .label { display: none; } }
+/* The screen narrows when the chat is open beside it: lay it out by its own width, not the window's. */
+.app-page { container-type: inline-size; }
+@container (max-width: 720px) { .app-page .board.matrix, .app-page .oui-grid, .app-page .oui-grid[data-columns] { grid-template-columns: 1fr; } }
+
 /* ---------- command menu ---------- */
 .cmd-wrap { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: 12vh var(--space-4) 0; }
 .cmd { width: 100%; max-width: 640px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); overflow: hidden;

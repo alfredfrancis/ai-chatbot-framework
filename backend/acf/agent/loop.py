@@ -56,6 +56,7 @@ from langchain_core.messages import (
     messages_from_dict,
 )
 
+from acf import apps as personal_apps
 from acf import bus, config, skills, workspace
 from acf.agent import prompt, review, subagents, transcripts, usage
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, call_tool, gather_calls
@@ -370,7 +371,8 @@ class Run:
                 self.emit({"type": "notice", "text": f"Moved the unused skill “{name}” to skills/.archive/."})
             # One system prompt for the whole turn: the same prefix every step, so the provider's cache holds.
             apps = hub.catalog()
-            sections = prompt.sections(self.user.id, apps, cfg.model, project)
+            app = personal_apps.chat_app(self.user.id, self.chat_id)
+            sections = prompt.sections(self.user.id, apps, cfg.model, project, (app.id, app.title) if app else None)
             self.system = "".join(text for _, text in sections)
             skill_names = [sk.name for sk in skills.list_skills(self.user.id)]
             window = usage.window(base_model, cfg.context_window)
@@ -648,6 +650,11 @@ def _broadcast(chat_id: int, event: dict[str, Any]) -> None:
     bus.current().signal({"op": "chat", "chat_id": chat_id, "event": event})
 
 
+def announce(chat_id: int, run_id: str) -> None:
+    """Tell clients that have the chat open about a run they didn't start (e.g. from a personal app's screen)."""
+    _broadcast(chat_id, {"type": "run", "run_id": run_id})
+
+
 def _on_chat(msg: dict[str, Any]) -> None:
     for cb in list(_watchers.get(msg["chat_id"], [])):
         try:
@@ -722,7 +729,7 @@ async def _job_main(job: Job, work: Callable[[], Awaitable[ToolResult]]) -> None
     # Read at the next step of the chat's run (in any process), or start one here.
     feed, queued = _submit(job.user, job.chat_id, _note_item(note))
     if not queued:
-        _broadcast(job.chat_id, {"type": "run", "run_id": feed.run_id})
+        announce(job.chat_id, feed.run_id)
 
 
 async def run_to_completion(user: User, chat_id: int, text: str) -> tuple[str, bool]:

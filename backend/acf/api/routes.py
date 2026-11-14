@@ -282,6 +282,7 @@ def delete_chat(
         db.delete(sub)
     db.delete(chat)
     transcripts.delete(user.id, chat_id)
+    apps.forget_chat(user.id, chat_id)
     return {"ok": True}
 
 
@@ -414,6 +415,17 @@ def get_app(app_id: str, user: User = Depends(current_user)) -> dict:
         return apps.detail(user.id, app_id)
     except apps.NotFound as e:
         raise HTTPException(404, "App not found") from e
+
+
+@router.post("/apps/{app_id}/chat")
+def app_chat(app_id: str, user: User = Depends(current_user)) -> dict:
+    """The app's own chat (made on first use), shown beside its screen."""
+    try:
+        return {"chat_id": apps.app_chat(user, app_id)}
+    except apps.NotFound as e:
+        raise HTTPException(404, str(e)) from e
+    except apps.AppError as e:
+        raise HTTPException(400, str(e)) from e
 
 
 class AppActionIn(BaseModel):
