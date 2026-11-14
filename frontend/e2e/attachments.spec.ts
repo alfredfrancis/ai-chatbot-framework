@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 const csv = (body: string) => ({ name: "sales.csv", mimeType: "text/csv", buffer: Buffer.from(body) });
 
@@ -19,8 +19,9 @@ test("attach files to a chat message; the agent reads them and they stay in the 
   const sent = page.getByTestId("user-msg").first();
   await expect(sent).toContainText("read: uploads/sales.csv");
   await expect(sent.getByRole("link", { name: "sales.csv" })).toHaveAttribute("href", /path=uploads%2Fsales\.csv/);
-  await expect(page.getByTestId("tool-step").last()).toContainText("Read uploads/sales.csv");
   await expect(lastAssistant(page)).toContainText("mon,120");
+  await openSteps(page);
+  await expect(page.getByTestId("tool-step").last()).toContainText("Read uploads/sales.csv");
   await expect(page.getByRole("list", { name: "Files to send" })).toHaveCount(0);
 
   // A file alone can be sent; a second sales.csv does not replace the first

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 const COCKPIT = { title: "Cockpit", description: "What needs you today", order: 1 };
 const SCREEN = `root = Screen([summary, needs, todo, actions, notes])
@@ -103,6 +103,7 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await expect(page.locator(".topbar .here")).toHaveText("Cockpit app");
   // The agent ran the board's command. Check its output, not the reply: in a real sandbox the command takes
   // long enough for the later moves to arrive as steering, and the reply then answers those.
+  await openSteps(page);
   const synced = page.getByTestId("tool-step").filter({ hasText: "Ran echo synced-" }).first();
   await expect(synced.locator(".ok")).toBeVisible();
   await synced.click();
@@ -201,6 +202,7 @@ test("the app's own chat opens beside it and the screen follows what the agent c
   await box.press("Enter");
   await expect(page.getByRole("region", { name: "Today's focus" })).toContainText("Book flights before Friday");
   await expect(page.getByRole("region", { name: "Needs you" })).toHaveCount(0);
+  await openSteps(page, panel);
   await expect(panel.getByTestId("tool-step").filter({ hasText: "Edited apps/cockpit/app.oui" })).toBeVisible();
   await expect(panel.getByTestId("user-msg")).toHaveText("edit: apps/cockpit/app.oui | Needs you | Today's focus");
 
@@ -245,6 +247,7 @@ test("on a phone the app's chat slides over the screen", async ({ browser }) => 
   const box = panel.getByLabel("Message");
   await box.fill("edit: apps/cockpit/app.oui | Needs you | Today's focus");
   await box.press("Enter");
+  await openSteps(page, panel);
   await expect(panel.getByTestId("tool-step").filter({ hasText: "Edited apps/cockpit/app.oui" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await shot(page, "47-app-chat-phone-light");

@@ -23,7 +23,7 @@ A closer look at what AI Chatbot Framework does. The [README](../README.md) has 
   (`ACF_MEMORY_LIMIT`) so it stays a short list of facts that matter in every chat.
 - **Learns as it goes** – every few messages (`ACF_REVIEW_INTERVAL`) a background pass looks back at the
   chat and updates `memory.md` and the skills (a corrected format, a method that worked); the chat shows a
-  line saying what changed. Past chats are saved as Markdown in `.acf/chats/` so the agent can search them.
+  note saying what changed, with View and Undo (undo puts the files back unless they changed again since). Past chats are saved as Markdown in `.acf/chats/` so the agent can search them.
   Text that looks like planted instructions is kept out of memory and skills.
 - **Attach files in chat** – the paperclip (or drag and drop) saves files to `uploads/` in the workspace
   (never overwriting: a second `report.csv` becomes `report (1).csv`) and sends them with the message.

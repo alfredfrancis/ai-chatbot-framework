@@ -116,7 +116,7 @@ function ServerForm({ initial, editing, onDone, onCancel }: { initial: Draft; ed
         <div className="field">
           <label htmlFor="mcp-type">Type</label>
           <select id="mcp-type" className="input" value={d.transport} onChange={(e) => set("transport", e.target.value as Draft["transport"])}>
-            <option value="stdio">Runs in your sandbox (command)</option>
+            <option value="stdio">Runs on your agent's computer (command)</option>
             <option value="http">Online service (URL)</option>
           </select>
         </div>
@@ -195,7 +195,7 @@ function ServerRow({ s, editable, onChange, onEdit, onDelete }: {
     onChange();
   };
 
-  const where = s.transport === "stdio" ? "Runs in your sandbox" : "Remote";
+  const where = s.transport === "stdio" ? "Runs on your agent's computer" : "Remote";
   return (
     <div className="lrow" data-testid={`server-${s.name}`}>
       <div className="grow">
@@ -367,7 +367,7 @@ export default function ConnectionsPage() {
               <section className="more-tools" aria-labelledby="more-tools">
                 <div>
                   <h2 className="subhead" id="more-tools">Another app or tool</h2>
-                  <p className="hint">Add any MCP server by its address, or run a local one inside your sandbox.</p>
+                  <p className="hint">Add another app by its address (an MCP server), or run one on your agent's computer.</p>
                 </div>
                 <div className="row-flex">
                   <button className="btn ghost" onClick={() => switchView("json")}>Edit as JSON</button>
@@ -393,7 +393,7 @@ export default function ConnectionsPage() {
               </div>
             </div>
             <p className="hint">
-              Use <code>"command"</code> for tools that run in your sandbox (like <code>npx</code> or <code>uvx</code> servers)
+              Use <code>"command"</code> for tools that run on your agent's computer (like <code>npx</code> or <code>uvx</code> servers)
               and <code>"url"</code> for online services. Extra keys such as <code>"oauth"</code> are only editable here.
             </p>
           </section>

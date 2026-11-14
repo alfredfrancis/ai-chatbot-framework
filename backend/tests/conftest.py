@@ -67,6 +67,7 @@ def acf_env(fake_llm_url):
             "ACF_LLM_BASE_URL": fake_llm_url,
             "ACF_LLM_API_KEY": "test-key",
             "ACF_SCHEDULER": "false",
+            "ACF_AUTO_TITLES": "false",  # an extra model call after first replies; tests that want it turn it on
         }
     )
     # ACF_TEST_DB_URL runs the suite against another database, e.g. PostgreSQL in CI.

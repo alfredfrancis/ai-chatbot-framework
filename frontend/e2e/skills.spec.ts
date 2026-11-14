@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, say, shot, signUp } from "./helpers";
+import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
 
 const SKILL = `---
 name: charts
@@ -39,6 +39,7 @@ test("upload a skill, the agent uses it, remove it", async ({ page }) => {
   await say(page, "show system");
   await expect(lastAssistant(page)).toContainText("charts: Make clean bar charts from CSV files.");
   await say(page, "read: skills/charts/SKILL.md");
+  await openSteps(page);
   await expect(page.getByTestId("tool-step").last()).toContainText("Used skill charts");
 
   await nav(page).getByRole("link", { name: "Skills" }).click();
@@ -70,10 +71,11 @@ test("typing / offers the skills, and /name makes the agent use one", async ({ p
   await box.pressSequentially("is 91 a prime number?");
   await box.press("Enter");
   await expect(page.getByTestId("user-msg")).toHaveText("/council-of-llms is 91 a prime number?");
+  await expect(lastAssistant(page)).toContainText("Council of LLMs");
+  await openSteps(page);
   const step = page.getByTestId("tool-step");
   await expect(step).toContainText("Used skill");
   await expect(step).toContainText("council-of-llms");
-  await expect(lastAssistant(page)).toContainText("Council of LLMs");
 
   // Arrow keys choose, Escape closes without stopping anything, and a path is not a skill.
   await box.fill("then /p");

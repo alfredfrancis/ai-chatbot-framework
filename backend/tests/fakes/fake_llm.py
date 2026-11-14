@@ -73,6 +73,11 @@ def decide(
         return {"calls": [("read", {"path": used.group(1)})], "text": ""}
     if low.startswith("summarise the conversation"):
         return {"text": f"SUMMARY of {len(history_users or [])} user messages: " + " | ".join(history_users or [])}
+    if text.startswith("[Title]"):
+        # A title from the first message: its first words, without a "run:"-style rule word.
+        first = text.split("User:\n", 1)[-1].split("\n\nAssistant:", 1)[0].splitlines()[0]
+        words = re.sub(r"^[a-z]+:\s*", "", first).split()[:5]
+        return {"text": f'"{" ".join(words).capitalize()}."'}
     if text.startswith("[Review]"):
         learn = next((u for u in reversed(history_users or []) if u.lower().startswith("learn:")), None)
         if not learn:

@@ -55,6 +55,16 @@ async def test_the_picker_offers_only_models_that_are_on(client, user):
             await set_option(acp, sid, "model", "anthropic:claude-haiku-5-5")
 
 
+async def test_efforts_are_named_in_plain_words(client, user):
+    effort = option((await client.get("/api/models")).json()["configOptions"], "effort")
+    assert [(o["value"], o["name"]) for o in effort["options"]] == [
+        ("low", "Quick"),
+        ("medium", "Balanced"),
+        ("high", "Thorough"),
+        ("max", "Deepest"),
+    ]
+
+
 async def test_the_default_model_cannot_be_turned_off(client, user):
     r = await client.patch("/api/settings/models", json={"key": "anthropic:claude-opus-5-5", "enabled": False})
     assert r.status_code == 400 and "default model" in r.json()["detail"]
