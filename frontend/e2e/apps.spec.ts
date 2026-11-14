@@ -97,8 +97,9 @@ test("the agent makes a Cockpit app; the user moves tasks and the agent reacts",
   await expect(page.getByLabel("Quick note")).toHaveValue("");
   await shot(page, "41-app-cockpit-moved");
 
-  // The board's agentNote and the button reached the agent in the app's own chat.
-  await page.getByRole("link", { name: "Open chat" }).click();
+  // The board's agentNote and the button reached the agent in the app's own chat, opened full page from the panel.
+  await page.getByRole("button", { name: "App chat" }).click();
+  await page.getByRole("complementary", { name: "Cockpit chat" }).getByRole("link", { name: "Open chat" }).click();
   await expect(page.locator(".topbar .here")).toHaveText("Cockpit app");
   // The agent ran the board's command. Check its output, not the reply: in a real sandbox the command takes
   // long enough for the later moves to arrive as steering, and the reply then answers those.
@@ -130,10 +131,12 @@ test("a broken screen shows its problems and the agent is asked to fix it; phone
   await expect(page.getByRole("alert")).toContainText("Chart");
   await shot(page, "43-app-problems");
   await page.getByRole("button", { name: "Ask the agent to fix it" }).click();
-  await page.getByRole("link", { name: "Open chat" }).click();
+  await page.getByRole("button", { name: "App chat" }).click();
+  await page.getByRole("complementary", { name: "Notes chat" }).getByRole("link", { name: "Open chat" }).click();
   await expect(page.getByText(/\[App: Notes, apps\/notes\/app.json\] The screen has errors\./)).toBeVisible();
 
   await page.goto("/apps/cockpit");
+  await page.getByRole("button", { name: "Close chat" }).click(); // the panel stays open across visits
   await expect(quadrant(page, "Do first")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.getByLabel("Move Book flights").selectOption({ label: "Drop" });
@@ -187,6 +190,7 @@ test("the app's own chat opens beside it and the screen follows what the agent c
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("Tell the agent what to change in Cockpit");
+  await expect(panel.getByRole("link", { name: "Open chat" })).toHaveCount(0); // no chat yet
 
   // A half-typed note in the screen survives the live updates below.
   await page.getByLabel("Quick note").fill("half a thought");

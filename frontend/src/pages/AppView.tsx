@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import type { Attachment } from "../acp";
 import { api, type AppDetail } from "../api";
 import { Topbar, useApp } from "../App";
-import { IconChat, IconX } from "../components/icons";
+import { IconChat, IconX, Mark } from "../components/icons";
 import { AppApiContext, openuiLibrary, type AppApi } from "../openui/library";
 import { Composer, Thread, useSession } from "./Chat";
 
@@ -14,9 +14,12 @@ type Session = ReturnType<typeof useSession>;
 const CHAT_KEY = "acf.app-chat";
 const chatPref = () => { try { return localStorage.getItem(CHAT_KEY) === "open"; } catch { return false; } };
 
-/** The app's own chat, on the right: what the user says here changes the app, and the screen follows. */
-function AppChat({ title, session, onSend, onClose }: {
-  title: string; session: Session; onSend: (text: string, files: Attachment[]) => void; onClose: () => void;
+/**
+ * The app's own chat, on the right: what the user says here changes the app, and the screen follows. It is not
+ * modal: where it overlays the screen (narrow windows), the rest of the screen stays bright and usable.
+ */
+function AppChat({ title, chatId, session, onSend, onClose }: {
+  title: string; chatId: number | null; session: Session; onSend: (text: string, files: Attachment[]) => void; onClose: () => void;
 }) {
   const { entries, running, queued, error, stop, background } = session;
   const scroller = useRef<HTMLDivElement>(null);
@@ -24,28 +27,28 @@ function AppChat({ title, session, onSend, onClose }: {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [entries, running, queued]);
   return (
-    <>
-      <div className="scrim app-chat-scrim" onClick={onClose} />
-      <aside className="app-chat" id="app-chat" aria-label={`${title} chat`}>
-        <div className="app-chat-head">
-          <h2>Chat</h2>
-          <button className="btn ghost icon" aria-label="Close chat" title="Close chat" onClick={onClose}><IconX /></button>
-        </div>
-        <div className="app-chat-scroll" ref={scroller}>
-          {entries.length === 0 && !running ? (
-            <p className="hint app-chat-empty">
-              Tell the agent what to change in {title}: a new card, another column, different words. The screen changes as it works.
-            </p>
-          ) : (
-            <Thread entries={entries} running={running} queued={queued} onPrompt={(t) => onSend(t, [])} />
-          )}
-          {error && <div className="banner" role="alert">{error}</div>}
-        </div>
-        <div className="app-chat-composer">
-          <Composer onSend={onSend} onStop={stop} running={running} background={background} placeholder={`Change ${title}…`} />
-        </div>
-      </aside>
-    </>
+    <aside className="app-chat" id="app-chat" aria-label={`${title} chat`}>
+      <div className="app-chat-head">
+        <h2>Chat</h2>
+        {chatId && <Link className="btn ghost sm" to={`/c/${chatId}`} title="Open this chat on its own page">Open chat</Link>}
+        <button className="btn ghost icon" aria-label="Close chat" title="Close chat" onClick={onClose}><IconX /></button>
+      </div>
+      <div className="app-chat-scroll" ref={scroller}>
+        {entries.length === 0 && !running ? (
+          <div className="app-chat-empty">
+            <span className="hero" aria-hidden="true"><Mark size={32} /></span>
+            <p className="title">Tell the agent what to change in {title}</p>
+            <p className="hint">A new card, another column, different words. The screen updates as the agent works.</p>
+          </div>
+        ) : (
+          <Thread entries={entries} running={running} queued={queued} onPrompt={(t) => onSend(t, [])} />
+        )}
+        {error && <div className="banner" role="alert">{error}</div>}
+      </div>
+      <div className="app-chat-composer">
+        <Composer onSend={onSend} onStop={stop} running={running} background={background} placeholder={`Change ${title}…`} />
+      </div>
+    </aside>
   );
 }
 
@@ -172,7 +175,6 @@ export default function AppPage() {
     <>
       <Topbar crumb="Apps" title={app.title}>
         {app.running && <span className="app-working" role="status"><span className="live-dot" aria-hidden="true" />Agent working…</span>}
-        {app.chat_id && <Link className="btn ghost sm" to={`/c/${app.chat_id}`}>Open chat</Link>}
         <button className={`btn ghost sm app-chat-toggle${chatOpen ? " on" : ""}`} aria-label="App chat" aria-expanded={chatOpen}
           aria-controls="app-chat" title={chatOpen ? "Hide chat" : "Change this app in a chat"} onClick={toggleChat}>
           <IconChat /><span className="label">Chat</span>
@@ -200,7 +202,7 @@ export default function AppPage() {
             </AppApiContext.Provider>
           </div>
         </div>
-        {chatOpen && <AppChat title={app.title} session={session} onSend={sendChat} onClose={toggleChat} />}
+        {chatOpen && <AppChat title={app.title} chatId={app.chat_id} session={session} onSend={sendChat} onClose={toggleChat} />}
       </div>
     </>
   );
