@@ -64,7 +64,7 @@ from acf.db import Chat, Message, Project, User, session_scope, utcnow
 from acf.llm import LLMConfig, LLMError, calls_of, estimate_tokens, friendly_error, make_model, traced
 from acf.llm import text_of as _text_of
 from acf.mcp_client import McpHub
-from acf.sandbox import get_sandbox
+from acf.sandbox import get_sandbox, using
 
 log = logging.getLogger("acf.agent")
 STOPPED = "Stopped by the user before this ran."
@@ -375,7 +375,8 @@ class Run:
             self.emit({"type": "error", "error": str(e)})
             return
 
-        async with McpHub(self.user.id, self.user.mcp_config, get_sandbox(self.user.id)) as hub:
+        # The whole turn is use: the sandbox is not stopped while the agent thinks between commands.
+        async with using(self.user.id), McpHub(self.user.id, self.user.mcp_config, get_sandbox(self.user.id)) as hub:
             for st in hub.status():
                 if st["state"] in ("error", "needs_auth"):
                     self.emit({"type": "notice", "text": f"{st['name']}: {st['error'] or 'sign-in required'}"})

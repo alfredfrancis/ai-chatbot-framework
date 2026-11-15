@@ -10,6 +10,7 @@ work is in flight, so any process can serve any request:
 - **Signals**: steer (wake a thinking model), stop, and chat events; delivered to every process.
 - **Locks** and **jobs**: short-lived names held by this process (a scheduled task's run, a review,
   creating a sandbox, background commands).
+- **Use**: when each user's sandbox was last used (`touch` / `last_used`), so any process can stop idle ones.
 
 Adapters: `LocalBus` (in memory; one process, the default) and `RedisBus` (ACF_REDIS_URL; any number
 of processes). Held leases, locks and jobs expire `bus_ttl` seconds after their process stops
@@ -115,6 +116,7 @@ class LocalBus:
         self._feeds: dict[str, Feed] = {}
         self._locks: set[str] = set()
         self._jobs: dict[str, int] = {}
+        self._used: dict[int, float] = {}
 
     async def start(self) -> None:
         pass
@@ -214,6 +216,15 @@ class LocalBus:
     async def jobs(self, chat_id: int) -> set[str]:
         """Running background commands of the chat, in any process."""
         return {j for j, c in self._jobs.items() if c == chat_id}
+
+    # -- sandbox use
+    async def touch(self, user_id: int) -> None:
+        """Record that the user's sandbox is in use now."""
+        self._used[user_id] = time.time()
+
+    async def last_used(self, user_ids: list[int]) -> dict[int, float]:
+        """When each user's sandbox was last in use (epoch seconds), for the users with a record."""
+        return {u: self._used[u] for u in user_ids if u in self._used}
 
 
 # Compare-and-set helpers: only the holder may refresh or drop a key.
@@ -458,6 +469,16 @@ class RedisBus(LocalBus):
         if gone := set(ids) - live:  # their process died: forget them
             await self.r.srem(self.k("jobs", chat_id), *gone)
         return live
+
+    # -- sandbox use
+    async def touch(self, user_id: int) -> None:
+        await self.r.hset(self.k("used"), str(user_id), repr(time.time()))
+
+    async def last_used(self, user_ids: list[int]) -> dict[int, float]:
+        if not user_ids:
+            return {}
+        values = await self.r.hmget(self.k("used"), [str(u) for u in user_ids])
+        return {u: float(v) for u, v in zip(user_ids, values, strict=True) if v is not None}
 
 
 _bus: LocalBus | None = None

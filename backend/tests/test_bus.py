@@ -63,6 +63,16 @@ async def test_a_dead_process_frees_its_chats_locks_and_jobs(redis_url):
         assert await b.jobs(3) == set()
 
 
+async def test_sandbox_use_is_shared(redis_url):
+    async with two_buses(redis_url) as (a, b):
+        assert await b.last_used([1, 2]) == {}
+        await a.touch(1)
+        first = (await b.last_used([1, 2]))[1]
+        await asyncio.sleep(0.01)
+        await b.touch(1)
+        assert set(await a.last_used([1, 2])) == {1} and (await a.last_used([1]))[1] > first
+
+
 async def test_inbox_is_shared_and_read_once(redis_url):
     async with two_buses(redis_url) as (a, b):
         await a.push(4, {"kind": "text", "text": "one"})

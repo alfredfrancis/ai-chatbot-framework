@@ -1,9 +1,10 @@
 """One isolated sandbox per user, behind a provider-agnostic port.
 
 `Sandbox` is the port the rest of the app uses; each provider is an adapter. An adapter implements
-four things: `ensure` (start the sandbox if needed), `exec` (run a shell command, return its output),
-`spawn` (start a long-lived process and stream bytes to and from it, used for stdio MCP servers) and
-`reset`. The rest of the app never knows which adapter it has.
+`ensure` (start the sandbox if needed), `run` (run a shell command, return its output), `spawn` (start a
+long-lived process and stream bytes to and from it, used for stdio MCP servers), `reset`, and, to be
+stopped while idle, `running` and `stop`. The rest of the app calls `exec` and `process`, which record the
+use, and never knows which adapter it has.
 
 The contract every adapter keeps (tests/test_sandbox_contract.py checks it for each one):
 - The user's workspace (`workspace.workspace_dir`, owned by the backend) is the working directory
@@ -11,6 +12,11 @@ The contract every adapter keeps (tests/test_sandbox_contract.py checks it for e
 - A timeout, a cancelled `exec` and `SandboxProcess.kill` stop the command and everything it started
   inside the sandbox, not only the backend's handle on it.
 - Secrets stay in the backend: an adapter only receives the commands and environment it is given.
+- A stopped sandbox starts again on its next use, with the workspace as it was.
+
+Idle sandboxes are stopped (`sweeper`, in every process): each use stamps the time on the bus, and a
+sandbox no process has used for ACF_SANDBOX_IDLE_MINUTES is stopped. A command, a process or an agent's
+turn in flight counts as use for as long as it lasts.
 
 Adapters:
 - DockerSandbox: a long-lived container per user (`acf-sbx-<id>`) with the workspace bind-mounted at
@@ -24,12 +30,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import importlib
+import logging
 import os
 import secrets
 import shutil
 import signal
 import time
 from abc import ABC, abstractmethod
+from collections import Counter
 from collections.abc import AsyncIterator, Coroutine
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +48,7 @@ import anyio.abc
 
 from acf import bus, config, telemetry, workspace
 
+log = logging.getLogger("acf.sandbox")
 MAX_OUTPUT = 2_000_000  # the agent truncates for the model and saves the full text
 WORKDIR = "/workspace"
 PIDS_LIMIT = 512
@@ -172,19 +181,64 @@ async def _exited(proc: SandboxProcess, timeout: float) -> bool:
     return proc.returncode is not None
 
 
+SWEEP_LOCK = "sandbox-sweep"
+_using: Counter[int] = Counter()  # users whose sandbox this process is using right now
+_locks: dict[int, asyncio.Lock] = {}
+
+
+async def _touch(user_id: int) -> None:
+    if config.settings.sandbox_idle_minutes > 0:
+        await bus.current().touch(user_id)
+
+
+async def _touch_later(user_id: int) -> None:
+    try:
+        await _touch(user_id)
+    except Exception:  # noqa: BLE001 - the next round of the sweeper stamps it again
+        log.exception("could not record sandbox use")
+
+
+@contextlib.asynccontextmanager
+async def using(user_id: int) -> AsyncIterator[None]:
+    """The user's sandbox is in use for the block: it is not stopped while idle until the block ends."""
+    _using[user_id] += 1
+    try:
+        await _touch(user_id)
+        yield
+    finally:
+        _using[user_id] -= 1
+        if not _using[user_id]:
+            del _using[user_id]
+        _background(_touch_later(user_id))  # idle from now; in the background so a stop isn't delayed
+
+
 class Sandbox(ABC):
     kind = "base"
 
     def __init__(self, user_id: int):
         self.user_id = user_id
 
+    @classmethod
+    async def running(cls) -> list[int]:
+        """The users whose sandbox runs now. Only these are stopped while idle (none by default)."""
+        return []
+
+    @contextlib.asynccontextmanager
+    async def locked(self) -> AsyncIterator[None]:
+        """Hold this user's sandbox: callers in this process wait on the asyncio lock, other processes on
+        the bus lock (they would otherwise race to create, start or stop the same sandbox)."""
+        lock = _locks.setdefault(self.user_id, asyncio.Lock())
+        async with lock, bus.current().hold(f"sandbox:{self.user_id}", timeout=420):
+            yield
+
     async def ensure(self) -> None:
         """Make sure the sandbox runs. Raise SandboxError with a sentence for the user if it can't."""
         return  # optional: a sandbox that is always there needs nothing
 
     @abstractmethod
-    async def exec(self, command: str, timeout: int | None = None) -> ExecResult:
-        """Run a shell command in the workspace and return its output. Cancelling it kills the command."""
+    async def run(self, command: str, timeout: int | None = None) -> ExecResult:
+        """Run a shell command in the workspace and return its output. Called by `exec()` after `ensure()`.
+        Cancelling it kills the command."""
 
     @abstractmethod
     async def spawn(self, argv: list[str], env: dict[str, str]) -> SandboxProcess:
@@ -197,21 +251,33 @@ class Sandbox(ABC):
         """Throw the sandbox away (the workspace stays); the next use starts a fresh one."""
         return  # optional: nothing to throw away by default
 
+    async def stop(self) -> None:
+        """Stop the sandbox, keeping it (and the workspace) for `ensure()` to start again. Called with the
+        sandbox `locked()`. Idempotent."""
+        return  # optional: a sandbox that costs nothing while idle stays as it is
+
+    async def exec(self, command: str, timeout: int | None = None) -> ExecResult:
+        """Run a shell command in the workspace and return its output. Cancelling it kills the command."""
+        async with using(self.user_id):
+            await self.ensure()
+            return await self.run(command, timeout)
+
     @contextlib.asynccontextmanager
     async def process(self, argv: list[str], env: dict[str, str] | None = None) -> AsyncIterator[SandboxProcess]:
         """Run argv inside the sandbox for the duration of the block, then stop it as the MCP spec asks:
         close stdin, give it STOP_GRACE seconds to exit, then kill it and everything it started."""
-        await self.ensure()
-        proc = await self.spawn(argv, env or {})
-        try:
-            yield proc
-        finally:
-            with anyio.CancelScope(shield=True):  # a stopped run must not leave the process behind
-                await proc.close_stdin()
-                if not await _exited(proc, STOP_GRACE):
-                    await proc.kill()
-                    await _exited(proc, STOP_GRACE)
-                await proc.aclose()
+        async with using(self.user_id):
+            await self.ensure()
+            proc = await self.spawn(argv, env or {})
+            try:
+                yield proc
+            finally:
+                with anyio.CancelScope(shield=True):  # a stopped run must not leave the process behind
+                    await proc.close_stdin()
+                    if not await _exited(proc, STOP_GRACE):
+                        await proc.kill()
+                        await _exited(proc, STOP_GRACE)
+                    await proc.aclose()
 
 
 class _HostProcess(SandboxProcess):
@@ -265,7 +331,7 @@ async def _open_host_process(argv: list[str], env: dict[str, str] | None, cwd: s
 class LocalSandbox(Sandbox):
     kind = "local"
 
-    async def exec(self, command: str, timeout: int | None = None) -> ExecResult:
+    async def run(self, command: str, timeout: int | None = None) -> ExecResult:
         cwd = str(workspace.workspace_dir(self.user_id))
         return await _run(["sh", "-c", command], timeout or config.settings.command_timeout, cwd=cwd)
 
@@ -274,8 +340,6 @@ class LocalSandbox(Sandbox):
         cwd = str(workspace.workspace_dir(self.user_id))
         return _HostProcess(await _open_host_process(argv, base | env, cwd))
 
-
-_locks: dict[int, asyncio.Lock] = {}
 
 # Commands run under this wrapper: it records its pid (the session leader of the `docker exec`) so a
 # stop can kill the whole session inside the container. Killing the `docker exec` client alone leaves
@@ -380,10 +444,7 @@ class DockerSandbox(Sandbox):
     async def ensure(self) -> None:
         if not shutil.which("docker"):
             raise SandboxError("Docker CLI not found. Install Docker or set ACF_SANDBOX=local for development.")
-        lock = _locks.setdefault(self.user_id, asyncio.Lock())
-        # One container per user: callers in this process wait on the asyncio lock, other processes on
-        # the bus lock (they would otherwise race to create, replace or start the same container).
-        async with lock, bus.current().hold(f"sandbox:{self.user_id}", timeout=420):
+        async with self.locked():  # one container per user
             state, ws_id = await self._inspect()
             expected = self._workspace_id()
             if state != "missing" and ws_id != expected:
@@ -457,8 +518,7 @@ class DockerSandbox(Sandbox):
     async def _kill_tracked(self, pidfile: str) -> None:
         await _run(["docker", "exec", self.name, "sh", "-c", _KILL_SESSION, "sh", pidfile], 30)
 
-    async def exec(self, command: str, timeout: int | None = None) -> ExecResult:
-        await self.ensure()
+    async def run(self, command: str, timeout: int | None = None) -> ExecResult:
         t = timeout or config.settings.command_timeout
         pidfile = _pidfile()
         # The backend enforces the deadline and kills the whole session; `timeout` inside the container is
@@ -490,6 +550,79 @@ class DockerSandbox(Sandbox):
 
     async def reset(self) -> None:
         await _run(["docker", "rm", "-f", self.name], 60)
+
+    @classmethod
+    async def running(cls) -> list[int]:
+        if not shutil.which("docker"):
+            return []
+        prefix = f"{config.settings.sandbox_prefix}-"
+        # The Docker proxy lets the app list containers only with exactly these filters.
+        filters = ["--filter", "label=acf.sandbox=1", "--filter", f"name=^{prefix}"]
+        res = await _run(["docker", "ps", *filters, "--format", "{{.Names}}"], 30)
+        if res.exit_code != 0:
+            raise SandboxError(f"Could not list sandboxes: {res.stderr.strip() or res.stdout.strip()}")
+        ids = [name.removeprefix(prefix) for name in res.stdout.split() if name.startswith(prefix)]
+        return [int(i) for i in ids if i.isdigit()]
+
+    async def stop(self) -> None:
+        # No grace period: `sleep infinity` as PID 1 ignores SIGTERM and passes it on to no one.
+        res = await _run(["docker", "stop", "-t", "0", self.name], 60)
+        if res.exit_code != 0 and "No such container" not in res.stderr:
+            raise SandboxError(f"Could not stop {self.name}: {res.stderr.strip() or res.stdout.strip()}")
+
+
+def _sweep_period() -> float:
+    """How often each process stamps its sandboxes in use and tries to sweep: well within the idle time."""
+    return min(60.0, max(1.0, config.settings.sandbox_idle_minutes * 15))
+
+
+async def _stop_if_idle(sbx: Sandbox, idle: float) -> bool:
+    async with sbx.locked():  # a use that started meanwhile has stamped it, or waits for this
+        now = time.time()
+        if now - (await bus.current().last_used([sbx.user_id])).get(sbx.user_id, now) < idle:
+            return False
+        await sbx.stop()
+        return True
+
+
+async def sweep() -> list[int]:
+    """One round: stamp the sandboxes this process is using, then, unless another process is sweeping,
+    stop every sandbox no one has used for ACF_SANDBOX_IDLE_MINUTES. Returns the users stopped.
+    Safe to run again after a crash: it starts from what runs now."""
+    b = bus.current()
+    for user_id in list(_using):
+        await b.touch(user_id)
+    idle = config.settings.sandbox_idle_minutes * 60
+    if idle <= 0 or not await b.lock(SWEEP_LOCK):
+        return []
+    try:
+        adapter = sandbox_class()
+        users = await adapter.running()
+        last = await b.last_used(users)
+        stopped = []
+        for user_id in users:
+            if user_id not in last:  # started before anyone stamped it (a restart, an older version)
+                await b.touch(user_id)
+            elif time.time() - last[user_id] >= idle and user_id not in _using:
+                try:
+                    if await _stop_if_idle(adapter(user_id), idle):
+                        stopped.append(user_id)
+                except Exception:  # noqa: BLE001 - one broken sandbox must not keep the others running
+                    log.exception("could not stop the sandbox of user %s", user_id)
+        return stopped
+    finally:
+        await b.unlock(SWEEP_LOCK)
+
+
+async def sweeper() -> None:
+    """Every app process runs this, so each keeps its own sandboxes in use stamped."""
+    while config.settings.sandbox_idle_minutes > 0:
+        try:
+            if stopped := await sweep():
+                log.info("stopped idle sandboxes of users %s", stopped)
+        except Exception:  # noqa: BLE001
+            log.exception("sandbox sweep failed")
+        await asyncio.sleep(_sweep_period())
 
 
 _ADAPTERS: dict[str, type[Sandbox]] = {"docker": DockerSandbox, "local": LocalSandbox}

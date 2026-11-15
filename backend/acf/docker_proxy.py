@@ -7,7 +7,8 @@ with the exact settings it uses:
   - create a container named <prefix>-<user id> from the sandbox image, as a non-root user, with every
     capability dropped, no-new-privileges, resource limits, the configured runtime (e.g. gVisor) and
     network, and that user's workspace as its only mount
-  - inspect, start and remove those containers; exec in them (not privileged, not as root)
+  - inspect, start, stop and remove those containers; exec in them (not privileged, not as root)
+  - list containers, only filtered to those (to stop idle ones)
   - inspect and create the sandbox network (inter-container traffic off)
 
 Anything else (other images, privileged or host-namespace containers, other mounts, pulls, builds,
@@ -163,6 +164,19 @@ class Policy:
             if not ok:
                 raise Denied(f"HostConfig.{key} has a value that is not allowed")
 
+    def check_list(self, query: dict[str, list[str]]) -> None:
+        """A list must be filtered to sandboxes by label and by this prefix, as `DockerSandbox.running` asks;
+        Docker then leaves every other container out of the reply."""
+        want = {"label": "acf.sandbox=1", "name": f"^{self.prefix}-"}
+        try:
+            filters = json.loads((query.get("filters") or ["{}"])[0])
+        except ValueError as e:
+            raise Denied("filters must be JSON") from e
+        # Exactly one value per filter (Docker ORs a filter's values): {"label": {"acf.sandbox=1": true}} as the
+        # Docker CLI sends it, or {"label": ["acf.sandbox=1"]} from older clients.
+        if filters not in ({k: {v: True} for k, v in want.items()}, {k: [v] for k, v in want.items()}):
+            raise Denied(f"containers may only be listed with the filters label={want['label']} name={want['name']}")
+
     def check_exec(self, body: dict) -> None:
         if body.get("Privileged"):
             raise Denied("privileged exec is not allowed")
@@ -241,6 +255,8 @@ class Proxy:
         if parts[:1] == ["containers"]:
             if method == "POST" and parts == ["containers", "create"]:
                 return self.policy.check_create((query.get("name") or [""])[0], data())
+            if method == "GET" and parts == ["containers", "json"]:
+                return self.policy.check_list(query)
             if len(parts) == 3 and method == "GET" and parts[2] == "json":
                 return await self._own_container(parts[1])
             if len(parts) == 3 and method == "POST" and parts[2] in ("start", "stop", "kill", "wait"):

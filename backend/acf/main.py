@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from acf import acp, auth, bus, config, db, logs, scheduler, telemetry
+from acf import acp, auth, bus, config, db, logs, sandbox, scheduler, telemetry
 from acf.agent import loop as agent
 from acf.api.routes import router
 
@@ -53,10 +53,12 @@ async def lifespan(app: FastAPI):
         with db.session_scope() as s:
             db.lock_startup(s.connection())
             auth.ensure_admin(s)
-    task = asyncio.create_task(scheduler.loop()) if config.settings.scheduler_enabled else None
+    tasks = [asyncio.create_task(sandbox.sweeper())]
+    if config.settings.scheduler_enabled:
+        tasks.append(asyncio.create_task(scheduler.loop()))
     yield
     app.state.draining = True
-    if task:
+    for task in tasks:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task

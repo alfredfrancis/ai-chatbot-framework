@@ -121,6 +121,19 @@ async def test_write_to_an_ended_process_raises_broken_pipe(sbx):
                 await asyncio.sleep(0.01)
 
 
+async def test_stopped_sandbox_restarts_on_exec(sbx):
+    assert (await sbx.exec("echo kept > kept.txt")).exit_code == 0
+    async with sbx.locked():
+        await sbx.stop()
+        await sbx.stop()  # idempotent
+    assert sbx.user_id not in await type(sbx).running()
+    assert (await sbx.exec("cat kept.txt")).stdout == "kept\n"
+    async with sbx.process(["cat"]) as proc:
+        await proc.write(b"back\n")
+        await proc.close_stdin()
+        assert await _read_all(proc) == b"back\n"
+
+
 # Choosing an adapter -----------------------------------------------------------------------------------
 
 

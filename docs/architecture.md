@@ -104,9 +104,10 @@ with `register_sandbox()`, or `package.module:Class`). Nothing outside `sandbox.
 | Method | What an adapter does |
 |---|---|
 | `ensure()` | Start the user's sandbox if needed; raise `SandboxError` with a sentence for the user if it can't. |
-| `exec(command, timeout)` | Run a shell command in the workspace, return `ExecResult`. A timeout or a cancel kills it. |
-| `spawn(argv, env)` | Start a long-lived process and return a `SandboxProcess`: `write`/`read` bytes on stdin/stdout, `close_stdin`, `returncode`, `kill`. Callers use `process()`, which runs `ensure()` and stops the process (close stdin, wait, kill). |
+| `run(command, timeout)` | Run a shell command in the workspace, return `ExecResult`. A timeout or a cancel kills it. Callers use `exec()`, which records the use and runs `ensure()` first. |
+| `spawn(argv, env)` | Start a long-lived process and return a `SandboxProcess`: `write`/`read` bytes on stdin/stdout, `close_stdin`, `returncode`, `kill`. Callers use `process()`, which records the use, runs `ensure()` and stops the process (close stdin, wait, kill). |
 | `status()` / `reset()` | Report state for Settings; throw the sandbox away (the workspace stays). |
+| `running()` / `stop()` | Optional: the users whose sandbox runs now, and stop one (idempotent) for `ensure()` to start again. An adapter without them is never stopped while idle. |
 
 The contract, checked for every adapter by `tests/test_sandbox_contract.py`:
 
@@ -118,12 +119,23 @@ The contract, checked for every adapter by `tests/test_sandbox_contract.py`:
   *inside* the sandbox, not only the backend's handle on it.
 - **Secrets stay in the backend.** Stdio MCP servers talk MCP over a `SandboxProcess`
   (`mcp_client._process_transport`); OAuth tokens and remote MCP connections never enter the sandbox.
+- **Waking.** A stopped sandbox starts again on its next `exec` or `process`, with the workspace as it was.
+
+Idle sandboxes are stopped so that they cost nothing between uses. Every `exec`, `process()` and agent turn
+holds `sandbox.using(user)` while it lasts: it stamps the time on the bus (`touch`), and each process's
+`sweeper` stamps the uses it has in flight again every round (a quarter of the idle time, at most a minute).
+One process at a time (bus lock `sandbox-sweep`) asks the adapter which sandboxes run and stops each one no
+one has stamped for `ACF_SANDBOX_IDLE_MINUTES` (default 30; 0 never stops), re-checking under the
+sandbox's own lock so a use that starts meanwhile wins. A running sandbox without a stamp (started before a
+restart) gets the whole idle time from the first sweep. The sweep keeps no state of its own, so a crashed one
+is safe to run again: the next round starts from what runs now.
 
 Docker adapter: `acf-sbx-<user>` is created on first use with `--cap-drop ALL`, `no-new-privileges`,
 memory/CPU/pids limits and the workspace bind-mounted at `/workspace`. It is labelled with the workspace's id
 and replaced if the folder was recreated. Commands run as `docker exec` under a small `sh` wrapper that
 records the session leader's pid; a stop kills that session inside the container (killing the `docker exec`
-client alone would leave the command running). It needs only `sh` and `/proc` in the image.
+client alone would leave the command running). It needs only `sh` and `/proc` in the image. An idle
+sandbox is `docker stop`ped and `docker start`ed on its next use; processes it ran are gone, files stay.
 
 ## Skills (`backend/acf/skills.py`)
 

@@ -10,7 +10,7 @@ import subprocess
 import httpx
 import pytest
 
-from acf import config, docker_proxy, workspace
+from acf import config, docker_proxy, sandbox, workspace
 from acf.sandbox import DockerSandbox
 from tests.conftest import FAKES, docker_available, free_port, send
 
@@ -230,6 +230,8 @@ async def test_other_containers_are_off_limits(proxied):
     for ref in (OTHER, cid):
         assert (await api.get(f"/v1.47/containers/{ref}/json")).status_code == 403
         assert (await api.post(f"/v1.47/containers/{ref}/start")).status_code == 403
+        assert (await api.post(f"/v1.47/containers/{ref}/stop")).status_code == 403
+        assert (await api.post(f"/v1.47/containers/{ref}/kill")).status_code == 403
         assert (await api.delete(f"/v1.47/containers/{ref}?force=1")).status_code == 403
         r = await api.post(f"/v1.47/containers/{ref}/exec", json={"Cmd": ["id"]})
         assert r.status_code == 403
@@ -237,6 +239,39 @@ async def test_other_containers_are_off_limits(proxied):
     docker_direct("start", OTHER)
     exec_id = direct_exec_create(OTHER)
     assert (await api.post(f"/v1.47/exec/{exec_id}/start", json={"Detach": True})).status_code == 403
+
+
+async def test_idle_sandboxes_are_stopped_and_started_through_the_proxy(user, proxied, monkeypatch):
+    """Stop allowed for sandboxes, list only filtered to them, and the foreign variants still refused."""
+    created, api = proxied
+    created.append(user["id"])
+    sbx = DockerSandbox(user["id"])
+    assert (await sbx.exec("echo kept > kept.txt")).exit_code == 0
+    # a foreign container that even carries the sandbox label is never listed or stopped
+    assert docker_direct("run", "-d", "--name", OTHER, "--label", "acf.sandbox=1", IMAGE, "sleep", "60").returncode == 0
+    monkeypatch.setattr(config.settings, "sandbox_idle_minutes", 0.5 / 60)
+    await asyncio.sleep(0.6)
+    assert user["id"] in await sandbox.sweep()
+    assert await sbx._state() == "exited"
+    assert docker_direct("container", "inspect", "-f", "{{.State.Status}}", OTHER).stdout.strip() == "running"
+    assert (await sbx.exec("cat kept.txt")).stdout == "kept\n" and await sbx._state() == "running"
+    assert user["id"] in await DockerSandbox.running()
+
+    prefix = config.settings.sandbox_prefix
+    good = {"label": {"acf.sandbox=1": True}, "name": {f"^{prefix}-": True}}
+    r = await api.get("/v1.47/containers/json", params={"filters": json.dumps(good)})
+    assert r.status_code == 200 and OTHER not in json.dumps(r.json())
+    for bad in (
+        {},
+        {"label": {"acf.sandbox=1": True}},
+        {"name": {f"^{prefix}-": True}},
+        {"label": {"acf.sandbox=1": True}, "name": {"^": True}},
+        {"label": {"acf.sandbox=1": True}, "name": {f"^{prefix}-": True, OTHER: True}},  # values are ORed
+        {"label": {"acf.sandbox=1": True}, "name": {f"^{prefix}-": True, OTHER: False}},
+        {**good, "status": {"exited": True}},
+    ):
+        r = await api.get("/v1.47/containers/json", params={"filters": json.dumps(bad)})
+        assert r.status_code == 403, bad
 
 
 async def test_privileged_or_root_exec_is_refused(client, user, proxied):
