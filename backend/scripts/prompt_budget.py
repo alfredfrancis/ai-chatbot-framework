@@ -43,7 +43,7 @@ async def build_request(user_id: int, chat_id: int) -> tuple[dict, float]:
         apps = hub.catalog()
     schemas = [t.schema() for t in tools]
     system = prompt.build(user.id, apps)
-    history = load_history(chat_id)
+    history = await load_history(chat_id)
 
     model = make_model(LLMConfig.for_user(user)).bind_tools(schemas)
     return model.bound._get_request_payload([SystemMessage(system), *history], **model.kwargs), mcp_connect_s
