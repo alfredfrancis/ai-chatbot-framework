@@ -2,10 +2,7 @@
 
 import time
 
-import httpx
-
 from acf import bus, db
-from acf.main import create_app
 
 
 async def test_live_answers_without_touching_the_database(client, monkeypatch):
@@ -63,20 +60,3 @@ async def test_ready_with_redis(client, redis_url):
     finally:
         bus.use(None)
         await shared.close()
-
-
-async def test_not_ready_while_draining_but_still_live():
-    app = create_app()
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
-        assert (await c.get("/api/health/ready")).status_code == 200
-        app.state.draining = True
-        r = await c.get("/api/health/ready")
-        assert r.status_code == 503 and r.json() == {"draining": True}
-        assert (await c.get("/api/health")).status_code == 200
-
-
-async def test_lifespan_shutdown_starts_draining():
-    app = create_app()
-    async with app.router.lifespan_context(app):
-        assert app.state.draining is False
-    assert app.state.draining is True

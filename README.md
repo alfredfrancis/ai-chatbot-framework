@@ -141,9 +141,9 @@ Versions and upgrades: [docs/releasing.md](docs/releasing.md).
 **Data.** PostgreSQL runs in its own container (volume `postgres-data`); workspaces live in `./data`, or
 `ACF_DATA_PATH`. Back up both. Logs are rotated and the app has health checks:
 `/api/health` is liveness (the process answers) and `/api/health/ready` is readiness (200 with
-`{"db":"ok","bus":"ok"}` when the database and, with `ACF_REDIS_URL`, Redis answer within 2 s; 503 otherwise,
-and while the process is shutting down). Point a load balancer or a Kubernetes readiness probe at the ready
-route and a liveness probe at the live one.
+`{"db":"ok","bus":"ok"}` when the database and, with `ACF_REDIS_URL`, Redis answer within 2 s; 503 otherwise).
+Point a load balancer or a Kubernetes readiness probe at the ready route and a liveness probe at the live
+one.
 
 **Security.** Each user gets one sandbox container. The app runs as a non-root user and never touches the
 Docker socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containers with fixed,
@@ -163,6 +163,13 @@ Caddy spreads requests and chat connections over them and picks up new ones with
 serves any chat; each user still has one sandbox and one workspace. A stopping process lets its running
 agents finish first (`ACF_SHUTDOWN_GRACE`, default 20 s), and its clients reconnect to another one. A
 crashed process frees its chats after `ACF_BUS_TTL` (30 s).
+
+Taking a stopping process out of the rotation is the orchestrator's job: the process closes its listening
+socket when SIGTERM arrives, before its readiness check could report anything. With compose, Caddy looks up
+the app processes every 5 s and sends a request that a stopping process refuses to another one. On
+Kubernetes, give the app container a `preStop` hook that sleeps a few seconds (`sleep 5`), so the pod is
+removed from the Service's endpoints before SIGTERM arrives, and set `terminationGracePeriodSeconds` above
+that sleep plus `ACF_SHUTDOWN_GRACE` (for example 40).
 
 Across several machines, every app process needs the same PostgreSQL, Redis and Docker proxy, and the data
 folder at the same path (shared storage), because sandboxes mount workspaces from the Docker host. Details:

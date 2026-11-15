@@ -103,11 +103,8 @@ async def _check(name: str, probe) -> tuple[str, str]:
 
 
 @router.get("/health/ready")
-async def ready(request: Request, response: Response) -> dict:
-    """Readiness: take traffic only when the database and the shared bus answer, and not while draining."""
-    if getattr(request.app.state, "draining", False):
-        response.status_code = 503
-        return {"draining": True}
+async def ready(response: Response) -> dict:
+    """Readiness: take traffic only when the database and the shared bus answer."""
     checks = dict(await asyncio.gather(_check("db", _check_db), _check("bus", bus.current().ping)))
     if "error" in checks.values():
         response.status_code = 503

@@ -6,8 +6,6 @@ import asyncio
 import contextlib
 import logging
 import re
-import signal
-import threading
 import time
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse
@@ -24,26 +22,8 @@ logs.configure()
 access_log = logging.getLogger("acf.access")
 
 
-def drain_on_signal(app: FastAPI) -> None:
-    """Mark the app as draining the moment SIGTERM/SIGINT arrives, ahead of uvicorn's slower shutdown, so
-    /api/health/ready tells the load balancer to stop sending traffic while running agents finish."""
-    if threading.current_thread() is not threading.main_thread():
-        return  # tests serve the app from a thread
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        previous = signal.getsignal(sig)
-
-        def handler(signum, frame, previous=previous):
-            app.state.draining = True
-            if callable(previous):
-                previous(signum, frame)
-
-        signal.signal(sig, handler)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.draining = False
-    drain_on_signal(app)
     sandbox.sandbox_class()  # a wrong ACF_SANDBOX stops the start, not every chat turn
     telemetry.setup()  # only with an OTEL_EXPORTER_OTLP_*ENDPOINT set
     await bus.current().start()
@@ -58,7 +38,6 @@ async def lifespan(app: FastAPI):
     if config.settings.scheduler_enabled:
         tasks.append(asyncio.create_task(scheduler.loop()))
     yield
-    app.state.draining = True
     for task in tasks:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
