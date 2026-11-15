@@ -111,6 +111,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Migrations may decrypt and re-encrypt stored secrets: the same key as the app.
+      ACF_SECRET_KEY: ${ACF_SECRET_KEY:?Set ACF_SECRET_KEY in .env}
       ACF_DB_URL: postgresql://acf:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/acf
     read_only: true
     cap_drop: [ALL]

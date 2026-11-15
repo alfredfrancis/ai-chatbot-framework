@@ -128,6 +128,49 @@ def test_a_users_key_and_address_move_to_their_provider(tmp_path):
     engine.dispose()
 
 
+def test_acf_migrate_refuses_to_run_without_the_key_that_encrypted_the_database(tmp_path, monkeypatch):
+    """0005 decrypts and re-encrypts users' keys: without ACF_SECRET_KEY acf-migrate stops with a message
+    instead of making a key of its own (a container or Job has no data folder to keep it in)."""
+    import json
+
+    from acf import secrets_box
+
+    secret = "migrate-secret-key-that-is-long-enough-0"
+    monkeypatch.setattr(config.settings, "secret_key", secret)
+    url = f"sqlite:///{tmp_path / 'keys.db'}"
+    engine = sa.create_engine(url)
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0004")
+        conn.execute(
+            sa.text(
+                "INSERT INTO users (id, email, name, password_hash, created_at, llm_provider, llm_model, "
+                "llm_base_url, llm_api_key, mcp_config) "
+                "VALUES (1, 'a@b.c', '', 'x', '2026-01-01', 'openai', 'm', '', :k, '')"
+            ),
+            {"k": secrets_box.encrypt("sk-old")},
+        )
+    data = tmp_path / "data"
+    data.mkdir()
+    env = {**os.environ, "ACF_DB_URL": url, "ACF_DATA_DIR": str(data)}
+
+    refused = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert refused.returncode != 0
+    assert "ACF_SECRET_KEY" in refused.stderr and "Traceback" not in refused.stderr, refused.stderr
+    assert not (data / "secret.key").exists()
+    assert db.schema_revision(engine) == "0004"
+
+    env["ACF_SECRET_KEY"] = secret
+    migrated = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert migrated.returncode == 0, migrated.stderr
+    assert not (data / "secret.key").exists()
+    with engine.connect() as conn:
+        stored = conn.execute(sa.text("SELECT llm_connections FROM users")).scalar_one()
+    engine.dispose()
+    assert json.loads(secrets_box.decrypt(stored)) == {"openai": {"api_key": "sk-old", "base_url": ""}}
+
+
 def _head() -> str:
     return ScriptDirectory.from_config(_config()).get_current_head()
 

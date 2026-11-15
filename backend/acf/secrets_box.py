@@ -31,6 +31,11 @@ class SecretKeyError(RuntimeError):
     pass
 
 
+def has_key() -> bool:
+    """Whether ACF_SECRET_KEY is set or a key file exists, so encrypting or decrypting makes no new key."""
+    return bool(config.settings.secret_key) or (config.settings.data_dir / "secret.key").exists()
+
+
 def _secret() -> str:
     s = config.settings
     if s.secret_key:

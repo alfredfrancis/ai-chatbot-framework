@@ -171,7 +171,9 @@ folder at the same path (shared storage), because sandboxes mount workspaces fro
 Upgrades migrate the database first: the `migrate` service runs `acf-migrate` and the app starts once it
 has finished. Processes that start together take turns on the schema, so a rolling deploy can also leave
 it to them. Where a deploy tool runs migrations as their own step (a Kubernetes Job or a Helm hook), run
-`acf-migrate` there and set `ACF_MIGRATE_ON_START=false` on the app.
+`acf-migrate` there and set `ACF_MIGRATE_ON_START=false` on the app. Give the Job the app's `ACF_DB_URL`
+and `ACF_SECRET_KEY`: migrations can decrypt and re-encrypt stored secrets, and without the key
+`acf-migrate` stops with a message.
 
 ## Configuration
 

@@ -230,7 +230,9 @@ app only checks that the schema is at the newest migration and exits with an err
 when it isn't. A migration runs in one transaction under a PostgreSQL advisory lock (`db.lock_startup`), so
 runs that overlap, on any host and with or without Redis, take turns: the next one finds nothing to do.
 A run that dies halfway is rolled back by PostgreSQL, lock included. The other startup writes, stored
-secrets (`encrypt_existing`) and the main account, take the same lock. `0001_baseline` is the
+secrets (`encrypt_existing`) and the main account, take the same lock. Migrations may decrypt and re-encrypt
+stored secrets (`0005`), so `acf-migrate` needs the app's `ACF_SECRET_KEY`: without it, and with
+encrypted values in the database, it stops with a message instead of making a key of its own. `0001_baseline` is the
 schema older versions made with `create_all`; a database that has those tables but no `alembic_version` is
 stamped at the baseline and then upgraded, so existing installs keep their data. Write a migration with
 `make migration m="…"` (autogenerate, `render_as_batch` for SQLite) and review it;
