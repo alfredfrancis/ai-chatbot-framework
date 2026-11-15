@@ -18,6 +18,8 @@ DEFAULT_PROVIDERS = "anthropic,openai,google_genai,mistralai,groq,deepseek,xai,f
 class Settings:
     data_dir: Path = field(default_factory=lambda: Path(_env("DATA_DIR", "./data")).resolve())
     db_url: str = field(default_factory=lambda: _env("DB_URL"))
+    # false: the app only checks the schema is current, and `acf-migrate` (a Kubernetes Job) migrates it.
+    migrate_on_start: bool = field(default_factory=lambda: _env("MIGRATE_ON_START", "true").lower() == "true")
     # Public URL of the web app; used to build OAuth redirect URIs.
     public_url: str = field(default_factory=lambda: _env("PUBLIC_URL", "http://localhost:8000").rstrip("/"))
     frontend_dist: Path = field(

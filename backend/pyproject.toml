@@ -23,6 +23,9 @@ dependencies = [
   "packaging>=24",
 ]
 
+[project.scripts]
+acf-migrate = "acf.db:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.25", "ruff>=0.6"]
 

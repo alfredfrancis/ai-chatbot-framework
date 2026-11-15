@@ -42,10 +42,12 @@ async def lifespan(app: FastAPI):
     app.state.draining = False
     drain_on_signal(app)
     await bus.current().start()
-    # Processes starting together take turns: creating tables, the main account and the secret key file.
+    # Processes starting together take turns: on the bus for the secret key file, and in PostgreSQL (any host,
+    # with or without Redis) for the schema, stored secrets and the main account.
     async with bus.current().hold("startup", timeout=300):
         db.init_db()
         with db.session_scope() as s:
+            db.lock_startup(s.connection())
             auth.ensure_admin(s)
     task = asyncio.create_task(scheduler.loop()) if config.settings.scheduler_enabled else None
     yield

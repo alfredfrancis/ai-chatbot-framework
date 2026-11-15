@@ -11,7 +11,9 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     Boolean,
+    Connection,
     DateTime,
+    Engine,
     ForeignKey,
     Integer,
     String,
@@ -228,21 +230,41 @@ def normalize_url(url: str) -> str:
 
 
 BASELINE_REVISION = "0001"  # the schema as `create_all` made it before migrations existed
+STARTUP_LOCK = 0x41434600  # pg_advisory_xact_lock key ("ACF\0") for schema and startup writes
+
+
+class SchemaOutOfDate(RuntimeError):
+    pass
+
+
+def lock_startup(conn: Connection) -> None:
+    """Wait for any other process (on any host) that is migrating or starting up, and hold the turn until
+    this transaction ends, which a crash ends too. SQLite needs none: one file, one host, one process."""
+    if conn.dialect.name == "postgresql":
+        conn.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": STARTUP_LOCK})
+
+
+def _alembic_config():
+    from importlib.resources import files
+
+    from alembic.config import Config
+
+    cfg = Config()
+    cfg.set_main_option("script_location", str(files("acf") / "migrations"))
+    return cfg
 
 
 def migrate(engine=None) -> None:
-    """Bring the schema up to date with the migrations in acf/migrations (Alembic). A database made by an
-    older version, before migrations existed, is marked as the baseline first and then upgraded."""
-    from importlib.resources import files
-
+    """Bring the schema up to date with the migrations in acf/migrations (Alembic), in one transaction that
+    concurrent runs take turns on. A database made by an older version, before migrations existed, is
+    marked as the baseline first and then upgraded."""
     from alembic import command
-    from alembic.config import Config
 
     engine = engine or _engine
     assert engine is not None
-    cfg = Config()
-    cfg.set_main_option("script_location", str(files("acf") / "migrations"))
+    cfg = _alembic_config()
     with engine.begin() as conn:
+        lock_startup(conn)
         cfg.attributes["connection"] = conn
         tables = set(inspect(conn).get_table_names())
         if "users" in tables and "alembic_version" not in tables:
@@ -250,30 +272,74 @@ def migrate(engine=None) -> None:
         command.upgrade(cfg, "head")
 
 
-def init_db() -> None:
-    """Connect and migrate the schema. PostgreSQL in Docker deployments; SQLite for quick local runs."""
-    global _engine, _SessionLocal
-    url = normalize_url(config.settings.db_url)
+def schema_revision(engine: Engine) -> str | None:
+    from alembic.migration import MigrationContext
+
+    with engine.connect() as conn:
+        return MigrationContext.configure(conn).get_current_revision()
+
+
+def check_schema(engine: Engine) -> None:
+    """Raise SchemaOutOfDate unless the database is at this version's newest migration."""
+    from alembic.script import ScriptDirectory
+
+    head = ScriptDirectory.from_config(_alembic_config()).get_current_head()
+    current = schema_revision(engine)
+    if current != head:
+        raise SchemaOutOfDate(
+            f"The database schema is at revision {current or 'none'} and this version needs {head}. "
+            "Run `acf-migrate` first, or set ACF_MIGRATE_ON_START=true."
+        )
+
+
+def _make_engine(url: str) -> Engine:
+    url = normalize_url(url)
     kwargs: dict[str, Any] = {}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
     else:
         kwargs.update(pool_pre_ping=True, pool_size=10, max_overflow=20)
-    if _engine is not None:
-        _engine.dispose()
-    _engine = create_engine(url, **kwargs)
+    engine = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
 
-        @event.listens_for(_engine, "connect")
+        @event.listens_for(engine, "connect")
         def _pragma(dbapi_conn, _):  # pragma: no cover - trivial
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA foreign_keys=ON")
             cur.execute("PRAGMA journal_mode=WAL")
             cur.close()
 
-    migrate(_engine)
+    return engine
+
+
+def init_db() -> None:
+    """Connect, then migrate the schema, or with ACF_MIGRATE_ON_START=false check that `acf-migrate` did.
+    PostgreSQL in Docker deployments; SQLite for quick local runs."""
+    global _engine, _SessionLocal
+    if _engine is not None:
+        _engine.dispose()
+    _engine = _make_engine(config.settings.db_url)
+    if config.settings.migrate_on_start:
+        migrate(_engine)
+    else:
+        check_schema(_engine)
     _SessionLocal = sessionmaker(_engine, expire_on_commit=False)
     encrypt_existing()
+
+
+def main() -> None:
+    """`acf-migrate`: bring the database schema up to date and exit. Run it before the app starts when the
+    app runs with ACF_MIGRATE_ON_START=false (a Kubernetes Job, the `migrate` compose service)."""
+    import logging
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
+    engine = _make_engine(config.settings.db_url)
+    try:
+        migrate(engine)
+        logging.getLogger("acf.migrate").info("Database schema is at revision %s", schema_revision(engine))
+    finally:
+        engine.dispose()
 
 
 # Columns holding secrets: (table, column) pairs typed EncryptedText.
@@ -291,6 +357,7 @@ def encrypt_existing() -> int:
     assert _engine is not None
     done = 0
     with _engine.begin() as conn:
+        lock_startup(conn)  # processes starting together would update the same rows, in any order
         for table, col in SECRET_COLUMNS:
             rows = conn.execute(text(f"SELECT id, {col} FROM {table} WHERE {col} IS NOT NULL AND {col} != ''"))
             checked = False

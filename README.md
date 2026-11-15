@@ -168,6 +168,11 @@ Across several machines, every app process needs the same PostgreSQL, Redis and 
 folder at the same path (shared storage), because sandboxes mount workspaces from the Docker host. Details:
 [architecture](docs/architecture.md#several-app-processes-backendacfbuspy).
 
+Upgrades migrate the database first: the `migrate` service runs `acf-migrate` and the app starts once it
+has finished. Processes that start together take turns on the schema, so a rolling deploy can also leave
+it to them. Where a deploy tool runs migrations as their own step (a Kubernetes Job or a Helm hook), run
+`acf-migrate` there and set `ACF_MIGRATE_ON_START=false` on the app.
+
 ## Configuration
 
 Environment variables. Users choose models in **Settings → Models**: their own key and address per provider,
@@ -194,6 +199,7 @@ Each chat can switch model and effort from its message box.
 | `ACF_AUTO_TITLES` | `true` | After a chat's first reply, the chat's model names it in a few words (`false`: chats keep their first message as title) |
 | `ACF_SKILL_ARCHIVE_DAYS` | `30` | Skills not read for this many days move to `skills/.archive/` (`0` = never; `pinned: true` in a skill's frontmatter keeps it) |
 | `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
+| `ACF_MIGRATE_ON_START` | `true` | Each app process brings the database schema up to date as it starts. `false`: run `acf-migrate` first (a Kubernetes Job, say), and a process that finds an older schema exits with an error naming it |
 | `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |
 | `ACF_ADMIN_EMAIL` / `ACF_ADMIN_PASSWORD` | – | Main account, created at startup; its password is reset to this value (and its sessions signed out) when it changes |
 | `ACF_ADMIN_NAME` | email name | Display name for the main account |

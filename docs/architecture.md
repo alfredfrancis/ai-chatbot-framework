@@ -200,7 +200,13 @@ tool. Other app features the agent should reach belong there as tools.
 
 ## Database migrations (`backend/acf/migrations/`)
 
-Alembic, run by `db.migrate()` on every start (`init_db`), on SQLite and PostgreSQL. `0001_baseline` is the
+Alembic, run by `db.migrate()` on every start (`init_db`), on SQLite and PostgreSQL, or by the `acf-migrate`
+command (`db.main`; the `migrate` compose service, a Kubernetes Job). With `ACF_MIGRATE_ON_START=false` the
+app only checks that the schema is at the newest migration and exits with an error naming `acf-migrate`
+when it isn't. A migration runs in one transaction under a PostgreSQL advisory lock (`db.lock_startup`), so
+runs that overlap, on any host and with or without Redis, take turns: the next one finds nothing to do.
+A run that dies halfway is rolled back by PostgreSQL, lock included. The other startup writes, stored
+secrets (`encrypt_existing`) and the main account, take the same lock. `0001_baseline` is the
 schema older versions made with `create_all`; a database that has those tables but no `alembic_version` is
 stamped at the baseline and then upgraded, so existing installs keep their data. Write a migration with
 `make migration m="…"` (autogenerate, `render_as_batch` for SQLite) and review it;
