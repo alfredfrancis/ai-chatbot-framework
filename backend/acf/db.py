@@ -187,7 +187,7 @@ class Task(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_status: Mapped[str] = mapped_column(String(20), default="")  # ok | error | running
+    last_status: Mapped[str] = mapped_column(String(20), default="")  # ok | error | running | stopped
     last_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     project_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)  # its runs are chats in it
     # The model ("provider:model") its runs use; "" = the user's default. E.g. a small local model for background jobs.

@@ -26,7 +26,7 @@ import logging
 import time
 import uuid
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from acf import config
@@ -117,6 +117,7 @@ class LocalBus:
         self._locks: set[str] = set()
         self._jobs: dict[str, int] = {}
         self._used: dict[int, float] = {}
+        self._seen: dict[str, tuple[float, float]] = {}  # name -> (first seen, forget after), epoch seconds
 
     async def start(self) -> None:
         pass
@@ -193,6 +194,10 @@ class LocalBus:
     async def unlock(self, name: str) -> None:
         self._locks.discard(name)
 
+    async def locked(self, names: Iterable[str]) -> set[str]:
+        """The ones of these locks that a process holds."""
+        return {n for n in names if n in self._locks}
+
     @contextlib.asynccontextmanager
     async def hold(self, name: str, timeout: float = 600):
         """Wait for a lock, hold it for the block."""
@@ -225,6 +230,20 @@ class LocalBus:
     async def last_used(self, user_ids: list[int]) -> dict[int, float]:
         """When each user's sandbox was last in use (epoch seconds), for the users with a record."""
         return {u: self._used[u] for u in user_ids if u in self._used}
+
+    # -- sightings: "since when has any process seen this?", to act only on a state that lasts
+    async def seen(self, name: str, ttl: float) -> float:
+        """Record a sighting of `name` and return the first one's time (epoch seconds). Sightings are
+        forgotten `ttl` seconds after the first, or by `forget`."""
+        now = time.time()
+        first = self._seen.get(name)
+        if first is None or first[1] <= now:
+            first = self._seen[name] = (now, now + ttl)
+        return first[0]
+
+    async def forget(self, names: Iterable[str]) -> None:
+        for name in names:
+            self._seen.pop(name, None)
 
 
 # Compare-and-set helpers: only the holder may refresh or drop a key.
@@ -441,10 +460,20 @@ class RedisBus(LocalBus):
 
     # -- locks
     async def lock(self, name: str) -> bool:
-        return await self._take_key(self.k("lock", name), self.replica)
+        key = self.k("lock", name)
+        if key in self._held:  # held here already: one holder, as in LocalBus
+            return False
+        return await self._take_key(key, self.replica)
 
     async def unlock(self, name: str) -> None:
         await self._drop_key(self.k("lock", name))
+
+    async def locked(self, names: Iterable[str]) -> set[str]:
+        names = list(names)
+        pipe = self.r.pipeline(transaction=False)
+        for n in names:
+            pipe.exists(self.k("lock", n))
+        return {n for n, held in zip(names, await pipe.execute(), strict=True) if held}
 
     # -- background jobs
     async def add_job(self, chat_id: int, job_id: str) -> None:
@@ -479,6 +508,18 @@ class RedisBus(LocalBus):
             return {}
         values = await self.r.hmget(self.k("used"), [str(u) for u in user_ids])
         return {u: float(v) for u, v in zip(user_ids, values, strict=True) if v is not None}
+
+    async def seen(self, name: str, ttl: float) -> float:
+        key = self.k("seen", name)
+        pipe = self.r.pipeline(transaction=False)
+        pipe.set(key, repr(time.time()), nx=True, px=int(ttl * 1000))
+        pipe.get(key)
+        return float((await pipe.execute())[1])
+
+    async def forget(self, names: Iterable[str]) -> None:
+        keys = [self.k("seen", n) for n in names]
+        if keys:
+            await self.r.delete(*keys)
 
 
 _bus: LocalBus | None = None

@@ -73,6 +73,21 @@ async def test_sandbox_use_is_shared(redis_url):
         assert set(await a.last_used([1, 2])) == {1} and (await a.last_used([1]))[1] > first
 
 
+@pytest.mark.parametrize("kind", ["local", "redis"])
+async def test_a_lock_has_one_holder_within_a_process_too(kind, request):
+    """A second lock() in the same process fails: else one unlock would free the lock for both holders."""
+    async with contextlib.AsyncExitStack() as stack:
+        if kind == "local":
+            b = bus.LocalBus()
+        else:
+            b, _ = await stack.enter_async_context(two_buses(request.getfixturevalue("redis_url")))
+        assert await b.lock("task:1") and await b.locked(["task:1", "task:2"]) == {"task:1"}
+        assert not await b.lock("task:1")
+        await b.unlock("task:1")
+        assert await b.locked(["task:1"]) == set()
+        assert await b.lock("task:1")
+
+
 async def test_inbox_is_shared_and_read_once(redis_url):
     async with two_buses(redis_url) as (a, b):
         await a.push(4, {"kind": "text", "text": "one"})
@@ -175,3 +190,17 @@ async def test_calls_work_again_once_redis_drops_its_connections(redis_url):
         await asyncio.sleep(0.2)
         await a.push(8, {"kind": "text", "text": "after"})
         assert [i["text"] for i in await a.take(8)] == ["before", "after"]
+
+
+@pytest.mark.parametrize("kind", ["local", "redis"])
+async def test_a_sighting_keeps_its_first_time_until_forgotten(kind, request):
+    async with contextlib.AsyncExitStack() as stack:
+        if kind == "local":
+            a = b = bus.LocalBus()
+        else:
+            a, b = await stack.enter_async_context(two_buses(request.getfixturevalue("redis_url")))
+        first = await a.seen("free:task:1", ttl=60)
+        await asyncio.sleep(0.01)
+        assert await b.seen("free:task:1", ttl=60) == first
+        await b.forget(["free:task:1", "free:task:2"])
+        assert await a.seen("free:task:1", ttl=60) > first

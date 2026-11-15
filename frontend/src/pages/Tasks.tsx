@@ -215,10 +215,10 @@ export default function TasksPage() {
   };
   const badge = (t: Task) =>
     t.last_status === "running" ? <span className="badge warning">Running</span>
-      : isDone(t) ? <span className="badge">{t.last_status === "error" ? "Failed" : "Done"}</span>
+      : isDone(t) ? <span className="badge">{t.last_status === "error" ? "Failed" : t.last_status === "stopped" ? "Stopped" : "Done"}</span>
       : !t.enabled ? <span className="badge">Paused</span>
       : t.last_status === "error" ? <span className="badge danger">Failed</span>
-      : t.last_status === "running" ? <span className="badge warning">Running</span>
+      : t.last_status === "stopped" ? <span className="badge">Stopped</span>
       : null; // on and nothing to report: the switch beside it already says so
 
   return (

@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { lastAssistant, nav, openSteps, say, shot, signUp } from "./helpers";
+import { APPS, lastAssistant, nav, openSteps, say, shot, signUp, startApp, stopApp } from "./helpers";
+
+// Every app process comes back up even when a test that stops one fails halfway.
+test.afterEach(async () => { await Promise.all(APPS.map((n) => startApp(n))); });
 
 test("create, run, pause and delete a recurring task", async ({ page }) => {
   await signUp(page);
@@ -131,4 +134,30 @@ test("a task runs on a model of its own", async ({ page }) => {
   // A new chat is still on the default model.
   await nav(page).getByRole("link", { name: "New chat" }).click();
   await expect(page.getByLabel("Model", { exact: true })).toHaveValue("anthropic:claude-opus-5-5");
+});
+
+test("a task whose server dies mid-run shows as stopped", async ({ page }) => {
+  test.setTimeout(150_000); // with Redis the dead process's lock lasts its TTL (30 s), then recovery waits bus_ttl/2
+  await signUp(page);
+  await nav(page).getByRole("link", { name: "Tasks" }).click();
+  await page.getByRole("button", { name: "New task" }).click();
+  await page.getByLabel("Name").fill("Long report");
+  await page.getByLabel("What should the agent do?").fill("run: sleep 120; echo too-late");
+  await page.getByLabel("Repeat").selectOption("hourly");
+  await page.getByRole("button", { name: "Create task" }).click();
+  const row = page.getByTestId("task-Long report");
+  await row.getByRole("button", { name: "Run now" }).click();
+  await expect(page.getByText("Working").first()).toBeVisible();
+
+  await Promise.all(APPS.map((n) => stopApp(n, "SIGKILL")));
+  await Promise.all(APPS.map((n) => startApp(n)));
+  await page.goto("/tasks");
+  await expect(async () => {
+    await page.reload();
+    await expect(row).toContainText("Stopped", { timeout: 1000 });
+  }).toPass({ timeout: 90_000, intervals: [2000] });
+  await expect(row).toContainText("Next");
+  await shot(page, "12e-task-stopped");
+  await row.getByRole("link", { name: "View result" }).click();
+  await expect(page.getByText("The server running this task stopped before the agent finished.")).toBeVisible();
 });

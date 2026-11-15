@@ -4,12 +4,14 @@ A task made for a project (`project_id`) runs as a chat in that project, with th
 A task with a `model` runs on that model (e.g. a small local one for background jobs); "" = the user's default.
 
 Every app process runs the scheduler. A due task is claimed by moving its next_run_at with a
-compare-and-set update, so exactly one process starts it."""
+compare-and-set update, so exactly one process starts it. A run whose process died is marked stopped on
+the next tick of any process."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -19,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from acf import bus, config, logs, models, projects
 from acf.agent import loop as agent
-from acf.db import Chat, Task, User, session_scope, utcnow
+from acf.db import Chat, Message, Task, User, session_scope, utcnow
 
 log = logging.getLogger("acf.scheduler")
 
@@ -154,6 +156,35 @@ def update(task: Task, fields: dict[str, Any]) -> Task:
     return task
 
 
+# The database is reached from a thread (asyncio.to_thread): a database that stops answering then holds up
+# the scheduler, not the event loop with every request and the liveness check on it.
+
+
+def _open_chat(task_id: int) -> tuple[User, int, str] | None:
+    """A new chat for a run of the task: (user, chat id, prompt), or None if the task is gone."""
+    with session_scope() as db:
+        task = db.get(Task, task_id)
+        if task is None:
+            return None
+        user = db.get(User, task.user_id)
+        stamp = datetime.now(ZoneInfo(task.timezone)).strftime("%d %b %H:%M")
+        title = f"{task.name[:180]} · {stamp}"
+        chat = Chat(
+            user_id=task.user_id, title=title, task_id=task.id, project_id=task.project_id, model=task.model or ""
+        )
+        db.add(chat)
+        db.flush()
+        return user, chat.id, task.prompt
+
+
+def _set(task_id: int, **fields: Any) -> None:
+    with session_scope() as db:
+        task = db.get(Task, task_id)
+        if task:
+            for k, v in fields.items():
+                setattr(task, k, v)
+
+
 async def run_task(task_id: int) -> int | None:
     """Run a task now. Returns the chat id, or None if it is already running (in any process)."""
     lock = f"task:{task_id}"
@@ -161,35 +192,20 @@ async def run_task(task_id: int) -> int | None:
     if not await bus.current().lock(lock):
         return None
     try:
-        with session_scope() as db:
-            task = db.get(Task, task_id)
-            if task is None:
-                return None
-            token = logs.bind(task_id=task.id, user_id=task.user_id)
-            user = db.get(User, task.user_id)
-            stamp = datetime.now(ZoneInfo(task.timezone)).strftime("%d %b %H:%M")
-            title = f"{task.name[:180]} · {stamp}"
-            chat = Chat(
-                user_id=task.user_id, title=title, task_id=task.id, project_id=task.project_id, model=task.model or ""
-            )
-            db.add(chat)
-            db.flush()
-            chat_id, prompt = chat.id, task.prompt
+        opened = await asyncio.to_thread(_open_chat, task_id)
+        if opened is None:
+            return None
+        user, chat_id, prompt = opened
+        token = logs.bind(task_id=task_id, user_id=user.id)
         # Start the run before the task says "running", so its chat already shows as running.
         feed, _ = await agent.start(user, chat_id, prompt)
-        with session_scope() as db:
-            task = db.get(Task, task_id)
-            if task:
-                task.last_status, task.last_run_at, task.last_chat_id = "running", utcnow(), chat_id
+        await asyncio.to_thread(_set, task_id, last_status="running", last_run_at=utcnow(), last_chat_id=chat_id)
         try:
             ok = bool((await asyncio.shield(feed.wait())).get("ok"))
         except Exception:  # noqa: BLE001
             log.exception("task %s failed", task_id)
             ok = False
-        with session_scope() as db:
-            task = db.get(Task, task_id)
-            if task:
-                task.last_status = "ok" if ok else "error"
+        await asyncio.to_thread(_set, task_id, last_status="ok" if ok else "error")
         return chat_id
     finally:
         await bus.current().unlock(lock)
@@ -197,9 +213,59 @@ async def run_task(task_id: int) -> int | None:
             logs.reset(token)
 
 
-async def tick() -> list[int]:
-    """Start every due task. Returns the ids started."""
-    now = utcnow()
+TASK_STOPPED = "The server running this task stopped before the agent finished."
+
+
+def _left_running() -> list[tuple[int, int | None]]:
+    with session_scope() as db:
+        return [tuple(r) for r in db.query(Task.id, Task.last_chat_id).filter(Task.last_status == "running").all()]
+
+
+def _stop(task_id: int, chat_id: int | None) -> dict[str, Any] | None:
+    """Mark the run in `chat_id` stopped and leave a note in its chat; the note, or None if that run is not
+    the task's running one (any more). The compare-and-set makes it happen once, whoever else tries."""
+    with session_scope() as db:
+        stopped = (
+            db.query(Task)
+            .filter(Task.id == task_id, Task.last_status == "running", Task.last_chat_id == chat_id)
+            .update({Task.last_status: "stopped"}, synchronize_session=False)
+        )
+        task = db.get(Task, task_id)
+        if not stopped or task is None or chat_id is None or db.get(Chat, chat_id) is None:
+            return None
+        again = " It runs again at its next scheduled time." if task.schedule else " Use Run now to run it again."
+        note = Message(chat_id=chat_id, role="note", content=TASK_STOPPED + again)
+        db.add(note)
+        db.flush()
+        return note.to_dict()
+
+
+async def recover() -> None:
+    """Mark stopped the tasks whose runner died: they say "running", but no process holds their lock.
+    A runner takes the lock before it says "running" and lets go after it says how the run ended, so a
+    lock that stays free with "running" means its process is gone. "Stays": after a Redis restart every
+    lock is briefly free until its holder's heartbeat (every bus_ttl/3) takes it back, so a run is only
+    stopped once its lock has been seen free for bus_ttl/2. A run that starts meanwhile is a new chat."""
+    b = bus.current()
+    running = await asyncio.to_thread(_left_running)
+    names = {task_id: f"task:{task_id}" for task_id, _ in running}
+    held = await b.locked(names.values())
+    await b.forget(f"free:{names[task_id]}:{chat_id}" for task_id, chat_id in running if names[task_id] in held)
+    grace, interval = config.settings.bus_ttl / 2, config.settings.scheduler_interval
+    for task_id, chat_id in running:
+        if names[task_id] in held:
+            continue
+        since = await b.seen(f"free:{names[task_id]}:{chat_id}", ttl=grace * 4 + 3 * interval)
+        if time.time() - since < grace:
+            continue
+        note = await asyncio.to_thread(_stop, task_id, chat_id)
+        if note and chat_id is not None:
+            log.warning("task %s: its run in chat %s ended with its process; marked stopped", task_id, chat_id)
+            await agent._broadcast(chat_id, {"type": "message", "message": note})
+
+
+def _claim_due(now: datetime) -> list[int]:
+    """Claim every due task: only the process whose update moves next_run_at on starts it."""
     started = []
     with session_scope() as db:
         due = (
@@ -211,7 +277,6 @@ async def tick() -> list[int]:
         # one-off: it never runs again by itself
         after = {Task.next_run_at: None, Task.enabled: False} if run_at is not None else {}
         after = after or {Task.next_run_at: next_run(schedule, tz, now)}
-        # Claim it: only the process whose update moves next_run_at on starts it.
         with session_scope() as db:
             claimed = (
                 db.query(Task)
@@ -220,6 +285,13 @@ async def tick() -> list[int]:
             )
         if claimed:
             started.append(task_id)
+    return started
+
+
+async def tick() -> list[int]:
+    """Recover tasks a dead process left running, then start every due task. Returns the ids started."""
+    await recover()
+    started = await asyncio.to_thread(_claim_due, utcnow())
     for task_id in started:
         asyncio.create_task(run_task(task_id))
     return started

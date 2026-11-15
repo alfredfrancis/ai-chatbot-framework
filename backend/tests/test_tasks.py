@@ -1,7 +1,8 @@
+import asyncio
 import json
 from datetime import datetime, timedelta
 
-from acf import scheduler, workspace
+from acf import config, scheduler, workspace
 from acf.db import Task, User, session_scope, utcnow
 from tests.conftest import send
 
@@ -279,3 +280,141 @@ async def test_agent_picks_a_tasks_model(client, user):
     assert "Unknown model" in bad.final
     await send(client, chat_id, _call("update_task", task_id=task["id"], model=""))
     assert (await client.get("/api/tasks")).json()[0]["model"] == ""
+
+
+async def _left_running(client, **fields) -> tuple[int, int]:
+    """A task marked running for a chat, as a runner leaves it when its process dies mid-run. Recovery
+    acts at the first sighting of the free lock here (no grace); the grace has its own test."""
+    config.settings.bus_ttl = 0
+    body = {"name": "Report", "prompt": "hi", "schedule": "0 9 * * *", **fields}
+    r = await client.post("/api/tasks", json=body)
+    assert r.status_code == 200, r.text
+    chat_id = (await client.post("/api/chats", json={})).json()["id"]
+    with session_scope() as db:
+        t = db.get(Task, r.json()["id"])
+        t.last_status, t.last_run_at, t.last_chat_id = "running", utcnow(), chat_id
+    return r.json()["id"], chat_id
+
+
+async def _task(client, task_id: int) -> dict:
+    return next(x for x in (await client.get("/api/tasks")).json() if x["id"] == task_id)
+
+
+async def _notes(client, chat_id: int) -> list[str]:
+    return [m["content"] for m in (await client.get(f"/api/chats/{chat_id}")).json()["messages"] if m["role"] == "note"]
+
+
+async def test_dead_runners_task_is_marked_stopped(client, user):
+    task_id, chat_id = await _left_running(client)
+    await scheduler.tick()
+    assert (await _task(client, task_id))["last_status"] == "stopped"
+    await scheduler.tick()
+    assert await _notes(client, chat_id) == [
+        "The server running this task stopped before the agent finished. It runs again at its next scheduled time."
+    ]
+
+
+async def test_a_lock_free_only_briefly_does_not_stop_a_run(client, user):
+    """After a Redis restart every lock is free until its holder's heartbeat takes it back: a run is stopped
+    only once its lock has stayed free for bus_ttl/2, and a lock seen held again starts the wait over."""
+    from acf import bus
+
+    task_id, chat_id = await _left_running(client)
+    config.settings.bus_ttl = 0.6
+    await scheduler.tick()  # free: first sighting
+    assert (await _task(client, task_id))["last_status"] == "running"
+    assert await bus.current().lock(f"task:{task_id}")  # the heartbeat took it back
+    await scheduler.tick()
+    await bus.current().unlock(f"task:{task_id}")
+    await asyncio.sleep(0.35)
+    await scheduler.tick()  # free again, but the earlier sighting was forgotten
+    assert (await _task(client, task_id))["last_status"] == "running"
+    await asyncio.sleep(0.35)
+    await scheduler.tick()
+    assert (await _task(client, task_id))["last_status"] == "stopped"
+    assert len(await _notes(client, chat_id)) == 1
+
+
+async def test_task_a_live_process_runs_is_not_marked_stopped(client, user):
+    """A runner takes the task's lock before it says "running": while the lock is held, the run is alive."""
+    from acf import bus
+
+    task_id, chat_id = await _left_running(client)
+    assert await bus.current().lock(f"task:{task_id}")
+    try:
+        await scheduler.tick()
+    finally:
+        await bus.current().unlock(f"task:{task_id}")
+    assert (await _task(client, task_id))["last_status"] == "running"
+    assert await _notes(client, chat_id) == []
+
+
+async def test_a_run_that_starts_while_recovery_looks_is_not_marked_stopped(client, user, monkeypatch):
+    """Recovery finds the lock free, then a new run takes it and says "running" for its own chat."""
+    from acf import bus
+
+    task_id, old_chat = await _left_running(client)
+    new_chat = (await client.post("/api/chats", json={})).json()["id"]
+    free = bus.current().locked
+
+    async def new_run_starts_right_after(names) -> set[str]:
+        was = await free(names)
+        with session_scope() as db:
+            db.get(Task, task_id).last_chat_id = new_chat
+        return was
+
+    monkeypatch.setattr(bus.current(), "locked", new_run_starts_right_after)
+    await scheduler.tick()
+    assert (await _task(client, task_id))["last_status"] == "running"
+    assert await _notes(client, old_chat) == [] and await _notes(client, new_chat) == []
+
+
+async def test_stopped_one_off_task_is_not_run_again(client, user):
+    day = (utcnow() + timedelta(days=2)).date().isoformat()
+    task_id, chat_id = await _left_running(client, schedule="", run_at=f"{day}T09:30")
+    with session_scope() as db:
+        t = db.get(Task, task_id)
+        t.enabled, t.next_run_at = False, None  # as the tick that started it left it
+    assert task_id not in await scheduler.tick()
+    task = await _task(client, task_id)
+    assert task["last_status"] == "stopped" and not task["enabled"] and task["next_run_at"] is None
+    assert (await _notes(client, chat_id))[0].endswith("Use Run now to run it again.")
+
+
+async def test_processes_recovering_at_once_write_one_note(client, user):
+    import asyncio
+
+    task_id, chat_id = await _left_running(client)
+    await asyncio.gather(scheduler.tick(), scheduler.tick(), scheduler.tick())
+    assert (await _task(client, task_id))["last_status"] == "stopped"
+    assert len(await _notes(client, chat_id)) == 1
+
+
+async def test_a_hung_database_does_not_stop_the_event_loop(client, user):
+    """The scheduler waits for the database in a thread, so liveness and other requests go on meanwhile."""
+    import asyncio
+    import threading
+    import time
+
+    from sqlalchemy import event
+
+    from acf import db
+
+    hang = threading.Event()
+
+    def slow(conn, cursor, statement, *args):
+        if hang.is_set() and "tasks" in statement:
+            time.sleep(1.0)
+
+    event.listen(db._engine, "before_cursor_execute", slow)
+    hang.set()
+    try:
+        tick = asyncio.create_task(scheduler.tick())
+        started = time.monotonic()
+        r = await client.get("/api/health")
+        answered = time.monotonic() - started
+        await tick
+    finally:
+        hang.clear()
+        event.remove(db._engine, "before_cursor_execute", slow)
+    assert r.status_code == 200 and answered < 0.5, answered

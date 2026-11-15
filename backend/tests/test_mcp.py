@@ -174,11 +174,10 @@ async def test_oauth_authorize_params(client, user, oauth_mcp_url):
     assert q["state"] != ["evil"] and q["redirect_uri"] == [redirect]
 
 
-async def test_token_refresh(client, user, oauth_mcp_url):
-    """An expired access token is refreshed transparently."""
+async def _signed_in_and_expired(client, user, oauth_mcp_url) -> str:
+    """Sign in to the notes server, then let the access token expire. Returns the expired token."""
     import time
 
-    from acf import oauth
     from acf.db import OAuthToken, session_scope
 
     cfg = {"mcpServers": {"notes": {"url": f"{oauth_mcp_url}/mcp"}}}
@@ -198,8 +197,31 @@ async def test_token_refresh(client, user, oauth_mcp_url):
         old = tokens["access_token"]
         tokens["expires_at"] = time.time() - 10
         row.put("tokens_json", tokens)
+    return old
+
+
+async def test_token_refresh(client, user, oauth_mcp_url):
+    """An expired access token is refreshed transparently."""
+    from acf import oauth
+
+    old = await _signed_in_and_expired(client, user, oauth_mcp_url)
     new = await oauth.access_token(user["id"], "notes", f"{oauth_mcp_url}/mcp")
     assert new and new != old
+
+
+async def test_two_refreshes_call_the_token_endpoint_once(client, user, oauth_mcp_url):
+    """Two requests (or processes) find the token expired at once. The provider rotates refresh tokens, so a
+    second refresh with the same one would fail and sign the user out."""
+    import asyncio
+
+    from acf import oauth
+    from tests.fakes import oauth_mcp
+
+    old = await _signed_in_and_expired(client, user, oauth_mcp_url)
+    before = len(oauth_mcp.REFRESHES)
+    a, b = await asyncio.gather(*(oauth.access_token(user["id"], "notes", f"{oauth_mcp_url}/mcp") for _ in "ab"))
+    assert len(oauth_mcp.REFRESHES) - before == 1
+    assert a and a == b and a != old
 
 
 async def test_unreachable_remote_server_has_friendly_error(client, user):

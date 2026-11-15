@@ -24,6 +24,7 @@ CLIENTS: dict[str, dict] = {}
 CODES: dict[str, dict] = {}
 TOKENS: set[str] = set()
 REFRESH: dict[str, str] = {}
+REFRESHES: list[str] = []  # every refresh request, by the refresh token it sent (GET /_refreshes)
 
 mcp = MCPServer("notes")
 
@@ -94,7 +95,10 @@ async def token(request: Request):
         if challenge != info["challenge"] or form.get("redirect_uri") != info["redirect_uri"]:
             return JSONResponse({"error": "invalid_grant"}, status_code=400)
     elif form.get("grant_type") == "refresh_token":
-        if str(form.get("refresh_token")) not in REFRESH:
+        REFRESHES.append(str(form.get("refresh_token")))
+        print(f"oauth_mcp: refresh #{len(REFRESHES)}", flush=True)
+        # Rotating refresh tokens, as many providers do: each one works once.
+        if REFRESH.pop(str(form.get("refresh_token")), None) is None:
             return JSONResponse({"error": "invalid_grant"}, status_code=400)
     else:
         return JSONResponse({"error": "unsupported_grant_type"}, status_code=400)
@@ -102,6 +106,10 @@ async def token(request: Request):
     TOKENS.add(access)
     REFRESH[refresh] = access
     return JSONResponse({"access_token": access, "token_type": "Bearer", "expires_in": 3600, "refresh_token": refresh})
+
+
+async def refreshes(request: Request):
+    return JSONResponse({"count": len(REFRESHES)})
 
 
 class RequireBearer:
@@ -141,6 +149,7 @@ app = Starlette(
         Route("/register", register, methods=["POST"]),
         Route("/authorize", authorize),
         Route("/token", token, methods=["POST"]),
+        Route("/_refreshes", refreshes),
     ],
     lifespan=lambda _app: mcp_app.router.lifespan_context(mcp_app),
 )
