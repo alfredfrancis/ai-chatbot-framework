@@ -63,6 +63,44 @@ async def test_a_dead_process_frees_its_chats_locks_and_jobs(redis_url):
         assert await b.jobs(3) == set()
 
 
+async def test_a_lease_released_while_the_heartbeat_takes_it_back_stays_free(redis_url, monkeypatch):
+    """The lease expired while this process was cut off; the heartbeat takes it back, and the run ends
+    while that SET is on its way. No one holds the lease, so no one may find it taken."""
+    async with two_buses(redis_url, ttl=3) as (a, b):
+        assert await a.claim(5, "run-a")
+        await a.r.delete(a.k("lease", 5))
+        real_set = a.r.set
+
+        async def run_ends_meanwhile(key, value, **kw):
+            if key == a.k("lease", 5):
+                await a.release(5, "run-a")
+            return await real_set(key, value, **kw)
+
+        monkeypatch.setattr(a.r, "set", run_ends_meanwhile)
+        await asyncio.sleep(1.5)  # one beat
+        assert await b.owner(5) is None
+        assert await b.claim(5, "run-b")
+
+
+async def test_the_heartbeat_outlives_a_redis_error(redis_url, monkeypatch):
+    async with two_buses(redis_url, ttl=0.6) as (a, b):
+        assert await a.claim(6, "run-a")
+        await a.r.delete(a.k("lease", 6))  # expired while cut off: the next beat takes it back
+        real_set, failures = a.r.set, [redis.ConnectionError("Redis went away")]
+
+        async def flaky(key, value, **kw):
+            if failures:
+                raise failures.pop()
+            return await real_set(key, value, **kw)
+
+        monkeypatch.setattr(a.r, "set", flaky)
+        await asyncio.sleep(1.0)  # five beats: the first fails
+        assert not failures
+        assert await b.owner(6) == "run-a"
+        await asyncio.sleep(1.0)  # still refreshed, past its TTL
+        assert await b.owner(6) == "run-a"
+
+
 async def test_sandbox_use_is_shared(redis_url):
     async with two_buses(redis_url) as (a, b):
         assert await b.last_used([1, 2]) == {}

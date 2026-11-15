@@ -268,7 +268,8 @@ class RedisBus(LocalBus):
         self.prefix, self.ttl_ms = prefix, int(ttl * 1000)
         # RESP2: with RESP3 the async pool skips its check for connections Redis closed (a restart), and
         # hands each one out once more, to fail.
-        self.r = aredis.Redis.from_url(url, decode_responses=True, protocol=2)
+        # A connect that hangs fails within a beat, so the next beat tries again before leases expire.
+        self.r = aredis.Redis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=ttl / 3)
         self._refresh = self.r.register_script(_REFRESH)
         self._release = self.r.register_script(_RELEASE)
         self._held: dict[str, str] = {}  # key -> value, refreshed while this process lives
@@ -326,27 +327,33 @@ class RedisBus(LocalBus):
     async def _heartbeat(self) -> None:
         while True:
             await asyncio.sleep(self.ttl_ms / 3000)
-            held = list(self._held.items())
-            if not held:
-                continue
             try:
-                pipe = self.r.pipeline()
-                for key, value in held:
-                    await self._refresh(keys=[key], args=[value, self.ttl_ms], client=pipe)
-                results = await pipe.execute()
+                await self._beat()
             except Exception:  # noqa: BLE001 - Redis away for a moment: try again next beat
                 log.exception("bus heartbeat failed")
+
+    async def _beat(self) -> None:
+        held = list(self._held.items())
+        if not held:
+            return
+        pipe = self.r.pipeline()
+        for key, value in held:
+            await self._refresh(keys=[key], args=[value, self.ttl_ms], client=pipe)
+        results = await pipe.execute()
+        for (key, value), ok in zip(held, results, strict=True):
+            if ok or self._held.get(key) != value:
                 continue
-            for (key, value), ok in zip(held, results, strict=True):
-                if ok or self._held.get(key) != value:
-                    continue
-                # Expired while this process was cut off. Take it back if no one else has; otherwise
-                # another process may run this chat now, so stop here rather than run it twice.
-                if not await self.r.set(key, value, nx=True, px=self.ttl_ms):
-                    log.error("lost %s to another process", key)
-                    self._held.pop(key, None)
-                    if key.startswith(self.k("lease")):
-                        _dispatch({"op": "lost", "chat_id": int(key.rsplit(":", 1)[1])})
+            # Expired while this process was cut off. Take it back if no one else has; otherwise
+            # another process may run this chat now, so stop here rather than run it twice.
+            taken = await self.r.set(key, value, nx=True, px=self.ttl_ms)
+            if self._held.get(key) != value:  # released while the SET was on its way: no one holds it
+                if taken:
+                    await self._release(keys=[key], args=[value])
+            elif not taken:
+                log.error("lost %s to another process", key)
+                self._held.pop(key, None)
+                if key.startswith(self.k("lease")):
+                    _dispatch({"op": "lost", "chat_id": int(key.rsplit(":", 1)[1])})
 
     # -- leases
     async def claim(self, chat_id: int, run_id: str) -> bool:
