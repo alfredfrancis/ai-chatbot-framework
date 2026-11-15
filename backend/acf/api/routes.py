@@ -12,7 +12,21 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import __version__, apps, artifacts, config, mcp_presets, models, oauth, projects, scheduler, skills, workspace
+from acf import (
+    __version__,
+    apps,
+    artifacts,
+    bus,
+    config,
+    mcp_presets,
+    models,
+    oauth,
+    projects,
+    scheduler,
+    skills,
+    workspace,
+)
+from acf import db as database
 from acf.agent import loop as agent
 from acf.agent import review, transcripts
 from acf.auth import (
@@ -63,7 +77,40 @@ def _set_cookie(resp: Response, token: str) -> None:
 
 @router.get("/health")
 def health() -> dict:
+    """Liveness: the process answers. Never touches the database or the bus."""
     return {"ok": True, "version": __version__}
+
+
+READY_TIMEOUT = 2.0
+_probe: asyncio.Task | None = None
+
+
+async def _check_db() -> None:
+    """One probe at a time: a database that hangs must not pile up threads, one per call."""
+    global _probe
+    if _probe is None or _probe.done() or _probe.get_loop() is not asyncio.get_running_loop():
+        _probe = asyncio.ensure_future(asyncio.to_thread(database.ping))
+    await asyncio.shield(_probe)
+
+
+async def _check(name: str, probe) -> tuple[str, str]:
+    try:
+        await asyncio.wait_for(probe(), READY_TIMEOUT)
+        return name, "ok"
+    except Exception:  # noqa: BLE001 - any failure, including the timeout, means not ready
+        return name, "error"
+
+
+@router.get("/health/ready")
+async def ready(request: Request, response: Response) -> dict:
+    """Readiness: take traffic only when the database and the shared bus answer, and not while draining."""
+    if getattr(request.app.state, "draining", False):
+        response.status_code = 503
+        return {"draining": True}
+    checks = dict(await asyncio.gather(_check("db", _check_db), _check("bus", bus.current().ping)))
+    if "error" in checks.values():
+        response.status_code = 503
+    return checks
 
 
 @router.get("/auth/config")

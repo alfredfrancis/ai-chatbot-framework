@@ -308,6 +308,13 @@ def encrypt_existing() -> int:
     return done
 
 
+def ping() -> None:
+    """Raise if the database does not answer a trivial query."""
+    assert _engine is not None, "init_db() not called"
+    with _engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+
+
 @contextmanager
 def session_scope() -> Iterator[Session]:
     assert _SessionLocal is not None, "init_db() not called"

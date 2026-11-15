@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import signal
+import threading
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 
@@ -19,8 +21,26 @@ from acf.api.routes import router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
+def drain_on_signal(app: FastAPI) -> None:
+    """Mark the app as draining the moment SIGTERM/SIGINT arrives, ahead of uvicorn's slower shutdown, so
+    /api/health/ready tells the load balancer to stop sending traffic while running agents finish."""
+    if threading.current_thread() is not threading.main_thread():
+        return  # tests serve the app from a thread
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        previous = signal.getsignal(sig)
+
+        def handler(signum, frame, previous=previous):
+            app.state.draining = True
+            if callable(previous):
+                previous(signum, frame)
+
+        signal.signal(sig, handler)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.draining = False
+    drain_on_signal(app)
     await bus.current().start()
     # Processes starting together take turns: creating tables, the main account and the secret key file.
     async with bus.current().hold("startup", timeout=300):
@@ -29,6 +49,7 @@ async def lifespan(app: FastAPI):
             auth.ensure_admin(s)
     task = asyncio.create_task(scheduler.loop()) if config.settings.scheduler_enabled else None
     yield
+    app.state.draining = True
     if task:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):

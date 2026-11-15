@@ -122,6 +122,9 @@ class LocalBus:
     async def close(self) -> None:
         pass
 
+    async def ping(self) -> None:
+        """Raise if the shared state is out of reach (never, for one process)."""
+
     # -- leases: one run per chat
     def claim(self, chat_id: int, run_id: str) -> bool:
         if chat_id in self._leases:
@@ -259,6 +262,9 @@ class RedisBus(LocalBus):
         self._spawn(self._publisher())
         self._spawn(self._heartbeat())
         await asyncio.wait_for(self._ready.wait(), 10)
+
+    async def ping(self) -> None:
+        await self.ar.ping()
 
     async def close(self) -> None:
         for task in list(self._tasks):

@@ -139,7 +139,11 @@ version of the checkout you run it from. To build from source instead, run `dock
 Versions and upgrades: [docs/releasing.md](docs/releasing.md).
 
 **Data.** PostgreSQL runs in its own container (volume `postgres-data`); workspaces live in `./data`, or
-`ACF_DATA_PATH`. Back up both. Logs are rotated and the app has a health check.
+`ACF_DATA_PATH`. Back up both. Logs are rotated and the app has health checks:
+`/api/health` is liveness (the process answers) and `/api/health/ready` is readiness (200 with
+`{"db":"ok","bus":"ok"}` when the database and, with `ACF_REDIS_URL`, Redis answer within 2 s; 503 otherwise,
+and while the process is shutting down). Point a load balancer or a Kubernetes readiness probe at the ready
+route and a liveness probe at the live one.
 
 **Security.** Each user gets one sandbox container. The app runs as a non-root user and never touches the
 Docker socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containers with fixed,
