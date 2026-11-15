@@ -192,29 +192,37 @@ async def run_task(task_id: int) -> int | None:
         bus.current().unlock(lock)
 
 
-async def tick() -> list[int]:
-    """Start every due task. Returns the ids started."""
-    now = utcnow()
-    started = []
+def _claim_due(now: datetime) -> list[int]:
+    """Claim every task due at `now`; returns the ids this process claimed. Blocking: run it in a thread."""
     with session_scope() as db:
         due = (
             db.query(Task.id, Task.next_run_at, Task.schedule, Task.timezone, Task.run_at)
             .filter(Task.enabled.is_(True), Task.next_run_at.is_not(None), Task.next_run_at <= now)
             .all()
         )
+    claimed = []
     for task_id, due_at, schedule, tz, run_at in due:
         # one-off: it never runs again by itself
         after = {Task.next_run_at: None, Task.enabled: False} if run_at is not None else {}
         after = after or {Task.next_run_at: next_run(schedule, tz, now)}
         # Claim it: only the process whose update moves next_run_at on starts it.
         with session_scope() as db:
-            claimed = (
+            moved = (
                 db.query(Task)
                 .filter(Task.id == task_id, Task.next_run_at == due_at)
                 .update(after, synchronize_session=False)
             )
-        if claimed:
-            started.append(task_id)
+        if moved:
+            claimed.append(task_id)
+    return claimed
+
+
+async def tick() -> list[int]:
+    """Start every due task. Returns the ids started.
+
+    The database work runs in a thread: a database that accepts connections but stops answering must
+    not stall the event loop (and with it every request, health checks included)."""
+    started = await asyncio.to_thread(_claim_due, utcnow())
     for task_id in started:
         asyncio.create_task(run_task(task_id))
     return started
