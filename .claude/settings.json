@@ -5,9 +5,16 @@
         "source": "github",
         "repo": "pbakaus/impeccable"
       }
+    },
+    "pstack-claude": {
+      "source": {
+        "source": "github",
+        "repo": "michael-denyer/pstack-claude"
+      }
     }
   },
   "enabledPlugins": {
-    "impeccable@impeccable": true
+    "impeccable@impeccable": true,
+    "pstack@pstack-claude": true
   }
 }
