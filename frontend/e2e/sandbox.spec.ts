@@ -11,7 +11,7 @@ test("an idle computer sleeps and wakes on the next command, files intact", asyn
   execFileSync("docker", ["stop", "-t", "0", name]); // what the idle sweep does after ACF_SANDBOX_IDLE_MINUTES
   await page.reload();
   await expect(nav(page).getByTestId("sandbox-status")).toHaveText("Computer asleep");
-  await shot(page, "sandbox-asleep");
+  await shot(page, "86-sandbox-asleep");
 
   await say(page, "run: cat kept.txt");
   await expect(lastAssistant(page)).toContainText("Result: kept");
