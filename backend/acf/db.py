@@ -269,6 +269,8 @@ def migrate(engine=None) -> None:
     assert engine is not None
     cfg = _alembic_config()
     with engine.begin() as conn:
+        if conn.dialect.name == "sqlite":
+            conn.exec_driver_sql("BEGIN")  # pysqlite runs DDL outside the transaction: a failure would stay half done
         lock_startup(conn)
         cfg.attributes["connection"] = conn
         tables = set(inspect(conn).get_table_names())
@@ -351,38 +353,18 @@ def init_db() -> None:
     encrypt_existing()
 
 
-def _holds_encrypted_values(engine: Engine) -> bool:
-    """Whether any text column holds an encrypted value. Every column, not only today's secret columns: the
-    database can be at an older revision, which kept secrets in columns the models no longer have."""
-    from sqlalchemy import column, select, table
-
-    insp = inspect(engine)
-    with engine.connect() as conn:
-        for name in insp.get_table_names():
-            for col in insp.get_columns(name):
-                if not isinstance(col["type"], String):
-                    continue
-                c = column(col["name"])
-                query = select(c).select_from(table(name, c)).where(c.like(f"{secrets_box.PREFIX}%")).limit(1)
-                if conn.execute(query).first():
-                    return True
-    return False
-
-
 def main() -> None:
     """`acf-migrate`: bring the database schema up to date and exit. Run it before the app starts when the
     app runs with ACF_MIGRATE_ON_START=false (a Kubernetes Job, the `migrate` compose service)."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
     engine = _make_engine(config.settings.db_url)
+    secrets_box.may_create_key = False
     try:
-        if not secrets_box.has_key() and _holds_encrypted_values(engine):
-            raise SystemExit(
-                "acf-migrate: the database holds secrets encrypted with the app's key, and migrations may "
-                "need to read them. Set ACF_SECRET_KEY to the value the app runs with, then run it again."
-            )
         migrate(engine)
         logging.getLogger("acf.migrate").info("Database schema is at revision %s", schema_revision(engine))
+    except secrets_box.SecretKeyError as e:
+        raise SystemExit(str(e)) from None
     finally:
         engine.dispose()
 

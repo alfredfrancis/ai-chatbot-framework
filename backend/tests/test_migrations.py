@@ -171,6 +171,51 @@ def test_acf_migrate_refuses_to_run_without_the_key_that_encrypted_the_database(
     assert json.loads(secrets_box.decrypt(stored)) == {"openai": {"api_key": "sk-old", "base_url": ""}}
 
 
+def test_acf_migrate_never_makes_a_key_to_encrypt_plaintext_secrets(tmp_path, monkeypatch):
+    """0005 encrypts secrets stored in plain text: without ACF_SECRET_KEY acf-migrate stops before making a
+    key the app doesn't have (a Job's data folder goes with it), and the whole upgrade rolls back. With a
+    key file in the data folder (a local install) it uses that one."""
+    import json
+
+    from acf import secrets_box
+
+    url = f"sqlite:///{tmp_path / 'plain.db'}"
+    engine = sa.create_engine(url)
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0004")
+        conn.execute(
+            sa.text(
+                "INSERT INTO users (id, email, name, password_hash, created_at, llm_provider, llm_model, "
+                "llm_base_url, llm_api_key, mcp_config) "
+                "VALUES (1, 'a@b.c', '', 'x', '2026-01-01', 'openai', 'm', '', 'sk-PLAINTEXT', '')"
+            )
+        )
+    data = tmp_path / "data"
+    data.mkdir()
+    env = {**os.environ, "ACF_DB_URL": url, "ACF_DATA_DIR": str(data)}
+
+    refused = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert refused.returncode != 0, refused.stderr
+    assert "ACF_SECRET_KEY" in refused.stderr and "Traceback" not in refused.stderr, refused.stderr
+    assert not (data / "secret.key").exists()
+    assert db.schema_revision(engine) == "0004"
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT llm_api_key FROM users")).scalar_one() == "sk-PLAINTEXT"
+
+    secret = "local-key-file-that-is-long-enough-00000"
+    (data / "secret.key").write_text(secret)
+    migrated = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert migrated.returncode == 0, migrated.stderr
+    assert db.schema_revision(engine) == _head()
+    with engine.connect() as conn:
+        stored = conn.execute(sa.text("SELECT llm_connections FROM users")).scalar_one()
+    engine.dispose()
+    monkeypatch.setattr(config.settings, "secret_key", secret)
+    assert json.loads(secrets_box.decrypt(stored)) == {"openai": {"api_key": "sk-PLAINTEXT", "base_url": ""}}
+
+
 def _head() -> str:
     return ScriptDirectory.from_config(_config()).get_current_head()
 

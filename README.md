@@ -180,8 +180,9 @@ has finished. App processes also migrate when they start (`ACF_MIGRATE_ON_START`
 processes that start together take turns on the schema. Where a deploy tool runs migrations as their own
 step (a Kubernetes Job or a Helm hook), run `acf-migrate` there and set `ACF_MIGRATE_ON_START=false` on the
 app, which then refuses to start on an older schema. Give the Job the app's `ACF_DB_URL` and
-`ACF_SECRET_KEY`: migrations can decrypt and re-encrypt stored secrets, and without the key `acf-migrate`
-stops with a message.
+`ACF_SECRET_KEY`: migrations can encrypt and decrypt stored secrets, and without the key `acf-migrate`
+stops with a message and leaves the database as it was. It never makes a key of its own, which the app
+wouldn't have; a `secret.key` file already in `ACF_DATA_DIR` (a local install) is used.
 
 During a rolling deploy the previous version's processes keep running, and restart or scale up, on the new
 schema. A process that finds a schema revision it doesn't know logs a warning naming both revisions and

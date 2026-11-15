@@ -237,9 +237,11 @@ revisions and start on it without migrating. That relies on expand/contract migr
 previous release working on the new schema. A migration runs in one transaction under a PostgreSQL advisory lock (`db.lock_startup`), so
 runs that overlap, on any host and with or without Redis, take turns: the next one finds nothing to do.
 A run that dies halfway is rolled back by PostgreSQL, lock included. The other startup writes, stored
-secrets (`encrypt_existing`) and the main account, take the same lock. Migrations may decrypt and re-encrypt
-stored secrets (`0005`), so `acf-migrate` needs the app's `ACF_SECRET_KEY`: without it, and with
-encrypted values in the database, it stops with a message instead of making a key of its own. `0001_baseline` is the
+secrets (`encrypt_existing`) and the main account, take the same lock. Migrations may encrypt and decrypt
+stored secrets (`0005`), so `acf-migrate` needs the app's `ACF_SECRET_KEY` (or the `secret.key` file it
+uses locally): `db.main` sets `secrets_box.may_create_key = False`, so a migration that needs a key it doesn't
+have raises `SecretKeyError` and the upgrade rolls back, instead of making a key the app doesn't have. On
+SQLite `migrate` opens the transaction itself, because pysqlite would run the DDL outside it. `0001_baseline` is the
 schema older versions made with `create_all`; a database that has those tables but no `alembic_version` is
 stamped at the baseline and then upgraded, so existing installs keep their data. Write a migration with
 `make migration m="…"` (autogenerate, `render_as_batch` for SQLite) and review it;
