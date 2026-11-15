@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 
 let n = 0;
@@ -42,4 +42,24 @@ export async function openSteps(page: Page, scope = page.locator("body")) {
   await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0);
   const folded = scope.locator('[data-testid="steps-summary"][aria-expanded="false"]');
   while (await folded.count()) await folded.first().click();
+}
+
+/** The app processes start-acf.sh runs (E2E_REPLICAS of them behind one address, else one), numbered from 1. */
+export const APPS = Array.from({ length: Math.max(1, Number(process.env.E2E_REPLICAS ?? 1)) }, (_, i) => i + 1);
+const CTL = process.env.E2E_CTL_DIR ?? new URL("../test-results/acf-ctl/", import.meta.url).pathname;
+const appUrl = (n: number) => `http://127.0.0.1:${APPS.length > 1 ? 8765 + n : 8765}/api/health`;
+const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+
+/** Stop app process `n` and keep it down until startApp(n). SIGTERM is a deploy (running agents get their
+ *  shutdown grace to finish); SIGKILL is a crash. */
+export async function stopApp(n = 1, signal: NodeJS.Signals = "SIGTERM") {
+  writeFileSync(`${CTL}app-${n}.hold`, "");
+  const pid = Number(readFileSync(`${CTL}app-${n}.pid`, "utf8"));
+  process.kill(pid, signal);
+  await expect.poll(() => alive(pid), { timeout: 40_000 }).toBe(false);
+}
+
+export async function startApp(n = 1) {
+  rmSync(`${CTL}app-${n}.hold`, { force: true });
+  await expect.poll(() => fetch(appUrl(n)).then((r) => r.ok, () => false), { timeout: 30_000 }).toBe(true);
 }

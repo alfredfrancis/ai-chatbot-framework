@@ -36,11 +36,30 @@ PORT="${ACF_PORT:-8765}"
 # proxy on $PORT, so every page load, request and chat connection may land on a different one.
 REPLICAS="${E2E_REPLICAS:-1}"
 PIDS=()
-cleanup() { [ ${#PIDS[@]} -gt 0 ] && kill "${PIDS[@]}" 2>/dev/null; true; }
-trap cleanup EXIT INT TERM
+# A spec can stop and start an app process (stopApp / startApp in helpers.ts): it writes $CTL/app-<n>.hold
+# and stops the pid in $CTL/app-<n>.pid; app <n> starts it again once the hold is gone. An exit without a
+# hold (a crash) ends the loop, as before.
+CTL="${E2E_CTL_DIR:-$ROOT/frontend/test-results/acf-ctl}"
+rm -rf "$CTL" && mkdir -p "$CTL"
+cleanup() {
+  [ ${#PIDS[@]} -gt 0 ] && kill "${PIDS[@]}" 2>/dev/null
+  cat "$CTL"/app-*.pid 2>/dev/null | xargs -r kill 2>/dev/null
+  true
+}
+trap cleanup EXIT
+trap 'exit 143' INT TERM
+app() {
+  while :; do
+    while [ -e "$CTL/app-$1.hold" ]; do sleep 0.1; done
+    "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "$2" --log-level warning &
+    echo $! > "$CTL/app-$1.pid"
+    wait $! || true
+    [ -e "$CTL/app-$1.hold" ] || return
+  done
+}
 serve() {
   if [ "$REPLICAS" -le 1 ]; then
-    "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "$PORT" --log-level warning
+    app 1 "$PORT"
     return
   fi
   if [ -z "${E2E_REDIS_URL:-}" ]; then
@@ -53,7 +72,7 @@ serve() {
   BACKENDS=()
   for i in $(seq 1 "$REPLICAS"); do
     P=$((PORT + i))
-    "$PY" -m uvicorn acf.main:app --host 127.0.0.1 --port "$P" --log-level warning &
+    app "$i" "$P" &
     PIDS+=($!)
     BACKENDS+=("$P")
   done

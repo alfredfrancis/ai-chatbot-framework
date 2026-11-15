@@ -1,7 +1,7 @@
 /**
  * Agent Client Protocol (https://agentclientprotocol.com) client: JSON-RPC 2.0 over a WebSocket to /api/acp.
- * The chat talks to the agent only through this. One shared connection, opened on first use and
- * re-opened after it drops.
+ * The chat talks to the agent only through this. One shared connection, opened on first use; when it drops
+ * (a restart, a deploy, a network blip) it comes back by itself.
  */
 
 export type ContentBlock = { type: "text"; text: string } | { type: string; [k: string]: unknown };
@@ -35,7 +35,9 @@ export type AcpNotification =
   | { method: "_acf/notice"; params: { sessionId: string; text: string; _meta?: { acf?: { learned?: Learned } } } }
   | { method: "_acf/turn_end"; params: { sessionId: string; stopReason: string; error?: string } }
   | { method: "_acf/turn_start"; params: { sessionId: string } }
-  | { method: "_acf/disconnected"; params: Record<string, never> };
+  | { method: "_acf/disconnected"; params: Record<string, never> }
+  | { method: "_acf/reconnected"; params: Record<string, never> }
+  | { method: "_acf/signed_out"; params: Record<string, never> };
 export type StopReason = "end_turn" | "cancelled" | "max_turn_requests" | "max_tokens" | "refusal";
 
 export class AcpError extends Error {
@@ -44,14 +46,33 @@ export class AcpError extends Error {
   }
 }
 
+/** The code of an AcpError raised because there is no connection, not because the agent refused. */
+export const NO_CONNECTION = -1;
+export const lostConnection = (e: unknown) => e instanceof AcpError && e.code === NO_CONNECTION;
+
+/**
+ * idle: not wanted yet, or closed on sign-out. open: a socket is up. down: it was wanted and is not up; one
+ * attempt at a time comes back after 0.5 s, doubling to 10 s, with jitter so a restarted server is not hit
+ * by every client at once.
+ */
+export type Link = "idle" | "open" | "down";
+const retryDelay = (attempt: number) => Math.min(10_000, 500 * 2 ** attempt) * (0.5 + Math.random() / 2);
+
 type Listener = (n: AcpNotification) => void;
 
 class AcpClient {
-  private ws: WebSocket | null = null;
+  private state: Link = "idle";
+  private ws: WebSocket | null = null; // the socket being opened or open
   private opening: Promise<WebSocket> | null = null;
+  private attempt = 0;
+  private retry: ReturnType<typeof setTimeout> | undefined;
   private nextId = 1;
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private listeners = new Set<Listener>();
+
+  get link(): Link {
+    return this.state;
+  }
 
   on(listener: Listener): () => void {
     this.listeners.add(listener);
@@ -65,24 +86,45 @@ class AcpClient {
   private connect(): Promise<WebSocket> {
     if (this.ws?.readyState === WebSocket.OPEN) return Promise.resolve(this.ws);
     if (this.opening) return this.opening;
+    // While down, the next attempt is already scheduled: callers fail fast instead of adding attempts.
+    if (this.state === "down") return Promise.reject(new AcpError(NO_CONNECTION, "Not connected"));
+    return this.open();
+  }
+
+  private open(): Promise<WebSocket> {
+    const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/acp`);
+    this.ws = ws;
     this.opening = new Promise<WebSocket>((resolve, reject) => {
-      const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/acp`);
       ws.onopen = () => {
-        this.ws = ws;
+        if (this.ws !== ws) return;
         this.opening = null;
+        this.attempt = 0;
+        const back = this.state === "down";
+        this.state = "open";
         resolve(ws);
         this.request("initialize", { protocolVersion: 1, clientCapabilities: {}, clientInfo: { name: "acf-web", version: "1" } }).catch(() => {});
+        if (back) this.emit({ method: "_acf/reconnected", params: {} });
       };
-      ws.onerror = () => { if (this.opening) { this.opening = null; reject(new AcpError(-1, "Could not connect to the agent")); } };
       ws.onclose = () => {
-        if (this.ws !== ws) return;
+        reject(new AcpError(NO_CONNECTION, "Could not connect to the agent"));
+        if (this.ws !== ws) return; // closed on purpose
         this.ws = null;
-        for (const p of this.pending.values()) p.reject(new AcpError(-1, "Connection lost"));
+        this.opening = null;
+        for (const p of this.pending.values()) p.reject(new AcpError(NO_CONNECTION, "Connection lost"));
         this.pending.clear();
-        this.emit({ method: "_acf/disconnected", params: {} });
+        if (this.state !== "down") {
+          this.state = "down";
+          this.emit({ method: "_acf/disconnected", params: {} });
+        }
+        this.later();
       };
       ws.onmessage = (ev) => {
-        const msg = JSON.parse(String(ev.data));
+        let msg;
+        try {
+          msg = JSON.parse(String(ev.data));
+        } catch {
+          return; // one bad frame is dropped, the connection stays
+        }
         if (msg.id != null && !msg.method) {
           const p = this.pending.get(msg.id);
           if (!p) return;
@@ -95,6 +137,24 @@ class AcpClient {
       };
     });
     return this.opening;
+  }
+
+  private later() {
+    this.retry = setTimeout(() => this.reconnect(), retryDelay(this.attempt++));
+  }
+
+  /** One attempt to come back: ask the server first, and open a socket only once it answers. A server that
+   *  answers but no longer knows the user ends the attempts. */
+  private async reconnect() {
+    this.retry = undefined;
+    const server = await fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((r) => (r.status === 401 ? "signed out" : r.ok ? "up" : "down"), () => "down");
+    if (this.state !== "down") return; // closed meanwhile
+    if (server === "signed out") {
+      this.close();
+      this.emit({ method: "_acf/signed_out", params: {} });
+    } else if (server === "down") this.later();
+    else this.open().catch(() => {});
   }
 
   async request<T>(method: string, params: Record<string, unknown>): Promise<T> {
@@ -110,9 +170,17 @@ class AcpClient {
     (await this.connect()).send(JSON.stringify({ jsonrpc: "2.0", method, params }));
   }
 
+  /** Signing out: close the connection and stop coming back. */
   close() {
+    clearTimeout(this.retry);
+    this.retry = undefined;
+    this.state = "idle";
+    this.attempt = 0;
     const ws = this.ws;
     this.ws = null;
+    this.opening = null;
+    for (const p of this.pending.values()) p.reject(new AcpError(NO_CONNECTION, "Connection closed"));
+    this.pending.clear();
     ws?.close();
   }
 }
