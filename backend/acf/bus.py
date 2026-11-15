@@ -518,7 +518,7 @@ class RedisBus(LocalBus):
 
     async def seen(self, name: str, ttl: float) -> float:
         key = self.k("seen", name)
-        pipe = self.r.pipeline(transaction=False)
+        pipe = self.r.pipeline(transaction=True)  # one step: the key can't expire between the two
         pipe.set(key, repr(time.time()), nx=True, px=int(ttl * 1000))
         pipe.get(key)
         return float((await pipe.execute())[1])

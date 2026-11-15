@@ -289,7 +289,10 @@ def _claim_due(now: datetime) -> list[int]:
 
 async def tick() -> list[int]:
     """Recover tasks a dead process left running, then start every due task. Returns the ids started."""
-    await recover()
+    try:
+        await recover()
+    except Exception:  # noqa: BLE001 - a failed recovery is tried again next tick; due tasks still start
+        log.exception("task recovery failed")
     started = await asyncio.to_thread(_claim_due, utcnow())
     for task_id in started:
         asyncio.create_task(run_task(task_id))

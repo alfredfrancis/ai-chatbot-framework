@@ -101,6 +101,14 @@ async def test_the_heartbeat_outlives_a_redis_error(redis_url, monkeypatch):
         assert await b.owner(6) == "run-a"
 
 
+async def test_a_sighting_that_expires_as_it_is_recorded_still_answers(redis_url):
+    """The sighting's key can expire between recording it and reading it back. Short sightings, many
+    times over, make that moment likely."""
+    async with two_buses(redis_url) as (a, _):
+        for i in range(3000):
+            await a.seen(f"brief:{i % 3}", ttl=0.001)
+
+
 async def test_sandbox_use_is_shared(redis_url):
     async with two_buses(redis_url) as (a, b):
         assert await b.last_used([1, 2]) == {}

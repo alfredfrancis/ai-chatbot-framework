@@ -70,6 +70,19 @@ async def test_scheduler_tick_runs_due_tasks(client, user):
     assert task["id"] not in await scheduler.tick()  # not due again
 
 
+async def test_due_tasks_start_even_when_recovery_fails(client, user, monkeypatch):
+    task = (await client.post("/api/tasks", json={"name": "Due", "prompt": "hi", "schedule": "*/5 * * * *"})).json()
+    with session_scope() as db:
+        db.get(Task, task["id"]).next_run_at = utcnow() - timedelta(minutes=1)
+
+    async def broken() -> None:
+        raise ConnectionError("Redis went away")
+
+    monkeypatch.setattr(scheduler, "recover", broken)
+    assert task["id"] in await scheduler.tick()
+    await _finished(client, task["id"])
+
+
 async def test_task_chat_reports_running_while_in_progress(client, user):
     """The UI polls a task's chat while it runs, so the chat must say it is running."""
     import asyncio
