@@ -25,7 +25,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from acf import bus, config, workspace
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult
 from acf.db import Chat, Message, User, session_scope
-from acf.llm import LLMConfig, make_model
+from acf.llm import LLMConfig, make_model, traced
 
 log = logging.getLogger("acf.review")
 MAX_STEPS = 8
@@ -209,12 +209,14 @@ async def _review(user: User, chat_id: int, users: int, system: str) -> None:
     before_files = _files(user.id)
     before = _hashes(before_files)
     try:
-        model = make_model(LLMConfig.for_chat(user, chat_id)).bind_tools([t.schema() for t in TOOLS.values()])
+        cfg = LLMConfig.for_chat(user, chat_id)
+        model = make_model(cfg).bind_tools([t.schema() for t in TOOLS.values()])
         ctx = ToolContext(user.id)
         sys = SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}])
         messages: list[BaseMessage] = [sys, *await loop.load_history(chat_id), HumanMessage(REVIEW_PROMPT)]
         for _ in range(MAX_STEPS):
-            ai = await model.ainvoke(messages)
+            with traced(cfg, "review") as done:
+                ai = done(await model.ainvoke(messages))
             messages.append(ai)
             if not ai.tool_calls:
                 break

@@ -57,11 +57,11 @@ from langchain_core.messages import (
 )
 
 from acf import apps as personal_apps
-from acf import bus, config, logs, skills, workspace
+from acf import bus, config, logs, skills, telemetry, workspace
 from acf.agent import prompt, review, subagents, titles, transcripts, usage
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, call_tool, gather_calls
 from acf.db import Chat, Message, Project, User, session_scope, utcnow
-from acf.llm import LLMConfig, LLMError, calls_of, estimate_tokens, friendly_error, make_model
+from acf.llm import LLMConfig, LLMError, calls_of, estimate_tokens, friendly_error, make_model, traced
 from acf.llm import text_of as _text_of
 from acf.mcp_client import McpHub
 from acf.sandbox import get_sandbox
@@ -251,12 +251,22 @@ class Run:
     # -- main
     async def main(self) -> None:
         logs.bind(user_id=self.user.id, chat_id=self.chat_id, run_id=self.id)
+        with telemetry.run(self.id, self.chat_id) as record:
+            if record.traceparent:  # followers in other processes join the run's trace
+                self.emit({"type": "trace", "traceparent": record.traceparent})
+            await self._main()
+            record.outcome = self.stop_reason if self.ok else "error"
+
+    async def _main(self) -> None:
         b = bus.current()
         log.info("run started")
         try:
             while True:
                 while await b.pending(self.chat_id):
-                    await self._turn()
+                    with telemetry.span("acf.turn", {"acf.run.id": self.id, "acf.chat.id": self.chat_id}) as span:
+                        await self._turn()
+                        if not self.ok:
+                            telemetry.fail(span, "turn_failed")
                 # Release, then look again: a message pushed meanwhile is ours if no one else took the chat.
                 await b.release(self.chat_id, self.id)
                 if not await b.pending(self.chat_id) or not await b.claim(self.chat_id, self.id):
@@ -305,7 +315,9 @@ class Run:
             got = True
         return got
 
-    async def _compact(self, history: list[BaseMessage], model, system: str, limit: int) -> list[BaseMessage]:
+    async def _compact(
+        self, history: list[BaseMessage], model, cfg: LLMConfig, system: str, limit: int
+    ) -> list[BaseMessage]:
         s = config.settings
         if estimate_tokens(history) < limit:
             return history
@@ -320,7 +332,8 @@ class Run:
         if keep_from is None or keep_from < 2:
             return history  # nothing worth summarising
         older = [_strip_thinking(m) if isinstance(m, AIMessage) else m for m in history[:keep_from]]
-        reply = await model.ainvoke([SystemMessage(system), *older, HumanMessage(SUMMARY_PROMPT)])
+        with traced(cfg, "compact") as done:
+            reply = done(await model.ainvoke([SystemMessage(system), *older, HumanMessage(SUMMARY_PROMPT)]))
         with session_scope() as db:
             ids = [
                 m.id
@@ -386,13 +399,13 @@ class Run:
             try:
                 # A token window set for the model: compact at 80% of it (else ACF_COMPACT_TOKENS).
                 limit = int(cfg.context_window * 0.8) if cfg.context_window else config.settings.compact_tokens
-                history = await self._compact(history, base_model, self.system, limit)
+                history = await self._compact(history, base_model, cfg, self.system, limit)
             except Exception as e:  # noqa: BLE001 - compaction is best effort
                 log.warning("compaction failed: %s", e)
 
             for _ in range(config.settings.max_agent_steps):
                 try:
-                    ai, stream_id = await self._think(model, system, history)
+                    ai, stream_id = await self._think(model, cfg, system, history)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001
@@ -426,14 +439,16 @@ class Run:
             self.stop_reason = "max_turn_requests"
             self.emit({"type": "notice", "text": "Stopped after too many steps. Say “continue” to keep going."})
 
-    async def _think(self, model, system: SystemMessage, history: list[BaseMessage]) -> tuple[AIMessage, str]:
+    async def _think(
+        self, model, cfg: LLMConfig, system: SystemMessage, history: list[BaseMessage]
+    ) -> tuple[AIMessage, str]:
         """Stream the model's answer. If the user steers before it starts answering, restart the call with
         their message; once it is answering, let it finish (the message is read at the next step)."""
         while True:
             self._nudged.clear()
             await self._inject_user_messages(history)
             stream = _Stream()
-            call = asyncio.ensure_future(self._stream(model, [system, *history], stream))
+            call = asyncio.ensure_future(self._stream(model, cfg, [system, *history], stream))
             nudge: asyncio.Future | None = None
             try:
                 while True:
@@ -460,18 +475,19 @@ class Run:
             with contextlib.suppress(asyncio.CancelledError):
                 await call
 
-    async def _stream(self, model, messages: list[BaseMessage], stream: _Stream) -> AIMessage:
+    async def _stream(self, model, cfg: LLMConfig, messages: list[BaseMessage], stream: _Stream) -> AIMessage:
         acc = None
-        async for chunk in model.astream(messages):
-            acc = chunk if acc is None else acc + chunk
-            for kind, text in _deltas(chunk):
-                if kind == "text":
-                    stream.text += text
+        with traced(cfg, "turn") as done:
+            async for chunk in model.astream(messages):
+                acc = chunk if acc is None else acc + chunk
+                for kind, text in _deltas(chunk):
+                    if kind == "text":
+                        stream.text += text
+                        stream.answering = True
+                    self.emit({"type": "delta", "stream": stream.id, "kind": kind, "text": text})
+                if getattr(chunk, "tool_call_chunks", None):
                     stream.answering = True
-                self.emit({"type": "delta", "stream": stream.id, "kind": kind, "text": text})
-            if getattr(chunk, "tool_call_chunks", None):
-                stream.answering = True
-        return message_chunk_to_message(acc) if acc is not None else AIMessage(content="")
+            return done(message_chunk_to_message(acc) if acc is not None else AIMessage(content=""))
 
     def _keep_partial(self, stream: _Stream) -> None:
         """Stopped mid-answer: store the text the user already saw (without thinking or tool calls)."""

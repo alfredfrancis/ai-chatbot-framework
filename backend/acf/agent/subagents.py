@@ -32,7 +32,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from acf import bus, config
 from acf.agent.tools import Tool, ToolContext, ToolResult, call_tool, gather_calls, tool_title
 from acf.db import Chat, Message, User, session_scope
-from acf.llm import LLMConfig, LLMError, calls_of, friendly_error, make_model, text_of
+from acf.llm import LLMConfig, LLMError, calls_of, friendly_error, make_model, text_of, traced
 
 NAME = "agent"
 MAX_PROMPT = 50_000
@@ -207,7 +207,8 @@ async def _work(
     text = ""
     for _ in range(config.settings.max_agent_steps):
         try:
-            ai = await model.ainvoke([head, *history])
+            with traced(cfg, "subagent") as done:
+                ai = done(await model.ainvoke([head, *history]))
         except asyncio.CancelledError:
             raise
         except Exception as e:  # noqa: BLE001 - a provider error ends this sub-agent, not the run

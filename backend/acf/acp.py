@@ -49,7 +49,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from acf import config, logs, models, projects, skills, workspace
+from acf import config, logs, models, projects, skills, telemetry, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
 from acf.agent.tools import tool_kind, tool_title
@@ -393,13 +393,17 @@ class Connection:
         sid = str(chat_id)
         streamed: set[str] = set()  # streams whose text this client got as deltas
         logs.bind(chat_id=chat_id, run_id=run.run_id)
-        log.info("following run")
+        follow = None
         try:
             if gate:
                 await gate.wait()
             while True:
                 e = await queue.get()
                 kind = e["type"]
+                if follow is None:  # a run's first event is its traceparent: join its trace, from any process
+                    follow = telemetry.start_follow(run.run_id, chat_id, e["traceparent"] if kind == "trace" else None)
+                    with telemetry.current(follow):
+                        log.info("following run")
                 if kind == "done":
                     end: dict[str, Any] = {"sessionId": sid, "stopReason": e.get("stop_reason") or "end_turn"}
                     if e.get("error"):
@@ -442,6 +446,8 @@ class Connection:
                     await self._emit(sid, [update])
             await self.notify("_acf/turn_end", end)
         finally:
+            if follow is not None:
+                follow.end()
             run.unlisten(queue)
             if self._watchers.get(chat_id, (None,))[0] == run.run_id:
                 del self._watchers[chat_id]
@@ -626,4 +632,5 @@ async def acp_endpoint(ws: WebSocket) -> None:
         await ws.close(code=1008, reason="Not signed in")  # before accept: the handshake gets HTTP 403
         return
     await ws.accept()
-    await Connection(ws, user_id).serve()
+    with telemetry.acp_connection():
+        await Connection(ws, user_id).serve()

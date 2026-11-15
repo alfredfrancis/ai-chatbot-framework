@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from acf import acp, auth, bus, config, db, logs, scheduler
+from acf import acp, auth, bus, config, db, logs, scheduler, telemetry
 from acf.agent import loop as agent
 from acf.api.routes import router
 
@@ -44,6 +44,7 @@ def drain_on_signal(app: FastAPI) -> None:
 async def lifespan(app: FastAPI):
     app.state.draining = False
     drain_on_signal(app)
+    telemetry.setup()  # only with an OTEL_EXPORTER_OTLP_*ENDPOINT set
     await bus.current().start()
     # Processes starting together take turns: on the bus for the secret key file, and in PostgreSQL (any host,
     # with or without Redis) for the schema, stored secrets and the main account.
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
     # Scaling in or restarting: finish (or stop) this process's agents, then free its chats and locks.
     await agent.shutdown(config.settings.shutdown_grace)
     await bus.current().close()
+    await asyncio.to_thread(telemetry.shutdown, 5.0)  # bounded, even with the collector down
 
 
 # Workspace files are the user's (or the agent's) content: never run them as part of the app.
@@ -154,16 +156,18 @@ class RequestContext:
                 message = {**message, "headers": [*headers, (b"x-request-id", request_id.encode())]}
             await send(message)
 
-        try:
-            await self.app(scope, receive, send_with_id)
-        finally:
-            if scope["type"] == "http" and config.settings.log_format == "json":
-                access_log.info(
-                    "%s %s",
-                    scope["method"],
-                    scope["path"],  # no query string: it can hold OAuth codes
-                    extra={"status": status, "duration_ms": round((time.perf_counter() - start) * 1000, 1)},
-                )
+        with telemetry.server_span(scope) as span:
+            try:
+                await self.app(scope, receive, send_with_id)
+            finally:
+                telemetry.end_request(span, scope, status)
+                if scope["type"] == "http" and config.settings.log_format == "json":
+                    access_log.info(
+                        "%s %s",
+                        scope["method"],
+                        scope["path"],  # no query string: it can hold OAuth codes
+                        extra={"status": status, "duration_ms": round((time.perf_counter() - start) * 1000, 1)},
+                    )
 
 
 # The app shell and the service worker must never be served stale, or users stay on an old build.

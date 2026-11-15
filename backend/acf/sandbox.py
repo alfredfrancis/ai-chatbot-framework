@@ -28,6 +28,7 @@ import os
 import secrets
 import shutil
 import signal
+import time
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Coroutine
 from dataclasses import dataclass
@@ -37,7 +38,7 @@ from typing import Any
 import anyio
 import anyio.abc
 
-from acf import bus, config, workspace
+from acf import bus, config, telemetry, workspace
 
 MAX_OUTPUT = 2_000_000  # the agent truncates for the model and saves the full text
 WORKDIR = "/workspace"
@@ -390,9 +391,11 @@ class DockerSandbox(Sandbox):
                 state = "missing"
             if state == "running":
                 return
+            started = time.monotonic()
             if state != "missing":
                 res = await _run(["docker", "start", self.name], 60)
                 if res.exit_code == 0:
+                    telemetry.sandbox_started(time.monotonic() - started, "start")
                     return
                 await _run(["docker", "rm", "-f", self.name], 60)
             s = config.settings
@@ -449,6 +452,7 @@ class DockerSandbox(Sandbox):
             if res.exit_code != 0:
                 raise SandboxError(f"Could not start sandbox: {res.stderr.strip() or res.stdout.strip()}")
             await _run(["docker", "exec", self.name, "mkdir", "-p", "/workspace/.home"], 30)
+            telemetry.sandbox_started(time.monotonic() - started, "create")
 
     async def _kill_tracked(self, pidfile: str) -> None:
         await _run(["docker", "exec", self.name, "sh", "-c", _KILL_SESSION, "sh", pidfile], 30)

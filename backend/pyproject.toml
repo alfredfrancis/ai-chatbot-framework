@@ -21,6 +21,8 @@ dependencies = [
   "alembic>=1.14",
   "redis>=5.2",
   "packaging>=24",
+  "opentelemetry-sdk>=1.30",
+  "opentelemetry-exporter-otlp-proto-http>=1.30",
 ]
 
 [project.scripts]

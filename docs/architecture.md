@@ -38,7 +38,7 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Streaming | The model is called with `astream`; text and thinking deltas are `delta` events as they arrive. When the stream ends the merged chunk becomes one stored message (`message_to_dict`), so history is unchanged. A stop mid-answer stores the text shown so far (no thinking, no tool calls). |
 | Steering | A message sent while the agent works is never an interruption. If the model is still thinking (no text or tool call yet), the call is restarted with the message added (only tokens are lost). Once it is answering, the answer finishes and the message is read next — streamed text is never retracted. If tools are running, it is injected when the batch ends — tools are never cut off. |
 | Stop | Cancels the run; any tool call without a result gets "Stopped by the user", so the history stays valid. |
-| Observable | Every step is an event (`delta`, `message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`). Clients see them through ACP (below). |
+| Observable | Every step is an event (`delta`, `message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`, and `trace` when telemetry is on). Clients see them through ACP (below). |
 
 ## Several app processes (`backend/acf/bus.py`)
 
@@ -59,6 +59,18 @@ the bus is in memory (`LocalBus`), which is right for exactly one process.
 | Failure | Leases, locks and jobs expire `ACF_BUS_TTL` seconds after their process stops refreshing them. A process that dies frees its chats on its own: followers get a `done` with an error, and the next message runs elsewhere with the lost tool calls and jobs closed off in the history. A process cut off from Redis long enough to lose a lease stops that run rather than run the chat twice. |
 | Scaling in | On shutdown a process stops taking work, lets its running agents finish for up to `ACF_SHUTDOWN_GRACE` seconds (clients reconnect to another process and keep following), then stops what is left and releases everything it holds. `/api/health/ready` answers 503 from the moment SIGTERM arrives, so a load balancer stops routing to it while `/api/health` (liveness) stays 200. |
 | Health | `/api/health` only says the process runs. `/api/health/ready` runs `SELECT 1` and, with Redis, a `PING`, each bounded to 2 s, and answers 503 when either fails or the process drains. The compose healthcheck uses the ready route. |
+
+## Telemetry (`backend/acf/telemetry.py`)
+
+OpenTelemetry over OTLP/HTTP, on only when an `OTEL_EXPORTER_OTLP_*ENDPOINT` is set; off, every helper
+returns at once. One trace per run: `acf.run` > `acf.turn` > `acf.llm` and `acf.tool` > `acf.sandbox.exec`. A
+sub-agent's spans nest under its `agent` tool call. The run's first feed event carries its `traceparent`, so a
+connection that follows the run in any process opens `acf.follow` in the same trace. HTTP requests get a
+SERVER span named by route template. JSON log lines carry `trace_id` and `span_id`
+(`logs.add_context_provider`). Metrics have bounded labels only (`outcome`, `tool`, `provider`, `kind`,
+`action`); `acf.runs.active` is the per-process load signal for autoscaling. The SDK providers are ACF's own,
+not the global ones, so libraries with their own OpenTelemetry hooks (FastAPI's native telemetry records query
+strings) stay off. Shutdown flushes for at most 5 seconds.
 
 ## Agent Client Protocol (`backend/acf/acp.py`)
 

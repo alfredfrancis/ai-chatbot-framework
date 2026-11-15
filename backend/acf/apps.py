@@ -27,7 +27,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
-from acf import workspace
+from acf import telemetry, workspace
 from acf.agent import loop as agent
 from acf.db import Chat, User, session_scope
 from acf.mcp_client import McpHub
@@ -255,7 +255,10 @@ async def run_action(user: User, app_id: str, action: Action, args: dict[str, An
         if not SCRIPT_RE.match(script) or not workspace.resolve(user.id, rel).is_file():
             raise AppError(f"No script {rel}")
         payload = json.dumps(args.get("input", {}))
-        result = await get_sandbox(user.id).exec(f"sh {shlex.quote(rel)} {shlex.quote(payload)}", RUN_TIMEOUT)
+        sandbox = get_sandbox(user.id)
+        with telemetry.span("acf.sandbox.exec", {"acf.sandbox.kind": sandbox.kind}) as span:
+            result = await sandbox.exec(f"sh {shlex.quote(rel)} {shlex.quote(payload)}", RUN_TIMEOUT)
+            span.set_attributes({"process.exit_code": result.exit_code, "acf.sandbox.timed_out": result.timed_out})
         if result.exit_code != 0 or result.timed_out:
             raise AppError(f"{rel} failed: {result.as_text()[-2000:]}")
         return {"ok": True, "output": result.stdout[:OUTPUT_LIMIT]}
