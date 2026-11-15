@@ -7,6 +7,7 @@ import json
 import re
 from typing import Annotated, Any, Literal
 
+import anyio
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -299,7 +300,8 @@ def create_chat(
 def get_chat(chat_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> dict:
     chat = _own_chat(db, user, chat_id)
     msgs = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id).all()
-    return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": agent.running(chat.id)}
+    running = anyio.from_thread.run(agent.running, chat.id)  # the bus lives on the event loop; this is a thread
+    return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": running}
 
 
 @router.get("/chats/{chat_id}/artifacts")
@@ -312,7 +314,7 @@ def chat_artifacts(
 
 
 @router.post("/chats/{chat_id}/learned/{message_id}/undo")
-def undo_learned(
+async def undo_learned(
     chat_id: int,
     message_id: int,
     db: Session = Depends(get_db, scope="function"),
@@ -325,7 +327,7 @@ def undo_learned(
         raise HTTPException(404, "Nothing learned to undo")
     raw = dict(note.raw or {})
     try:
-        review.undo(user.id, raw)
+        await review.undo(user.id, raw)
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
     raw["undone"] = True
@@ -479,9 +481,9 @@ def list_apps(user: User = Depends(current_user)) -> list[dict]:
 
 
 @router.get("/apps/{app_id}")
-def get_app(app_id: str, user: User = Depends(current_user)) -> dict:
+async def get_app(app_id: str, user: User = Depends(current_user)) -> dict:
     try:
-        return apps.detail(user.id, app_id)
+        return await apps.detail(user.id, app_id)
     except apps.NotFound as e:
         raise HTTPException(404, "App not found") from e
 

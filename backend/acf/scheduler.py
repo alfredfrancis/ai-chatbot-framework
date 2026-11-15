@@ -157,7 +157,7 @@ def update(task: Task, fields: dict[str, Any]) -> Task:
 async def run_task(task_id: int) -> int | None:
     """Run a task now. Returns the chat id, or None if it is already running (in any process)."""
     lock = f"task:{task_id}"
-    if not bus.current().lock(lock):
+    if not await bus.current().lock(lock):
         return None
     try:
         with session_scope() as db:
@@ -171,13 +171,14 @@ async def run_task(task_id: int) -> int | None:
                 user_id=task.user_id, title=title, task_id=task.id, project_id=task.project_id, model=task.model or ""
             )
             db.add(chat)
-            task.last_status = "running"
-            task.last_run_at = utcnow()
             db.flush()
             chat_id, prompt = chat.id, task.prompt
-            task.last_chat_id = chat_id
-            # Start the run before committing, so the chat already shows as running.
-            feed, _ = agent.start(user, chat_id, prompt)
+        # Start the run before the task says "running", so its chat already shows as running.
+        feed, _ = await agent.start(user, chat_id, prompt)
+        with session_scope() as db:
+            task = db.get(Task, task_id)
+            if task:
+                task.last_status, task.last_run_at, task.last_chat_id = "running", utcnow(), chat_id
         try:
             ok = bool((await asyncio.shield(feed.wait())).get("ok"))
         except Exception:  # noqa: BLE001
@@ -189,7 +190,7 @@ async def run_task(task_id: int) -> int | None:
                 task.last_status = "ok" if ok else "error"
         return chat_id
     finally:
-        bus.current().unlock(lock)
+        await bus.current().unlock(lock)
 
 
 async def tick() -> list[int]:

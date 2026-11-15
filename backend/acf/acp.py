@@ -307,7 +307,7 @@ class Connection:
     async def _notification(self, method: str, params: dict[str, Any]) -> None:
         if method == "session/cancel":
             with contextlib.suppress(RpcError):
-                agent.stop(self._own_chat(params, write=True))
+                await agent.stop(self._own_chat(params, write=True))
 
     # -- helpers
     def _watch(self, chat_id: int) -> None:
@@ -507,7 +507,7 @@ async def session_list(conn: Connection, params: dict[str, Any]) -> dict[str, An
 async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
     chat_id = conn._own_chat(params)
     sid = str(chat_id)
-    run = agent.active(chat_id)
+    run = await agent.active(chat_id)
     gate = asyncio.Event()
     meta: dict[str, Any] = {"running": run is not None}
     with session_scope() as db:
@@ -571,7 +571,7 @@ async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, 
     chat_id = conn._own_chat(params, write=True)
     text = skills.reference(conn.user_id, prompt_text(params.get("prompt")))  # /name calls a skill
     conn._watch(chat_id)
-    run, queued = agent.start(conn._user(), chat_id, text)
+    run, queued = await agent.start(conn._user(), chat_id, text)
     task = conn._follow(run, chat_id, skip_user=None if queued else text)
     await asyncio.wait({task})
     done = run.result or {}

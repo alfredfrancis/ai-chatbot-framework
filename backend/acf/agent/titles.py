@@ -97,4 +97,4 @@ async def _name(user: User, chat_id: int, first: str, reply: str) -> None:
         if chat is None or first_user is None or chat.title != workspace.message_title(first_user.content or ""):
             return  # renamed meanwhile
         chat.title = title
-    loop._broadcast(chat_id, {"type": "title", "title": title})
+    await loop._broadcast(chat_id, {"type": "title", "title": title})

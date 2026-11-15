@@ -32,7 +32,7 @@ class ToolResult:
 
 
 # start_job(label, work) -> job id: runs `work()` after the call returns and reports its result later.
-StartJob = Callable[[str, Callable[[], Awaitable[ToolResult]]], str]
+StartJob = Callable[[str, Callable[[], Awaitable[ToolResult]]], Awaitable[str]]
 
 
 @dataclass
@@ -235,7 +235,7 @@ async def _bash(args: dict, ctx: ToolContext) -> ToolResult:
         async def work() -> ToolResult:
             return await _exec(command, timeout, ctx)
 
-        job = ctx.start_job(command, work)
+        job = await ctx.start_job(command, work)
         return ToolResult(
             f"Started in the background as job {job}. Its output arrives as a message when it finishes; "
             "carry on meanwhile, or end your turn if there is nothing else to do.",

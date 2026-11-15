@@ -173,6 +173,6 @@ async def test_a_job_lost_in_a_restart_is_closed_off(user):
                 raw={"background": "bg-gone"},
             )
         )
-    history = load_history(chat_id)
+    history = await load_history(chat_id)
     assert "restarted" in str(history[-1].content)
-    assert len(load_history(chat_id)) == len(history)  # repaired once
+    assert len(await load_history(chat_id)) == len(history)  # repaired once

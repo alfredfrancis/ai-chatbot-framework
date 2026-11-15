@@ -112,7 +112,7 @@ def _undo_record(before: dict[str, bytes], after: dict[str, bytes]) -> dict[str,
     return {"before": old, "after": now}
 
 
-def undo(user_id: int, raw: dict[str, Any]) -> None:
+async def undo(user_id: int, raw: dict[str, Any]) -> None:
     """Put the files a review changed back as they were. ValueError if that can't be done safely."""
     if raw.get("undone"):
         raise ValueError("Already undone.")
@@ -122,7 +122,7 @@ def undo(user_id: int, raw: dict[str, Any]) -> None:
         if not _allowed(user_id, rel, write=True):
             raise ValueError(f"Not a memory or skill file: {rel}")
     lock = f"review:{user_id}"  # not while a review edits the same files
-    if not bus.current().lock(lock):
+    if not await bus.current().lock(lock):
         raise ValueError("Still learning from a chat. Try again in a moment.")
     try:
         current = _snapshot(user_id)
@@ -130,7 +130,7 @@ def undo(user_id: int, raw: dict[str, Any]) -> None:
             raise ValueError("These files changed again since. Change them in Skills or Files instead.")
         _restore(user_id, raw["before"])
     finally:
-        bus.current().unlock(lock)
+        await bus.current().unlock(lock)
 
 
 def _restore(user_id: int, before: dict[str, str | None]) -> None:
@@ -180,18 +180,20 @@ def maybe_start(user: User, chat_id: int, system: str | None) -> asyncio.Task | 
     users, last = counts(chat_id)
     if users - last < interval:
         return None
-    lock = f"review:{user.id}"  # one review per user, across processes (they edit the same files)
-    if not bus.current().lock(lock):
-        return None
-    task = asyncio.create_task(_review(user, chat_id, users, system))
+    task = asyncio.create_task(_review_once(user, chat_id, users, system))
     _active[user.id] = task
-
-    def done(_: asyncio.Task) -> None:
-        _active.pop(user.id, None)
-        bus.current().unlock(lock)
-
-    task.add_done_callback(done)
+    task.add_done_callback(lambda _: _active.pop(user.id, None))
     return task
+
+
+async def _review_once(user: User, chat_id: int, users: int, system: str) -> None:
+    lock = f"review:{user.id}"  # one review per user, across processes (they edit the same files)
+    if not await bus.current().lock(lock):
+        return
+    try:
+        await _review(user, chat_id, users, system)
+    finally:
+        await bus.current().unlock(lock)
 
 
 async def wait(user_id: int) -> None:
@@ -210,7 +212,7 @@ async def _review(user: User, chat_id: int, users: int, system: str) -> None:
         model = make_model(LLMConfig.for_chat(user, chat_id)).bind_tools([t.schema() for t in TOOLS.values()])
         ctx = ToolContext(user.id)
         sys = SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}])
-        messages: list[BaseMessage] = [sys, *loop.load_history(chat_id), HumanMessage(REVIEW_PROMPT)]
+        messages: list[BaseMessage] = [sys, *await loop.load_history(chat_id), HumanMessage(REVIEW_PROMPT)]
         for _ in range(MAX_STEPS):
             ai = await model.ainvoke(messages)
             messages.append(ai)
@@ -250,4 +252,4 @@ async def _review(user: User, chat_id: int, users: int, system: str) -> None:
         raw.update(_undo_record(before_files, after_files) or {})
     saved = loop._save(chat_id, role=NOTE, content=text, raw=raw)
     if text:
-        loop._broadcast(chat_id, {"type": "message", "message": saved})
+        await loop._broadcast(chat_id, {"type": "message", "message": saved})

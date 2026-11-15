@@ -180,12 +180,13 @@ def chat_app(user_id: int, chat_id: int) -> App | None:
     return None
 
 
-def detail(user_id: int, app_id: str) -> dict[str, Any]:
+async def detail(user_id: int, app_id: str) -> dict[str, Any]:
     """The app as the UI shows it: its OpenUI Lang source, and whether the agent works on it."""
     app = get(user_id, app_id)
     chat_id = _chat_id(user_id, app_id)
     source = workspace.read_file(user_id, f"{APPS_DIR}/{app_id}/{SCREEN}")[:MAX_SCREEN] if app.spec else ""
-    return {**app.summary(), "source": source, "chat_id": chat_id, "running": bool(chat_id and agent.running(chat_id))}
+    running = bool(chat_id and await agent.running(chat_id))
+    return {**app.summary(), "source": source, "chat_id": chat_id, "running": running}
 
 
 # ------------------------------------------------------------------ actions
@@ -244,9 +245,9 @@ async def run_action(user: User, app_id: str, action: Action, args: dict[str, An
     if action == "ask_agent":
         message = ask_agent_message(app, _text(args, "prompt", 20_000), _text(args, "event", 2000, required=False))
         chat_id = _app_chat(user, app)
-        feed, queued = agent.start(user, chat_id, message)
+        feed, queued = await agent.start(user, chat_id, message)
         if not queued:
-            agent.announce(chat_id, feed.run_id)  # the app's chat panel follows it
+            await agent.announce(chat_id, feed.run_id)  # the app's chat panel follows it
         return {"ok": True, "chat_id": chat_id, "queued": queued}
     if action == "run":
         script = _text(args, "script", 40)

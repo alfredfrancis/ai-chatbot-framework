@@ -7,6 +7,7 @@ import contextlib
 import uuid
 
 import pytest
+import redis
 
 from acf import bus
 
@@ -34,53 +35,53 @@ def crash(x: bus.RedisBus) -> None:
 
 async def test_one_run_per_chat_across_processes(redis_url):
     async with two_buses(redis_url) as (a, b):
-        assert a.claim(1, "run-a")
-        assert not b.claim(1, "run-b")
-        assert b.owner(1) == "run-a"
-        b.release(1, "run-a")  # only the holder releases
-        assert a.owner(1) == "run-a"
-        a.release(1, "run-a")
-        assert b.claim(1, "run-b") and a.owner(1) == "run-b"
+        assert await a.claim(1, "run-a")
+        assert not await b.claim(1, "run-b")
+        assert await b.owner(1) == "run-a"
+        await b.release(1, "run-a")  # only the holder releases
+        assert await a.owner(1) == "run-a"
+        await a.release(1, "run-a")
+        assert await b.claim(1, "run-b") and await a.owner(1) == "run-b"
 
 
 async def test_a_held_lease_outlives_its_ttl_while_refreshed(redis_url):
     async with two_buses(redis_url, ttl=0.6) as (a, b):
-        assert a.claim(2, "run-a")
+        assert await a.claim(2, "run-a")
         await asyncio.sleep(1.5)  # 2.5 TTLs: the heartbeat keeps it
-        assert b.owner(2) == "run-a" and not b.claim(2, "run-b")
+        assert await b.owner(2) == "run-a" and not await b.claim(2, "run-b")
 
 
 async def test_a_dead_process_frees_its_chats_locks_and_jobs(redis_url):
     async with two_buses(redis_url, ttl=0.6) as (a, b):
-        assert a.claim(3, "run-a") and a.lock("task:9")
-        a.add_job(3, "bg-1")
-        assert b.jobs(3) == {"bg-1"} and not b.lock("task:9")
+        assert await a.claim(3, "run-a") and await a.lock("task:9")
+        await a.add_job(3, "bg-1")
+        assert await b.jobs(3) == {"bg-1"} and not await b.lock("task:9")
         crash(a)
         await asyncio.sleep(1.0)
-        assert b.owner(3) is None and b.claim(3, "run-b")
-        assert b.lock("task:9")
-        assert b.jobs(3) == set()
+        assert await b.owner(3) is None and await b.claim(3, "run-b")
+        assert await b.lock("task:9")
+        assert await b.jobs(3) == set()
 
 
 async def test_inbox_is_shared_and_read_once(redis_url):
     async with two_buses(redis_url) as (a, b):
-        a.push(4, {"kind": "text", "text": "one"})
-        b.push(4, {"kind": "text", "text": "two"})
-        assert a.pending(4)
-        assert [i["text"] for i in b.take(4)] == ["one", "two"]
-        assert a.take(4) == [] and not a.pending(4)
+        await a.push(4, {"kind": "text", "text": "one"})
+        await b.push(4, {"kind": "text", "text": "two"})
+        assert await a.pending(4)
+        assert [i["text"] for i in await b.take(4)] == ["one", "two"]
+        assert await a.take(4) == [] and not await a.pending(4)
 
 
 async def test_feed_replays_then_streams_to_another_process(redis_url):
     async with two_buses(redis_url) as (a, b):
-        assert a.claim(5, "r5")
+        assert await a.claim(5, "r5")
         local = a.feed(5, "r5", local=True)
         a.publish(local, {"type": "delta", "text": "hel"})
         await asyncio.sleep(0.2)
         remote = b.feed(5, "r5")  # joins late: gets the replay, then live events
         q = remote.listen()
         a.publish(local, {"type": "delta", "text": "lo"})
-        a.release(5, "r5")
+        await a.release(5, "r5")
         a.publish(local, {"type": "done", "stop_reason": "end_turn", "error": None, "ok": True})
         got = [await asyncio.wait_for(q.get(), 5) for _ in range(3)]
         assert [e.get("text") for e in got[:2]] == ["hel", "lo"]
@@ -90,7 +91,7 @@ async def test_feed_replays_then_streams_to_another_process(redis_url):
 
 async def test_feed_of_a_run_whose_process_died_ends_with_an_error(redis_url):
     async with two_buses(redis_url, ttl=0.6) as (a, b):
-        assert a.claim(6, "r6")
+        assert await a.claim(6, "r6")
         a.publish(a.feed(6, "r6", local=True), {"type": "delta", "text": "partial"})
         await asyncio.sleep(0.2)
         crash(a)
@@ -102,7 +103,7 @@ async def test_signals_reach_every_process(redis_url):
     seen: list[str] = []
     bus.handle("test-ping", lambda m: seen.append(m["from"]))
     async with two_buses(redis_url) as (a, b):
-        a.signal({"op": "test-ping", "from": "a"})
+        await a.signal({"op": "test-ping", "from": "a"})
         for _ in range(50):
             if len(seen) == 2:
                 break
@@ -131,3 +132,36 @@ async def test_hold_waits_for_another_process(redis_url):
             async with a.hold("sandbox:2"):
                 async with b.hold("sandbox:2", timeout=0.3):
                     pass
+
+
+async def test_a_slow_redis_holds_up_the_caller_not_the_event_loop(redis_url):
+    async with two_buses(redis_url) as (a, _):
+        ticks = 0
+
+        async def tick():
+            nonlocal ticks
+            while True:
+                await asyncio.sleep(0.01)
+                ticks += 1
+
+        ticker = asyncio.create_task(tick())
+        try:
+            with redis.Redis.from_url(redis_url) as admin:
+                admin.client_pause(400, all=False)  # writes wait 0.4 s; reads and this client go on
+            started = asyncio.get_running_loop().time()
+            await a.push(7, {"kind": "text", "text": "hi"})
+            waited = asyncio.get_running_loop().time() - started
+        finally:
+            ticker.cancel()
+        assert waited > 0.3  # the push did wait for Redis
+        assert ticks > waited / 0.01 / 2  # and the loop ran other work all the while
+
+
+async def test_calls_work_again_once_redis_drops_its_connections(redis_url):
+    async with two_buses(redis_url) as (a, _):
+        await a.push(8, {"kind": "text", "text": "before"})
+        with redis.Redis.from_url(redis_url) as admin:  # what a Redis restart does to every pooled connection
+            admin.client_kill_filter(_type="normal", skipme=True)
+        await asyncio.sleep(0.2)
+        await a.push(8, {"kind": "text", "text": "after"})
+        assert [i["text"] for i in await a.take(8)] == ["before", "after"]
