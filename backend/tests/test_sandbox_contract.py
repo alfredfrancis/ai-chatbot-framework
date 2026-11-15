@@ -154,3 +154,37 @@ def test_adapters_are_chosen_by_kind_or_import_path(monkeypatch):
 def test_unknown_adapters_fail_with_a_clear_error(name):
     with pytest.raises(SandboxError, match="ACF_SANDBOX"):
         sandbox.sandbox_class(name)
+
+
+class _BeforeTheRename(Sandbox):
+    """An adapter written when adapters implemented `exec`."""
+
+    async def exec(self, command, timeout=None):
+        raise AssertionError("never called")
+
+    async def spawn(self, argv, env):
+        raise AssertionError("never called")
+
+
+class _BothNames(LocalSandbox):
+    async def exec(self, command, timeout=None):  # would skip `using()`: the sandbox could stop mid-command
+        return await self.run(command, timeout)
+
+
+@pytest.mark.parametrize("adapter", [_BeforeTheRename, _BothNames])
+def test_an_adapter_that_still_defines_exec_is_refused_when_loaded(adapter, monkeypatch):
+    with pytest.raises(SandboxError, match="rename `exec` to `run`"):
+        sandbox.sandbox_class(f"{__name__}:{adapter.__name__}")
+    monkeypatch.setattr(sandbox, "_ADAPTERS", dict(sandbox._ADAPTERS))
+    with pytest.raises(SandboxError, match="rename `exec` to `run`"):
+        sandbox.register_sandbox("old", adapter)
+
+
+async def test_the_app_does_not_start_with_an_adapter_that_still_defines_exec(monkeypatch):
+    from acf.main import create_app
+
+    monkeypatch.setattr(config.settings, "sandbox", f"{__name__}:_BeforeTheRename")
+    app = create_app()
+    with pytest.raises(SandboxError, match="rename `exec` to `run`"):
+        async with app.router.lifespan_context(app):
+            pass

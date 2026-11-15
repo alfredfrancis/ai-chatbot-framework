@@ -628,9 +628,20 @@ async def sweeper() -> None:
 _ADAPTERS: dict[str, type[Sandbox]] = {"docker": DockerSandbox, "local": LocalSandbox}
 
 
+def _checked(adapter: type[Sandbox], name: str) -> type[Sandbox]:
+    """Refuse an adapter written before adapters implemented `run`: without one it can't be created, and
+    with both its `exec` would skip `using()`, so the sandbox could be stopped as idle mid-command."""
+    if adapter.exec is not Sandbox.exec:
+        raise SandboxError(
+            f"ACF_SANDBOX={name}: {adapter.__name__} overrides `exec`. Adapters implement `run` now: rename "
+            "`exec` to `run`. `Sandbox.exec` wraps it to keep the sandbox in use while a command runs."
+        )
+    return adapter
+
+
 def register_sandbox(kind: str, adapter: type[Sandbox]) -> None:
     """Make an adapter available as ACF_SANDBOX=<kind>."""
-    _ADAPTERS[kind] = adapter
+    _ADAPTERS[kind] = _checked(adapter, kind)
 
 
 def sandbox_class(name: str | None = None) -> type[Sandbox]:
@@ -645,7 +656,7 @@ def sandbox_class(name: str | None = None) -> type[Sandbox]:
         except (ImportError, AttributeError) as e:
             raise SandboxError(f"ACF_SANDBOX={name}: could not load the adapter ({e})") from e
         if isinstance(adapter, type) and issubclass(adapter, Sandbox):
-            return adapter
+            return _checked(adapter, name)
         raise SandboxError(f"ACF_SANDBOX={name} is not a Sandbox subclass")
     raise SandboxError(f"Unknown ACF_SANDBOX={name!r}. Use one of {', '.join(sorted(_ADAPTERS))} or module:Class.")
 

@@ -44,6 +44,7 @@ def drain_on_signal(app: FastAPI) -> None:
 async def lifespan(app: FastAPI):
     app.state.draining = False
     drain_on_signal(app)
+    sandbox.sandbox_class()  # a wrong ACF_SANDBOX stops the start, not every chat turn
     telemetry.setup()  # only with an OTEL_EXPORTER_OTLP_*ENDPOINT set
     await bus.current().start()
     # Processes starting together take turns: on the bus for the secret key file, and in PostgreSQL (any host,

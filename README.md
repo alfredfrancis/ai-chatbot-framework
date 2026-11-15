@@ -214,7 +214,7 @@ Each chat can switch model and effort from its message box.
 | `ACF_ADMIN_NAME` | email name | Display name for the main account |
 | `ACF_ALLOW_SIGNUP` | `true`, `false` if `ACF_ADMIN_EMAIL` is set | Open sign-ups. When `false`, the first account can still be created on an empty server |
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
-| `ACF_SANDBOX` | `docker` | `docker`, `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)) |
+| `ACF_SANDBOX` | `docker` | `docker`, `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)). Upgrading an adapter from 2.0.0-beta.1 or earlier: rename its `exec` method to `run`; the app refuses to start with one that still defines `exec` |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
 | `ACF_SANDBOX_NETWORK` | `acf-sandbox` | Created when missing, with traffic between sandboxes off. `none` cuts sandboxes off from the internet |
 | `ACF_SANDBOX_BRIDGE` | `acf-sbx0` | Interface name of that network (the egress firewall matches it) |

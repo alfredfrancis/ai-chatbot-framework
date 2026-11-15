@@ -100,6 +100,9 @@ WebSocket for clients that spawn agents as subprocesses.
 
 `Sandbox` is a port; each provider is an adapter, picked by `ACF_SANDBOX` (`docker`, `local`, a kind added
 with `register_sandbox()`, or `package.module:Class`). Nothing outside `sandbox.py` knows which one runs.
+Adapters used to implement `exec`; they implement `run` now, and `exec` is the wrapper that keeps the
+sandbox in use (`using()`) while a command runs. Loading an adapter that still overrides `exec` raises
+`SandboxError` saying to rename it, and the app checks `ACF_SANDBOX` as it starts.
 
 | Method | What an adapter does |
 |---|---|
