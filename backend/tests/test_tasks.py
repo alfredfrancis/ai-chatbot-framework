@@ -2,6 +2,8 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 
+import pytest
+
 from acf import config, scheduler, workspace
 from acf.db import Task, User, session_scope, utcnow
 from tests.conftest import send
@@ -346,6 +348,35 @@ async def test_a_lock_free_only_briefly_does_not_stop_a_run(client, user):
     await scheduler.tick()
     assert (await _task(client, task_id))["last_status"] == "stopped"
     assert len(await _notes(client, chat_id)) == 1
+
+
+@pytest.mark.parametrize("skew", [60, -60])
+async def test_the_grace_holds_whatever_the_replicas_clocks_say(client, user, redis_url, skew, monkeypatch):
+    """Replica A, its clock `skew` seconds off, sights the free lock first; replica B, its clock right,
+    decides. The run is stopped once the grace has passed by Redis's clock, not before and not never."""
+    import types
+    import uuid
+
+    from acf import bus
+
+    shared = bus.RedisBus(redis_url, f"acf-test-{uuid.uuid4().hex[:8]}", ttl=0.6)
+    await shared.start()
+    bus.use(shared)
+    try:
+        task_id, _ = await _left_running(client)
+        config.settings.bus_ttl = 0.6  # grace 0.3 s
+        real = bus.time
+        monkeypatch.setattr(bus, "time", types.SimpleNamespace(time=lambda: real.time() + skew))
+        await scheduler.tick()  # replica A: the first sighting
+        monkeypatch.setattr(bus, "time", real)
+        await scheduler.tick()  # replica B, at once: within the grace
+        assert (await _task(client, task_id))["last_status"] == "running"
+        await asyncio.sleep(0.4)
+        await scheduler.tick()  # replica B, past the grace
+        assert (await _task(client, task_id))["last_status"] == "stopped"
+    finally:
+        bus.use(None)
+        await shared.close()
 
 
 async def test_task_a_live_process_runs_is_not_marked_stopped(client, user):

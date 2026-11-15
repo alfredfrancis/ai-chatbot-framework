@@ -106,7 +106,7 @@ async def test_a_sighting_that_expires_as_it_is_recorded_still_answers(redis_url
     times over, make that moment likely."""
     async with two_buses(redis_url) as (a, _):
         for i in range(3000):
-            await a.seen(f"brief:{i % 3}", ttl=0.001)
+            assert 0 <= await a.seen_for(f"brief:{i % 3}", ttl=0.001) <= 0.001
 
 
 async def test_sandbox_use_is_shared(redis_url):
@@ -239,14 +239,14 @@ async def test_calls_work_again_once_redis_drops_its_connections(redis_url):
 
 
 @pytest.mark.parametrize("kind", ["local", "redis"])
-async def test_a_sighting_keeps_its_first_time_until_forgotten(kind, request):
+async def test_a_sighting_counts_from_the_first_until_forgotten(kind, request):
     async with contextlib.AsyncExitStack() as stack:
         if kind == "local":
             a = b = bus.LocalBus()
         else:
             a, b = await stack.enter_async_context(two_buses(request.getfixturevalue("redis_url")))
-        first = await a.seen("free:task:1", ttl=60)
-        await asyncio.sleep(0.01)
-        assert await b.seen("free:task:1", ttl=60) == first
+        assert await a.seen_for("free:task:1", ttl=60) < 0.1
+        await asyncio.sleep(0.3)
+        assert 0.25 <= await b.seen_for("free:task:1", ttl=60) < 1
         await b.forget(["free:task:1", "free:task:2"])
-        assert await a.seen("free:task:1", ttl=60) > first
+        assert await a.seen_for("free:task:1", ttl=60) < 0.1

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -254,8 +253,7 @@ async def recover() -> None:
     for task_id, chat_id in running:
         if names[task_id] in held:
             continue
-        since = await b.seen(f"free:{names[task_id]}:{chat_id}", ttl=grace * 4 + 3 * interval)
-        if time.time() - since < grace:
+        if await b.seen_for(f"free:{names[task_id]}:{chat_id}", ttl=grace * 4 + 3 * interval) < grace:
             continue
         note = await asyncio.to_thread(_stop, task_id, chat_id)
         if note and chat_id is not None:

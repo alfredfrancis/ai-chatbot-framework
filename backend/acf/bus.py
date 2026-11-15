@@ -117,7 +117,7 @@ class LocalBus:
         self._locks: set[str] = set()
         self._jobs: dict[str, int] = {}
         self._used: dict[int, float] = {}
-        self._seen: dict[str, tuple[float, float]] = {}  # name -> (first seen, forget after), epoch seconds
+        self._seen: dict[str, tuple[float, float]] = {}  # name -> (first seen, forget after), monotonic seconds
 
     async def start(self) -> None:
         pass
@@ -231,15 +231,16 @@ class LocalBus:
         """When each user's sandbox was last in use (epoch seconds), for the users with a record."""
         return {u: self._used[u] for u in user_ids if u in self._used}
 
-    # -- sightings: "since when has any process seen this?", to act only on a state that lasts
-    async def seen(self, name: str, ttl: float) -> float:
-        """Record a sighting of `name` and return the first one's time (epoch seconds). Sightings are
-        forgotten `ttl` seconds after the first, or by `forget`."""
-        now = time.time()
+    # -- sightings: "for how long has any process seen this?", to act only on a state that lasts
+    async def seen_for(self, name: str, ttl: float) -> float:
+        """Record a sighting of `name` and return the seconds since the first one, measured by one clock
+        (Redis's, for RedisBus), so the processes' clocks need not agree. Sightings are forgotten `ttl`
+        seconds after the first, or by `forget`."""
+        now = time.monotonic()
         first = self._seen.get(name)
         if first is None or first[1] <= now:
             first = self._seen[name] = (now, now + ttl)
-        return first[0]
+        return now - first[0]
 
     async def forget(self, names: Iterable[str]) -> None:
         for name in names:
@@ -249,6 +250,12 @@ class LocalBus:
 # Compare-and-set helpers: only the holder may refresh or drop a key.
 _REFRESH = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) end return 0"
 _RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0"
+# A sighting: the key holds its TTL in ms, so its age is that TTL minus what is left of it, by Redis's clock.
+# (Not the "seen" keys of earlier versions, which held a process's clock: they would read as wrong ages.)
+_SIGHT = (
+    "redis.call('set', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[1]) "
+    "return tonumber(redis.call('get', KEYS[1])) - redis.call('pttl', KEYS[1])"
+)
 
 
 class RedisBus(LocalBus):
@@ -272,6 +279,7 @@ class RedisBus(LocalBus):
         self.r = aredis.Redis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=ttl / 3)
         self._refresh = self.r.register_script(_REFRESH)
         self._release = self.r.register_script(_RELEASE)
+        self._sight = self.r.register_script(_SIGHT)
         self._held: dict[str, str] = {}  # key -> value, refreshed while this process lives
         self._out: deque[tuple[str, dict[str, Any]]] = deque()
         self._wake = asyncio.Event()
@@ -516,15 +524,11 @@ class RedisBus(LocalBus):
         values = await self.r.hmget(self.k("used"), [str(u) for u in user_ids])
         return {u: float(v) for u, v in zip(user_ids, values, strict=True) if v is not None}
 
-    async def seen(self, name: str, ttl: float) -> float:
-        key = self.k("seen", name)
-        pipe = self.r.pipeline(transaction=True)  # one step: the key can't expire between the two
-        pipe.set(key, repr(time.time()), nx=True, px=int(ttl * 1000))
-        pipe.get(key)
-        return float((await pipe.execute())[1])
+    async def seen_for(self, name: str, ttl: float) -> float:
+        return await self._sight(keys=[self.k("sighting", name)], args=[max(1, int(ttl * 1000))]) / 1000
 
     async def forget(self, names: Iterable[str]) -> None:
-        keys = [self.k("seen", n) for n in names]
+        keys = [self.k("sighting", n) for n in names]
         if keys:
             await self.r.delete(*keys)
 
