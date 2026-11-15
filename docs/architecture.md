@@ -63,8 +63,9 @@ the bus is in memory (`LocalBus`), which is right for exactly one process.
 ## Telemetry (`backend/acf/telemetry.py`)
 
 OpenTelemetry over OTLP/HTTP, on only when an `OTEL_EXPORTER_OTLP_*ENDPOINT` is set; off, every helper
-returns at once. One trace per run: `acf.run` > `acf.turn` > `acf.llm` and `acf.tool` > `acf.sandbox.exec`. A
-sub-agent's spans nest under its `agent` tool call. The run's first feed event carries its `traceparent`, so a
+returns at once. One trace per run: `acf.run` > `acf.turn` > `acf.llm` and `acf.tool` > `acf.sandbox.exec`.
+`acf.run` is always a root; a run started inside another span (a background job from a tool call, an app
+action from a request) links to that span instead of joining its trace. A sub-agent's spans nest under its `agent` tool call. The run's first feed event carries its `traceparent`, so a
 connection that follows the run in any process opens `acf.follow` in the same trace. HTTP requests get a
 SERVER span named by route template. JSON log lines carry `trace_id` and `span_id`
 (`logs.add_context_provider`). Metrics have bounded labels only (`outcome`, `tool`, `provider`, `kind`,

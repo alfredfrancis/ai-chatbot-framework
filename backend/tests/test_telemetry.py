@@ -169,6 +169,20 @@ async def test_http_span_is_named_by_route_without_query(client, user, otel):
     assert "oauth-code-42" not in json.dumps(dict(server.attributes))
 
 
+async def test_a_run_started_inside_another_span_is_a_root_with_a_link(otel):
+    """A run started from a tool (a background job) or a request (an app action) begins its own trace,
+    linked to where it started, so chains of jobs don't grow one endless trace."""
+    with telemetry.span("acf.tool") as starter:
+        with telemetry.run("run-2", 1):
+            pass
+    with telemetry.run("run-3", 1):
+        pass
+    linked, alone = otel.spans("acf.run")
+    assert linked.parent is None and linked.context.trace_id != starter.get_span_context().trace_id
+    assert [link.context.span_id for link in linked.links] == [starter.get_span_context().span_id]
+    assert alone.parent is None and not alone.links
+
+
 async def test_log_lines_carry_the_trace_id(client, user, otel, monkeypatch):
     buf = io.StringIO()
     monkeypatch.setattr(config.settings, "log_format", "json")

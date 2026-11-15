@@ -38,7 +38,7 @@ from typing import Any
 
 from opentelemetry import metrics, trace
 from opentelemetry.context import Context
-from opentelemetry.trace import Span, SpanKind, StatusCode
+from opentelemetry.trace import Link, Span, SpanKind, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from acf import logs
@@ -186,6 +186,7 @@ def span(
     *,
     kind: SpanKind = SpanKind.INTERNAL,
     parent: Context | None = None,
+    links: list[Link] | None = None,
 ) -> Iterator[Span]:
     """A span that is current for the block. An exception marks it failed with its type only (messages can quote
     content); a cancel (the user stopped, or steering restarted a model call) is not a failure."""
@@ -193,7 +194,13 @@ def span(
         yield trace.INVALID_SPAN
         return
     with _t.tracer.start_as_current_span(
-        name, context=parent, kind=kind, attributes=attributes, record_exception=False, set_status_on_exception=False
+        name,
+        context=parent,
+        kind=kind,
+        attributes=attributes,
+        links=links,
+        record_exception=False,
+        set_status_on_exception=False,
     ) as sp:
         try:
             yield sp
@@ -269,7 +276,10 @@ def run(run_id: str, chat_id: int) -> Iterator[RunRecord]:
     t = _t
     started = time.monotonic()
     t.runs_active.add(1)
-    with span("acf.run", {"acf.run.id": run_id, "acf.chat.id": chat_id}) as sp:
+    # A trace of its own: a run outlives the request or the tool call that started it. A link keeps the way back.
+    starter = trace.get_current_span().get_span_context()
+    links = [Link(starter)] if starter.is_valid else None
+    with span("acf.run", {"acf.run.id": run_id, "acf.chat.id": chat_id}, parent=Context(), links=links) as sp:
         record = RunRecord(traceparent())
         try:
             yield record
