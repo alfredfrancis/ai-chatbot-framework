@@ -49,7 +49,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from acf import config, models, projects, skills, workspace
+from acf import config, logs, models, projects, skills, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
 from acf.agent.tools import tool_kind, tool_title
@@ -244,6 +244,7 @@ class Connection:
         return task
 
     async def serve(self) -> None:
+        logs.annotate(user_id=self.user_id)
         try:
             while True:
                 frame = await self.ws.receive()
@@ -391,6 +392,8 @@ class Connection:
     ) -> None:
         sid = str(chat_id)
         streamed: set[str] = set()  # streams whose text this client got as deltas
+        logs.bind(chat_id=chat_id, run_id=run.run_id)
+        log.info("following run")
         try:
             if gate:
                 await gate.wait()
@@ -569,6 +572,7 @@ async def session_set_config_option(conn: Connection, params: dict[str, Any]) ->
 
 async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
     chat_id = conn._own_chat(params, write=True)
+    logs.bind(chat_id=chat_id)
     text = skills.reference(conn.user_id, prompt_text(params.get("prompt")))  # /name calls a skill
     conn._watch(chat_id)
     run, queued = await agent.start(conn._user(), chat_id, text)

@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
 import signal
 import threading
+import time
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 
@@ -14,11 +16,12 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from acf import acp, auth, bus, config, db, scheduler
+from acf import acp, auth, bus, config, db, logs, scheduler
 from acf.agent import loop as agent
 from acf.api.routes import router
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logs.configure()
+access_log = logging.getLogger("acf.access")
 
 
 def drain_on_signal(app: FastAPI) -> None:
@@ -123,6 +126,46 @@ class SecurityHeaders:
         await self.app(scope, receive, send_with_headers)
 
 
+REQUEST_ID = re.compile(r"[\w.:-]{1,128}")
+
+
+class RequestContext:
+    """Binds a request_id to every log line of an HTTP request or WebSocket connection. An incoming
+    X-Request-Id (from a proxy or a client) is reused when it is a plain token; the response echoes it."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            return await self.app(scope, receive, send)
+        given = dict(scope["headers"]).get(b"x-request-id", b"").decode("latin-1")
+        request_id = given if REQUEST_ID.fullmatch(given) else bus.new_id()
+        logs.fresh()
+        logs.annotate(request_id=request_id)
+        status = 0
+        start = time.perf_counter()
+
+        async def send_with_id(message):
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                headers = [(k, v) for k, v in message.get("headers", []) if k.lower() != b"x-request-id"]
+                message = {**message, "headers": [*headers, (b"x-request-id", request_id.encode())]}
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_id)
+        finally:
+            if scope["type"] == "http" and config.settings.log_format == "json":
+                access_log.info(
+                    "%s %s",
+                    scope["method"],
+                    scope["path"],  # no query string: it can hold OAuth codes
+                    extra={"status": status, "duration_ms": round((time.perf_counter() - start) * 1000, 1)},
+                )
+
+
 # The app shell and the service worker must never be served stale, or users stay on an old build.
 REVALIDATE = {"index.html", "sw.js"}
 MEDIA_TYPES = {".webmanifest": "application/manifest+json"}  # not in every system's mime types
@@ -140,6 +183,7 @@ class ImmutableFiles(StaticFiles):
 def create_app() -> FastAPI:
     app = FastAPI(title="AI Chatbot Framework", lifespan=lifespan)
     app.add_middleware(SecurityHeaders)
+    app.add_middleware(RequestContext)
     app.include_router(router)
     app.include_router(acp.router)
 

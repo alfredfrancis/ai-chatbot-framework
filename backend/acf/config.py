@@ -41,6 +41,8 @@ class Settings:
     )
     # Encrypts secrets stored in the database (see acf/secrets_box.py). Any long random string.
     secret_key: str = field(default_factory=lambda: _env("SECRET_KEY"))
+    # "text" (default) or "json": one JSON object per line, with request_id, user_id, chat_id and run_id.
+    log_format: str = field(default_factory=lambda: _env("LOG_FORMAT", "text").strip().lower() or "text")
     cookie_secure: bool = field(default_factory=lambda: _env("COOKIE_SECURE", "false").lower() == "true")
 
     # LLM defaults (each user can override in Settings).

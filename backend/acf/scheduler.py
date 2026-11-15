@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from croniter import croniter
 from sqlalchemy.orm import Session
 
-from acf import bus, config, models, projects
+from acf import bus, config, logs, models, projects
 from acf.agent import loop as agent
 from acf.db import Chat, Task, User, session_scope, utcnow
 
@@ -157,6 +157,7 @@ def update(task: Task, fields: dict[str, Any]) -> Task:
 async def run_task(task_id: int) -> int | None:
     """Run a task now. Returns the chat id, or None if it is already running (in any process)."""
     lock = f"task:{task_id}"
+    token = None
     if not await bus.current().lock(lock):
         return None
     try:
@@ -164,6 +165,7 @@ async def run_task(task_id: int) -> int | None:
             task = db.get(Task, task_id)
             if task is None:
                 return None
+            token = logs.bind(task_id=task.id, user_id=task.user_id)
             user = db.get(User, task.user_id)
             stamp = datetime.now(ZoneInfo(task.timezone)).strftime("%d %b %H:%M")
             title = f"{task.name[:180]} · {stamp}"
@@ -191,6 +193,8 @@ async def run_task(task_id: int) -> int | None:
         return chat_id
     finally:
         await bus.current().unlock(lock)
+        if token:
+            logs.reset(token)
 
 
 async def tick() -> list[int]:

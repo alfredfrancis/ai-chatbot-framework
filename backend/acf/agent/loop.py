@@ -57,7 +57,7 @@ from langchain_core.messages import (
 )
 
 from acf import apps as personal_apps
-from acf import bus, config, skills, workspace
+from acf import bus, config, logs, skills, workspace
 from acf.agent import prompt, review, subagents, titles, transcripts, usage
 from acf.agent.tools import BUILTIN_TOOLS, Tool, ToolContext, ToolResult, call_tool, gather_calls
 from acf.db import Chat, Message, Project, User, session_scope, utcnow
@@ -250,7 +250,9 @@ class Run:
 
     # -- main
     async def main(self) -> None:
+        logs.bind(user_id=self.user.id, chat_id=self.chat_id, run_id=self.id)
         b = bus.current()
+        log.info("run started")
         try:
             while True:
                 while await b.pending(self.chat_id):
@@ -276,6 +278,7 @@ class Run:
             if RUNS.get(self.chat_id) is self:
                 RUNS.pop(self.chat_id)
             transcripts.save(self.user.id, self.chat_id)
+            log.info("run finished: %s", "error" if not self.ok else self.stop_reason)
             self.emit(
                 {
                     "type": "done",
@@ -393,6 +396,7 @@ class Run:
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:  # noqa: BLE001
+                    log.warning("model call failed (%s): %s", type(e).__name__, str(e)[:300])
                     self.ok, self.final_text = False, friendly_error(e)
                     self.error = self.final_text
                     self.emit({"type": "error", "error": self.final_text})

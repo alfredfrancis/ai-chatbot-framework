@@ -217,6 +217,7 @@ Each chat can switch model and effort from its message box.
 | `ACF_REDIS_PREFIX` | `acf` | Key prefix, to share one Redis between deployments |
 | `ACF_BUS_TTL` | `30` | Seconds before a dead process's chats, locks and background commands are freed |
 | `ACF_SHUTDOWN_GRACE` | `20` | Seconds a stopping process gives its running agents to finish |
+| `ACF_LOG_FORMAT` | `text` | `json` writes one JSON object per line to stderr (`ts`, `level`, `logger`, `message`, plus `request_id`, `user_id`, `chat_id`, `run_id` and `task_id` where they apply, and `exc` for a traceback). A request keeps an incoming `X-Request-Id` (and returns it); a run is `run_id`, shared by its sub-agents. Message text and tool output are never logged, and key-like tokens are redacted |
 
 ### Models
 
