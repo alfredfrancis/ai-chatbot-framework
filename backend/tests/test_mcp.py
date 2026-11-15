@@ -224,6 +224,61 @@ async def test_two_refreshes_call_the_token_endpoint_once(client, user, oauth_mc
     assert a and a == b and a != old
 
 
+async def test_a_refresh_that_outwaits_its_turn_uses_the_token_the_other_refresh_saved(
+    client, user, oauth_mcp_url, monkeypatch
+):
+    """Another process holds the refresh turn past the wait, but has saved a fresh token by then."""
+    import asyncio
+    import time
+
+    from acf import bus, oauth
+    from acf.db import OAuthToken, session_scope
+
+    await _signed_in_and_expired(client, user, oauth_mcp_url)
+    monkeypatch.setattr(oauth, "HOLD_TIMEOUT", 0.5, raising=False)
+    turn = f"oauth:{user['id']}:notes"
+    assert await bus.current().lock(turn)
+
+    async def other_refresh_saves_and_lingers():
+        await asyncio.sleep(0.2)
+        with session_scope() as db:
+            row = db.query(OAuthToken).filter_by(user_id=user["id"], server_name="notes").one()
+            row.put("tokens_json", {**row.get("tokens_json"), "access_token": "fresh", "expires_at": time.time() + 600})
+
+    try:
+        got, _ = await asyncio.gather(
+            oauth.access_token(user["id"], "notes", f"{oauth_mcp_url}/mcp"), other_refresh_saves_and_lingers()
+        )
+    finally:
+        await bus.current().unlock(turn)
+    assert got == "fresh"
+
+
+async def test_a_refresh_that_outwaits_its_turn_is_a_passing_error_not_a_sign_out(
+    client, user, oauth_mcp_url, monkeypatch
+):
+    from acf import bus, oauth
+
+    await _signed_in_and_expired(client, user, oauth_mcp_url)
+    monkeypatch.setattr(oauth, "HOLD_TIMEOUT", 0.3, raising=False)
+    turn = f"oauth:{user['id']}:notes"
+    assert await bus.current().lock(turn)
+    try:
+        (notes,) = (await client.get("/api/mcp/servers")).json()["servers"]
+    finally:
+        await bus.current().unlock(turn)
+    assert notes["state"] == "error" and "try again" in notes["error"], notes
+    (notes,) = (await client.get("/api/mcp/servers")).json()["servers"]
+    assert notes["state"] == "connected", notes  # its turn comes: the refresh goes through
+
+
+def test_the_refresh_turn_outlasts_one_refresh_request():
+    """httpx's timeout applies to each phase of a request (connect, write, read, pool)."""
+    from acf import oauth
+
+    assert oauth.HOLD_TIMEOUT > 4 * oauth.TIMEOUT
+
+
 async def test_unreachable_remote_server_has_friendly_error(client, user):
     cfg = {"mcpServers": {"gone": {"url": "http://127.0.0.1:1/mcp"}}}
     await client.put("/api/mcp/config", json={"config": json.dumps(cfg)})

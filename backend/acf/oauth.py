@@ -25,6 +25,9 @@ from acf import bus
 from acf.db import OAuthToken, session_scope, utcnow
 
 TIMEOUT = 20
+# The wait for another refresh of the same connection: longer than one refresh request can take, as httpx's
+# timeout applies to each phase (connect, write, read, pool).
+HOLD_TIMEOUT = 4 * TIMEOUT + 10
 
 
 class OAuthError(RuntimeError):
@@ -274,7 +277,7 @@ async def access_token(user_id: int, name: str, server_url: str) -> str | None:
     # One refresh at a time per connection, across processes: a provider that rotates refresh tokens
     # refuses the second use of one, which would sign the user out. Whoever waited reads the new token.
     try:
-        async with bus.current().hold(f"oauth:{user_id}:{name}", timeout=TIMEOUT + 10):
+        async with bus.current().hold(f"oauth:{user_id}:{name}", timeout=HOLD_TIMEOUT):
             stored = _stored(user_id, name, server_url)
             if stored is None:
                 return None
@@ -303,7 +306,11 @@ async def access_token(user_id: int, name: str, server_url: str) -> str | None:
                     row.updated_at = utcnow()
             return new["access_token"]
     except TimeoutError:
-        return None
+        # The other refresh is still going, or its process died holding the turn: the sign-in itself is fine.
+        stored = _stored(user_id, name, server_url)
+        if stored is not None and not _expired(stored[0]):
+            return stored[0]["access_token"]
+        raise OAuthError("Could not refresh the sign-in. Please try again in a moment.") from None
 
 
 def has_tokens(user_id: int, name: str) -> bool:
