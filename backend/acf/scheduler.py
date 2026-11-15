@@ -178,11 +178,10 @@ def _open_chat(task_id: int) -> tuple[User, int, str] | None:
 
 
 def _set(task_id: int, **fields: Any) -> None:
+    """Write every field, even one that seems unchanged: the ORM would leave out a column set to the value
+    it loaded, and recovery may change that column in between (a "running" for a new run must land)."""
     with session_scope() as db:
-        task = db.get(Task, task_id)
-        if task:
-            for k, v in fields.items():
-                setattr(task, k, v)
+        db.query(Task).filter(Task.id == task_id).update(fields, synchronize_session=False)
 
 
 async def run_task(task_id: int) -> int | None:

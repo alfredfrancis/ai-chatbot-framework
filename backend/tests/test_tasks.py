@@ -369,6 +369,32 @@ async def test_a_run_that_starts_while_recovery_looks_is_not_marked_stopped(clie
     assert await _notes(client, old_chat) == [] and await _notes(client, new_chat) == []
 
 
+async def test_a_run_that_says_running_while_recovery_stops_the_old_one_stays_running(client, user):
+    """Recovery stops the dead run in X just before a new run's "running" for Y is written. The task
+    must end as running Y: a run that shows as stopped can't be seen by Run now, which then waits on it."""
+    from sqlalchemy import event
+
+    from acf import db
+
+    task_id, old_chat = await _left_running(client)
+    new_chat = (await client.post("/api/chats", json={})).json()["id"]
+    notes: list = []
+
+    def recovery_commits_first(conn, cursor, statement, *args):
+        if not notes and statement.startswith("UPDATE tasks"):
+            notes.append(None)  # once: recovery's own UPDATE comes through here too
+            notes[0] = scheduler._stop(task_id, old_chat)
+
+    event.listen(db._engine, "before_cursor_execute", recovery_commits_first)
+    try:
+        scheduler._set(task_id, last_status="running", last_run_at=utcnow(), last_chat_id=new_chat)
+    finally:
+        event.remove(db._engine, "before_cursor_execute", recovery_commits_first)
+    assert notes and notes[0] is not None  # recovery did stop the old run in between
+    task = await _task(client, task_id)
+    assert (task["last_status"], task["last_chat_id"]) == ("running", new_chat)
+
+
 async def test_stopped_one_off_task_is_not_run_again(client, user):
     day = (utcnow() + timedelta(days=2)).date().isoformat()
     task_id, chat_id = await _left_running(client, schedule="", run_at=f"{day}T09:30")
