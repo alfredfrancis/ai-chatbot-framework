@@ -169,11 +169,18 @@ folder at the same path (shared storage), because sandboxes mount workspaces fro
 [architecture](docs/architecture.md#several-app-processes-backendacfbuspy).
 
 Upgrades migrate the database first: the `migrate` service runs `acf-migrate` and the app starts once it
-has finished. Processes that start together take turns on the schema, so a rolling deploy can also leave
-it to them. Where a deploy tool runs migrations as their own step (a Kubernetes Job or a Helm hook), run
-`acf-migrate` there and set `ACF_MIGRATE_ON_START=false` on the app. Give the Job the app's `ACF_DB_URL`
-and `ACF_SECRET_KEY`: migrations can decrypt and re-encrypt stored secrets, and without the key
-`acf-migrate` stops with a message.
+has finished. App processes also migrate when they start (`ACF_MIGRATE_ON_START`, default `true`), and
+processes that start together take turns on the schema. Where a deploy tool runs migrations as their own
+step (a Kubernetes Job or a Helm hook), run `acf-migrate` there and set `ACF_MIGRATE_ON_START=false` on the
+app, which then refuses to start on an older schema. Give the Job the app's `ACF_DB_URL` and
+`ACF_SECRET_KEY`: migrations can decrypt and re-encrypt stored secrets, and without the key `acf-migrate`
+stops with a message.
+
+During a rolling deploy the previous version's processes keep running, and restart or scale up, on the new
+schema. A process that finds a schema revision it doesn't know logs a warning naming both revisions and
+starts without migrating. That is safe only because migrations are expand/contract: each release's
+migrations keep the previous release working. Add tables, and columns that are nullable or have a server
+default, in one release; drop or rename what the code no longer uses in a later release.
 
 ## Configuration
 

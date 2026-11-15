@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -27,6 +28,8 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 from sqlalchemy.types import TypeDecorator
 
 from acf import config, secrets_box
+
+log = logging.getLogger("acf.db")
 
 
 def utcnow() -> datetime:
@@ -259,6 +262,8 @@ def migrate(engine=None) -> None:
     concurrent runs take turns on. A database made by an older version, before migrations existed, is
     marked as the baseline first and then upgraded."""
     from alembic import command
+    from alembic.migration import MigrationContext
+    from alembic.script import ScriptDirectory
 
     engine = engine or _engine
     assert engine is not None
@@ -269,6 +274,9 @@ def migrate(engine=None) -> None:
         tables = set(inspect(conn).get_table_names())
         if "users" in tables and "alembic_version" not in tables:
             command.stamp(cfg, BASELINE_REVISION)
+        current = MigrationContext.configure(conn).get_current_revision()
+        if _newer_than_this_version(current, ScriptDirectory.from_config(cfg)):
+            return
         command.upgrade(cfg, "head")
 
 
@@ -279,13 +287,29 @@ def schema_revision(engine: Engine) -> str | None:
         return MigrationContext.configure(conn).get_current_revision()
 
 
+def _newer_than_this_version(current: str | None, script) -> bool:
+    """A revision this version doesn't know comes from a newer version: in a rolling deploy its migrations
+    have run while this version's processes still restart and scale up. They start on it, which is safe
+    because a release's migrations keep the previous release working (expand/contract, see README)."""
+    if current is None or current in {s.revision for s in script.walk_revisions()}:
+        return False
+    log.warning(
+        "The database schema is at revision %s, which this version doesn't know (its newest is %s): "
+        "a newer version has migrated it. Starting on it without migrating.",
+        current,
+        script.get_current_head(),
+    )
+    return True
+
+
 def check_schema(engine: Engine) -> None:
-    """Raise SchemaOutOfDate unless the database is at this version's newest migration."""
+    """Raise SchemaOutOfDate unless the database is at this version's newest migration, or a newer one."""
     from alembic.script import ScriptDirectory
 
-    head = ScriptDirectory.from_config(_alembic_config()).get_current_head()
+    script = ScriptDirectory.from_config(_alembic_config())
+    head = script.get_current_head()
     current = schema_revision(engine)
-    if current != head:
+    if current != head and not _newer_than_this_version(current, script):
         raise SchemaOutOfDate(
             f"The database schema is at revision {current or 'none'} and this version needs {head}. "
             "Run `acf-migrate` first, or set ACF_MIGRATE_ON_START=true."
@@ -348,8 +372,6 @@ def _holds_encrypted_values(engine: Engine) -> bool:
 def main() -> None:
     """`acf-migrate`: bring the database schema up to date and exit. Run it before the app starts when the
     app runs with ACF_MIGRATE_ON_START=false (a Kubernetes Job, the `migrate` compose service)."""
-    import logging
-
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
     engine = _make_engine(config.settings.db_url)

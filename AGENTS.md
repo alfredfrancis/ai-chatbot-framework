@@ -107,6 +107,8 @@ make lint         # ruff + tsc
 - Columns holding secrets use `EncryptedText`; never put secrets in other columns.
 - A model change needs a migration (`make migration m="…"`, then read and fix what it wrote);
   `tests/test_migrations.py` fails when models and migrations disagree. Never edit a released migration.
+  Migrations are expand/contract: the previous release must keep working on the new schema (rolling
+  deploys), so new columns are nullable or have a server default, and drops wait a release.
 - Keep DB sessions short; never hold one across an `await` on the model. PostgreSQL enforces column
   lengths (SQLite doesn't): bound user input in the API models and run tests on both
   (`ACF_TEST_DB_URL=postgresql://… make test`; CI runs both).

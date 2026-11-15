@@ -285,3 +285,36 @@ def test_without_migrate_on_start_the_app_refuses_an_old_schema_until_acf_migrat
     finally:
         proc.terminate()
         proc.wait(30)
+
+
+@pytest.mark.parametrize("migrate_on_start", ["true", "false"])
+def test_an_older_version_starts_on_a_schema_a_newer_one_migrated(tmp_path, migrate_on_start):
+    """A rolling deploy: the Job has migrated to a revision this version doesn't know, and pods of this
+    version restart or scale up. They start, with a warning naming both revisions."""
+    url = f"sqlite:///{tmp_path / 'newer.db'}"
+    engine = sa.create_engine(url)
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "head")
+        conn.execute(sa.text("UPDATE alembic_version SET version_num = '9999'"))
+    engine.dispose()
+    env = {
+        **os.environ,
+        "ACF_DB_URL": url,
+        "ACF_MIGRATE_ON_START": migrate_on_start,
+        "ACF_FRONTEND_DIST": "/nonexistent",
+    }
+
+    proc, base = _start_app(env)
+    try:
+        started = _healthy(proc, base)
+    finally:
+        proc.terminate()
+    out = proc.communicate(timeout=30)[0].decode()
+    assert started, out
+    assert "9999" in out and _head() in out, out
+
+    migrated = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert migrated.returncode == 0, migrated.stderr
+    assert "9999" in migrated.stderr and _head() in migrated.stderr, migrated.stderr
