@@ -63,6 +63,7 @@ type Listener = (n: AcpNotification) => void;
 class AcpClient {
   private state: Link = "idle";
   private ws: WebSocket | null = null; // the socket being opened or open
+  private dropped = new WeakSet<WebSocket>(); // closed on purpose: their close is not a lost connection
   private opening: Promise<WebSocket> | null = null;
   private attempt = 0;
   private retry: ReturnType<typeof setTimeout> | undefined;
@@ -86,8 +87,9 @@ class AcpClient {
   private connect(): Promise<WebSocket> {
     if (this.ws?.readyState === WebSocket.OPEN) return Promise.resolve(this.ws);
     if (this.opening) return this.opening;
-    // While down, the next attempt is already scheduled: callers fail fast instead of adding attempts.
-    if (this.state === "down") return Promise.reject(new AcpError(NO_CONNECTION, "Not connected"));
+    // Down, or the socket is closing (its close event marks the link down): the next attempt is scheduled or
+    // about to be, so callers fail fast instead of opening a second socket.
+    if (this.state !== "idle") return Promise.reject(new AcpError(NO_CONNECTION, "Not connected"));
     return this.open();
   }
 
@@ -96,7 +98,7 @@ class AcpClient {
     this.ws = ws;
     this.opening = new Promise<WebSocket>((resolve, reject) => {
       ws.onopen = () => {
-        if (this.ws !== ws) return;
+        if (this.dropped.has(ws)) return;
         this.opening = null;
         this.attempt = 0;
         const back = this.state === "down";
@@ -107,7 +109,7 @@ class AcpClient {
       };
       ws.onclose = () => {
         reject(new AcpError(NO_CONNECTION, "Could not connect to the agent"));
-        if (this.ws !== ws) return; // closed on purpose
+        if (this.dropped.has(ws)) return;
         this.ws = null;
         this.opening = null;
         for (const p of this.pending.values()) p.reject(new AcpError(NO_CONNECTION, "Connection lost"));
@@ -177,6 +179,7 @@ class AcpClient {
     this.state = "idle";
     this.attempt = 0;
     const ws = this.ws;
+    if (ws) this.dropped.add(ws);
     this.ws = null;
     this.opening = null;
     for (const p of this.pending.values()) p.reject(new AcpError(NO_CONNECTION, "Connection closed"));

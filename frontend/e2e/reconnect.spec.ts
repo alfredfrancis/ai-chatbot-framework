@@ -54,6 +54,51 @@ test("chat survives a 15 s restart", async ({ page }) => {
   await expect(note).toHaveCount(0, { timeout: 10_000 }); // the note goes once it has said so
 });
 
+test("a click while the connection is closing does not lose the reply", async ({ page }) => {
+  // The browser holds a socket in CLOSING between the server's close and the close event. The page's
+  // WebSocket is wrapped so a test can stretch that moment: close() starts it, release() ends it.
+  await page.addInitScript(() => {
+    const Native = window.WebSocket;
+    const all: Held[] = [];
+    class Held extends Native {
+      closing = false;
+      held: Event | null = null;
+      handler: ((e: Event) => void) | null = null;
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        all.push(this);
+        super.onclose = (e) => { if (this.closing) this.held = e; else this.handler?.(e); };
+      }
+      get readyState() { return this.closing ? Native.CLOSING : super.readyState; }
+      set onclose(f: ((e: Event) => void) | null) { this.handler = f; }
+      get onclose() { return this.handler; }
+    }
+    Object.assign(window, {
+      WebSocket: Held,
+      sockets: () => all.length,
+      startClosing: () => { const ws = all[all.length - 1]; ws.closing = true; Native.prototype.close.call(ws); },
+      release: () => { const ws = all[all.length - 1]; ws.closing = false; if (ws.held) ws.handler?.(ws.held); },
+    });
+  });
+  const hook = (name: "sockets" | "startClosing" | "release") =>
+    page.evaluate((n) => (window as unknown as Record<string, () => number | undefined>)[n](), name);
+
+  await signUp(page, "Noor");
+  await say(page, "slow: 4 still here");
+  await expect(page.getByText("Working").first()).toBeVisible();
+  expect(await hook("sockets")).toBe(1);
+  await hook("startClosing");
+  await page.getByRole("button", { name: "Stop" }).click();
+  await page.waitForTimeout(500); // room for the click to open a socket of its own
+  await hook("release");
+
+  await expect(lastAssistant(page)).toHaveText("Echo: still here", { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0);
+  await shot(page, "69-reply-after-closing-click");
+  await say(page, "still talking");
+  await expect(lastAssistant(page)).toHaveText("Echo: still talking");
+});
+
 test("chat survives a restart onto the other replica", async ({ page }) => {
   test.skip(APPS.length < 2, "needs E2E_REPLICAS=2");
   test.setTimeout(150_000);
