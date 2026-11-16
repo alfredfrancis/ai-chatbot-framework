@@ -7,14 +7,17 @@ OpenAI-compatible server (Ollama, OpenRouter, vLLM, LiteLLM).
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from typing import Any
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
+from opentelemetry.trace import SpanKind
 
-from acf import config, models
+from acf import config, models, telemetry
 
 # What "fast" means for a sub-agent, per provider (ACF_SUBAGENT_FAST_MODEL overrides it).
 FAST_MODELS = {"anthropic": "claude-haiku-5-5", "openai": "gpt-4.1-mini"}
@@ -127,6 +130,25 @@ def make_model(cfg: LLMConfig) -> BaseChatModel:
         raise LLMError(f"Provider '{cfg.provider}' is not installed: {e}") from e
     except Exception as e:  # noqa: BLE001 - bad provider names, missing keys…
         raise LLMError(f"Could not set up the model: {e}") from e
+
+
+@contextlib.contextmanager
+def traced(cfg: LLMConfig, purpose: str) -> Iterator[Callable[[AIMessage], AIMessage]]:
+    """An `acf.llm` span around one model call. Pass the answer through the function it gives to record its
+    token counts: `with traced(cfg, "title") as done: ai = done(await model.ainvoke(messages))`."""
+    attrs = {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.provider.name": cfg.provider,
+        "gen_ai.request.model": cfg.model,
+        "acf.llm.purpose": purpose,
+    }
+    with telemetry.span("acf.llm", attrs, kind=SpanKind.CLIENT) as span:
+
+        def done(ai: AIMessage) -> AIMessage:
+            telemetry.llm_usage(span, cfg.provider, ai.usage_metadata)
+            return ai
+
+        yield done
 
 
 def friendly_error(e: BaseException) -> str:

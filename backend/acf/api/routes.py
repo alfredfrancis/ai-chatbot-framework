@@ -7,12 +7,27 @@ import json
 import re
 from typing import Annotated, Any, Literal
 
+import anyio
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from acf import __version__, apps, artifacts, config, mcp_presets, models, oauth, projects, scheduler, skills, workspace
+from acf import (
+    __version__,
+    apps,
+    artifacts,
+    bus,
+    config,
+    mcp_presets,
+    models,
+    oauth,
+    projects,
+    scheduler,
+    skills,
+    workspace,
+)
+from acf import db as database
 from acf.agent import loop as agent
 from acf.agent import review, transcripts
 from acf.auth import (
@@ -63,7 +78,37 @@ def _set_cookie(resp: Response, token: str) -> None:
 
 @router.get("/health")
 def health() -> dict:
+    """Liveness: the process answers. Never touches the database or the bus."""
     return {"ok": True, "version": __version__}
+
+
+READY_TIMEOUT = 2.0
+_probe: asyncio.Task | None = None
+
+
+async def _check_db() -> None:
+    """One probe at a time: a database that hangs must not pile up threads, one per call."""
+    global _probe
+    if _probe is None or _probe.done() or _probe.get_loop() is not asyncio.get_running_loop():
+        _probe = asyncio.ensure_future(asyncio.to_thread(database.ping))
+    await asyncio.shield(_probe)
+
+
+async def _check(name: str, probe) -> tuple[str, str]:
+    try:
+        await asyncio.wait_for(probe(), READY_TIMEOUT)
+        return name, "ok"
+    except Exception:  # noqa: BLE001 - any failure, including the timeout, means not ready
+        return name, "error"
+
+
+@router.get("/health/ready")
+async def ready(response: Response) -> dict:
+    """Readiness: take traffic only when the database and the shared bus answer."""
+    checks = dict(await asyncio.gather(_check("db", _check_db), _check("bus", bus.current().ping)))
+    if "error" in checks.values():
+        response.status_code = 503
+    return checks
 
 
 @router.get("/auth/config")
@@ -252,7 +297,8 @@ def create_chat(
 def get_chat(chat_id: int, db: Session = Depends(get_db, scope="function"), user: User = Depends(current_user)) -> dict:
     chat = _own_chat(db, user, chat_id)
     msgs = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id).all()
-    return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": agent.running(chat.id)}
+    running = anyio.from_thread.run(agent.running, chat.id)  # the bus lives on the event loop; this is a thread
+    return {**_chat_dict(chat), "messages": [m.to_dict() for m in msgs], "running": running}
 
 
 @router.get("/chats/{chat_id}/artifacts")
@@ -265,7 +311,7 @@ def chat_artifacts(
 
 
 @router.post("/chats/{chat_id}/learned/{message_id}/undo")
-def undo_learned(
+async def undo_learned(
     chat_id: int,
     message_id: int,
     db: Session = Depends(get_db, scope="function"),
@@ -278,7 +324,7 @@ def undo_learned(
         raise HTTPException(404, "Nothing learned to undo")
     raw = dict(note.raw or {})
     try:
-        review.undo(user.id, raw)
+        await review.undo(user.id, raw)
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
     raw["undone"] = True
@@ -432,9 +478,9 @@ def list_apps(user: User = Depends(current_user)) -> list[dict]:
 
 
 @router.get("/apps/{app_id}")
-def get_app(app_id: str, user: User = Depends(current_user)) -> dict:
+async def get_app(app_id: str, user: User = Depends(current_user)) -> dict:
     try:
-        return apps.detail(user.id, app_id)
+        return await apps.detail(user.id, app_id)
     except apps.NotFound as e:
         raise HTTPException(404, "App not found") from e
 

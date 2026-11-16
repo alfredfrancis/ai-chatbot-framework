@@ -1,7 +1,16 @@
 """The schema comes from Alembic migrations (acf/migrations); these keep them honest."""
 
+import contextlib
+import os
+import subprocess
+import sys
+import time
+import uuid
 from importlib.resources import files
+from pathlib import Path
 
+import httpx
+import pytest
 import sqlalchemy as sa
 from alembic import command
 from alembic.autogenerate import compare_metadata
@@ -9,7 +18,11 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 
-from acf import db
+from acf import config, db
+from tests.conftest import free_port
+
+ACF_MIGRATE = str(Path(sys.executable).parent / "acf-migrate")
+BACKEND = Path(__file__).parents[1]
 
 
 def _config() -> Config:
@@ -113,3 +126,240 @@ def test_a_users_key_and_address_move_to_their_provider(tmp_path):
         back = conn.execute(sa.text("SELECT llm_base_url, llm_api_key FROM users WHERE id = 1")).one()
         assert back[0] == "http://ollama:11434/v1" and secrets_box.decrypt(back[1]) == "sk-old"
     engine.dispose()
+
+
+def test_acf_migrate_refuses_to_run_without_the_key_that_encrypted_the_database(tmp_path, monkeypatch):
+    """0005 decrypts and re-encrypts users' keys: without ACF_SECRET_KEY acf-migrate stops with a message
+    instead of making a key of its own (a container or Job has no data folder to keep it in)."""
+    import json
+
+    from acf import secrets_box
+
+    secret = "migrate-secret-key-that-is-long-enough-0"
+    monkeypatch.setattr(config.settings, "secret_key", secret)
+    url = f"sqlite:///{tmp_path / 'keys.db'}"
+    engine = sa.create_engine(url)
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0004")
+        conn.execute(
+            sa.text(
+                "INSERT INTO users (id, email, name, password_hash, created_at, llm_provider, llm_model, "
+                "llm_base_url, llm_api_key, mcp_config) "
+                "VALUES (1, 'a@b.c', '', 'x', '2026-01-01', 'openai', 'm', '', :k, '')"
+            ),
+            {"k": secrets_box.encrypt("sk-old")},
+        )
+    data = tmp_path / "data"
+    data.mkdir()
+    env = {**os.environ, "ACF_DB_URL": url, "ACF_DATA_DIR": str(data)}
+
+    refused = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert refused.returncode != 0
+    assert "ACF_SECRET_KEY" in refused.stderr and "Traceback" not in refused.stderr, refused.stderr
+    assert not (data / "secret.key").exists()
+    assert db.schema_revision(engine) == "0004"
+
+    env["ACF_SECRET_KEY"] = secret
+    migrated = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert migrated.returncode == 0, migrated.stderr
+    assert not (data / "secret.key").exists()
+    with engine.connect() as conn:
+        stored = conn.execute(sa.text("SELECT llm_connections FROM users")).scalar_one()
+    engine.dispose()
+    assert json.loads(secrets_box.decrypt(stored)) == {"openai": {"api_key": "sk-old", "base_url": ""}}
+
+
+def test_acf_migrate_never_makes_a_key_to_encrypt_plaintext_secrets(tmp_path, monkeypatch):
+    """0005 encrypts secrets stored in plain text: without ACF_SECRET_KEY acf-migrate stops before making a
+    key the app doesn't have (a Job's data folder goes with it), and the whole upgrade rolls back. With a
+    key file in the data folder (a local install) it uses that one."""
+    import json
+
+    from acf import secrets_box
+
+    url = f"sqlite:///{tmp_path / 'plain.db'}"
+    engine = sa.create_engine(url)
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0004")
+        conn.execute(
+            sa.text(
+                "INSERT INTO users (id, email, name, password_hash, created_at, llm_provider, llm_model, "
+                "llm_base_url, llm_api_key, mcp_config) "
+                "VALUES (1, 'a@b.c', '', 'x', '2026-01-01', 'openai', 'm', '', 'sk-PLAINTEXT', '')"
+            )
+        )
+    data = tmp_path / "data"
+    data.mkdir()
+    env = {**os.environ, "ACF_DB_URL": url, "ACF_DATA_DIR": str(data)}
+
+    refused = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert refused.returncode != 0, refused.stderr
+    assert "ACF_SECRET_KEY" in refused.stderr and "Traceback" not in refused.stderr, refused.stderr
+    assert not (data / "secret.key").exists()
+    assert db.schema_revision(engine) == "0004"
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT llm_api_key FROM users")).scalar_one() == "sk-PLAINTEXT"
+
+    secret = "local-key-file-that-is-long-enough-00000"
+    (data / "secret.key").write_text(secret)
+    migrated = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert migrated.returncode == 0, migrated.stderr
+    assert db.schema_revision(engine) == _head()
+    with engine.connect() as conn:
+        stored = conn.execute(sa.text("SELECT llm_connections FROM users")).scalar_one()
+    engine.dispose()
+    monkeypatch.setattr(config.settings, "secret_key", secret)
+    assert json.loads(secrets_box.decrypt(stored)) == {"openai": {"api_key": "sk-PLAINTEXT", "base_url": ""}}
+
+
+def _head() -> str:
+    return ScriptDirectory.from_config(_config()).get_current_head()
+
+
+@pytest.fixture
+def empty_postgres():
+    """A new, empty PostgreSQL database on the test server, dropped afterwards."""
+    if config.settings.db_url.startswith("sqlite"):
+        pytest.skip("PostgreSQL only (ACF_TEST_DB_URL)")
+    server = sa.make_url(db.normalize_url(config.settings.db_url))
+    name = f"acf_migrate_{uuid.uuid4().hex[:8]}"
+    admin = sa.create_engine(server, isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(sa.text(f'CREATE DATABASE "{name}"'))
+    yield server.set(database=name)
+    with admin.connect() as conn:
+        conn.execute(sa.text(f'DROP DATABASE "{name}" WITH (FORCE)'))
+    admin.dispose()
+
+
+def test_acf_migrate_processes_started_together_take_turns(empty_postgres):
+    """Pods starting at once without Redis: every run succeeds and the schema is built exactly once."""
+    env = {**os.environ, "ACF_DB_URL": empty_postgres.render_as_string(hide_password=False)}
+    runs = [
+        subprocess.Popen([ACF_MIGRATE], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) for _ in range(5)
+    ]
+    outputs = [p.communicate(timeout=120)[0].decode() for p in runs]
+    assert [p.returncode for p in runs] == [0] * 5, "\n".join(outputs)
+    engine = sa.create_engine(empty_postgres)
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalars().all() == [_head()]
+        ctx = MigrationContext.configure(conn, opts={"compare_type": True})
+        assert compare_metadata(ctx, db.Base.metadata) == []
+    engine.dispose()
+
+
+def _start_app(env: dict[str, str]) -> tuple[subprocess.Popen, str]:
+    port = free_port()
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "acf.main:app", "--port", str(port), "--log-level", "warning"],
+        cwd=BACKEND,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    return proc, f"http://127.0.0.1:{port}"
+
+
+def _healthy(proc: subprocess.Popen, url: str) -> bool:
+    for _ in range(200):
+        with contextlib.suppress(httpx.HTTPError):
+            if httpx.get(f"{url}/api/health", timeout=1).status_code == 200:
+                return True
+        if proc.poll() is not None:
+            return False
+        time.sleep(0.1)
+    return False
+
+
+def test_app_processes_started_together_without_redis_all_start(empty_postgres):
+    """Each migrates on start, encrypts stored secrets and makes the main account, taking turns in PostgreSQL."""
+    env = {
+        **os.environ,
+        "ACF_DB_URL": empty_postgres.render_as_string(hide_password=False),
+        "ACF_SECRET_KEY": "test-secret-key-that-is-long-enough-0000",
+        "ACF_ADMIN_EMAIL": "owner@example.com",
+        "ACF_ADMIN_PASSWORD": "owner password",
+        "ACF_FRONTEND_DIST": "/nonexistent",
+    }
+    apps = [_start_app(env) for _ in range(4)]
+    try:
+        started = [_healthy(proc, url) for proc, url in apps]
+    finally:
+        for proc, _ in apps:
+            proc.terminate()
+    outputs = [proc.communicate(timeout=30)[0].decode() for proc, _ in apps]
+    assert started == [True] * 4, "\n".join(outputs)
+    engine = sa.create_engine(empty_postgres)
+    with engine.connect() as conn:
+        assert conn.execute(sa.text("SELECT email FROM users")).scalars().all() == ["owner@example.com"]
+    engine.dispose()
+
+
+def test_without_migrate_on_start_the_app_refuses_an_old_schema_until_acf_migrate_runs(tmp_path):
+    """ACF_MIGRATE_ON_START=false (pods, with acf-migrate as a Job): an old schema stops the app with a message
+    naming acf-migrate; after acf-migrate the same app starts."""
+    url = f"sqlite:///{tmp_path / 'old.db'}"
+    engine = sa.create_engine(url)
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "0005")
+    engine.dispose()
+    env = {**os.environ, "ACF_DB_URL": url, "ACF_MIGRATE_ON_START": "false", "ACF_FRONTEND_DIST": "/nonexistent"}
+
+    proc, base = _start_app(env)
+    try:
+        assert not _healthy(proc, base)
+        out = proc.communicate(timeout=30)[0].decode()
+    finally:
+        proc.kill()
+    assert proc.returncode != 0
+    assert "revision 0005" in out and "acf-migrate" in out, out
+
+    migrated = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert migrated.returncode == 0, migrated.stderr
+    assert f"Database schema is at revision {_head()}" in migrated.stderr
+
+    proc, base = _start_app(env)
+    try:
+        assert _healthy(proc, base)
+    finally:
+        proc.terminate()
+        proc.wait(30)
+
+
+@pytest.mark.parametrize("migrate_on_start", ["true", "false"])
+def test_an_older_version_starts_on_a_schema_a_newer_one_migrated(tmp_path, migrate_on_start):
+    """A rolling deploy: the Job has migrated to a revision this version doesn't know, and pods of this
+    version restart or scale up. They start, with a warning naming both revisions."""
+    url = f"sqlite:///{tmp_path / 'newer.db'}"
+    engine = sa.create_engine(url)
+    cfg = _config()
+    with engine.begin() as conn:
+        cfg.attributes["connection"] = conn
+        command.upgrade(cfg, "head")
+        conn.execute(sa.text("UPDATE alembic_version SET version_num = '9999'"))
+    engine.dispose()
+    env = {
+        **os.environ,
+        "ACF_DB_URL": url,
+        "ACF_MIGRATE_ON_START": migrate_on_start,
+        "ACF_FRONTEND_DIST": "/nonexistent",
+    }
+
+    proc, base = _start_app(env)
+    try:
+        started = _healthy(proc, base)
+    finally:
+        proc.terminate()
+    out = proc.communicate(timeout=30)[0].decode()
+    assert started, out
+    assert "9999" in out and _head() in out, out
+
+    migrated = subprocess.run([ACF_MIGRATE], env=env, capture_output=True, text=True, timeout=120)
+    assert migrated.returncode == 0, migrated.stderr
+    assert "9999" in migrated.stderr and _head() in migrated.stderr, migrated.stderr

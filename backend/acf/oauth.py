@@ -21,9 +21,13 @@ from urllib.parse import urlencode, urlparse
 
 import httpx
 
+from acf import bus
 from acf.db import OAuthToken, session_scope, utcnow
 
 TIMEOUT = 20
+# The wait for another refresh of the same connection: longer than one refresh request can take, as httpx's
+# timeout applies to each phase (connect, write, read, pool).
+HOLD_TIMEOUT = 4 * TIMEOUT + 10
 
 
 class OAuthError(RuntimeError):
@@ -249,38 +253,64 @@ async def complete(user_id: int, state: str, code: str) -> str:
     return name
 
 
-async def access_token(user_id: int, name: str, server_url: str) -> str | None:
-    """Return a valid access token for the server, refreshing it when needed."""
+def _stored(user_id: int, name: str, server_url: str) -> tuple[dict, dict, dict] | None:
+    """(tokens, metadata, client) of a signed-in server, or None."""
     with session_scope() as db:
         row = _row(db, user_id, name)
         if row is None or row.server_url != server_url:
             return None
         tokens, meta, client_info = row.get("tokens_json"), row.get("metadata_json"), row.get("client_json")
-    if not tokens.get("access_token"):
+    return (tokens, meta, client_info) if tokens.get("access_token") else None
+
+
+def _expired(tokens: dict) -> bool:
+    return bool(tokens.get("expires_at")) and tokens["expires_at"] - 60 < time.time()
+
+
+async def access_token(user_id: int, name: str, server_url: str) -> str | None:
+    """Return a valid access token for the server, refreshing it when needed."""
+    stored = _stored(user_id, name, server_url)
+    if stored is None:
         return None
-    if tokens.get("expires_at") and tokens["expires_at"] - 60 < time.time():
-        if not tokens.get("refresh_token"):
-            return None
-        try:
-            new = await _token_request(
-                meta,
-                client_info,
-                {
-                    "grant_type": "refresh_token",
-                    "refresh_token": tokens["refresh_token"],
-                    "resource": meta["_resource"],
-                },
-            )
-        except OAuthError:
-            return None
-        new.setdefault("refresh_token", tokens["refresh_token"])
-        with session_scope() as db:
-            row = _row(db, user_id, name)
-            if row:
-                row.put("tokens_json", new)
-                row.updated_at = utcnow()
-        tokens = new
-    return tokens["access_token"]
+    if not _expired(stored[0]):
+        return stored[0]["access_token"]
+    # One refresh at a time per connection, across processes: a provider that rotates refresh tokens
+    # refuses the second use of one, which would sign the user out. Whoever waited reads the new token.
+    try:
+        async with bus.current().hold(f"oauth:{user_id}:{name}", timeout=HOLD_TIMEOUT):
+            stored = _stored(user_id, name, server_url)
+            if stored is None:
+                return None
+            if not _expired(stored[0]):
+                return stored[0]["access_token"]
+            tokens, meta, client_info = stored
+            if not tokens.get("refresh_token"):
+                return None
+            try:
+                new = await _token_request(
+                    meta,
+                    client_info,
+                    {
+                        "grant_type": "refresh_token",
+                        "refresh_token": tokens["refresh_token"],
+                        "resource": meta["_resource"],
+                    },
+                )
+            except OAuthError:
+                return None
+            new.setdefault("refresh_token", tokens["refresh_token"])
+            with session_scope() as db:
+                row = _row(db, user_id, name)
+                if row:
+                    row.put("tokens_json", new)
+                    row.updated_at = utcnow()
+            return new["access_token"]
+    except TimeoutError:
+        # The other refresh is still going, or its process died holding the turn: the sign-in itself is fine.
+        stored = _stored(user_id, name, server_url)
+        if stored is not None and not _expired(stored[0]):
+            return stored[0]["access_token"]
+        raise OAuthError("Could not refresh the sign-in. Please try again in a moment.") from None
 
 
 def has_tokens(user_id: int, name: str) -> bool:

@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from acf import config, scan, skills, workspace
+from acf import config, scan, skills, telemetry, workspace
 from acf.sandbox import SandboxError, get_sandbox
 
 MAX_READ_LINES = 2000
@@ -32,7 +32,7 @@ class ToolResult:
 
 
 # start_job(label, work) -> job id: runs `work()` after the call returns and reports its result later.
-StartJob = Callable[[str, Callable[[], Awaitable[ToolResult]]], str]
+StartJob = Callable[[str, Callable[[], Awaitable[ToolResult]]], Awaitable[str]]
 
 
 @dataclass
@@ -82,17 +82,19 @@ async def call_tool(call: dict[str, Any], tools: dict[str, Tool], ctx: ToolConte
     """Run one tool call of a model answer. Bad arguments, unknown tools and tool errors become error
     results the model can recover from; the output is cut to size."""
     tool = tools.get(call["name"])
-    if "error" in call:
-        result = ToolResult(f"Could not parse the arguments: {call['error']}. Send valid JSON.", True)
-    elif tool is None:
-        result = ToolResult(f"Unknown tool {call['name']}. Available: {', '.join(tools)}", True)
-    else:
-        try:
-            result = await tool.run(call["args"], ctx)
-        except KeyError as e:
-            result = ToolResult(f"Missing argument: {e}", True)
-        except (ValueError, OSError, TypeError) as e:
-            result = ToolResult(str(e), True)
+    with telemetry.tool(call["name"] if tool else "unknown") as record:  # model-made names stay out of metrics
+        if "error" in call:
+            result = ToolResult(f"Could not parse the arguments: {call['error']}. Send valid JSON.", True)
+        elif tool is None:
+            result = ToolResult(f"Unknown tool {call['name']}. Available: {', '.join(tools)}", True)
+        else:
+            try:
+                result = await tool.run(call["args"], ctx)
+            except KeyError as e:
+                result = ToolResult(f"Missing argument: {e}", True)
+            except (ValueError, OSError, TypeError) as e:
+                result = ToolResult(str(e), True)
+        record.error = result.is_error
     # Safety net for tools (e.g. MCP) that don't cut their own output.
     if "characters omitted" not in result.content[:40_000]:
         result.content = truncate(result.content, ctx)
@@ -235,7 +237,7 @@ async def _bash(args: dict, ctx: ToolContext) -> ToolResult:
         async def work() -> ToolResult:
             return await _exec(command, timeout, ctx)
 
-        job = ctx.start_job(command, work)
+        job = await ctx.start_job(command, work)
         return ToolResult(
             f"Started in the background as job {job}. Its output arrives as a message when it finishes; "
             "carry on meanwhile, or end your turn if there is nothing else to do.",
@@ -245,8 +247,11 @@ async def _bash(args: dict, ctx: ToolContext) -> ToolResult:
 
 
 async def _exec(command: str, timeout: int, ctx: ToolContext) -> ToolResult:
+    sandbox = get_sandbox(ctx.user_id)
     try:
-        res = await get_sandbox(ctx.user_id).exec(command, timeout)
+        with telemetry.span("acf.sandbox.exec", {"acf.sandbox.kind": sandbox.kind}) as span:
+            res = await sandbox.exec(command, timeout)
+            span.set_attributes({"process.exit_code": res.exit_code, "acf.sandbox.timed_out": res.timed_out})
     except SandboxError as e:
         return ToolResult(str(e), True)
     return ToolResult(truncate(res.as_text(), ctx), res.exit_code != 0)

@@ -21,7 +21,12 @@ dependencies = [
   "alembic>=1.14",
   "redis>=5.2",
   "packaging>=24",
+  "opentelemetry-sdk>=1.30",
+  "opentelemetry-exporter-otlp-proto-http>=1.30",
 ]
+
+[project.scripts]
+acf-migrate = "acf.db:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.25", "ruff>=0.6"]

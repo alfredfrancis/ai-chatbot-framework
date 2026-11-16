@@ -27,7 +27,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
-from acf import workspace
+from acf import telemetry, workspace
 from acf.agent import loop as agent
 from acf.db import Chat, User, session_scope
 from acf.mcp_client import McpHub
@@ -180,12 +180,13 @@ def chat_app(user_id: int, chat_id: int) -> App | None:
     return None
 
 
-def detail(user_id: int, app_id: str) -> dict[str, Any]:
+async def detail(user_id: int, app_id: str) -> dict[str, Any]:
     """The app as the UI shows it: its OpenUI Lang source, and whether the agent works on it."""
     app = get(user_id, app_id)
     chat_id = _chat_id(user_id, app_id)
     source = workspace.read_file(user_id, f"{APPS_DIR}/{app_id}/{SCREEN}")[:MAX_SCREEN] if app.spec else ""
-    return {**app.summary(), "source": source, "chat_id": chat_id, "running": bool(chat_id and agent.running(chat_id))}
+    running = bool(chat_id and await agent.running(chat_id))
+    return {**app.summary(), "source": source, "chat_id": chat_id, "running": running}
 
 
 # ------------------------------------------------------------------ actions
@@ -244,9 +245,9 @@ async def run_action(user: User, app_id: str, action: Action, args: dict[str, An
     if action == "ask_agent":
         message = ask_agent_message(app, _text(args, "prompt", 20_000), _text(args, "event", 2000, required=False))
         chat_id = _app_chat(user, app)
-        feed, queued = agent.start(user, chat_id, message)
+        feed, queued = await agent.start(user, chat_id, message)
         if not queued:
-            agent.announce(chat_id, feed.run_id)  # the app's chat panel follows it
+            await agent.announce(chat_id, feed.run_id)  # the app's chat panel follows it
         return {"ok": True, "chat_id": chat_id, "queued": queued}
     if action == "run":
         script = _text(args, "script", 40)
@@ -254,7 +255,10 @@ async def run_action(user: User, app_id: str, action: Action, args: dict[str, An
         if not SCRIPT_RE.match(script) or not workspace.resolve(user.id, rel).is_file():
             raise AppError(f"No script {rel}")
         payload = json.dumps(args.get("input", {}))
-        result = await get_sandbox(user.id).exec(f"sh {shlex.quote(rel)} {shlex.quote(payload)}", RUN_TIMEOUT)
+        sandbox = get_sandbox(user.id)
+        with telemetry.span("acf.sandbox.exec", {"acf.sandbox.kind": sandbox.kind}) as span:
+            result = await sandbox.exec(f"sh {shlex.quote(rel)} {shlex.quote(payload)}", RUN_TIMEOUT)
+            span.set_attributes({"process.exit_code": result.exit_code, "acf.sandbox.timed_out": result.timed_out})
         if result.exit_code != 0 or result.timed_out:
             raise AppError(f"{rel} failed: {result.as_text()[-2000:]}")
         return {"ok": True, "output": result.stdout[:OUTPUT_LIMIT]}

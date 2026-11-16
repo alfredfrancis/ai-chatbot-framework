@@ -49,7 +49,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from acf import config, models, projects, skills, workspace
+from acf import config, logs, models, projects, skills, telemetry, workspace
 from acf.agent import loop as agent
 from acf.agent import usage as context_usage
 from acf.agent.tools import tool_kind, tool_title
@@ -244,6 +244,7 @@ class Connection:
         return task
 
     async def serve(self) -> None:
+        logs.annotate(user_id=self.user_id)
         try:
             while True:
                 frame = await self.ws.receive()
@@ -307,7 +308,7 @@ class Connection:
     async def _notification(self, method: str, params: dict[str, Any]) -> None:
         if method == "session/cancel":
             with contextlib.suppress(RpcError):
-                agent.stop(self._own_chat(params, write=True))
+                await agent.stop(self._own_chat(params, write=True))
 
     # -- helpers
     def _watch(self, chat_id: int) -> None:
@@ -391,12 +392,18 @@ class Connection:
     ) -> None:
         sid = str(chat_id)
         streamed: set[str] = set()  # streams whose text this client got as deltas
+        logs.bind(chat_id=chat_id, run_id=run.run_id)
+        follow = None
         try:
             if gate:
                 await gate.wait()
             while True:
                 e = await queue.get()
                 kind = e["type"]
+                if follow is None:  # a run's first event is its traceparent: join its trace, from any process
+                    follow = telemetry.start_follow(run.run_id, chat_id, e["traceparent"] if kind == "trace" else None)
+                    with telemetry.current(follow):
+                        log.info("following run")
                 if kind == "done":
                     end: dict[str, Any] = {"sessionId": sid, "stopReason": e.get("stop_reason") or "end_turn"}
                     if e.get("error"):
@@ -439,6 +446,8 @@ class Connection:
                     await self._emit(sid, [update])
             await self.notify("_acf/turn_end", end)
         finally:
+            if follow is not None:
+                follow.end()
             run.unlisten(queue)
             if self._watchers.get(chat_id, (None,))[0] == run.run_id:
                 del self._watchers[chat_id]
@@ -507,7 +516,7 @@ async def session_list(conn: Connection, params: dict[str, Any]) -> dict[str, An
 async def session_load(conn: Connection, params: dict[str, Any]) -> _Reply:
     chat_id = conn._own_chat(params)
     sid = str(chat_id)
-    run = agent.active(chat_id)
+    run = await agent.active(chat_id)
     gate = asyncio.Event()
     meta: dict[str, Any] = {"running": run is not None}
     with session_scope() as db:
@@ -569,9 +578,10 @@ async def session_set_config_option(conn: Connection, params: dict[str, Any]) ->
 
 async def session_prompt(conn: Connection, params: dict[str, Any]) -> dict[str, Any]:
     chat_id = conn._own_chat(params, write=True)
+    logs.bind(chat_id=chat_id)
     text = skills.reference(conn.user_id, prompt_text(params.get("prompt")))  # /name calls a skill
     conn._watch(chat_id)
-    run, queued = agent.start(conn._user(), chat_id, text)
+    run, queued = await agent.start(conn._user(), chat_id, text)
     task = conn._follow(run, chat_id, skip_user=None if queued else text)
     await asyncio.wait({task})
     done = run.result or {}
@@ -622,4 +632,5 @@ async def acp_endpoint(ws: WebSocket) -> None:
         await ws.close(code=1008, reason="Not signed in")  # before accept: the handshake gets HTTP 403
         return
     await ws.accept()
-    await Connection(ws, user_id).serve()
+    with telemetry.acp_connection():
+        await Connection(ws, user_id).serve()

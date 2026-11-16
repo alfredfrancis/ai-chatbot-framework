@@ -10,7 +10,7 @@ from datetime import timedelta
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from acf import config
+from acf import config, logs
 from acf.db import AcpToken, AuthSession, User, get_db, utcnow
 
 COOKIE = "acf_session"
@@ -120,4 +120,5 @@ def current_user(request: Request, db: Session = Depends(get_db, scope="function
     user = user_for_session(db, token)
     if not user:
         raise HTTPException(401, "Session expired")
+    logs.annotate(user_id=user.id)
     return user

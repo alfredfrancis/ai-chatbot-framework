@@ -10,6 +10,7 @@ work is in flight, so any process can serve any request:
 - **Signals**: steer (wake a thinking model), stop, and chat events; delivered to every process.
 - **Locks** and **jobs**: short-lived names held by this process (a scheduled task's run, a review,
   creating a sandbox, background commands).
+- **Use**: when each user's sandbox was last used (`touch` / `last_used`), so any process can stop idle ones.
 
 Adapters: `LocalBus` (in memory; one process, the default) and `RedisBus` (ACF_REDIS_URL; any number
 of processes). Held leases, locks and jobs expire `bus_ttl` seconds after their process stops
@@ -25,7 +26,7 @@ import logging
 import time
 import uuid
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from acf import config
@@ -109,12 +110,13 @@ class LocalBus:
     kind = "local"
 
     def __init__(self) -> None:
-        self.replica = new_id()
         self._leases: dict[int, str] = {}
         self._inbox: dict[int, list[dict[str, Any]]] = {}
         self._feeds: dict[str, Feed] = {}
         self._locks: set[str] = set()
         self._jobs: dict[str, int] = {}
+        self._used: dict[int, float] = {}
+        self._seen: dict[str, tuple[float, float]] = {}  # name -> (first seen, forget after), monotonic seconds
 
     async def start(self) -> None:
         pass
@@ -122,28 +124,31 @@ class LocalBus:
     async def close(self) -> None:
         pass
 
+    async def ping(self) -> None:
+        """Raise if the shared state is out of reach (never, for one process)."""
+
     # -- leases: one run per chat
-    def claim(self, chat_id: int, run_id: str) -> bool:
+    async def claim(self, chat_id: int, run_id: str) -> bool:
         if chat_id in self._leases:
             return self._leases[chat_id] == run_id
         self._leases[chat_id] = run_id
         return True
 
-    def owner(self, chat_id: int) -> str | None:
+    async def owner(self, chat_id: int) -> str | None:
         return self._leases.get(chat_id)
 
-    def release(self, chat_id: int, run_id: str) -> None:
+    async def release(self, chat_id: int, run_id: str) -> None:
         if self._leases.get(chat_id) == run_id:
             del self._leases[chat_id]
 
     # -- inbox
-    def push(self, chat_id: int, item: dict[str, Any]) -> None:
+    async def push(self, chat_id: int, item: dict[str, Any]) -> None:
         self._inbox.setdefault(chat_id, []).append(item)
 
-    def take(self, chat_id: int) -> list[dict[str, Any]]:
+    async def take(self, chat_id: int) -> list[dict[str, Any]]:
         return self._inbox.pop(chat_id, [])
 
-    def pending(self, chat_id: int) -> bool:
+    async def pending(self, chat_id: int) -> bool:
         return bool(self._inbox.get(chat_id))
 
     # -- feeds
@@ -175,69 +180,105 @@ class LocalBus:
             asyncio.get_running_loop().call_later(FEED_KEEP, self._feeds.pop, run_id, None)
 
     # -- signals (every process, this one included)
-    def signal(self, msg: dict[str, Any]) -> None:
+    async def signal(self, msg: dict[str, Any]) -> None:
         _dispatch(msg)
 
     # -- locks
-    def lock(self, name: str) -> bool:
+    async def lock(self, name: str) -> bool:
         if name in self._locks:
             return False
         self._locks.add(name)
         return True
 
-    def unlock(self, name: str) -> None:
+    async def unlock(self, name: str) -> None:
         self._locks.discard(name)
+
+    async def locked(self, names: Iterable[str]) -> set[str]:
+        """The ones of these locks that a process holds."""
+        return {n for n in names if n in self._locks}
 
     @contextlib.asynccontextmanager
     async def hold(self, name: str, timeout: float = 600):
         """Wait for a lock, hold it for the block."""
         deadline = time.monotonic() + timeout
-        while not self.lock(name):
+        while not await self.lock(name):
             if time.monotonic() > deadline:
                 raise TimeoutError(f"Timed out waiting for {name}")
             await asyncio.sleep(0.1)
         try:
             yield
         finally:
-            self.unlock(name)
+            await self.unlock(name)
 
     # -- background jobs
-    def add_job(self, chat_id: int, job_id: str) -> None:
+    async def add_job(self, chat_id: int, job_id: str) -> None:
         self._jobs[job_id] = chat_id
 
-    def drop_job(self, job_id: str) -> None:
+    async def drop_job(self, job_id: str) -> None:
         self._jobs.pop(job_id, None)
 
-    def jobs(self, chat_id: int) -> set[str]:
+    async def jobs(self, chat_id: int) -> set[str]:
         """Running background commands of the chat, in any process."""
         return {j for j, c in self._jobs.items() if c == chat_id}
+
+    # -- sandbox use
+    async def touch(self, user_id: int) -> None:
+        """Record that the user's sandbox is in use now."""
+        self._used[user_id] = time.time()
+
+    async def last_used(self, user_ids: list[int]) -> dict[int, float]:
+        """When each user's sandbox was last in use (epoch seconds), for the users with a record."""
+        return {u: self._used[u] for u in user_ids if u in self._used}
+
+    # -- sightings: "for how long has any process seen this?", to act only on a state that lasts
+    async def seen_for(self, name: str, ttl: float) -> float:
+        """Record a sighting of `name` and return the seconds since the first one, measured by one clock
+        (Redis's, for RedisBus), so the processes' clocks need not agree. Sightings are forgotten `ttl`
+        seconds after the first, or by `forget`."""
+        now = time.monotonic()
+        first = self._seen.get(name)
+        if first is None or first[1] <= now:
+            first = self._seen[name] = (now, now + ttl)
+        return now - first[0]
+
+    async def forget(self, names: Iterable[str]) -> None:
+        for name in names:
+            self._seen.pop(name, None)
 
 
 # Compare-and-set helpers: only the holder may refresh or drop a key.
 _REFRESH = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) end return 0"
 _RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0"
+# A sighting: the key holds its TTL in ms, so its age is that TTL minus what is left of it, by Redis's clock.
+# (Not the "seen" keys of earlier versions, which held a process's clock: they would read as wrong ages.)
+_SIGHT = (
+    "redis.call('set', KEYS[1], ARGV[1], 'NX', 'PX', ARGV[1]) "
+    "return tonumber(redis.call('get', KEYS[1])) - redis.call('pttl', KEYS[1])"
+)
 
 
 class RedisBus(LocalBus):
     """Shared through Redis, so app processes can be added and removed at any time.
 
-    Small calls (claim, push, take, signal) use a synchronous client, like the database: one quick
-    round trip. Events are written by one background publisher in order (batched, so streamed text
-    doesn't cost a round trip per word) and read by one tail per run per process.
+    Every call awaits its round trip, so a slow Redis delays only the caller, never the event loop.
+    Events are written by one background publisher in order (batched, so streamed text doesn't cost a
+    round trip per word) and read by one tail per run per process.
     """
 
     kind = "redis"
 
     def __init__(self, url: str, prefix: str = "acf", ttl: float = 30) -> None:
         super().__init__()
-        import redis
         import redis.asyncio as aredis
 
         self.prefix, self.ttl_ms = prefix, int(ttl * 1000)
-        self.r = redis.Redis.from_url(url, decode_responses=True)
-        self.ar = aredis.Redis.from_url(url, decode_responses=True)
+        # RESP2: with RESP3 the async pool skips its check for connections Redis closed (a restart), and
+        # hands each one out once more, to fail.
+        # A connect that hangs fails within a beat, so the next beat tries again before leases expire.
+        self.r = aredis.Redis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=ttl / 3)
         self._refresh = self.r.register_script(_REFRESH)
         self._release = self.r.register_script(_RELEASE)
+        self._sight = self.r.register_script(_SIGHT)
         self._held: dict[str, str] = {}  # key -> value, refreshed while this process lives
         self._out: deque[tuple[str, dict[str, Any]]] = deque()
         self._wake = asyncio.Event()
@@ -254,11 +295,14 @@ class RedisBus(LocalBus):
         return task
 
     async def start(self) -> None:
-        self.r.ping()
+        await self.r.ping()
         self._spawn(self._listen())
         self._spawn(self._publisher())
         self._spawn(self._heartbeat())
         await asyncio.wait_for(self._ready.wait(), 10)
+
+    async def ping(self) -> None:
+        await self.r.ping()
 
     async def close(self) -> None:
         for task in list(self._tasks):
@@ -267,76 +311,83 @@ class RedisBus(LocalBus):
         with contextlib.suppress(Exception):
             await self._flush()  # the last events (a stopped run's `done`)
         pipe = self.r.pipeline()
-        for key, value in self._held.items():
-            self._release(keys=[key], args=[value], client=pipe)
-        pipe.execute()
+        for key, value in list(self._held.items()):
+            await self._release(keys=[key], args=[value], client=pipe)
+        await pipe.execute()
         self._held.clear()
-        await self.ar.aclose()
-        self.r.close()
+        await self.r.aclose()
 
     # -- held keys
-    def _take_key(self, key: str, value: str) -> bool:
+    async def _take_key(self, key: str, value: str) -> bool:
         if self._held.get(key) == value:
             return True
-        if self.r.set(key, value, nx=True, px=self.ttl_ms):
+        if await self.r.set(key, value, nx=True, px=self.ttl_ms):
             self._held[key] = value
             return True
         return False
 
-    def _drop_key(self, key: str) -> None:
+    async def _drop_key(self, key: str) -> None:
         value = self._held.pop(key, None)
         if value is not None:
-            self._release(keys=[key], args=[value])
+            await self._release(keys=[key], args=[value])
 
     async def _heartbeat(self) -> None:
         while True:
             await asyncio.sleep(self.ttl_ms / 3000)
-            held = list(self._held.items())
-            if not held:
-                continue
             try:
-                pipe = self.r.pipeline()
-                for key, value in held:
-                    self._refresh(keys=[key], args=[value, self.ttl_ms], client=pipe)
-                results = await asyncio.to_thread(pipe.execute)
+                await self._beat()
             except Exception:  # noqa: BLE001 - Redis away for a moment: try again next beat
                 log.exception("bus heartbeat failed")
+
+    async def _beat(self) -> None:
+        held = list(self._held.items())
+        if not held:
+            return
+        pipe = self.r.pipeline()
+        for key, value in held:
+            await self._refresh(keys=[key], args=[value, self.ttl_ms], client=pipe)
+        results = await pipe.execute()
+        for (key, value), ok in zip(held, results, strict=True):
+            if ok or self._held.get(key) != value:
                 continue
-            for (key, value), ok in zip(held, results, strict=True):
-                if ok or self._held.get(key) != value:
-                    continue
-                # Expired while this process was cut off. Take it back if no one else has; otherwise
-                # another process may run this chat now, so stop here rather than run it twice.
-                if not self.r.set(key, value, nx=True, px=self.ttl_ms):
-                    log.error("lost %s to another process", key)
-                    self._held.pop(key, None)
-                    if key.startswith(self.k("lease")):
-                        _dispatch({"op": "lost", "chat_id": int(key.rsplit(":", 1)[1])})
+            # Expired while this process was cut off. Take it back if no one else has; otherwise
+            # another process may run this chat now, so stop here rather than run it twice.
+            taken = await self.r.set(key, value, nx=True, px=self.ttl_ms)
+            if self._held.get(key) != value:  # released while the SET was on its way: no one holds it
+                if taken:
+                    await self._release(keys=[key], args=[value])
+            # A lease's value is its run's id, which the run writes again when it claims its chat anew. Look
+            # at _held again after the read: a run that let go meanwhile has not lost anything.
+            elif not taken and await self.r.get(key) != value and self._held.get(key) == value:
+                log.error("lost %s to another process", key)
+                self._held.pop(key, None)
+                if key.startswith(self.k("lease")):
+                    _dispatch({"op": "lost", "chat_id": int(key.rsplit(":", 1)[1])})
 
     # -- leases
-    def claim(self, chat_id: int, run_id: str) -> bool:
-        return self._take_key(self.k("lease", chat_id), run_id)
+    async def claim(self, chat_id: int, run_id: str) -> bool:
+        return await self._take_key(self.k("lease", chat_id), run_id)
 
-    def owner(self, chat_id: int) -> str | None:
-        return self.r.get(self.k("lease", chat_id))
+    async def owner(self, chat_id: int) -> str | None:
+        return await self.r.get(self.k("lease", chat_id))
 
-    def release(self, chat_id: int, run_id: str) -> None:
+    async def release(self, chat_id: int, run_id: str) -> None:
         key = self.k("lease", chat_id)
         if self._held.get(key) == run_id:
-            self._drop_key(key)
+            await self._drop_key(key)
 
     # -- inbox
-    def push(self, chat_id: int, item: dict[str, Any]) -> None:
+    async def push(self, chat_id: int, item: dict[str, Any]) -> None:
         key = self.k("inbox", chat_id)
-        self.r.pipeline().rpush(key, json.dumps(item)).expire(key, 86400).execute()
+        await self.r.pipeline().rpush(key, json.dumps(item)).expire(key, 86400).execute()
 
-    def take(self, chat_id: int) -> list[dict[str, Any]]:
+    async def take(self, chat_id: int) -> list[dict[str, Any]]:
         key = self.k("inbox", chat_id)
-        items, _ = self.r.pipeline(transaction=True).lrange(key, 0, -1).delete(key).execute()
+        items, _ = await self.r.pipeline(transaction=True).lrange(key, 0, -1).delete(key).execute()
         return [json.loads(i) for i in items]
 
-    def pending(self, chat_id: int) -> bool:
-        return bool(self.r.llen(self.k("inbox", chat_id)))
+    async def pending(self, chat_id: int) -> bool:
+        return bool(await self.r.llen(self.k("inbox", chat_id)))
 
     # -- feeds
     def publish(self, feed: Feed, event: dict[str, Any]) -> None:
@@ -360,7 +411,7 @@ class RedisBus(LocalBus):
             return
         batch = list(self._out)
         self._out.clear()
-        pipe = self.ar.pipeline(transaction=False)
+        pipe = self.r.pipeline(transaction=False)
         for run_id, event in batch:
             key = self.k("events", run_id)
             pipe.xadd(key, {"e": json.dumps(event)})
@@ -380,7 +431,7 @@ class RedisBus(LocalBus):
         key, last, quiet = self.k("events", feed.run_id), "0", 0
         try:
             while not feed.done:
-                res = await self.ar.xread({key: last}, block=1000, count=1000)
+                res = await self.r.xread({key: last}, block=1000, count=1000)
                 if res:
                     quiet = 0
                     for entry_id, fields in res[0][1]:
@@ -389,7 +440,7 @@ class RedisBus(LocalBus):
                     continue
                 # Nothing for a second. A run publishes `done` right after it releases the chat, so give
                 # it a few seconds; after that, a chat no longer held by this run means its process died.
-                if await self.ar.get(self.k("lease", feed.chat_id)) == feed.run_id:
+                if await self.r.get(self.k("lease", feed.chat_id)) == feed.run_id:
                     quiet = 0
                 else:
                     quiet += 1
@@ -405,13 +456,13 @@ class RedisBus(LocalBus):
             self._forget_later(feed.run_id)
 
     # -- signals
-    def signal(self, msg: dict[str, Any]) -> None:
-        self.r.publish(self.k("signals"), json.dumps(msg))
+    async def signal(self, msg: dict[str, Any]) -> None:
+        await self.r.publish(self.k("signals"), json.dumps(msg))
 
     async def _listen(self) -> None:
         while True:
             try:
-                async with self.ar.pubsub() as ps:
+                async with self.r.pubsub() as ps:
                     await ps.subscribe(self.k("signals"))
                     self._ready.set()
                     async for m in ps.listen():
@@ -424,35 +475,64 @@ class RedisBus(LocalBus):
                 await asyncio.sleep(1)
 
     # -- locks
-    def lock(self, name: str) -> bool:
-        return self._take_key(self.k("lock", name), self.replica)
+    async def lock(self, name: str) -> bool:
+        key = self.k("lock", name)
+        if key in self._held:  # held here already: one holder, as in LocalBus
+            return False
+        # Each taking its own value: else the heartbeat's take-back of an earlier one could match this one.
+        return await self._take_key(key, new_id())
 
-    def unlock(self, name: str) -> None:
-        self._drop_key(self.k("lock", name))
+    async def unlock(self, name: str) -> None:
+        await self._drop_key(self.k("lock", name))
+
+    async def locked(self, names: Iterable[str]) -> set[str]:
+        names = list(names)
+        pipe = self.r.pipeline(transaction=False)
+        for n in names:
+            pipe.exists(self.k("lock", n))
+        return {n for n, held in zip(names, await pipe.execute(), strict=True) if held}
 
     # -- background jobs
-    def add_job(self, chat_id: int, job_id: str) -> None:
-        self._take_key(self.k("job", job_id), str(chat_id))
-        self.r.sadd(self.k("jobs", chat_id), job_id)
+    async def add_job(self, chat_id: int, job_id: str) -> None:
+        await self._take_key(self.k("job", job_id), str(chat_id))
+        await self.r.sadd(self.k("jobs", chat_id), job_id)
 
-    def drop_job(self, job_id: str) -> None:
+    async def drop_job(self, job_id: str) -> None:
         key = self.k("job", job_id)
         chat = self._held.get(key)
-        self._drop_key(key)
+        await self._drop_key(key)
         if chat is not None:
-            self.r.srem(self.k("jobs", chat), job_id)
+            await self.r.srem(self.k("jobs", chat), job_id)
 
-    def jobs(self, chat_id: int) -> set[str]:
-        ids = sorted(self.r.smembers(self.k("jobs", chat_id)))
+    async def jobs(self, chat_id: int) -> set[str]:
+        ids = sorted(await self.r.smembers(self.k("jobs", chat_id)))
         if not ids:
             return set()
         pipe = self.r.pipeline()
         for j in ids:
             pipe.exists(self.k("job", j))
-        live = {j for j, ok in zip(ids, pipe.execute(), strict=True) if ok}
+        live = {j for j, ok in zip(ids, await pipe.execute(), strict=True) if ok}
         if gone := set(ids) - live:  # their process died: forget them
-            self.r.srem(self.k("jobs", chat_id), *gone)
+            await self.r.srem(self.k("jobs", chat_id), *gone)
         return live
+
+    # -- sandbox use
+    async def touch(self, user_id: int) -> None:
+        await self.r.hset(self.k("used"), str(user_id), repr(time.time()))
+
+    async def last_used(self, user_ids: list[int]) -> dict[int, float]:
+        if not user_ids:
+            return {}
+        values = await self.r.hmget(self.k("used"), [str(u) for u in user_ids])
+        return {u: float(v) for u, v in zip(user_ids, values, strict=True) if v is not None}
+
+    async def seen_for(self, name: str, ttl: float) -> float:
+        return await self._sight(keys=[self.k("sighting", name)], args=[max(1, int(ttl * 1000))]) / 1000
+
+    async def forget(self, names: Iterable[str]) -> None:
+        keys = [self.k("sighting", n) for n in names]
+        if keys:
+            await self.r.delete(*keys)
 
 
 _bus: LocalBus | None = None

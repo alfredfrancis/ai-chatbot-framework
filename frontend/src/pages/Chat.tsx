@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { acp, cancel, loadSession, newSession, prompt, setConfigOption, WORKSPACE_URI, type AcpNotification, type ConfigOption, type AgentInfo, type Attachment, type Learned, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
+import { acp, cancel, loadSession, lostConnection, newSession, prompt, setConfigOption, WORKSPACE_URI, type AcpNotification, type ConfigOption, type AgentInfo, type Attachment, type Learned, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
 import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
@@ -439,6 +439,36 @@ function ModelPicker({ options, onChange }: { options: ConfigOption[]; onChange:
   );
 }
 
+/** What the message box says about the connection. "Reconnecting" waits a second, so a blip that heals at
+ *  once says nothing; "Reconnected" shows for a few seconds after it. */
+type ConnectionNote = "" | "Reconnecting" | "Reconnected";
+const RECONNECTING_AFTER = 1000;
+const RECONNECTED_FOR = 4000;
+
+function useConnection() {
+  const [offline, setOffline] = useState(acp.link === "down");
+  const [note, setNote] = useState<ConnectionNote>(acp.link === "down" ? "Reconnecting" : "");
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let shown = acp.link === "down";
+    const off = acp.on((n) => {
+      if (n.method !== "_acf/disconnected" && n.method !== "_acf/reconnected") return;
+      clearTimeout(timer);
+      setOffline(acp.link === "down");
+      if (n.method === "_acf/disconnected") {
+        setNote("");
+        timer = setTimeout(() => { shown = true; setNote("Reconnecting"); }, RECONNECTING_AFTER);
+      } else if (shown) {
+        shown = false;
+        setNote("Reconnected");
+        timer = setTimeout(() => setNote(""), RECONNECTED_FOR);
+      }
+    });
+    return () => { off(); clearTimeout(timer); };
+  }, []);
+  return { offline, note };
+}
+
 export function Composer({ onSend, onStop, running, background = false, placeholder, initial = "", options, onOption }: {
   onSend: (text: string, files: Attachment[]) => void; onStop?: () => void; running: boolean; background?: boolean; placeholder?: string;
   initial?: string; options?: ConfigOption[]; onOption?: (id: string, value: string) => void;
@@ -473,7 +503,9 @@ export function Composer({ onSend, onStop, running, background = false, placehol
   };
   const uploading = pending.some((p) => !p.file && !p.error);
   const files = pending.flatMap((p) => (p.file ? [p.file] : []));
-  const ready = (!!text.trim() || files.length > 0) && !uploading;
+  // While the connection is down the message stays in the box; it can be sent once the connection is back.
+  const { offline, note } = useConnection();
+  const ready = (!!text.trim() || files.length > 0) && !uploading && !offline;
 
   // Attached files are saved in the workspace's uploads/ folder (never replacing a file), then sent as links.
   const attach = (list: FileList | File[]) => {
@@ -513,6 +545,16 @@ export function Composer({ onSend, onStop, running, background = false, placehol
     <form className="composer" onSubmit={submit}
       onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
       onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); attach(e.dataTransfer.files); } }}>
+      <span className="sr-only" role="status">
+        {note === "Reconnecting" ? "Reconnecting to your agent. Your message stays here until then." : note === "Reconnected" ? "Reconnected." : ""}
+      </span>
+      {note && (
+        <div className="row-flex wrap hint" aria-hidden="true" data-testid="connection">
+          {note === "Reconnecting"
+            ? <><span className="badge warning">Reconnecting</span>Your message stays here until then.</>
+            : <span className="badge success">Reconnected</span>}
+        </div>
+      )}
       {pending.length > 0 && (
         <ul className="attachments" aria-label="Files to send">
           {pending.map((p) => (
@@ -696,7 +738,7 @@ function greeting(name: string) {
 type Choice = Record<string, string>;
 const choiceOf = (options: ConfigOption[]): Choice => Object.fromEntries(options.map((o) => [o.id, o.currentValue]));
 
-function Home({ onStart, draft = "" }: { onStart: (t: string, files: Attachment[], choice: Choice) => void; draft?: string }) {
+function Home({ onStart, draft = "", notice }: { onStart: (t: string, files: Attachment[], choice: Choice) => void; draft?: string; notice?: string }) {
   const { user, counts } = useApp();
   // The model and effort the new chat will start on (the user's defaults until they pick others). The choice
   // is kept here as it is made, so a second pick before the options come back builds on the first.
@@ -725,6 +767,7 @@ function Home({ onStart, draft = "" }: { onStart: (t: string, files: Attachment[
           <div className="hero" aria-hidden="true"><Mark size={40} /></div>
           <h1>{greeting(user.name || "there")}</h1>
           <p className="sub">What should your agent work on?</p>
+          {notice && <p className="notice" role="status">{notice}</p>}
         </div>
         <div className="stack">
           <Composer key={draft} initial={draft} onSend={(t, f) => onStart(t, f, choice.current)} running={false}
@@ -793,16 +836,26 @@ export function useSession(sid: string | null, events: SessionEvents = {}) {
       if (current.current !== target) return;
       setRunning(!!r?._meta?.acf?.running);
       on.current.onLoaded?.(r);
-    } catch {
-      if (current.current === target) on.current.onLoadFailed?.();
+    } catch (err) {
+      // A lost connection is not a failed load: the chat loads again once the connection is back.
+      if (current.current === target && !lostConnection(err)) on.current.onLoadFailed?.();
     }
   }, []);
 
   // Everything the agent does arrives as ACP notifications on the shared connection.
   useEffect(() => acp.on((n: AcpNotification) => {
     if (n.method === "_acf/disconnected") {
-      const target = current.current;
-      if (target) setTimeout(() => { if (current.current === target) load(target); }, 1000);
+      // Whether the agent still works is known again once the chat reloads.
+      setRunning(false);
+      setQueued([]);
+      return;
+    }
+    if (n.method === "_acf/reconnected") {
+      if (current.current) load(current.current); // the history again, and the live run if there is one
+      return;
+    }
+    if (n.method === "_acf/signed_out") {
+      window.location.assign("/");
       return;
     }
     if (n.params.sessionId !== current.current) return;
@@ -850,13 +903,13 @@ export function useSession(sid: string | null, events: SessionEvents = {}) {
     try {
       await prompt(target, content, files);
     } catch (err) {
-      if (current.current === target && (err as Error).message !== "Connection lost") setError((err as Error).message);
+      if (current.current === target && !lostConnection(err)) setError((err as Error).message);
     }
     if (current.current === target) { setRunning(false); setQueued([]); }
     on.current.onTurnEnd?.(target);
     refresh();
   };
-  const stop = () => { if (current.current) cancel(current.current); };
+  const stop = () => { if (current.current) cancel(current.current).catch(() => {}); };
   const background = entries.some((e) => e.kind === "tool" && inBackground(e.call));
   return { entries, running, queued, error, setError, load, reset, send, stop, background };
 }
@@ -899,7 +952,10 @@ export default function ChatPage() {
       setLoadedTitle(meta?.title ?? "New chat");
       setSub(meta?.parent ? { title: meta.title ?? "Sub-agent", parent: meta.parent } : null);
     },
-    onLoadFailed: () => navigate("/", { replace: true }),
+    onLoadFailed: () => {
+      refresh();
+      navigate("/", { replace: true, state: { notice: "That chat could not be opened. It may have been deleted." } });
+    },
     onTurnEnd: loadArtifacts,
     onToolDone: loadArtifacts,
     onUsage: setUsage,
@@ -952,7 +1008,10 @@ export default function ChatPage() {
     navigate("/");
   };
 
-  if (!sid) return <Home key={location.key} onStart={start} draft={(location.state as { draft?: string } | null)?.draft} />;
+  if (!sid) {
+    const state = location.state as { draft?: string; notice?: string } | null;
+    return <Home key={location.key} onStart={start} draft={state?.draft} notice={state?.notice} />;
+  }
   const summary: ChatSummary | undefined = chats.find((c) => c.id === chatId);
   const first = entries.find((e) => e.kind === "user");
   const firstUser = (first?.text || first?.files[0]?.name || "").split("\n")[0].slice(0, 60);

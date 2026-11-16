@@ -18,6 +18,8 @@ DEFAULT_PROVIDERS = "anthropic,openai,google_genai,mistralai,groq,deepseek,xai,f
 class Settings:
     data_dir: Path = field(default_factory=lambda: Path(_env("DATA_DIR", "./data")).resolve())
     db_url: str = field(default_factory=lambda: _env("DB_URL"))
+    # false: the app only checks the schema is current, and `acf-migrate` (a Kubernetes Job) migrates it.
+    migrate_on_start: bool = field(default_factory=lambda: _env("MIGRATE_ON_START", "true").lower() == "true")
     # Public URL of the web app; used to build OAuth redirect URIs.
     public_url: str = field(default_factory=lambda: _env("PUBLIC_URL", "http://localhost:8000").rstrip("/"))
     frontend_dist: Path = field(
@@ -39,6 +41,8 @@ class Settings:
     )
     # Encrypts secrets stored in the database (see acf/secrets_box.py). Any long random string.
     secret_key: str = field(default_factory=lambda: _env("SECRET_KEY"))
+    # "text" (default) or "json": one JSON object per line, with request_id, user_id, chat_id and run_id.
+    log_format: str = field(default_factory=lambda: _env("LOG_FORMAT", "text").strip().lower() or "text")
     cookie_secure: bool = field(default_factory=lambda: _env("COOKIE_SECURE", "false").lower() == "true")
 
     # LLM defaults (each user can override in Settings).
@@ -97,6 +101,8 @@ class Settings:
     sandbox_memory: str = field(default_factory=lambda: _env("SANDBOX_MEMORY", "1g"))
     sandbox_cpus: str = field(default_factory=lambda: _env("SANDBOX_CPUS", "1"))
     command_timeout: int = field(default_factory=lambda: int(_env("COMMAND_TIMEOUT", "120")))
+    # A sandbox no one has used for this long is stopped (its workspace stays) and starts on next use. 0: never.
+    sandbox_idle_minutes: float = field(default_factory=lambda: float(_env("SANDBOX_IDLE_MINUTES", "30")))
 
     # Extra one-click MCP servers for the Connections page (JSON list; see acf/mcp_presets.py).
     mcp_presets_file: str = field(default_factory=lambda: _env("MCP_PRESETS_FILE"))
@@ -123,6 +129,8 @@ class Settings:
             raise ValueError("ACF_ADMIN_PASSWORD must be at least 8 characters")
         if len(self.sandbox_bridge) > 15:
             raise ValueError("ACF_SANDBOX_BRIDGE must be at most 15 characters (a Linux interface name)")
+        if self.sandbox_idle_minutes < 0:
+            raise ValueError("ACF_SANDBOX_IDLE_MINUTES must be 0 (never stop sandboxes) or more")
         if self.secret_key and len(self.secret_key) < 32:
             raise ValueError("ACF_SECRET_KEY must be at least 32 characters (e.g. `openssl rand -base64 48`)")
         self.data_dir.mkdir(parents=True, exist_ok=True)

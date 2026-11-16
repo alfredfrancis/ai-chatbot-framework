@@ -32,7 +32,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from acf import bus, config
 from acf.agent.tools import Tool, ToolContext, ToolResult, call_tool, gather_calls, tool_title
 from acf.db import Chat, Message, User, session_scope
-from acf.llm import LLMConfig, LLMError, calls_of, friendly_error, make_model, text_of
+from acf.llm import LLMConfig, LLMError, calls_of, friendly_error, make_model, text_of, traced
 
 NAME = "agent"
 MAX_PROMPT = 50_000
@@ -98,7 +98,6 @@ class Session:
             self.chat_id: int = chat.id
         self.parent_id = parent_id
         self.run_id = bus.new_id()
-        bus.current().claim(self.chat_id, self.run_id)
         self.feed = bus.current().feed(self.chat_id, self.run_id, local=True)
 
     def emit(self, event: dict[str, Any]) -> None:
@@ -112,8 +111,11 @@ class Session:
             saved = msg.to_dict()
         self.emit({"type": "message", "message": saved})
 
-    def close(self, stop_reason: str) -> None:
-        bus.current().release(self.chat_id, self.run_id)
+    async def open(self) -> None:
+        await bus.current().claim(self.chat_id, self.run_id)
+
+    async def close(self, stop_reason: str) -> None:
+        await bus.current().release(self.chat_id, self.run_id)
         self.emit({"type": "done", "stop_reason": stop_reason, "error": None, "ok": True, "final_text": ""})
 
 
@@ -131,12 +133,13 @@ async def run(
     session = Session(user.id, chat_id, str(args.get("description") or ""))
     stop_reason = "end_turn"
     try:
+        await session.open()
         return await _work(user, session, system, tools, args, progress)
     except asyncio.CancelledError:
         stop_reason = "cancelled"
         raise
     finally:
-        session.close(stop_reason)
+        await session.close(stop_reason)
 
 
 async def _work(
@@ -204,7 +207,8 @@ async def _work(
     text = ""
     for _ in range(config.settings.max_agent_steps):
         try:
-            ai = await model.ainvoke([head, *history])
+            with traced(cfg, "subagent") as done:
+                ai = done(await model.ainvoke([head, *history]))
         except asyncio.CancelledError:
             raise
         except Exception as e:  # noqa: BLE001 - a provider error ends this sub-agent, not the run

@@ -139,7 +139,11 @@ version of the checkout you run it from. To build from source instead, run `dock
 Versions and upgrades: [docs/releasing.md](docs/releasing.md).
 
 **Data.** PostgreSQL runs in its own container (volume `postgres-data`); workspaces live in `./data`, or
-`ACF_DATA_PATH`. Back up both. Logs are rotated and the app has a health check.
+`ACF_DATA_PATH`. Back up both. Logs are rotated and the app has health checks:
+`/api/health` is liveness (the process answers) and `/api/health/ready` is readiness (200 with
+`{"db":"ok","bus":"ok"}` when the database and, with `ACF_REDIS_URL`, Redis answer within 2 s; 503 otherwise).
+Point a load balancer or a Kubernetes readiness probe at the ready route and a liveness probe at the live
+one.
 
 **Security.** Each user gets one sandbox container. The app runs as a non-root user and never touches the
 Docker socket: a small proxy (`docker-proxy`) holds it and allows only sandbox containers with fixed,
@@ -160,9 +164,31 @@ serves any chat; each user still has one sandbox and one workspace. A stopping p
 agents finish first (`ACF_SHUTDOWN_GRACE`, default 20 s), and its clients reconnect to another one. A
 crashed process frees its chats after `ACF_BUS_TTL` (30 s).
 
+Taking a stopping process out of the rotation is the orchestrator's job: the process closes its listening
+socket when SIGTERM arrives, before its readiness check could report anything. With compose, Caddy looks up
+the app processes every 5 s and sends a request that a stopping process refuses to another one. On
+Kubernetes, give the app container a `preStop` hook that sleeps a few seconds (`sleep 5`), so the pod is
+removed from the Service's endpoints before SIGTERM arrives, and set `terminationGracePeriodSeconds` above
+that sleep plus `ACF_SHUTDOWN_GRACE` (for example 40).
+
 Across several machines, every app process needs the same PostgreSQL, Redis and Docker proxy, and the data
 folder at the same path (shared storage), because sandboxes mount workspaces from the Docker host. Details:
 [architecture](docs/architecture.md#several-app-processes-backendacfbuspy).
+
+Upgrades migrate the database first: the `migrate` service runs `acf-migrate` and the app starts once it
+has finished. App processes also migrate when they start (`ACF_MIGRATE_ON_START`, default `true`), and
+processes that start together take turns on the schema. Where a deploy tool runs migrations as their own
+step (a Kubernetes Job or a Helm hook), run `acf-migrate` there and set `ACF_MIGRATE_ON_START=false` on the
+app, which then refuses to start on an older schema. Give the Job the app's `ACF_DB_URL` and
+`ACF_SECRET_KEY`: migrations can encrypt and decrypt stored secrets, and without the key `acf-migrate`
+stops with a message and leaves the database as it was. It never makes a key of its own, which the app
+wouldn't have; a `secret.key` file already in `ACF_DATA_DIR` (a local install) is used.
+
+During a rolling deploy the previous version's processes keep running, and restart or scale up, on the new
+schema. A process that finds a schema revision it doesn't know logs a warning naming both revisions and
+starts without migrating. That is safe only because migrations are expand/contract: each release's
+migrations keep the previous release working. Add tables, and columns that are nullable or have a server
+default, in one release; drop or rename what the code no longer uses in a later release.
 
 ## Configuration
 
@@ -190,23 +216,28 @@ Each chat can switch model and effort from its message box.
 | `ACF_AUTO_TITLES` | `true` | After a chat's first reply, the chat's model names it in a few words (`false`: chats keep their first message as title) |
 | `ACF_SKILL_ARCHIVE_DAYS` | `30` | Skills not read for this many days move to `skills/.archive/` (`0` = never; `pinned: true` in a skill's frontmatter keeps it) |
 | `ACF_DB_URL` | SQLite in `ACF_DATA_DIR` | Database. The Docker stacks use PostgreSQL (`postgresql://user:pass@host/db`) |
+| `ACF_MIGRATE_ON_START` | `true` | Each app process brings the database schema up to date as it starts. `false`: run `acf-migrate` first (a Kubernetes Job, say), and a process that finds an older schema exits with an error naming it |
 | `ACF_DATA_DIR` | `./data` | Workspaces (and the SQLite file when no `ACF_DB_URL` is set) |
 | `ACF_ADMIN_EMAIL` / `ACF_ADMIN_PASSWORD` | – | Main account, created at startup; its password is reset to this value (and its sessions signed out) when it changes |
 | `ACF_ADMIN_NAME` | email name | Display name for the main account |
 | `ACF_ALLOW_SIGNUP` | `true`, `false` if `ACF_ADMIN_EMAIL` is set | Open sign-ups. When `false`, the first account can still be created on an empty server |
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
-| `ACF_SANDBOX` | `docker` | `docker`, `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)) |
+| `ACF_SANDBOX` | `docker` | `docker`, `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)). Upgrading an adapter from 2.0.0-beta.1 or earlier: rename its `exec` method to `run`; the app refuses to start with one that still defines `exec` |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
 | `ACF_SANDBOX_NETWORK` | `acf-sandbox` | Created when missing, with traffic between sandboxes off. `none` cuts sandboxes off from the internet |
 | `ACF_SANDBOX_BRIDGE` | `acf-sbx0` | Interface name of that network (the egress firewall matches it) |
 | `ACF_SANDBOX_RUNTIME` | – (`runsc` in the production stack) | Container runtime, e.g. `runsc` for gVisor |
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
+| `ACF_SANDBOX_IDLE_MINUTES` | `30` | Stop a sandbox no one has used for this long; it starts again, files intact, on the next command. `0` never stops one |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
 | `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
 | `ACF_REDIS_URL` | – (set in the production stack) | Redis for run state shared between app processes. Needed for more than one process; unset keeps it in memory |
 | `ACF_REDIS_PREFIX` | `acf` | Key prefix, to share one Redis between deployments |
 | `ACF_BUS_TTL` | `30` | Seconds before a dead process's chats, locks and background commands are freed |
 | `ACF_SHUTDOWN_GRACE` | `20` | Seconds a stopping process gives its running agents to finish |
+| `ACF_LOG_FORMAT` | `text` | `json` writes one JSON object per line to stderr (`ts`, `level`, `logger`, `message`, plus `request_id`, `user_id`, `chat_id`, `run_id` and `task_id` where they apply, and `exc` for a traceback). A request keeps an incoming `X-Request-Id` (and returns it); a run is `run_id`, shared by its sub-agents. Message text and tool output are never logged, and key-like tokens are redacted. Inside a span, lines also carry `trace_id` and `span_id` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | – (off) | OpenTelemetry traces and metrics over OTLP/HTTP (protobuf) to this collector address, e.g. `http://otel-collector:4318`. `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` / `..._METRICS_ENDPOINT` turn on one signal only. Unset, nothing is exported and nothing is measured. The other standard `OTEL_*` variables apply (`OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_TRACES_SAMPLER`, `OTEL_METRIC_EXPORT_INTERVAL`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_SDK_DISABLED`…). Spans: each HTTP request (by route), `acf.run`, `acf.turn`, `acf.llm`, `acf.tool`, `acf.sandbox.exec`, `acf.follow`. Metrics: `acf.runs.active`, `acf.run.duration`, `acf.tool.calls`, `acf.sandbox.start.duration`, `acf.llm.tokens`, `acf.acp.connections`. No message text, tool arguments, commands or query strings are recorded, and no metric has a per-user label |
+| `OTEL_SERVICE_NAME` | `acf` | The service name on exported traces and metrics |
 
 ### Models
 

@@ -31,12 +31,21 @@ class SecretKeyError(RuntimeError):
     pass
 
 
+# False in acf-migrate: a key it made would stay on its own disk (a Kubernetes Job's), not the app's.
+may_create_key = True
+
+
 def _secret() -> str:
     s = config.settings
     if s.secret_key:
         return s.secret_key
     path = s.data_dir / "secret.key"
     if not path.exists():
+        if not may_create_key:
+            raise SecretKeyError(
+                "acf-migrate needs ACF_SECRET_KEY: migrations encrypt and decrypt stored secrets with the app's "
+                "key. Set it to the value the app runs with, then run it again."
+            )
         log.warning("ACF_SECRET_KEY is not set: created %s. Set ACF_SECRET_KEY in production.", path)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w") as f:

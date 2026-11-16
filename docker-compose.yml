@@ -102,6 +102,24 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # Brings the database schema up to date, then exits; the app starts after it. Runs that overlap take turns.
+  migrate:
+    image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-2.0.0-beta.1}
+    build: .
+    command: ["acf-migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Migrations may decrypt and re-encrypt stored secrets: the same key as the app.
+      ACF_SECRET_KEY: ${ACF_SECRET_KEY:?Set ACF_SECRET_KEY in .env}
+      ACF_DB_URL: postgresql://acf:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/acf
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
+    restart: "no"
+    logging: *logging
+
   # Scale out and in at any time: docker compose up -d --scale app=3
   app:
     image: ${ACF_REGISTRY:-alfredfrancis}/ai-chatbot-framework:${ACF_VERSION:-2.0.0-beta.1}
@@ -110,6 +128,8 @@ services:
       sandbox-image:
         condition: service_completed_successfully
       data-init:
+        condition: service_completed_successfully
+      migrate:
         condition: service_completed_successfully
       docker-proxy:
         condition: service_started
@@ -148,7 +168,7 @@ services:
     security_opt: [no-new-privileges]
     expose: ["8000"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready', timeout=3)"]
       interval: 15s
       timeout: 5s
       retries: 5

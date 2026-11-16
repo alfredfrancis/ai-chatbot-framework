@@ -370,7 +370,7 @@ export default function SettingsPage() {
               <div className="grow">
                 <div className="title">{sandbox?.kind === "docker" ? "Private container" : "Local folder (development mode)"}</div>
                 <div className="meta">
-                  {sandbox ? (sandbox.kind === "docker" ? `${sandbox.state === "running" ? "Running" : sandbox.state === "missing" ? "Starts on first use" : sandbox.state} · ${sandbox.image}` : "Commands run directly on the server. Not isolated.") : "Checking…"}
+                  {sandbox ? (sandbox.kind === "docker" ? `${sandbox.state === "running" ? "Running" : sandbox.state === "missing" ? "Starts on first use" : sandbox.state === "exited" ? "Asleep while unused, wakes on the next command" : sandbox.state} · ${sandbox.image}` : "Commands run directly on the server. Not isolated.") : "Checking…"}
                 </div>
               </div>
               {sandbox?.kind === "docker" && <button className="btn sm" onClick={resetSandbox}>Restart</button>}

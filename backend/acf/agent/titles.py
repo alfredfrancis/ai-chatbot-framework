@@ -16,7 +16,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from acf import config, workspace
 from acf.db import Chat, Message, User, session_scope
-from acf.llm import LLMConfig, make_model
+from acf.llm import LLMConfig, make_model, traced
 from acf.llm import text_of as _text_of
 
 log = logging.getLogger("acf.titles")
@@ -76,12 +76,14 @@ async def _name(user: User, chat_id: int, first: str, reply: str) -> None:
     from acf.agent import loop  # loop starts this
 
     try:
-        model = make_model(LLMConfig.for_chat(user, chat_id))
+        cfg = LLMConfig.for_chat(user, chat_id)
+        model = make_model(cfg)
         messages = [
             SystemMessage("You name chats."),
             HumanMessage(f"{PROMPT}\n\nUser:\n{first[:EXCERPT]}\n\nAssistant:\n{reply[:EXCERPT]}"),
         ]
-        title = clean(_text_of(await model.ainvoke(messages)))
+        with traced(cfg, "title") as done:
+            title = clean(_text_of(done(await model.ainvoke(messages))))
     except asyncio.CancelledError:
         raise
     except Exception:  # noqa: BLE001 - a title is a nicety; the first message stays the name
@@ -97,4 +99,4 @@ async def _name(user: User, chat_id: int, first: str, reply: str) -> None:
         if chat is None or first_user is None or chat.title != workspace.message_title(first_user.content or ""):
             return  # renamed meanwhile
         chat.title = title
-    loop._broadcast(chat_id, {"type": "title", "title": title})
+    await loop._broadcast(chat_id, {"type": "title", "title": title})

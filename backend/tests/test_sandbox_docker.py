@@ -79,3 +79,25 @@ async def test_stale_container_is_replaced(client, user, docker_sandbox):
     res = await sbx.exec("echo two > f.txt && cat f.txt")
     assert res.exit_code == 0 and res.stdout == "two\n", res
     assert (workspace.workspace_dir(user["id"]) / "f.txt").read_text() == "two\n"
+
+
+async def test_sandbox_start_is_measured(client, user, docker_sandbox):
+    import asyncio
+    import subprocess
+
+    from acf import telemetry
+    from tests.test_telemetry import Otel
+
+    docker_sandbox.append(user["id"])
+    otel = Otel()
+    try:
+        sbx = DockerSandbox(user["id"])
+        await sbx.ensure()
+        await sbx.ensure()  # already running: nothing to measure
+        stop = ["docker", "stop", "-t", "0", sbx.name]
+        await asyncio.to_thread(subprocess.run, stop, capture_output=True, check=True)
+        await sbx.ensure()
+        counts = {p.attributes["action"]: p.count for p in otel.points("acf.sandbox.start.duration")}
+        assert counts == {"create": 1, "start": 1}
+    finally:
+        telemetry.reset()

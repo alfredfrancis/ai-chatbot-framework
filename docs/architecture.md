@@ -38,7 +38,7 @@ Lean on purpose; the ideas come from pi, Hermes and Claude Code.
 | Streaming | The model is called with `astream`; text and thinking deltas are `delta` events as they arrive. When the stream ends the merged chunk becomes one stored message (`message_to_dict`), so history is unchanged. A stop mid-answer stores the text shown so far (no thinking, no tool calls). |
 | Steering | A message sent while the agent works is never an interruption. If the model is still thinking (no text or tool call yet), the call is restarted with the message added (only tokens are lost). Once it is answering, the answer finishes and the message is read next — streamed text is never retracted. If tools are running, it is injected when the batch ends — tools are never cut off. |
 | Stop | Cancels the run; any tool call without a result gets "Stopped by the user", so the history stays valid. |
-| Observable | Every step is an event (`delta`, `message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`). Clients see them through ACP (below). |
+| Observable | Every step is an event (`delta`, `message`, `tool_start`, `queued`, `notice`, `title`, `stopped`, `error`, `done`, and `trace` when telemetry is on). Clients see them through ACP (below). |
 
 ## Several app processes (`backend/acf/bus.py`)
 
@@ -56,8 +56,22 @@ the bus is in memory (`LocalBus`), which is right for exactly one process.
 | Stop, chat events | Signals over Redis pub/sub to every process: `stop` cancels the run and the background commands of the chat wherever they run; `chat` delivers `_acf/turn_start` and job notes to clients connected to any process. |
 | Scheduled tasks | Every process runs the scheduler. A due task is claimed with a compare-and-set update of `next_run_at`, so exactly one process starts it; a `task:<id>` lock stops "Run now" from overlapping it. |
 | Locks | `review:<user>` (one background review per user), `sandbox:<user>` (one process creates or restarts a user's container at a time), and the background-command registry (the per-chat limit, and which jobs are still alive when the history is repaired). |
-| Failure | Leases, locks and jobs expire `ACF_BUS_TTL` seconds after their process stops refreshing them. A process that dies frees its chats on its own: followers get a `done` with an error, and the next message runs elsewhere with the lost tool calls and jobs closed off in the history. A process cut off from Redis long enough to lose a lease stops that run rather than run the chat twice. |
-| Scaling in | On shutdown a process stops taking work, lets its running agents finish for up to `ACF_SHUTDOWN_GRACE` seconds (clients reconnect to another process and keep following), then stops what is left and releases everything it holds. |
+| Failure | Leases, locks and jobs expire `ACF_BUS_TTL` seconds after their process stops refreshing them. A process that dies frees its chats on its own: followers get a `done` with an error, and the next message runs elsewhere with the lost tool calls and jobs closed off in the history. A process cut off from Redis long enough to lose a lease stops that run rather than run the chat twice. Back in touch, its heartbeat takes back what expired if no one else has. Each lock it takes stores a value of its own, so a take-back of an earlier one never matches it; a lease stores its run's id, and a take-back that finds that id in place finds the run's own new claim. |
+| Scaling in | On shutdown a process stops taking work, lets its running agents finish for up to `ACF_SHUTDOWN_GRACE` seconds (clients reconnect to another process and keep following), then stops what is left and releases everything it holds. uvicorn closes the listening socket when SIGTERM arrives, before the lifespan shutdown runs, so the orchestrator takes the process out of rotation, not a readiness answer: Caddy (compose) looks the processes up every 5 s and retries a refused request on another; on Kubernetes a `preStop` sleep of a few seconds removes the pod from the endpoints before SIGTERM, with `terminationGracePeriodSeconds` above that sleep plus `ACF_SHUTDOWN_GRACE`. |
+| Health | `/api/health` only says the process runs. `/api/health/ready` runs `SELECT 1` and, with Redis, a `PING`, each bounded to 2 s, and answers 503 when either fails. The compose healthcheck uses the ready route. |
+
+## Telemetry (`backend/acf/telemetry.py`)
+
+OpenTelemetry over OTLP/HTTP, on only when an `OTEL_EXPORTER_OTLP_*ENDPOINT` is set; off, every helper
+returns at once. One trace per run: `acf.run` > `acf.turn` > `acf.llm` and `acf.tool` > `acf.sandbox.exec`.
+`acf.run` is always a root; a run started inside another span (a background job from a tool call, an app
+action from a request) links to that span instead of joining its trace. A sub-agent's spans nest under its `agent` tool call. The run's first feed event carries its `traceparent`, so a
+connection that follows the run in any process opens `acf.follow` in the same trace. HTTP requests get a
+SERVER span named by route template. JSON log lines carry `trace_id` and `span_id`
+(`logs.add_context_provider`). Metrics have bounded labels only (`outcome`, `tool`, `provider`, `kind`,
+`action`); `acf.runs.active` is the per-process load signal for autoscaling. The SDK providers are ACF's own,
+not the global ones, so libraries with their own OpenTelemetry hooks (FastAPI's native telemetry records query
+strings) stay off. Shutdown flushes for at most 5 seconds.
 
 ## Agent Client Protocol (`backend/acf/acp.py`)
 
@@ -87,13 +101,17 @@ WebSocket for clients that spawn agents as subprocesses.
 
 `Sandbox` is a port; each provider is an adapter, picked by `ACF_SANDBOX` (`docker`, `local`, a kind added
 with `register_sandbox()`, or `package.module:Class`). Nothing outside `sandbox.py` knows which one runs.
+Adapters used to implement `exec`; they implement `run` now, and `exec` is the wrapper that keeps the
+sandbox in use (`using()`) while a command runs. Loading an adapter that still overrides `exec` raises
+`SandboxError` saying to rename it, and the app checks `ACF_SANDBOX` as it starts.
 
 | Method | What an adapter does |
 |---|---|
 | `ensure()` | Start the user's sandbox if needed; raise `SandboxError` with a sentence for the user if it can't. |
-| `exec(command, timeout)` | Run a shell command in the workspace, return `ExecResult`. A timeout or a cancel kills it. |
-| `spawn(argv, env)` | Start a long-lived process and return a `SandboxProcess`: `write`/`read` bytes on stdin/stdout, `close_stdin`, `returncode`, `kill`. Callers use `process()`, which runs `ensure()` and stops the process (close stdin, wait, kill). |
+| `run(command, timeout)` | Run a shell command in the workspace, return `ExecResult`. A timeout or a cancel kills it. Callers use `exec()`, which records the use and runs `ensure()` first. |
+| `spawn(argv, env)` | Start a long-lived process and return a `SandboxProcess`: `write`/`read` bytes on stdin/stdout, `close_stdin`, `returncode`, `kill`. Callers use `process()`, which records the use, runs `ensure()` and stops the process (close stdin, wait, kill). |
 | `status()` / `reset()` | Report state for Settings; throw the sandbox away (the workspace stays). |
+| `running()` / `stop()` | Optional: the users whose sandbox runs now, and stop one (idempotent) for `ensure()` to start again. An adapter without them is never stopped while idle. |
 
 The contract, checked for every adapter by `tests/test_sandbox_contract.py`:
 
@@ -105,12 +123,23 @@ The contract, checked for every adapter by `tests/test_sandbox_contract.py`:
   *inside* the sandbox, not only the backend's handle on it.
 - **Secrets stay in the backend.** Stdio MCP servers talk MCP over a `SandboxProcess`
   (`mcp_client._process_transport`); OAuth tokens and remote MCP connections never enter the sandbox.
+- **Waking.** A stopped sandbox starts again on its next `exec` or `process`, with the workspace as it was.
+
+Idle sandboxes are stopped so that they cost nothing between uses. Every `exec`, `process()` and agent turn
+holds `sandbox.using(user)` while it lasts: it stamps the time on the bus (`touch`), and each process's
+`sweeper` stamps the uses it has in flight again every round (a quarter of the idle time, at most a minute).
+One process at a time (bus lock `sandbox-sweep`) asks the adapter which sandboxes run and stops each one no
+one has stamped for `ACF_SANDBOX_IDLE_MINUTES` (default 30; 0 never stops), re-checking under the
+sandbox's own lock so a use that starts meanwhile wins. A running sandbox without a stamp (started before a
+restart) gets the whole idle time from the first sweep. The sweep keeps no state of its own, so a crashed one
+is safe to run again: the next round starts from what runs now.
 
 Docker adapter: `acf-sbx-<user>` is created on first use with `--cap-drop ALL`, `no-new-privileges`,
 memory/CPU/pids limits and the workspace bind-mounted at `/workspace`. It is labelled with the workspace's id
 and replaced if the folder was recreated. Commands run as `docker exec` under a small `sh` wrapper that
 records the session leader's pid; a stop kills that session inside the container (killing the `docker exec`
-client alone would leave the command running). It needs only `sh` and `/proc` in the image.
+client alone would leave the command running). It needs only `sh` and `/proc` in the image. An idle
+sandbox is `docker stop`ped and `docker start`ed on its next use; processes it ran are gone, files stay.
 
 ## Skills (`backend/acf/skills.py`)
 
@@ -199,7 +228,20 @@ tool. Other app features the agent should reach belong there as tools.
 
 ## Database migrations (`backend/acf/migrations/`)
 
-Alembic, run by `db.migrate()` on every start (`init_db`), on SQLite and PostgreSQL. `0001_baseline` is the
+Alembic, run by `db.migrate()` on every start (`init_db`), on SQLite and PostgreSQL, or by the `acf-migrate`
+command (`db.main`; the `migrate` compose service, a Kubernetes Job). With `ACF_MIGRATE_ON_START=false` the
+app only checks that the schema is at the newest migration and exits with an error naming `acf-migrate`
+when it is older. A revision this version doesn't know was written by a newer version (a rolling deploy:
+the Job has migrated while old pods still restart and scale up), so both paths log a warning naming both
+revisions and start on it without migrating. That relies on expand/contract migrations, which keep the
+previous release working on the new schema. A migration runs in one transaction under a PostgreSQL advisory lock (`db.lock_startup`), so
+runs that overlap, on any host and with or without Redis, take turns: the next one finds nothing to do.
+A run that dies halfway is rolled back by PostgreSQL, lock included. The other startup writes, stored
+secrets (`encrypt_existing`) and the main account, take the same lock. Migrations may encrypt and decrypt
+stored secrets (`0005`), so `acf-migrate` needs the app's `ACF_SECRET_KEY` (or the `secret.key` file it
+uses locally): `db.main` sets `secrets_box.may_create_key = False`, so a migration that needs a key it doesn't
+have raises `SecretKeyError` and the upgrade rolls back, instead of making a key the app doesn't have. On
+SQLite `migrate` opens the transaction itself, because pysqlite would run the DDL outside it. `0001_baseline` is the
 schema older versions made with `create_all`; a database that has those tables but no `alembic_version` is
 stamped at the baseline and then upgraded, so existing installs keep their data. Write a migration with
 `make migration m="…"` (autogenerate, `render_as_batch` for SQLite) and review it;
