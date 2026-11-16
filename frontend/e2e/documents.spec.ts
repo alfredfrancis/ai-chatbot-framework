@@ -5,6 +5,7 @@ import { lastAssistant, say, shot, signUp } from "./helpers";
 async function write(page: Page, files: Record<string, string>) {
   await say(page, Object.entries(files).map(([path, content]) => `tool: write ${JSON.stringify({ path, content })}`).join("\n"));
   await expect(lastAssistant(page)).toContainText(`Result: Wrote ${Object.keys(files).at(-1)}`);
+  await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0); // the reply's file cards show once it ends
 }
 
 const REPORT = [
@@ -138,4 +139,75 @@ test("a document overlays the chat in narrower windows and fills a phone; missin
   await shot(page, "92-document-phone");
   await panel.getByRole("button", { name: "Close document" }).click();
   await expect(panel).toHaveCount(0);
+});
+
+test("a document goes full screen, and the panel beside the chat can be made wider or narrower", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await signUp(page);
+  await write(page, { "brief.md": "# Brief\n\nThe launch moves to **May**." });
+  await page.getByRole("button", { name: "Preview brief.md" }).click();
+  const panel = page.getByRole("complementary", { name: "Document: brief.md" });
+  await expect(panel.getByRole("heading", { level: 1, name: "Brief" })).toBeVisible();
+
+  // Drag the panel's edge: wider to the left, never past its bounds; the width is kept
+  const handle = panel.getByRole("separator", { name: "Resize the document panel" });
+  await expect(handle).toHaveAttribute("aria-valuenow", "640");
+  const width = async () => Math.round((await panel.boundingBox())!.width);
+  const edge = (await handle.boundingBox())!;
+  await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(edge.x + edge.width / 2 - 160, edge.y + edge.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(width).toBe(800);
+  await expect(handle).toHaveAttribute("aria-valuenow", "800");
+  await page.mouse.move(edge.x - 160, edge.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(edge.x + 900, edge.y + 200, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(width).toBe(400); // the narrowest it goes
+  // The keyboard works too
+  await handle.focus();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await expect.poll(width).toBe(432);
+  await page.keyboard.press("End");
+  const widest = await width();
+  const chat = (await page.locator(".chat-col").boundingBox())!;
+  expect(Math.round(chat.width)).toBe(360); // the chat always keeps room
+  await page.keyboard.press("Home");
+  await expect.poll(width).toBe(400);
+  expect(widest).toBeGreaterThan(400);
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await page.reload();
+  await expect(panel.getByRole("heading", { level: 1, name: "Brief" })).toBeVisible();
+  await expect.poll(width).toBe(448);
+  await shot(page, "93-document-panel-resized");
+
+  // Full screen covers the whole window, reading width stays; Esc leaves full screen, then closes
+  await panel.getByRole("button", { name: "Full screen" }).click();
+  await expect(panel.getByRole("button", { name: "Exit full screen" })).toBeVisible();
+  await expect.poll(async () => { const b = (await panel.boundingBox())!; return [Math.round(b.x), Math.round(b.width)]; }).toEqual([0, 1600]);
+  await expect(handle).toBeHidden();
+  const body = (await panel.locator(".doc-body").boundingBox())!;
+  expect(Math.round(body.x + body.width / 2)).toBeGreaterThan(780);
+  expect(Math.round(body.x + body.width / 2)).toBeLessThan(820);
+  await shot(page, "94-document-full-screen");
+  await page.keyboard.press("Escape");
+  await expect(panel.getByRole("button", { name: "Full screen" })).toBeVisible();
+  await expect.poll(width).toBe(448);
+  await panel.getByRole("button", { name: "Full screen" }).click();
+  await panel.getByRole("button", { name: "Exit full screen" }).click();
+  await expect.poll(width).toBe(448);
+  await panel.getByRole("heading", { name: "brief.md" }).focus();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+
+  // Narrower windows overlay the chat at the reading width, with no handle
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.getByRole("button", { name: "Preview brief.md" }).click();
+  await expect(panel.getByRole("heading", { level: 1, name: "Brief" })).toBeVisible();
+  await expect(handle).toBeHidden();
+  await expect.poll(width).toBe(640);
 });

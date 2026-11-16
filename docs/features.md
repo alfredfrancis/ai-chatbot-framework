@@ -36,7 +36,9 @@ A closer look at what AI Chatbot Framework does. The [README](../README.md) has 
 - **Documents beside the chat** – a markdown file the agent writes or edits gets a *Preview* button on its
   card in the reply; markdown files in the artifacts panel open the same way. The document renders in the
   right panel (wide windows keep the chat beside it; under 1280px it overlays the chat, on a phone it fills
-  the screen) with copy, download and back to the artifacts list. It reloads when the agent changes files,
+  the screen) with copy, download, full screen (Esc leaves it) and back to the artifacts list. Beside the
+  chat its left edge can be dragged (or moved with the arrow keys) to make it wider or narrower; the chat keeps
+  at least 360px, and the width is remembered in the browser. It reloads when the agent changes files,
   keeping the scroll position. Links to other markdown files open in the panel; images load from Files; raw
   HTML is left out. The open document is in the URL (`?doc=path`), so reload and Back keep it.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,

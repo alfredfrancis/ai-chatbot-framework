@@ -8,7 +8,7 @@ import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
 import { MARKDOWN, MarkdownDoc } from "../components/MarkdownDoc";
-import { IconArrowUp, IconBack, IconChat, IconCheck, IconChevron, IconCopy, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
+import { IconArrowUp, IconBack, IconChat, IconCheck, IconChevron, IconCopy, IconDownload, IconExpand, IconShrink, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -676,6 +676,16 @@ function ArtifactsPanel({ items, onClose, onOpenDoc }: { items: Artifact[] | nul
 }
 
 type DocFile = { path: string; size: number; binary: boolean; truncated: boolean; content: string };
+
+// The document panel's width beside the chat: `reader-width` until the reader drags its edge, kept per browser.
+const READER_WIDTH = 640;
+const MIN_READER = 400; // `panel-width`
+const MIN_CHAT = 360; // the chat beside it never gets narrower than this
+const RESIZE_STEP = 16;
+const WIDTH_KEY = "acf.reader-width";
+const savedWidth = () => {
+  try { const n = Number(localStorage.getItem(WIDTH_KEY)); return n >= MIN_READER ? n : READER_WIDTH; } catch { return READER_WIDTH; }
+};
 type DocState = { status: "loading" } | { status: "gone" } | { status: "error"; message: string } | ({ status: "ready" } & DocFile);
 
 /**
@@ -687,6 +697,10 @@ function DocPanel({ path, version, focus, onOpen, onBack, onClose }: {
 }) {
   const [doc, setDoc] = useState<DocState>({ status: "loading" });
   const [copied, setCopied] = useState(false);
+  const [full, setFull] = useState(false);
+  const [width, setWidth] = useState(savedWidth);
+  const [max, setMax] = useState(Infinity);
+  const box = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const name = path.split("/").pop() || path;
   const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
@@ -709,12 +723,62 @@ function DocPanel({ path, version, focus, onOpen, onBack, onClose }: {
     if (doc.status !== "ready") return;
     try { await navigator.clipboard.writeText(doc.content); setCopied(true); } catch { /* clipboard blocked */ }
   };
+  // How wide it may get: the chat beside it keeps MIN_CHAT. Follows the window.
+  useEffect(() => {
+    const layout = box.current?.parentElement;
+    if (!layout) return;
+    const measure = () => setMax(Math.max(MIN_READER, layout.clientWidth - MIN_CHAT));
+    measure();
+    const seen = new ResizeObserver(measure);
+    seen.observe(layout);
+    return () => seen.disconnect();
+  }, []);
+  const shown = Math.min(width, max);
+  const clamp = (w: number) => Math.round(Math.min(max, Math.max(MIN_READER, w)));
+  const keepWidth = (w: number) => {
+    setWidth(w);
+    try { localStorage.setItem(WIDTH_KEY, String(w)); } catch { /* storage blocked */ }
+  };
+  const drag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !box.current) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    const right = box.current.getBoundingClientRect().right;
+    const grab = right - e.clientX - shown; // where in the handle the pointer took hold
+    let last = shown;
+    handle.setPointerCapture(e.pointerId);
+    document.body.classList.add("resizing");
+    const move = (ev: PointerEvent) => { last = clamp(right - ev.clientX - grab); setWidth(last); };
+    const end = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", end);
+      handle.removeEventListener("pointercancel", end);
+      document.body.classList.remove("resizing");
+      keepWidth(last);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  };
+  const resizeKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const to = { ArrowLeft: shown + RESIZE_STEP, ArrowRight: shown - RESIZE_STEP, Home: MIN_READER, End: max }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    keepWidth(clamp(to));
+  };
   const ready = doc.status === "ready";
   return (
     <>
-      <div className="scrim doc-scrim" onClick={onClose} />
-      <aside className="doc-panel" id="artifacts" aria-label={`Document: ${name}`}
-        onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}>
+      {!full && <div className="scrim doc-scrim" onClick={onClose} />}
+      <aside ref={box} className={`doc-panel${full ? " full" : ""}`} id="artifacts" aria-label={`Document: ${name}`}
+        style={{ "--doc-width": `${shown}px` } as React.CSSProperties}
+        onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); if (full) setFull(false); else onClose(); } }}>
+        {!full && (
+          <div className="doc-resize" role="separator" aria-orientation="vertical" aria-label="Resize the document panel" tabIndex={0}
+            aria-valuenow={shown} aria-valuemin={MIN_READER} aria-valuemax={Number.isFinite(max) ? max : undefined}
+            title="Drag to resize · double-click to reset" onPointerDown={drag} onKeyDown={resizeKey}
+            onDoubleClick={() => keepWidth(clamp(READER_WIDTH))} />
+        )}
         <div className="doc-head">
           <button className="btn ghost icon" type="button" aria-label="Back to artifacts" title="Back to artifacts" onClick={onBack}><IconBack /></button>
           <div className="text">
@@ -727,6 +791,8 @@ function DocPanel({ path, version, focus, onOpen, onBack, onClose }: {
             </button>
           )}
           {doc.status !== "gone" && <a className="btn ghost icon" href={rawUrl(path, true)} aria-label={`Download ${name}`} title="Download"><IconDownload /></a>}
+          <button className="btn ghost icon doc-full-toggle" type="button" aria-label={full ? "Exit full screen" : "Full screen"}
+            title={full ? "Exit full screen" : "Full screen"} onClick={() => setFull(!full)}>{full ? <IconShrink /> : <IconExpand />}</button>
           <button className="btn ghost icon" type="button" aria-label="Close document" title="Close" onClick={onClose}><IconX /></button>
         </div>
         <div className="doc-scroll">
