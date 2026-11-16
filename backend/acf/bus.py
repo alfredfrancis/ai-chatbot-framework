@@ -356,8 +356,9 @@ class RedisBus(LocalBus):
             if self._held.get(key) != value:  # released while the SET was on its way: no one holds it
                 if taken:
                     await self._release(keys=[key], args=[value])
-            # A lease's value is its run's id, which the run writes again when it claims its chat anew.
-            elif not taken and await self.r.get(key) != value:
+            # A lease's value is its run's id, which the run writes again when it claims its chat anew. Look
+            # at _held again after the read: a run that let go meanwhile has not lost anything.
+            elif not taken and await self.r.get(key) != value and self._held.get(key) == value:
                 log.error("lost %s to another process", key)
                 self._held.pop(key, None)
                 if key.startswith(self.k("lease")):

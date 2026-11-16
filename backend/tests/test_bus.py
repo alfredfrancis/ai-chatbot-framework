@@ -128,6 +128,38 @@ async def test_a_key_taken_again_while_the_heartbeat_takes_it_back_stays_held(re
         assert await b_takes()
 
 
+async def test_a_lease_let_go_while_the_heartbeat_checks_it_is_not_reported_lost(redis_url, monkeypatch):
+    """The take-back fails because the run took its chat again; while the heartbeat reads who holds it, the
+    run lets go and another process's run claims the chat. This process no longer holds it: no "lost"."""
+    async with two_buses(redis_url, ttl=0.6) as (a, b):
+        key = a.k("lease", 1)
+        lost: list[dict] = []
+        monkeypatch.setitem(bus._handlers, "lost", lambda msg: lost.append(msg))
+        assert await a.claim(1, "run-a")
+        await a.r.delete(key)
+        real_set, real_get, armed = a.r.set, a.r.get, [True, True]
+
+        async def taken_again_meanwhile(k, v, **kw):
+            if k == key and armed[0]:
+                armed[0] = False
+                await a.release(1, "run-a")
+                assert await a.claim(1, "run-a")
+            return await real_set(k, v, **kw)
+
+        async def let_go_while_read(k):
+            if k == key and not armed[0] and armed[1]:
+                armed[1] = False
+                await a.release(1, "run-a")
+                assert await b.claim(1, "run-b")
+            return await real_get(k)
+
+        monkeypatch.setattr(a.r, "set", taken_again_meanwhile)
+        monkeypatch.setattr(a.r, "get", let_go_while_read)
+        await asyncio.sleep(1.0)
+        assert armed == [False, False] and not lost
+        assert await b.owner(1) == "run-b"
+
+
 async def test_the_heartbeat_outlives_a_redis_error(redis_url, monkeypatch):
     async with two_buses(redis_url, ttl=0.6) as (a, b):
         assert await a.claim(6, "run-a")

@@ -270,7 +270,9 @@ def migrate(engine=None) -> None:
     cfg = _alembic_config()
     with engine.begin() as conn:
         if conn.dialect.name == "sqlite":
-            conn.exec_driver_sql("BEGIN")  # pysqlite runs DDL outside the transaction: a failure would stay half done
+            # pysqlite runs DDL outside the transaction (a failure would stay half done); IMMEDIATE takes the
+            # write lock now, so processes starting together on one file wait instead of hitting a stale snapshot.
+            conn.exec_driver_sql("BEGIN IMMEDIATE")
         lock_startup(conn)
         cfg.attributes["connection"] = conn
         tables = set(inspect(conn).get_table_names())
