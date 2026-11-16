@@ -230,7 +230,7 @@ Each chat can switch model and effort from its message box.
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_IDLE_MINUTES` | `30` | Stop a sandbox no one has used for this long; it starts again, files intact, on the next command. `0` never stops one |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
-| `ACF_K8S_NAMESPACE` | `default` | `ACF_SANDBOX=kubernetes`: the namespace of the sandbox pods (`acf-sandbox-<user id>`). The app reaches it with `kubectl`, as its ServiceAccount in the cluster or through `KUBECONFIG` |
+| `ACF_K8S_NAMESPACE` | `default` | `ACF_SANDBOX=kubernetes`: the namespace of the sandbox pods (`acf-sandbox-<user id>`). The app reaches it with `kubectl`, as its ServiceAccount in the cluster or through `KUBECONFIG`. Apply [deploy/kubernetes/](deploy/kubernetes/README.md) there: it limits that ServiceAccount to sandbox pods |
 | `ACF_K8S_DATA_CLAIM` | `acf-data` | `ACF_SANDBOX=kubernetes`: the ReadWriteMany PersistentVolumeClaim that holds `ACF_DATA_DIR`, mounted at `ACF_DATA_DIR` in the app's pods. Each sandbox pod mounts its user's `users/<id>/workspace` from it at `/workspace` |
 | `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
 | `ACF_REDIS_URL` | – (set in the production stack) | Redis for run state shared between app processes. Needed for more than one process; unset keeps it in memory |

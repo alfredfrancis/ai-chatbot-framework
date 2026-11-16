@@ -1,0 +1,37 @@
+---
+# The app's identity, allowed exactly what KubernetesSandbox does with kubectl, in its namespace only:
+# create, read, watch and delete pods, and exec in them. No update or patch, no other subresources
+# (attach, port-forward, ephemeral containers), no other resources. admission-policy.yaml narrows the
+# writes and execs to sandbox pods.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${SERVICE_ACCOUNT}
+  namespace: ${NAMESPACE}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: acf-sandboxes
+  namespace: ${NAMESPACE}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: acf-sandboxes
+  namespace: ${NAMESPACE}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: acf-sandboxes
+subjects:
+  - kind: ServiceAccount
+    name: ${SERVICE_ACCOUNT}
+    namespace: ${NAMESPACE}

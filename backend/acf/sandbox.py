@@ -22,7 +22,7 @@ Adapters:
 - DockerSandbox: a long-lived container per user (`acf-sbx-<id>`) with the workspace bind-mounted at
   /workspace, resource limits, no Linux capabilities and no privilege escalation.
 - KubernetesSandbox: the same as a pod per user (`acf-sandbox-<id>`), its /workspace a subPath of the
-  shared data volume.
+  shared data volume. deploy/kubernetes/ holds the cluster-side guardrails, in place of the Docker proxy.
 - LocalSandbox: runs on the host in the workspace folder. Development/testing only; NOT isolated.
 Others register with `register_sandbox()` or are named as `ACF_SANDBOX=package.module:Class`.
 """
@@ -618,7 +618,7 @@ class DockerSandbox(_ExecSandbox):
             raise SandboxError(f"Could not stop {self.name}: {res.stderr.strip() or res.stdout.strip()}")
 
 
-POD_PREFIX = "acf-sandbox-"
+POD_PREFIX = "acf-sandbox-"  # deploy/kubernetes/admission-policy.yaml admits only this + a user id
 POD_READY_TIMEOUT = 300.0
 # Container states a pod doesn't leave without being created again.
 _STUCK = {

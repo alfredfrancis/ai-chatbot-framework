@@ -153,6 +153,14 @@ Never`. Commands run as `kubectl exec` under the same `sh` wrapper; `env` adds a
 `kubectl exec` has no `-e`. A stopped sandbox is a deleted pod: the next use creates it again, and the files
 are on the volume. Kubernetes has no per-pod process limit; set the kubelet's `podPidsLimit` for one.
 
+In place of the Docker proxy, the cluster enforces the same limits whatever the app asks for
+([deploy/kubernetes/](../deploy/kubernetes/README.md)): Pod Security `restricted` on the namespace; RBAC that
+gives the app's ServiceAccount pods (create, get, list, watch, delete) and `pods/exec` there and nothing
+else; ValidatingAdmissionPolicies that let it create only sandbox pods (the name's user id, the image, the
+claim mounted at that user's subPath and nothing else, non-root, no capabilities, limits, the RuntimeClass)
+and delete or exec only into them; and NetworkPolicies that take no connections to sandboxes and let them
+reach only cluster DNS and public addresses. `tests/test_kubernetes_policy.py` checks each against a cluster.
+
 ## Skills (`backend/acf/skills.py`)
 
 `skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`). A message calls a skill with

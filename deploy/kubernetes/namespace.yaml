@@ -1,0 +1,13 @@
+---
+# The namespace the app's sandbox pods run in (ACF_K8S_NAMESPACE). Pod Security Admission refuses any pod
+# here that doesn't meet the `restricted` profile: non-root, no capabilities, no privilege escalation,
+# seccomp on, no host namespaces or hostPath volumes.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE}
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

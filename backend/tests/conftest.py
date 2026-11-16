@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import socket
+import string
 import subprocess
 import tempfile
 import threading
@@ -159,6 +160,11 @@ def docker_available() -> bool:
 
 K8S_NAMESPACE = os.environ.get("ACF_TEST_K8S_NAMESPACE", "")
 K8S_CLAIM = "acf-data"
+K8S_APP = "acf"  # the app's ServiceAccount
+K8S_IMAGE = os.environ.get("ACF_TEST_SANDBOX_IMAGE", "python:3.12-alpine")
+GUARDRAILS = Path(__file__).resolve().parents[2] / "deploy" / "kubernetes"
+# The tests' own kubectl calls are the cluster admin's, whatever KUBECONFIG the app is given.
+_ADMIN_KUBECONFIG = os.environ.get("KUBECONFIG")
 
 
 @functools.cache
@@ -170,13 +176,31 @@ def kubernetes_available() -> bool:
     return subprocess.run(readyz, capture_output=True).returncode == 0
 
 
-def kubectl(*args: str, stdin: dict | None = None, check: bool = True) -> subprocess.CompletedProcess:
-    res = subprocess.run(
-        ["kubectl", *args], input=json.dumps(stdin) if stdin else None, capture_output=True, text=True, timeout=180
-    )
+def kubectl(*args: str, stdin: dict | str | None = None, check: bool = True) -> subprocess.CompletedProcess:
+    env = {k: v for k, v in os.environ.items() if k != "KUBECONFIG"}
+    if _ADMIN_KUBECONFIG:
+        env["KUBECONFIG"] = _ADMIN_KUBECONFIG
+    text = json.dumps(stdin) if isinstance(stdin, dict) else stdin
+    res = subprocess.run(["kubectl", *args], input=text, capture_output=True, text=True, timeout=180, env=env)
     if check and res.returncode != 0:
         raise AssertionError(f"kubectl {' '.join(args)}: {res.stderr or res.stdout}")
     return res
+
+
+GUARDRAIL_FILES = ("namespace", "rbac", "admission-policy", "network-policy")
+
+
+def guardrails(namespace: str, files: tuple[str, ...] = GUARDRAIL_FILES) -> str:
+    """deploy/kubernetes/ for a namespace, filled in as `envsubst` or a chart would."""
+    values = {
+        "NAMESPACE": namespace,
+        "SERVICE_ACCOUNT": K8S_APP,
+        "IMAGE": K8S_IMAGE,
+        "DATA_CLAIM": K8S_CLAIM,
+        "RUNTIME_CLASS": "",
+    }
+    docs = [string.Template((GUARDRAILS / f"{f}.yaml").read_text()).substitute(values) for f in files]
+    return "".join(docs)  # each file starts with ---
 
 
 def plain_pod(name: str, namespace: str, labels: dict[str, str] | None = None) -> dict:
@@ -192,7 +216,7 @@ def plain_pod(name: str, namespace: str, labels: dict[str, str] | None = None) -
             "containers": [
                 {
                     "name": "c",
-                    "image": os.environ.get("ACF_TEST_SANDBOX_IMAGE", "python:3.12-alpine"),
+                    "image": K8S_IMAGE,
                     "command": ["sleep", "infinity"],
                     "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
                 }
@@ -201,14 +225,29 @@ def plain_pod(name: str, namespace: str, labels: dict[str, str] | None = None) -
     }
 
 
+def wait_for_admission_policy(namespace: str) -> None:
+    """A new ValidatingAdmissionPolicy is in force a moment after it is created: wait until it refuses the app a pod
+    that isn't a sandbox."""
+    dry_run = ["--as", f"system:serviceaccount:{namespace}:{K8S_APP}", "create", "--dry-run=server", "-f", "-"]
+    pod = plain_pod("not-a-sandbox", namespace)
+    for _ in range(150):
+        if "ValidatingAdmissionPolicy" in kubectl(*dry_run, stdin=pod, check=False).stderr:
+            return
+        time.sleep(0.2)
+    raise AssertionError(f"the admission policy is not in force in {namespace}")
+
+
 @pytest.fixture(scope="session")
-def k8s_cluster(acf_env):
-    """The test namespace with a data volume as in production: a ReadWriteMany claim on the data dir, here a
-    hostPath volume (valid on a one-node cluster). Starts from scratch and is deleted afterwards."""
+def k8s_cluster(acf_env, tmp_path_factory):
+    """The test namespace as in production: the guardrails of deploy/kubernetes/, and a ReadWriteMany data claim
+    on the data dir (here a hostPath volume, valid on a one-node cluster). Yields the namespace and a kubeconfig
+    that acts as the app's ServiceAccount. Starts from scratch and is deleted afterwards."""
     pv = f"{K8S_NAMESPACE}-data"
-    kubectl("delete", "namespace", K8S_NAMESPACE, "--ignore-not-found", "--wait")
+    rendered = guardrails(K8S_NAMESPACE)
+    kubectl("delete", "-f", "-", "--ignore-not-found", "--wait", stdin=rendered)
     kubectl("delete", "pv", pv, "--ignore-not-found", "--wait")
-    kubectl("create", "namespace", K8S_NAMESPACE)
+    kubectl("apply", "-f", "-", stdin=rendered)
+    wait_for_admission_policy(K8S_NAMESPACE)
     volume = {
         "apiVersion": "v1",
         "kind": "PersistentVolume",
@@ -236,25 +275,40 @@ def k8s_cluster(acf_env):
     kubectl("apply", "-f", "-", stdin=volume)
     kubectl("apply", "-f", "-", stdin=claim)
     kubectl("wait", "-n", K8S_NAMESPACE, "--for=jsonpath={.status.phase}=Bound", f"pvc/{K8S_CLAIM}", "--timeout=60s")
-    yield K8S_NAMESPACE
-    kubectl("delete", "namespace", K8S_NAMESPACE, "--wait", check=False)
+    cluster = json.loads(kubectl("config", "view", "--raw", "--minify", "-o", "json").stdout)["clusters"][0]
+    token = kubectl("create", "token", K8S_APP, "-n", K8S_NAMESPACE, "--duration=4h").stdout.strip()
+    app = {
+        "apiVersion": "v1",
+        "kind": "Config",
+        "clusters": [{"name": "test", "cluster": cluster["cluster"]}],
+        "users": [{"name": K8S_APP, "user": {"token": token}}],
+        "contexts": [{"name": K8S_APP, "context": {"cluster": "test", "user": K8S_APP}}],
+        "current-context": K8S_APP,
+    }
+    app_kubeconfig = tmp_path_factory.mktemp("kube") / "app.json"
+    app_kubeconfig.write_text(json.dumps(app))
+    yield K8S_NAMESPACE, str(app_kubeconfig)
+    kubectl("delete", "-f", "-", "--ignore-not-found", "--wait", stdin=rendered, check=False)
     kubectl("delete", "pv", pv, "--wait", check=False)
 
 
 @pytest.fixture
 def k8s_sandbox(k8s_cluster, monkeypatch):
-    """ACF_SANDBOX=kubernetes in the test namespace; the sandbox pods are deleted afterwards."""
+    """ACF_SANDBOX=kubernetes in the test namespace, with kubectl acting as the app's ServiceAccount; the sandbox
+    pods are deleted afterwards."""
     from acf import config
 
+    namespace, app_kubeconfig = k8s_cluster
     for name, value in {
         "sandbox": "kubernetes",
-        "sandbox_image": os.environ.get("ACF_TEST_SANDBOX_IMAGE", "python:3.12-alpine"),
-        "k8s_namespace": k8s_cluster,
+        "sandbox_image": K8S_IMAGE,
+        "k8s_namespace": namespace,
         "k8s_data_claim": K8S_CLAIM,
     }.items():
         monkeypatch.setattr(config.settings, name, value)
-    yield k8s_cluster
-    kubectl("delete", "pods", "-n", k8s_cluster, "-l", "acf.sandbox=1", "--wait", check=False)
+    monkeypatch.setenv("KUBECONFIG", app_kubeconfig)
+    yield namespace
+    kubectl("delete", "pods", "-n", namespace, "-l", "acf.sandbox=1", "--wait", check=False)
 
 
 @pytest.fixture(scope="session")

@@ -1,6 +1,7 @@
 """Real Kubernetes sandbox tests, the counterparts of test_sandbox_docker.py. Skipped without a cluster
 (ACF_TEST_K8S_NAMESPACE and kubectl)."""
 
+import asyncio
 import json
 import os
 import secrets
@@ -10,7 +11,7 @@ import pytest
 
 from acf import config, workspace
 from acf.sandbox import KubernetesSandbox, SandboxError, parse_bytes
-from tests.conftest import FAKES, kubectl, kubernetes_available, send
+from tests.conftest import FAKES, K8S_IMAGE, kubectl, kubernetes_available, send
 
 
 def on_cluster(test):
@@ -122,10 +123,27 @@ async def test_stale_pod_is_replaced(user, k8s_sandbox):
 
 @on_cluster
 async def test_a_pod_that_cannot_start_fails_with_the_reason(user, k8s_sandbox, monkeypatch):
-    monkeypatch.setattr(config.settings, "sandbox_image", "acf-k1-no-such-image:never")
+    image = "acf-k1-no-such-image:never"
+    monkeypatch.setattr(config.settings, "sandbox_image", image)
     sbx = KubernetesSandbox(user["id"])
-    with pytest.raises(SandboxError, match="Could not start sandbox: .*Image"):
-        await sbx.ensure()
+    # The admission policy allows only the sandbox image (its first variable): allow this one for the test.
+    policy = ["validatingadmissionpolicy", f"acf-sandbox-pods-{k8s_sandbox}", "--type=json", "-p"]
+
+    def allow(name: str) -> None:
+        change = [{"op": "replace", "path": "/spec/variables/0/expression", "value": json.dumps(name)}]
+        kubectl("patch", *policy, json.dumps(change))
+
+    allow(image)
+    try:
+        dry_run = ["--as", f"system:serviceaccount:{k8s_sandbox}:acf", "create", "--dry-run=server", "-f", "-"]
+        for _ in range(50):  # the API server picks up the change within a few seconds
+            if kubectl(*dry_run, stdin=sbx.manifest("id"), check=False).returncode == 0:
+                break
+            await asyncio.sleep(0.2)
+        with pytest.raises(SandboxError, match="Could not start sandbox: .*Image"):
+            await sbx.ensure()
+    finally:
+        allow(K8S_IMAGE)
     assert kubectl("get", "pod", "-n", k8s_sandbox, sbx.name, check=False).returncode != 0  # cleaned up
 
 
