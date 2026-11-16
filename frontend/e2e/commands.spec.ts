@@ -11,7 +11,7 @@ test("command menu and keyboard shortcuts", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+k");
   const menu = page.getByRole("dialog", { name: "Command menu" });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("option", { name: /hello shortcuts/ })).toBeVisible();
+  await expect(menu.getByRole("option", { name: /hello shortcuts/i })).toBeVisible();
   await page.getByLabel("Search commands").fill("ski");
   await expect(menu.getByRole("option")).toHaveText([/Upload a skill/, /Skills/]);
   await shot(page, "15-command-menu");

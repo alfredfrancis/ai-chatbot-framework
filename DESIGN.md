@@ -216,7 +216,8 @@ empty-chat greeting is the only `display`. Labels and section headings are sente
   and an optional right panel (`bg-raised`, left `border`): chat artifacts, file details, or an app's own
   chat (`panel-width`), or a document the agent wrote, rendered for reading (`reader-width`). Under 1100px
   a right panel overlays the main one (a document already under 1280px, so the chat beside it never gets
-  cramped); under 800px the sidebar becomes a drawer over `scrim`. The composer stays pinned to the bottom
+  cramped). Beside the chat, a document's left edge drags to resize it (`panel-width` to the chat's last
+  360px) and its header can take it full screen; under 800px the sidebar becomes a drawer over `scrim`. The composer stays pinned to the bottom
   of a chat.
 - **Pages**: a header with `title-1` on the left and actions on the right, then content. Files is a
   drive: a mono path bar, folder tiles, file cards with a thumbnail, and a details pane.

@@ -424,7 +424,7 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 }
 
 /* ---------- a document beside the chat: a markdown file from Files, rendered for reading ---------- */
-.doc-panel { width: var(--reader-width); flex-shrink: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--bg-raised); }
+.doc-panel { position: relative; width: var(--doc-width, var(--reader-width)); flex-shrink: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--bg-raised); }
 .doc-head { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
 .doc-head .text { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0 var(--space-1); }
 /* The heading takes focus when a document opens, for screen readers; it is not a control, so it shows no ring. */
@@ -451,11 +451,25 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
 .doc-skeleton span:nth-child(3) { width: 92%; }
 .doc-skeleton span:last-child { width: 64%; }
 .doc-scrim { display: none; }
+/* Its left edge: drag (or arrow keys) to make it wider or narrower; a hairline shows on hover. */
+.doc-resize { position: absolute; top: 0; bottom: 0; left: -5px; width: 10px; z-index: 1; cursor: col-resize; touch-action: none; }
+.doc-resize::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: transparent; transition: background-color 120ms ease-out; }
+.doc-resize:hover::after, body.resizing .doc-resize::after { background: var(--border-strong); }
+.doc-resize:focus-visible { outline: none; }
+.doc-resize:focus-visible::after { background: var(--accent); }
+body.resizing { cursor: col-resize; user-select: none; }
+/* Full screen: over everything, the text at its reading width in the middle. */
+.doc-panel.full { position: fixed; inset: 0; z-index: 50; width: auto; max-width: none; border-left: 0; box-shadow: none; }
+.doc-panel.full .doc-scroll > * { margin-left: auto; margin-right: auto; max-width: 72ch; }
 @media (max-width: 1280px) {
-  .doc-panel { position: fixed; inset: 0 0 0 auto; z-index: 40; max-width: 100%; box-shadow: var(--shadow-pop); border-left-color: var(--border-strong); }
+  .doc-panel { position: fixed; inset: 0 0 0 auto; z-index: 40; width: var(--reader-width); max-width: 100%; box-shadow: var(--shadow-pop); border-left-color: var(--border-strong); }
   .doc-scrim { display: block; }
+  .doc-resize { display: none; }
 }
-@media (max-width: 640px) { .doc-scroll { padding: var(--space-6) var(--space-4) var(--space-12); } .doc-head { padding: var(--space-2); } }
+@media (max-width: 640px) {
+  .doc-scroll { padding: var(--space-6) var(--space-4) var(--space-12); } .doc-head { padding: var(--space-2); }
+  .doc-full-toggle { display: none; } /* a phone already shows it full screen */
+}
 
 /* ---------- an app's own chat: a panel on the right of the app's screen ---------- */
 .app-chat-toggle { gap: var(--space-1); }
