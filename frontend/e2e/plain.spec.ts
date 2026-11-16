@@ -21,21 +21,21 @@ test("the message box offers one quiet model choice and no key legend", async ({
 
 test("finished steps fold to what they did; the files a reply made are cards", async ({ page }) => {
   await signUp(page);
-  await say(page, "write: notes/report.md | # Weekly sales");
-  await expect(lastAssistant(page)).toContainText("Result: Wrote notes/report.md");
+  await say(page, "write: notes/report.txt | Weekly sales");
+  await expect(lastAssistant(page)).toContainText("Result: Wrote notes/report.txt");
   const summary = page.getByTestId("steps-summary");
   await expect(summary).toContainText(/Done in (under a second|\d+ s)/);
   await expect(summary).toContainText("wrote 1 file");
   await expect(summary).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByTestId("tool-step")).toHaveCount(0);
   const files = page.getByRole("list", { name: "Files from this reply" });
-  await expect(files.getByRole("listitem")).toHaveText(/report\.mdIn Files · notes/);
-  await expect(files.getByRole("link", { name: "Open report.md" })).toHaveAttribute("href", /path=notes%2Freport\.md/);
-  await expect(files.getByRole("link", { name: "Download report.md" })).toBeVisible();
+  await expect(files.getByRole("listitem")).toHaveText(/report\.txtIn Files · notes/);
+  await expect(files.getByRole("link", { name: "Open report.txt" })).toHaveAttribute("href", /path=notes%2Freport\.txt/);
+  await expect(files.getByRole("link", { name: "Download report.txt" })).toBeVisible();
   await shot(page, "81-steps-folded");
 
   await summary.click();
-  await expect(page.getByTestId("tool-step")).toContainText("Wrote notes/report.md");
+  await expect(page.getByTestId("tool-step")).toContainText("Wrote notes/report.txt");
   await shot(page, "82-steps-open");
 
   // A command's output leaves out the "[exit code 0]" the model reads; a failure says so on the fold.

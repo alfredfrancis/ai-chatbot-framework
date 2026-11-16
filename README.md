@@ -58,7 +58,7 @@ their own locked-down sandbox.
 - **Projects and scheduled tasks.** Group chats under shared instructions and a folder. Run a prompt
   "every weekday at 08:00" or once "tomorrow at 17:00"; each run becomes a chat, on the model you pick
   for the task (a small local one is enough for many background jobs).
-- **Files and artifacts.** Attach files to a message; each chat lists the files it used and made.
+- **Files and artifacts.** Attach files to a message; each chat lists the files it used and made; documents the agent writes open rendered beside the chat.
 - **Open protocol.** The chat speaks the [Agent Client Protocol](https://agentclientprotocol.com) over
   WebSocket, so editors and your own apps can talk to the agent too.
 - **Built to scale.** Stateless app processes behind Caddy, with PostgreSQL and Redis. Add or remove

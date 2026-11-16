@@ -30,10 +30,14 @@ test("a chat's artifacts panel lists the files attached to it and the files the 
   await expect(toggle).toContainText("3");
   await shot(page, "20-artifacts-panel");
 
-  // The file opens from the panel
-  const [popup] = await Promise.all([page.waitForEvent("popup"), produced.getByRole("link", { name: /^report\.md/ }).click()]);
-  await expect(popup.locator("body")).toContainText("# Weekly sales");
+  // A file opens from the panel in a new tab; a markdown document opens in the panel (documents.spec.ts)
+  const [popup] = await Promise.all([page.waitForEvent("popup"), produced.getByRole("link", { name: /^chart\.txt/ }).click()]);
+  await expect(popup.locator("body")).toContainText("mon 120");
   await popup.close();
+  await produced.getByRole("link", { name: /^report\.md/ }).click();
+  const doc = page.getByRole("complementary", { name: "Document: report.md" });
+  await expect(doc.getByRole("heading", { level: 1, name: "Weekly sales" })).toBeVisible();
+  await doc.getByRole("button", { name: "Back to artifacts" }).click();
 
   // The panel stays open after a reload; another chat has its own artifacts
   await page.reload();

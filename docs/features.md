@@ -33,6 +33,12 @@ A closer look at what AI Chatbot Framework does. The [README](../README.md) has 
   "Made" means written or edited by the agent, or changed in the workspace while one of the chat's commands
   was running. That last part goes by file modification time, so a file another chat changes at the same
   moment can show up too. `context.md`, `memory.md`, hidden files and deleted files are not listed.
+- **Documents beside the chat** – a markdown file the agent writes or edits gets a *Preview* button on its
+  card in the reply; markdown files in the artifacts panel open the same way. The document renders in the
+  right panel (wide windows keep the chat beside it; under 1280px it overlays the chat, on a phone it fills
+  the screen) with copy, download and back to the artifacts list. It reloads when the agent changes files,
+  keeping the scroll position. Links to other markdown files open in the panel; images load from Files; raw
+  HTML is left out. The open document is in the URL (`?doc=path`), so reload and Back keep it.
 - **Skills** – the open Agent Skills format (`skills/<name>/SKILL.md`). Upload a `.zip` or a `SKILL.md`,
   or let the agent write its own. Only names and descriptions are in the prompt until a task needs one.
   Type `/` in a chat to pick one: a message with `/name` in it (also a task's prompt) makes the agent
