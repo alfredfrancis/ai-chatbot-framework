@@ -85,6 +85,54 @@ async def test_due_tasks_start_even_when_recovery_fails(client, user, monkeypatc
     await _finished(client, task["id"])
 
 
+async def test_scheduler_tick_does_not_block_the_event_loop(client, user, monkeypatch):
+    """A database that stops answering must not freeze the app: tick() runs its queries off the loop."""
+    import asyncio
+    import contextlib
+    import time
+
+    task = (await client.post("/api/tasks", json={"name": "Due", "prompt": "hi", "schedule": "*/5 * * * *"})).json()
+    with session_scope() as db:
+        db.get(Task, task["id"]).next_run_at = utcnow() - timedelta(minutes=1)
+
+    @contextlib.contextmanager
+    def slow_scope():
+        time.sleep(0.3)  # a database that has stopped answering for a while
+        with session_scope() as db:
+            yield db
+
+    monkeypatch.setattr(scheduler, "session_scope", slow_scope)
+    monkeypatch.setattr(scheduler, "run_task", lambda task_id: asyncio.sleep(0))
+    beats = 0
+
+    async def heartbeat():
+        nonlocal beats
+        while True:
+            await asyncio.sleep(0.01)
+            beats += 1
+
+    other = asyncio.create_task(heartbeat())
+    await asyncio.sleep(0)
+    try:
+        started = await scheduler.tick()  # the due query and the claim: two slow sessions
+    finally:
+        other.cancel()
+    assert started == [task["id"]]
+    assert beats >= 20, f"the event loop was blocked during tick() ({beats} beats)"
+
+
+async def test_scheduler_ticks_claim_a_due_task_once(client, user, monkeypatch):
+    """Ticks that overlap (here, or in another process) start a due task once: the claim is a compare-and-set."""
+    import asyncio
+
+    task = (await client.post("/api/tasks", json={"name": "Due", "prompt": "hi", "schedule": "*/5 * * * *"})).json()
+    with session_scope() as db:
+        db.get(Task, task["id"]).next_run_at = utcnow() - timedelta(minutes=1)
+    monkeypatch.setattr(scheduler, "run_task", lambda task_id: asyncio.sleep(0))
+    results = await asyncio.gather(*(scheduler.tick() for _ in range(4)))
+    assert sorted(i for r in results for i in r) == [task["id"]]
+
+
 async def test_task_chat_reports_running_while_in_progress(client, user):
     """The UI polls a task's chat while it runs, so the chat must say it is running."""
     import asyncio
