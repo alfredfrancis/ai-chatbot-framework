@@ -99,7 +99,7 @@ WebSocket for clients that spawn agents as subprocesses.
 
 ## Sandboxes (`backend/acf/sandbox.py`)
 
-`Sandbox` is a port; each provider is an adapter, picked by `ACF_SANDBOX` (`docker`, `local`, a kind added
+`Sandbox` is a port; each provider is an adapter, picked by `ACF_SANDBOX` (`docker`, `kubernetes`, `local`, a kind added
 with `register_sandbox()`, or `package.module:Class`). Nothing outside `sandbox.py` knows which one runs.
 Adapters used to implement `exec`; they implement `run` now, and `exec` is the wrapper that keeps the
 sandbox in use (`using()`) while a command runs. Loading an adapter that still overrides `exec` raises
@@ -140,6 +140,18 @@ and replaced if the folder was recreated. Commands run as `docker exec` under a 
 records the session leader's pid; a stop kills that session inside the container (killing the `docker exec`
 client alone would leave the command running). It needs only `sh` and `/proc` in the image. An idle
 sandbox is `docker stop`ped and `docker start`ed on its next use; processes it ran are gone, files stay.
+
+Kubernetes adapter: the same shape, with `kubectl` in place of `docker` (as the app's ServiceAccount in a
+cluster, or through `KUBECONFIG`). `acf-sandbox-<user>` is a pod in `ACF_K8S_NAMESPACE`, created with
+`kubectl apply` and waited on until Ready (a pod stuck on its image fails at once, with the reason). Its only
+volume is the data claim `ACF_K8S_DATA_CLAIM` (ReadWriteMany, the volume holding `ACF_DATA_DIR`), mounted
+with `subPath: users/<user>/workspace` at `/workspace`, so the pod sees that user's workspace and nothing
+else of the volume. It runs as the workspace's owner (root refused, as for Docker) with every capability
+dropped, `allowPrivilegeEscalation: false`, seccomp `RuntimeDefault`, the memory and CPU limits, the
+RuntimeClass `ACF_SANDBOX_RUNTIME` if set, no ServiceAccount token, no service links and `restartPolicy:
+Never`. Commands run as `kubectl exec` under the same `sh` wrapper; `env` adds a process's variables, as
+`kubectl exec` has no `-e`. A stopped sandbox is a deleted pod: the next use creates it again, and the files
+are on the volume. Kubernetes has no per-pod process limit; set the kubelet's `podPidsLimit` for one.
 
 ## Skills (`backend/acf/skills.py`)
 

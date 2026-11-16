@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import functools
+import json
 import os
 import shutil
 import socket
@@ -153,6 +155,106 @@ def docker_available() -> bool:
     if not shutil.which("docker"):
         return False
     return subprocess.run(["docker", "info"], capture_output=True).returncode == 0
+
+
+K8S_NAMESPACE = os.environ.get("ACF_TEST_K8S_NAMESPACE", "")
+K8S_CLAIM = "acf-data"
+
+
+@functools.cache
+def kubernetes_available() -> bool:
+    """ACF_TEST_K8S_NAMESPACE names a namespace the tests create (and delete) on the cluster kubectl reaches."""
+    if not K8S_NAMESPACE or not shutil.which("kubectl"):
+        return False
+    readyz = ["kubectl", "get", "--raw", "/readyz", "--request-timeout=10s"]
+    return subprocess.run(readyz, capture_output=True).returncode == 0
+
+
+def kubectl(*args: str, stdin: dict | None = None, check: bool = True) -> subprocess.CompletedProcess:
+    res = subprocess.run(
+        ["kubectl", *args], input=json.dumps(stdin) if stdin else None, capture_output=True, text=True, timeout=180
+    )
+    if check and res.returncode != 0:
+        raise AssertionError(f"kubectl {' '.join(args)}: {res.stderr or res.stdout}")
+    return res
+
+
+def plain_pod(name: str, namespace: str, labels: dict[str, str] | None = None) -> dict:
+    """A pod that is not a sandbox, allowed by Pod Security `restricted`."""
+    return {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {"name": name, "namespace": namespace, "labels": labels or {}},
+        "spec": {
+            "terminationGracePeriodSeconds": 0,
+            "automountServiceAccountToken": False,
+            "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
+            "containers": [
+                {
+                    "name": "c",
+                    "image": os.environ.get("ACF_TEST_SANDBOX_IMAGE", "python:3.12-alpine"),
+                    "command": ["sleep", "infinity"],
+                    "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
+                }
+            ],
+        },
+    }
+
+
+@pytest.fixture(scope="session")
+def k8s_cluster(acf_env):
+    """The test namespace with a data volume as in production: a ReadWriteMany claim on the data dir, here a
+    hostPath volume (valid on a one-node cluster). Starts from scratch and is deleted afterwards."""
+    pv = f"{K8S_NAMESPACE}-data"
+    kubectl("delete", "namespace", K8S_NAMESPACE, "--ignore-not-found", "--wait")
+    kubectl("delete", "pv", pv, "--ignore-not-found", "--wait")
+    kubectl("create", "namespace", K8S_NAMESPACE)
+    volume = {
+        "apiVersion": "v1",
+        "kind": "PersistentVolume",
+        "metadata": {"name": pv, "labels": {"acf.test": K8S_NAMESPACE}},
+        "spec": {
+            "capacity": {"storage": "1Gi"},
+            "accessModes": ["ReadWriteMany"],
+            "persistentVolumeReclaimPolicy": "Retain",
+            "storageClassName": "",
+            "hostPath": {"path": acf_env, "type": "Directory"},
+            "claimRef": {"namespace": K8S_NAMESPACE, "name": K8S_CLAIM},
+        },
+    }
+    claim = {
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {"name": K8S_CLAIM, "namespace": K8S_NAMESPACE},
+        "spec": {
+            "accessModes": ["ReadWriteMany"],
+            "storageClassName": "",
+            "volumeName": pv,
+            "resources": {"requests": {"storage": "1Gi"}},
+        },
+    }
+    kubectl("apply", "-f", "-", stdin=volume)
+    kubectl("apply", "-f", "-", stdin=claim)
+    kubectl("wait", "-n", K8S_NAMESPACE, "--for=jsonpath={.status.phase}=Bound", f"pvc/{K8S_CLAIM}", "--timeout=60s")
+    yield K8S_NAMESPACE
+    kubectl("delete", "namespace", K8S_NAMESPACE, "--wait", check=False)
+    kubectl("delete", "pv", pv, "--wait", check=False)
+
+
+@pytest.fixture
+def k8s_sandbox(k8s_cluster, monkeypatch):
+    """ACF_SANDBOX=kubernetes in the test namespace; the sandbox pods are deleted afterwards."""
+    from acf import config
+
+    for name, value in {
+        "sandbox": "kubernetes",
+        "sandbox_image": os.environ.get("ACF_TEST_SANDBOX_IMAGE", "python:3.12-alpine"),
+        "k8s_namespace": k8s_cluster,
+        "k8s_data_claim": K8S_CLAIM,
+    }.items():
+        monkeypatch.setattr(config.settings, name, value)
+    yield k8s_cluster
+    kubectl("delete", "pods", "-n", k8s_cluster, "-l", "acf.sandbox=1", "--wait", check=False)
 
 
 @pytest.fixture(scope="session")

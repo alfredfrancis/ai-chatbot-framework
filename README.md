@@ -222,14 +222,16 @@ Each chat can switch model and effort from its message box.
 | `ACF_ADMIN_NAME` | email name | Display name for the main account |
 | `ACF_ALLOW_SIGNUP` | `true`, `false` if `ACF_ADMIN_EMAIL` is set | Open sign-ups. When `false`, the first account can still be created on an empty server |
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
-| `ACF_SANDBOX` | `docker` | `docker`, `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)). Upgrading an adapter from 2.0.0-beta.1 or earlier: rename its `exec` method to `run`; the app refuses to start with one that still defines `exec` |
+| `ACF_SANDBOX` | `docker` | `docker`, `kubernetes` (a pod per user, see below), `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)). Upgrading an adapter from 2.0.0-beta.1 or earlier: rename its `exec` method to `run`; the app refuses to start with one that still defines `exec` |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
 | `ACF_SANDBOX_NETWORK` | `acf-sandbox` | Created when missing, with traffic between sandboxes off. `none` cuts sandboxes off from the internet |
 | `ACF_SANDBOX_BRIDGE` | `acf-sbx0` | Interface name of that network (the egress firewall matches it) |
-| `ACF_SANDBOX_RUNTIME` | – (`runsc` in the production stack) | Container runtime, e.g. `runsc` for gVisor |
+| `ACF_SANDBOX_RUNTIME` | – (`runsc` in the production stack) | Container runtime, e.g. `runsc` for gVisor. On Kubernetes, the pods' RuntimeClass (e.g. `gvisor`) |
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_IDLE_MINUTES` | `30` | Stop a sandbox no one has used for this long; it starts again, files intact, on the next command. `0` never stops one |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
+| `ACF_K8S_NAMESPACE` | `default` | `ACF_SANDBOX=kubernetes`: the namespace of the sandbox pods (`acf-sandbox-<user id>`). The app reaches it with `kubectl`, as its ServiceAccount in the cluster or through `KUBECONFIG` |
+| `ACF_K8S_DATA_CLAIM` | `acf-data` | `ACF_SANDBOX=kubernetes`: the ReadWriteMany PersistentVolumeClaim that holds `ACF_DATA_DIR`, mounted at `ACF_DATA_DIR` in the app's pods. Each sandbox pod mounts its user's `users/<id>/workspace` from it at `/workspace` |
 | `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
 | `ACF_REDIS_URL` | – (set in the production stack) | Redis for run state shared between app processes. Needed for more than one process; unset keeps it in memory |
 | `ACF_REDIS_PREFIX` | `acf` | Key prefix, to share one Redis between deployments |

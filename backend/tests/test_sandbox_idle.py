@@ -1,5 +1,6 @@
 """Idle sandboxes are stopped and start again on their next use (`sandbox.sweep`). A recording adapter stands
-in for Docker here; tests/test_docker_proxy.py runs the sweep against real containers."""
+in for Docker here; tests/test_docker_proxy.py runs the sweep against real containers, and the last test here
+against real Kubernetes pods."""
 
 from __future__ import annotations
 
@@ -9,7 +10,8 @@ import time
 import pytest
 
 from acf import bus, config, sandbox
-from acf.sandbox import LocalSandbox
+from acf.sandbox import KubernetesSandbox, LocalSandbox
+from tests.conftest import kubectl, kubernetes_available, plain_pod
 
 IDLE = 0.4  # seconds
 
@@ -134,3 +136,25 @@ def test_idle_minutes_must_not_be_negative(monkeypatch):
     monkeypatch.setenv("ACF_SANDBOX_IDLE_MINUTES", "-1")
     with pytest.raises(ValueError, match="ACF_SANDBOX_IDLE_MINUTES"):
         config.Settings()
+
+
+@pytest.mark.kubernetes
+@pytest.mark.skipif(not kubernetes_available(), reason="no Kubernetes cluster")
+async def test_idle_kubernetes_sandboxes_are_deleted_and_come_back_with_their_files(k8s_sandbox, monkeypatch):
+    monkeypatch.setattr(config.settings, "sandbox_idle_minutes", 1 / 60)
+    idle, busy = KubernetesSandbox(9101), KubernetesSandbox(9102)
+    # A pod with the sandbox label but not a sandbox's name is never listed, so never stopped.
+    other = "acf-not-a-sandbox"
+    kubectl("apply", "-f", "-", stdin=plain_pod(other, k8s_sandbox, {"acf.sandbox": "1"}))
+    try:
+        assert (await idle.exec("echo kept > kept.txt")).exit_code == 0
+        async with busy.process(["cat"]):
+            await asyncio.sleep(1)
+            assert await sandbox.sweep() == [9101]
+            assert await KubernetesSandbox.running() == [9102]
+        assert kubectl("get", "pod", "-n", k8s_sandbox, idle.name, check=False).returncode != 0  # deleted
+        assert kubectl("get", "pod", "-n", k8s_sandbox, other, check=False).returncode == 0
+        assert (await idle.exec("cat kept.txt")).stdout == "kept\n"
+        assert await KubernetesSandbox.running() == [9101, 9102]
+    finally:
+        kubectl("delete", "pod", "-n", k8s_sandbox, other, "--wait", check=False)

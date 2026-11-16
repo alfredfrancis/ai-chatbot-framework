@@ -21,6 +21,8 @@ turn in flight counts as use for as long as it lasts.
 Adapters:
 - DockerSandbox: a long-lived container per user (`acf-sbx-<id>`) with the workspace bind-mounted at
   /workspace, resource limits, no Linux capabilities and no privilege escalation.
+- KubernetesSandbox: the same as a pod per user (`acf-sandbox-<id>`), its /workspace a subPath of the
+  shared data volume.
 - LocalSandbox: runs on the host in the workspace folder. Development/testing only; NOT isolated.
 Others register with `register_sandbox()` or are named as `ACF_SANDBOX=package.module:Class`.
 """
@@ -30,8 +32,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import importlib
+import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import signal
@@ -41,7 +45,7 @@ from collections import Counter
 from collections.abc import AsyncIterator, Coroutine
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import anyio
 import anyio.abc
@@ -110,14 +114,14 @@ def _kill(proc: asyncio.subprocess.Process) -> None:
     _background(_kill_and_reap(proc))
 
 
-async def _run(args: list[str], timeout: float, cwd: str | None = None) -> ExecResult:
+async def _run(args: list[str], timeout: float, cwd: str | None = None, stdin: bytes | None = None) -> ExecResult:
     start = asyncio.ensure_future(
         asyncio.create_subprocess_exec(
             *args,
             cwd=cwd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            stdin=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.DEVNULL if stdin is None else asyncio.subprocess.PIPE,
             start_new_session=True,
         )
     )
@@ -128,7 +132,7 @@ async def _run(args: list[str], timeout: float, cwd: str | None = None) -> ExecR
         start.add_done_callback(lambda t: t.cancelled() or t.exception() or _kill(t.result()))
         raise
     try:
-        out, err = await asyncio.wait_for(proc.communicate(), timeout)
+        out, err = await asyncio.wait_for(proc.communicate(stdin), timeout)
         return ExecResult(proc.returncode or 0, _clip(out), _clip(err))
     except TimeoutError:
         _kill_group(proc)
@@ -214,6 +218,7 @@ async def using(user_id: int) -> AsyncIterator[None]:
 
 class Sandbox(ABC):
     kind = "base"
+    isolated = False  # whether commands are kept from the host and from other users (shown in Settings)
 
     def __init__(self, user_id: int):
         self.user_id = user_id
@@ -245,7 +250,7 @@ class Sandbox(ABC):
         """Start argv in the workspace with env added. Called by `process()` after `ensure()`."""
 
     async def status(self) -> dict:
-        return {"kind": self.kind, "state": "ready"}
+        return {"kind": self.kind, "isolated": self.isolated, "state": "ready"}
 
     async def reset(self) -> None:
         """Throw the sandbox away (the workspace stays); the next use starts a fresh one."""
@@ -365,8 +370,10 @@ def _pidfile() -> str:
     return f"/tmp/acf-{secrets.token_hex(8)}.pid"
 
 
-class _DockerProcess(_HostProcess):
-    def __init__(self, proc: anyio.abc.Process, sandbox: DockerSandbox, pidfile: str):
+class _TrackedProcess(_HostProcess):
+    """A process started through a provider CLI's exec, under `_TRACK`."""
+
+    def __init__(self, proc: anyio.abc.Process, sandbox: _ExecSandbox, pidfile: str):
         super().__init__(proc)
         self._sandbox, self._pidfile = sandbox, pidfile
 
@@ -375,21 +382,85 @@ class _DockerProcess(_HostProcess):
         await super().kill()
 
 
-class DockerSandbox(Sandbox):
+_UNITS = {"b": 1, "k": 1024, "m": 1024**2, "g": 1024**3}
+
+
+def parse_bytes(value: str) -> int:
+    """A size as Docker writes it ("512m", "1g") in bytes."""
+    m = re.fullmatch(r"(\d+)([bkmg]?)b?", value.strip().lower())
+    if not m:
+        raise ValueError(f"Bad size: {value}")
+    return int(m.group(1)) * _UNITS[m.group(2) or "b"]
+
+
+def _workspace_id(user_id: int) -> str:
+    """Random id for this user's workspace folder. A sandbox built for another folder (data dir wiped, user id
+    reused) carries a different id and gets replaced."""
+    path = workspace.user_root(user_id) / "sandbox-id"
+    workspace.workspace_dir(user_id)
+    if not path.exists():
+        path.write_text(secrets.token_hex(8))
+    return path.read_text().strip()
+
+
+def _owner(user_id: int) -> tuple[int, int]:
+    """The uid and gid sandboxes run as: the workspace's owner, the app's own (non-root) user. Never root: root
+    in a container is root on the host unless user namespaces remap it."""
+    owner = workspace.workspace_dir(user_id).stat()
+    if owner.st_uid == 0 or owner.st_gid == 0:
+        raise SandboxError(
+            "Sandboxes don't run as root. Run AI Chatbot Framework as a normal user, or make that user "
+            "own the data folder."
+        )
+    return owner.st_uid, owner.st_gid
+
+
+class _ExecSandbox(Sandbox):
+    """A sandbox the backend reaches through a provider CLI's exec (`docker exec`, `kubectl exec`)."""
+
+    isolated = True
+
+    @abstractmethod
+    def _exec_args(self, argv: list[str], env: dict[str, str], interactive: bool) -> list[str]:
+        """The CLI command that runs argv in the sandbox's workspace with env added; stdin attached if
+        interactive."""
+
+    def _output(self, res: ExecResult) -> ExecResult:
+        return res  # what the CLI adds to a command's output, taken out again
+
+    async def _kill_tracked(self, pidfile: str) -> None:
+        await _run(self._exec_args(["sh", "-c", _KILL_SESSION, "sh", pidfile], {}, False), 30)
+
+    async def run(self, command: str, timeout: int | None = None) -> ExecResult:
+        t = timeout or config.settings.command_timeout
+        pidfile = _pidfile()
+        # The backend enforces the deadline and kills the whole session; `timeout` inside the sandbox is a
+        # backstop for when the backend itself goes away.
+        argv = ["sh", "-c", _TRACK, "sh", pidfile, "timeout", "-s", "KILL", str(t + 30), "sh", "-c", command]
+        try:
+            res = self._output(await _run(self._exec_args(argv, {}, False), t))
+        except asyncio.CancelledError:
+            _background(self._kill_tracked(pidfile))  # stopped by the user
+            raise
+        if res.timed_out:
+            await self._kill_tracked(pidfile)
+        elif res.exit_code == 137:
+            res.timed_out = True
+        return res
+
+    async def spawn(self, argv: list[str], env: dict[str, str]) -> SandboxProcess:
+        pidfile = _pidfile()
+        args = self._exec_args(["sh", "-c", _TRACK, "sh", pidfile, *argv], env, True)
+        # The CLI gets the backend's environment (DOCKER_HOST, KUBECONFIG, …); the sandbox gets only env.
+        return _TrackedProcess(await _open_host_process(args, None, None), self, pidfile)
+
+
+class DockerSandbox(_ExecSandbox):
     kind = "docker"
 
     @property
     def name(self) -> str:
         return f"{config.settings.sandbox_prefix}-{self.user_id}"
-
-    def _workspace_id(self) -> str:
-        """Random id for this user's workspace folder. A container built for another folder
-        (data dir wiped, user id reused) carries a different id and gets replaced."""
-        path = workspace.user_root(self.user_id) / "sandbox-id"
-        workspace.workspace_dir(self.user_id)
-        if not path.exists():
-            path.write_text(secrets.token_hex(8))
-        return path.read_text().strip()
 
     async def _inspect(self) -> tuple[str, str]:
         res = await _run(
@@ -446,7 +517,7 @@ class DockerSandbox(Sandbox):
             raise SandboxError("Docker CLI not found. Install Docker or set ACF_SANDBOX=local for development.")
         async with self.locked():  # one container per user
             state, ws_id = await self._inspect()
-            expected = self._workspace_id()
+            expected = _workspace_id(self.user_id)
             if state != "missing" and ws_id != expected:
                 await _run(["docker", "rm", "-f", self.name], 60)
                 state = "missing"
@@ -460,14 +531,7 @@ class DockerSandbox(Sandbox):
                     return
                 await _run(["docker", "rm", "-f", self.name], 60)
             s = config.settings
-            # Run as the workspace's owner: the app's own (non-root) user. Never as root: root in a
-            # container is root on the host unless the daemon remaps user namespaces.
-            owner = workspace.workspace_dir(self.user_id).stat()
-            if owner.st_uid == 0 or owner.st_gid == 0:
-                raise SandboxError(
-                    "Sandboxes don't run as root. Run AI Chatbot Framework as a normal user, or make that user "
-                    "own the data folder."
-                )
+            uid, gid = _owner(self.user_id)
             await self._ensure_network()
             runtime = ["--runtime", s.sandbox_runtime] if s.sandbox_runtime else []
             args = [
@@ -485,7 +549,7 @@ class DockerSandbox(Sandbox):
                 "--hostname",
                 "sandbox",
                 "--user",
-                f"{owner.st_uid}:{owner.st_gid}",
+                f"{uid}:{gid}",
                 "--memory",
                 s.sandbox_memory,
                 "--cpus",
@@ -515,38 +579,21 @@ class DockerSandbox(Sandbox):
             await _run(["docker", "exec", self.name, "mkdir", "-p", "/workspace/.home"], 30)
             telemetry.sandbox_started(time.monotonic() - started, "create")
 
-    async def _kill_tracked(self, pidfile: str) -> None:
-        await _run(["docker", "exec", self.name, "sh", "-c", _KILL_SESSION, "sh", pidfile], 30)
-
-    async def run(self, command: str, timeout: int | None = None) -> ExecResult:
-        t = timeout or config.settings.command_timeout
-        pidfile = _pidfile()
-        # The backend enforces the deadline and kills the whole session; `timeout` inside the container is
-        # a backstop for when the backend itself goes away.
-        argv = ["timeout", "-s", "KILL", str(t + 30), "sh", "-c", command]
-        try:
-            res = await _run(["docker", "exec", "-w", WORKDIR, self.name, "sh", "-c", _TRACK, "sh", pidfile, *argv], t)
-        except asyncio.CancelledError:
-            _background(self._kill_tracked(pidfile))  # stopped by the user
-            raise
-        if res.timed_out:
-            await self._kill_tracked(pidfile)
-        elif res.exit_code == 137:
-            res.timed_out = True
-        return res
-
-    async def spawn(self, argv: list[str], env: dict[str, str]) -> SandboxProcess:
-        pidfile = _pidfile()
-        args = ["docker", "exec", "-i", "-w", WORKDIR]
+    def _exec_args(self, argv: list[str], env: dict[str, str], interactive: bool) -> list[str]:
+        args = ["docker", "exec", *(["-i"] if interactive else []), "-w", WORKDIR]
         for k, v in env.items():
             args += ["-e", f"{k}={v}"]
-        args += [self.name, "sh", "-c", _TRACK, "sh", pidfile, *argv]
-        # The docker client gets the backend's environment (DOCKER_HOST, …); the container gets only env.
-        return _DockerProcess(await _open_host_process(args, None, None), self, pidfile)
+        return [*args, self.name, *argv]
 
     async def status(self) -> dict:
         state = await self._state() if shutil.which("docker") else "unavailable"
-        return {"kind": self.kind, "state": state, "name": self.name, "image": config.settings.sandbox_image}
+        return {
+            "kind": self.kind,
+            "isolated": self.isolated,
+            "state": state,
+            "name": self.name,
+            "image": config.settings.sandbox_image,
+        }
 
     async def reset(self) -> None:
         await _run(["docker", "rm", "-f", self.name], 60)
@@ -569,6 +616,191 @@ class DockerSandbox(Sandbox):
         res = await _run(["docker", "stop", "-t", "0", self.name], 60)
         if res.exit_code != 0 and "No such container" not in res.stderr:
             raise SandboxError(f"Could not stop {self.name}: {res.stderr.strip() or res.stdout.strip()}")
+
+
+POD_PREFIX = "acf-sandbox-"
+POD_READY_TIMEOUT = 300.0
+# Container states a pod doesn't leave without being created again.
+_STUCK = {
+    "CreateContainerConfigError",
+    "CreateContainerError",
+    "ErrImageNeverPull",
+    "ImagePullBackOff",
+    "InvalidImageName",
+    "RunContainerError",
+}
+_EXITED = re.compile(r"^command terminated with exit code \d+\n?\Z", re.MULTILINE)
+PodState = Literal["missing", "starting", "ready", "failed", "terminating"]
+
+
+@dataclass(frozen=True)
+class Pod:
+    """What the Kubernetes adapter needs to know about a sandbox pod, read from `kubectl get -o json`."""
+
+    state: PodState
+    workspace: str = ""  # the acf.workspace label: which workspace folder it was made for
+    reason: str = ""  # why it isn't ready yet, or why it failed
+
+    @classmethod
+    def parse(cls, pod: dict | None) -> Pod:
+        if not pod:
+            return cls("missing")
+        meta, status = pod.get("metadata") or {}, pod.get("status") or {}
+        ws = (meta.get("labels") or {}).get("acf.workspace", "")
+        if meta.get("deletionTimestamp"):
+            return cls("terminating", ws)
+        if status.get("phase") in ("Succeeded", "Failed"):
+            return cls("failed", ws, status.get("message") or status.get("reason") or "the sandbox stopped")
+        for c in status.get("containerStatuses") or []:
+            waiting = (c.get("state") or {}).get("waiting") or {}
+            if waiting.get("reason") in _STUCK:
+                return cls("failed", ws, f"{waiting['reason']}: {waiting.get('message', '')}".strip(": "))
+        conditions = {c.get("type"): c for c in status.get("conditions") or []}
+        if (conditions.get("Ready") or {}).get("status") == "True":
+            return cls("ready", ws)
+        waiting_on = next((c for c in conditions.values() if c.get("status") == "False" and c.get("message")), {})
+        return cls("starting", ws, waiting_on.get("message", ""))
+
+
+class KubernetesSandbox(_ExecSandbox):
+    """A pod per user in ACF_K8S_NAMESPACE. Its /workspace is the user's folder on the data volume (the
+    ReadWriteMany claim ACF_K8S_DATA_CLAIM, mounted at ACF_DATA_DIR in the app's pods). Stopping deletes the pod;
+    the files stay on the volume. kubectl uses the app's ServiceAccount in a cluster, or KUBECONFIG."""
+
+    kind = "kubernetes"
+
+    @property
+    def name(self) -> str:
+        return f"{POD_PREFIX}{self.user_id}"
+
+    @staticmethod
+    def _kubectl(*args: str) -> list[str]:
+        return ["kubectl", "--namespace", config.settings.k8s_namespace, *args]
+
+    async def _get(self) -> Pod:
+        res = await _run(self._kubectl("get", "pod", self.name, "--ignore-not-found", "-o", "json"), 30)
+        if res.exit_code != 0:
+            raise SandboxError(f"Could not reach Kubernetes: {res.stderr.strip() or res.stdout.strip()}")
+        return Pod.parse(json.loads(res.stdout) if res.stdout.strip() else None)
+
+    async def _delete(self) -> None:
+        res = await _run(self._kubectl("delete", "pod", self.name, "--ignore-not-found", "--wait", "--timeout=60s"), 90)
+        if res.exit_code != 0:
+            raise SandboxError(f"Could not stop {self.name}: {res.stderr.strip() or res.stdout.strip()}")
+
+    def manifest(self, workspace_id: str) -> dict:
+        s = config.settings
+        uid, gid = _owner(self.user_id)
+        sub_path = workspace.workspace_dir(self.user_id).relative_to(s.data_dir).as_posix()
+        spec: dict[str, Any] = {
+            "automountServiceAccountToken": False,
+            "enableServiceLinks": False,
+            "hostname": "sandbox",
+            "restartPolicy": "Never",
+            "terminationGracePeriodSeconds": 0,  # `sleep infinity` as PID 1 ignores SIGTERM
+            "securityContext": {
+                "runAsUser": uid,
+                "runAsGroup": gid,
+                "runAsNonRoot": True,
+                "seccompProfile": {"type": "RuntimeDefault"},
+            },
+            "containers": [
+                {
+                    "name": "sandbox",
+                    "image": s.sandbox_image,
+                    "command": ["sleep", "infinity"],
+                    "workingDir": WORKDIR,
+                    "env": [{"name": "HOME", "value": "/workspace/.home"}],
+                    "resources": {"limits": {"memory": str(parse_bytes(s.sandbox_memory)), "cpu": s.sandbox_cpus}},
+                    "securityContext": {
+                        "allowPrivilegeEscalation": False,
+                        "capabilities": {"drop": ["ALL"]},
+                        "privileged": False,
+                        "runAsNonRoot": True,
+                    },
+                    "volumeMounts": [{"name": "workspace", "mountPath": WORKDIR, "subPath": sub_path}],
+                }
+            ],
+            "volumes": [{"name": "workspace", "persistentVolumeClaim": {"claimName": s.k8s_data_claim}}],
+        }
+        if s.sandbox_runtime:
+            spec["runtimeClassName"] = s.sandbox_runtime
+        labels = {"acf.sandbox": "1", "acf.user": str(self.user_id), "acf.workspace": workspace_id}
+        return {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {"name": self.name, "namespace": s.k8s_namespace, "labels": labels},
+            "spec": spec,
+        }
+
+    async def _wait_ready(self) -> None:
+        deadline = time.monotonic() + POD_READY_TIMEOUT
+        while (pod := await self._get()).state != "ready":
+            if pod.state == "failed" or time.monotonic() > deadline:
+                await self._delete()
+                raise SandboxError(f"Could not start sandbox: {pod.reason or 'it did not become ready in time'}")
+            await asyncio.sleep(0.5)
+
+    async def ensure(self) -> None:
+        if not shutil.which("kubectl"):
+            raise SandboxError("kubectl not found. Install it in the app's image, or choose another ACF_SANDBOX.")
+        async with self.locked():  # one pod per user
+            pod = await self._get()
+            expected = _workspace_id(self.user_id)
+            if pod.state == "ready" and pod.workspace == expected:
+                return
+            started = time.monotonic()
+            if pod.state != "starting" or pod.workspace != expected:  # a start in progress is waited for
+                if pod.state != "missing":
+                    await self._delete()
+                manifest = self.manifest(expected)
+                (workspace.workspace_dir(self.user_id) / ".home").mkdir(exist_ok=True)
+                res = await _run(self._kubectl("apply", "-f", "-"), 60, stdin=json.dumps(manifest).encode())
+                if res.exit_code != 0:
+                    raise SandboxError(f"Could not start sandbox: {res.stderr.strip() or res.stdout.strip()}")
+            await self._wait_ready()
+            telemetry.sandbox_started(time.monotonic() - started, "create")
+
+    def _exec_args(self, argv: list[str], env: dict[str, str], interactive: bool) -> list[str]:
+        # kubectl exec has no -e: `env` adds the variables (the pod's own, like HOME, stay).
+        added = ["env", *(f"{k}={v}" for k, v in env.items())] if env else []
+        flags = ["-i"] if interactive else []
+        return self._kubectl("exec", *flags, self.name, "-c", "sandbox", "--", *added, *argv)
+
+    def _output(self, res: ExecResult) -> ExecResult:
+        res.stderr = _EXITED.sub("", res.stderr)  # kubectl's own line about a non-zero exit
+        return res
+
+    async def status(self) -> dict:
+        try:
+            state = (await self._get()).state if shutil.which("kubectl") else "unavailable"
+        except SandboxError:
+            state = "unavailable"
+        return {
+            "kind": self.kind,
+            "isolated": self.isolated,
+            "state": "running" if state == "ready" else state,
+            "name": self.name,
+            "image": config.settings.sandbox_image,
+        }
+
+    async def reset(self) -> None:
+        await self._delete()
+
+    @classmethod
+    async def running(cls) -> list[int]:
+        if not shutil.which("kubectl"):
+            return []
+        res = await _run(cls._kubectl("get", "pods", "-l", "acf.sandbox=1", "-o", "json"), 30)
+        if res.exit_code != 0:
+            raise SandboxError(f"Could not list sandboxes: {res.stderr.strip() or res.stdout.strip()}")
+        pods = [p["metadata"] for p in json.loads(res.stdout)["items"]]
+        live = [m["name"] for m in pods if "deletionTimestamp" not in m]  # a stopping pod no longer counts
+        ids = [name[len(POD_PREFIX) :] for name in live if name.startswith(POD_PREFIX)]
+        return sorted(int(i) for i in ids if i.isdigit())
+
+    async def stop(self) -> None:
+        await self._delete()
 
 
 def _sweep_period() -> float:
@@ -625,7 +857,7 @@ async def sweeper() -> None:
         await asyncio.sleep(_sweep_period())
 
 
-_ADAPTERS: dict[str, type[Sandbox]] = {"docker": DockerSandbox, "local": LocalSandbox}
+_ADAPTERS: dict[str, type[Sandbox]] = {"docker": DockerSandbox, "kubernetes": KubernetesSandbox, "local": LocalSandbox}
 
 
 def _checked(adapter: type[Sandbox], name: str) -> type[Sandbox]:
