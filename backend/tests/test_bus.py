@@ -82,6 +82,52 @@ async def test_a_lease_released_while_the_heartbeat_takes_it_back_stays_free(red
         assert await b.claim(5, "run-b")
 
 
+@pytest.mark.parametrize("take_back", ["lands-last", "lands-first"])
+@pytest.mark.parametrize("kind", ["lock", "lease"])
+async def test_a_key_taken_again_while_the_heartbeat_takes_it_back_stays_held(redis_url, monkeypatch, kind, take_back):
+    """The key expired while this process was cut off. While the heartbeat's take-back is on its way, the
+    holder lets go and takes it again: a task's next run, or a run looking for messages that came meanwhile
+    (`Run.run` releases its chat and claims it again). The key is held: the heartbeat must keep it."""
+    async with two_buses(redis_url, ttl=0.6) as (a, b):
+        if kind == "lock":
+            key, take, let_go, b_takes = (
+                a.k("lock", "task:1"),
+                lambda: a.lock("task:1"),
+                lambda: a.unlock("task:1"),
+                lambda: b.lock("task:1"),
+            )
+        else:
+            key, take, let_go, b_takes = (
+                a.k("lease", 1),
+                lambda: a.claim(1, "run-a"),
+                lambda: a.release(1, "run-a"),
+                lambda: b.claim(1, "run-b"),
+            )
+        lost: list[dict] = []
+        monkeypatch.setitem(bus._handlers, "lost", lambda msg: lost.append(msg))
+        assert await take()
+        await a.r.delete(key)
+        real_set, armed = a.r.set, [True]
+
+        async def taken_again_meanwhile(k, v, **kw):
+            if k != key or not armed:
+                return await real_set(k, v, **kw)
+            armed.clear()
+            if take_back == "lands-first":
+                taken = await real_set(k, v, **kw)
+            await let_go()
+            assert await take()
+            return taken if take_back == "lands-first" else await real_set(k, v, **kw)
+
+        monkeypatch.setattr(a.r, "set", taken_again_meanwhile)
+        await asyncio.sleep(1.0)  # the take-back, then more than a TTL of beats
+        assert not armed and not lost
+        assert key in a._held and await a.r.get(key) == a._held[key]
+        assert not await b_takes()
+        await let_go()
+        assert await b_takes()
+
+
 async def test_the_heartbeat_outlives_a_redis_error(redis_url, monkeypatch):
     async with two_buses(redis_url, ttl=0.6) as (a, b):
         assert await a.claim(6, "run-a")

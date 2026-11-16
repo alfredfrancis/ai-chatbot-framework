@@ -110,7 +110,6 @@ class LocalBus:
     kind = "local"
 
     def __init__(self) -> None:
-        self.replica = new_id()
         self._leases: dict[int, str] = {}
         self._inbox: dict[int, list[dict[str, Any]]] = {}
         self._feeds: dict[str, Feed] = {}
@@ -357,7 +356,8 @@ class RedisBus(LocalBus):
             if self._held.get(key) != value:  # released while the SET was on its way: no one holds it
                 if taken:
                     await self._release(keys=[key], args=[value])
-            elif not taken:
+            # A lease's value is its run's id, which the run writes again when it claims its chat anew.
+            elif not taken and await self.r.get(key) != value:
                 log.error("lost %s to another process", key)
                 self._held.pop(key, None)
                 if key.startswith(self.k("lease")):
@@ -478,7 +478,8 @@ class RedisBus(LocalBus):
         key = self.k("lock", name)
         if key in self._held:  # held here already: one holder, as in LocalBus
             return False
-        return await self._take_key(key, self.replica)
+        # Each taking its own value: else the heartbeat's take-back of an earlier one could match this one.
+        return await self._take_key(key, new_id())
 
     async def unlock(self, name: str) -> None:
         await self._drop_key(self.k("lock", name))
