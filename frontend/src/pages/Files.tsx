@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatSize as size, rawUrl as raw, uploadFile, type FileEntry } from "../api";
 import { PageHeader, Topbar, useApp } from "../App";
 import { IconDownload, IconFile, IconFolder, IconUploadSm } from "../components/icons";
+import { MARKDOWN, MarkdownDoc } from "../components/MarkdownDoc";
 
 type Preview = { path: string; size: number; binary: boolean; truncated: boolean; content: string };
 const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
@@ -42,6 +41,10 @@ export default function FilesPage() {
     if (e.type === "dir") return open(e.path);
     setPreview(await api.get<Preview>(`/files/content?path=${encodeURIComponent(e.path)}`));
   };
+
+  const openDoc = useCallback(async (p: string) => {
+    setPreview(await api.get<Preview>(`/files/content?path=${encodeURIComponent(p)}`).catch(() => null));
+  }, []);
 
   const upload = async (files: FileList | null) => {
     if (!files) return;
@@ -113,7 +116,7 @@ export default function FilesPage() {
                 <div className="preview-body" data-testid="preview">
                   {IMAGE.test(name) ? <img src={raw(preview.path)} alt={name} />
                     : preview.binary ? <p className="hint">This file can't be previewed. Download it to open it.</p>
-                    : /\.md$/i.test(name) ? <div className="answer"><Markdown remarkPlugins={[remarkGfm]}>{preview.content}</Markdown></div>
+                    : MARKDOWN.test(name) ? <MarkdownDoc source={preview.content} path={preview.path} onOpen={openDoc} />
                     : <pre className="text">{preview.content}</pre>}
                   {preview.truncated && <p className="hint">Showing the first 500 KB.</p>}
                 </div>

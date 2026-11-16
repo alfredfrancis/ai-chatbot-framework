@@ -423,6 +423,40 @@ a.attachment:hover { background: var(--bg-hover); text-decoration: none; }
   .artifacts-scrim { display: block; }
 }
 
+/* ---------- a document beside the chat: a markdown file from Files, rendered for reading ---------- */
+.doc-panel { width: var(--reader-width); flex-shrink: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--bg-raised); }
+.doc-head { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+.doc-head .text { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0 var(--space-1); }
+/* The heading takes focus when a document opens, for screen readers; it is not a control, so it shows no ring. */
+.doc-head h2:focus { outline: none; }
+.doc-head h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-head .meta { font-family: var(--font-mono); font-size: 13px; line-height: 18px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-head .btn { flex-shrink: 0; }
+.doc-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-8) var(--space-8) var(--space-12); }
+.doc-body { max-width: 72ch; line-height: 26px; }
+.doc-body h1, .doc-body h2, .doc-body h3, .doc-body h4, .doc-body h5, .doc-body h6 { margin: var(--space-8) 0 var(--space-3); font-weight: 600; }
+.doc-body h1 { font-size: 28px; line-height: 34px; letter-spacing: -0.02em; }
+.doc-body h2 { font-size: 20px; line-height: 28px; letter-spacing: -0.01em; }
+.doc-body h3 { font-size: 17px; line-height: 26px; }
+.doc-body h4, .doc-body h5, .doc-body h6 { font-size: 16px; line-height: 24px; color: var(--text-muted); }
+.doc-body p, .doc-body ul, .doc-body ol, .doc-body pre, .doc-body table, .doc-body blockquote { margin: 0 0 var(--space-4); }
+.doc-body li + li { margin-top: var(--space-1); }
+.doc-body blockquote { padding: 0 var(--space-4); border-left: 2px solid var(--border-strong); color: var(--text-muted); }
+.doc-body hr { border: 0; border-top: 1px solid var(--border); margin: var(--space-8) 0; }
+.doc-body img { max-width: 100%; height: auto; border-radius: var(--radius-md); }
+.doc-note { margin: 0 0 var(--space-4); color: var(--text-muted); }
+.doc-skeleton { display: flex; flex-direction: column; gap: var(--space-3); max-width: 72ch; }
+.doc-skeleton span { height: 16px; border-radius: var(--radius-sm); background: var(--bg-hover); }
+.doc-skeleton span:first-child { width: 45%; height: 28px; margin-bottom: var(--space-3); }
+.doc-skeleton span:nth-child(3) { width: 92%; }
+.doc-skeleton span:last-child { width: 64%; }
+.doc-scrim { display: none; }
+@media (max-width: 1280px) {
+  .doc-panel { position: fixed; inset: 0 0 0 auto; z-index: 40; max-width: 100%; box-shadow: var(--shadow-pop); border-left-color: var(--border-strong); }
+  .doc-scrim { display: block; }
+}
+@media (max-width: 640px) { .doc-scroll { padding: var(--space-6) var(--space-4) var(--space-12); } .doc-head { padding: var(--space-2); } }
+
 /* ---------- an app's own chat: a panel on the right of the app's screen ---------- */
 .app-chat-toggle { gap: var(--space-1); }
 .app-chat-toggle.on { background: var(--bg-selected); color: var(--text); }

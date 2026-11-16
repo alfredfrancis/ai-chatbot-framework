@@ -58,6 +58,8 @@ export const IconUpload = () => <Svg size={28}><path d="M12 16V4M7 9l5-5 5 5M4 1
 export const IconPaperclip = () => <Svg size={18}><path d="M20 11.5 12.2 19.3a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 6.9" /></Svg>;
 export const IconCheck = () => <Svg size={16}><path d="M5 12l5 5 9-10" /></Svg>;
 export const IconChevron = () => <Svg size={14}><path d="M6 9l6 6 6-6" /></Svg>;
+export const IconBack = () => <Svg size={18}><path d="M15 6l-6 6 6 6" /></Svg>;
+export const IconCopy = () => <Svg size={18}><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></Svg>;
 export const IconX = () => <Svg size={16}><path d="M6 6l12 12M18 6 6 18" /></Svg>;
 export const IconMenu = () => <Svg><path d="M4 7h16M4 12h16M4 17h16" /></Svg>;
 export const IconApp = () => <Svg><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></Svg>;

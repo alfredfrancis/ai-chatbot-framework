@@ -1,13 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentProps, type FormEvent, type KeyboardEvent } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { acp, cancel, loadSession, lostConnection, newSession, prompt, setConfigOption, WORKSPACE_URI, type AcpNotification, type ConfigOption, type AgentInfo, type Attachment, type Learned, type ParentSession, type SessionUpdate, type ToolStatus, type Usage, type UsageMeta } from "../acp";
-import { api, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
+import { api, ApiError, formatSize, rawUrl, uploadFile, type Artifact, type ChatSummary, type Skill } from "../api";
 import { Topbar, useApp } from "../App";
 import { MoreMenu } from "../components/Menu";
 import ChatView from "../openui/ChatView";
-import { IconArrowUp, IconChat, IconCheck, IconChevron, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
+import { MARKDOWN, MarkdownDoc } from "../components/MarkdownDoc";
+import { IconArrowUp, IconBack, IconChat, IconCheck, IconChevron, IconCopy, IconDownload, IconFile, IconImage, IconPanel, IconPaperclip, IconSpark, IconTrash, IconX, Gauge, Keys, Mark, Wave } from "../components/icons";
 
 // Navigation keys whose pending message was already sent (guards against double effects).
 const consumed = new Set<string>();
@@ -240,8 +241,9 @@ function StepsFold({ calls, running }: { calls: ToolCall[]; running: boolean }) 
   );
 }
 
-/** Files the agent wrote or changed in a finished turn, each as a card to open or download. */
-function TurnFiles({ calls }: { calls: ToolCall[] }) {
+/** Files the agent wrote or changed in a finished turn, each as a card to open or download. A markdown file is a
+ *  document: with `onOpenDoc`, its card offers to preview it beside the chat. */
+function TurnFiles({ calls, onOpenDoc }: { calls: ToolCall[]; onOpenDoc?: (path: string) => void }) {
   const paths = [...new Set(calls.filter((c) => (c.tool === "write" || c.tool === "edit") && c.status === "completed")
     .map((c) => String((c.input as { path?: unknown }).path ?? "")).filter(Boolean))];
   if (!paths.length) return null;
@@ -250,15 +252,18 @@ function TurnFiles({ calls }: { calls: ToolCall[] }) {
       {paths.map((p) => {
         const name = p.split("/").pop() ?? p;
         const dir = p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
+        const doc = onOpenDoc && MARKDOWN.test(name);
         return (
           <li key={p} className="turn-file">
             <span className="kind" aria-hidden="true">{IMAGE.test(name) ? <IconImage /> : <IconFile />}</span>
             <span className="text">
               <span className="name">{name}</span>
-              <span className="meta">{dir ? `In Files · ${dir}` : "In Files"}</span>
+              <span className="meta">{doc ? "Document · " : ""}{dir ? `In Files · ${dir}` : "In Files"}</span>
             </span>
             <a className="btn ghost icon" href={rawUrl(p, true)} aria-label={`Download ${name}`} title="Download"><IconDownload /></a>
-            <a className="btn" href={rawUrl(p)} target="_blank" rel="noreferrer" aria-label={`Open ${name}`}>Open</a>
+            {doc
+              ? <button className="btn" type="button" aria-label={`Preview ${name}`} onClick={() => onOpenDoc(p)}>Preview</button>
+              : <a className="btn" href={rawUrl(p)} target="_blank" rel="noreferrer" aria-label={`Open ${name}`}>Open</a>}
           </li>
         );
       })}
@@ -364,8 +369,9 @@ function Pre({ node, children, ...rest }: ComponentProps<"pre"> & { node?: HastN
 }
 const MD_COMPONENTS: Components = { pre: Pre as Components["pre"] };
 
-export function Thread({ entries, running, queued, onPrompt, chatId = null }: {
+export function Thread({ entries, running, queued, onPrompt, chatId = null, onOpenDoc }: {
   entries: Entry[]; running: boolean; queued: Outgoing[]; onPrompt: (text: string) => void; chatId?: string | null;
+  onOpenDoc?: (path: string) => void;
 }) {
   const items = group(entries);
   const toolBusy = running && entries.some((e) => e.kind === "tool" && !inBackground(e.call) && (e.call.status === "pending" || e.call.status === "in_progress"));
@@ -396,7 +402,7 @@ export function Thread({ entries, running, queued, onPrompt, chatId = null }: {
                   {b.calls.map((c) => <Step key={c.id} call={c} running={running} />)}
                 </div>
               ))}
-              {!live && <TurnFiles calls={calls} />}
+              {!live && <TurnFiles calls={calls} onOpenDoc={onOpenDoc} />}
               {live && !toolBusy && !streaming && working}
             </div>
           </div>
@@ -619,7 +625,10 @@ const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
 const PANEL_KEY = "acf.artifacts";
 const panelPref = () => { try { return localStorage.getItem(PANEL_KEY) === "open"; } catch { return false; } };
 
-function ArtifactList({ label, items }: { label: string; items: Artifact[] }) {
+const plainClick = (e: { button: number; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }) =>
+  e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+
+function ArtifactList({ label, items, onOpenDoc }: { label: string; items: Artifact[]; onOpenDoc: (path: string) => void }) {
   if (!items.length) return null;
   return (
     <section className="artifact-group">
@@ -629,7 +638,8 @@ function ArtifactList({ label, items }: { label: string; items: Artifact[] }) {
           const dir = a.path.includes("/") ? a.path.slice(0, a.path.lastIndexOf("/")) : "";
           return (
             <li key={a.path} className="artifact">
-              <a className="open" href={rawUrl(a.path)} target="_blank" rel="noreferrer" title={a.path}>
+              <a className="open" href={rawUrl(a.path)} target="_blank" rel="noreferrer" title={a.path}
+                onClick={(e) => { if (MARKDOWN.test(a.name) && plainClick(e)) { e.preventDefault(); onOpenDoc(a.path); } }}>
                 {IMAGE.test(a.name) ? <IconImage /> : <IconFile />}
                 <span className="text">
                   <span className="name">{a.name}</span>
@@ -646,7 +656,7 @@ function ArtifactList({ label, items }: { label: string; items: Artifact[] }) {
 }
 
 /** Files attached to this chat and files the agent made in it. They live in the workspace (see Files). */
-function ArtifactsPanel({ items, onClose }: { items: Artifact[] | null; onClose: () => void }) {
+function ArtifactsPanel({ items, onClose, onOpenDoc }: { items: Artifact[] | null; onClose: () => void; onOpenDoc: (path: string) => void }) {
   return (
     <>
       <div className="scrim artifacts-scrim" onClick={onClose} />
@@ -657,9 +667,83 @@ function ArtifactsPanel({ items, onClose }: { items: Artifact[] | null; onClose:
         </div>
         {items && !items.length && <p className="empty">Files you attach and files the agent makes in this chat show up here.</p>}
         {items && <>
-          <ArtifactList label="Produced" items={items.filter((a) => a.kind === "produced")} />
-          <ArtifactList label="Uploaded" items={items.filter((a) => a.kind === "uploaded")} />
+          <ArtifactList label="Produced" items={items.filter((a) => a.kind === "produced")} onOpenDoc={onOpenDoc} />
+          <ArtifactList label="Uploaded" items={items.filter((a) => a.kind === "uploaded")} onOpenDoc={onOpenDoc} />
         </>}
+      </aside>
+    </>
+  );
+}
+
+type DocFile = { path: string; size: number; binary: boolean; truncated: boolean; content: string };
+type DocState = { status: "loading" } | { status: "gone" } | { status: "error"; message: string } | ({ status: "ready" } & DocFile);
+
+/**
+ * A markdown file from Files, rendered beside the chat. `version` changes when the agent may have changed files:
+ * the document then reloads in place, keeping where the reader is. `focus` changes on every request to open it.
+ */
+function DocPanel({ path, version, focus, onOpen, onBack, onClose }: {
+  path: string; version: number; focus: number; onOpen: (path: string) => void; onBack: () => void; onClose: () => void;
+}) {
+  const [doc, setDoc] = useState<DocState>({ status: "loading" });
+  const [copied, setCopied] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const name = path.split("/").pop() || path;
+  const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+  useEffect(() => { setDoc({ status: "loading" }); setCopied(false); }, [path]);
+  useEffect(() => { heading.current?.focus(); }, [path, focus]);
+  useEffect(() => {
+    let current = true;
+    api.get<DocFile>(`/files/content?path=${encodeURIComponent(path)}`).then(
+      (r) => { if (current) setDoc({ status: "ready", ...r }); },
+      (err) => { if (current) setDoc(err instanceof ApiError && err.status === 404 ? { status: "gone" } : { status: "error", message: (err as Error).message }); },
+    );
+    return () => { current = false; };
+  }, [path, version]);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
+  const copy = async () => {
+    if (doc.status !== "ready") return;
+    try { await navigator.clipboard.writeText(doc.content); setCopied(true); } catch { /* clipboard blocked */ }
+  };
+  const ready = doc.status === "ready";
+  return (
+    <>
+      <div className="scrim doc-scrim" onClick={onClose} />
+      <aside className="doc-panel" id="artifacts" aria-label={`Document: ${name}`}
+        onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }}>
+        <div className="doc-head">
+          <button className="btn ghost icon" type="button" aria-label="Back to artifacts" title="Back to artifacts" onClick={onBack}><IconBack /></button>
+          <div className="text">
+            <h2 ref={heading} tabIndex={-1}>{name}</h2>
+            {dir && <span className="meta">{dir}</span>}
+          </div>
+          {ready && !doc.binary && (
+            <button className="btn ghost icon" type="button" aria-label={copied ? "Copied" : "Copy text"} title={copied ? "Copied" : "Copy text"} onClick={copy}>
+              {copied ? <IconCheck /> : <IconCopy />}
+            </button>
+          )}
+          {doc.status !== "gone" && <a className="btn ghost icon" href={rawUrl(path, true)} aria-label={`Download ${name}`} title="Download"><IconDownload /></a>}
+          <button className="btn ghost icon" type="button" aria-label="Close document" title="Close" onClick={onClose}><IconX /></button>
+        </div>
+        <div className="doc-scroll">
+          {doc.status === "loading" && (
+            <div className="doc-skeleton" role="status" aria-label="Loading the document"><span /><span /><span /><span /></div>
+          )}
+          {doc.status === "gone" && <p className="doc-note">This file is no longer in Files.</p>}
+          {doc.status === "error" && <p className="doc-note" role="alert">{doc.message}</p>}
+          {ready && (doc.binary
+            ? <p className="doc-note">This file can't be shown here. Download it to open it.</p>
+            : !doc.content.trim()
+              ? <p className="doc-note">This document is empty.</p>
+              : <>
+                {doc.truncated && <p className="doc-note">Showing the first 500 KB. Download the file for all of it.</p>}
+                <MarkdownDoc source={doc.content} path={path} onOpen={onOpen} />
+              </>)}
+        </div>
       </aside>
     </>
   );
@@ -923,6 +1007,13 @@ export default function ChatPage() {
   const { refresh, chats, projects } = useApp();
   const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
   const [panel, setPanel] = useState(panelPref);
+  // The document open beside the chat lives in the URL (?doc=path), so a reload or Back keeps it.
+  const [params, setParams] = useSearchParams();
+  const doc = params.get("doc");
+  const [docVersion, setDocVersion] = useState(0);
+  const [docFocus, setDocFocus] = useState(0);
+  const opener = useRef<HTMLElement | null>(null);
+  const toggleButton = useRef<HTMLButtonElement>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
   const [options, setOptions] = useState<ConfigOption[] | undefined>();
@@ -940,10 +1031,28 @@ export default function ChatPage() {
       if (current.current === target) setArtifacts(r);
     } catch { /* the chat is gone or not loaded yet */ }
   }, []);
-  const togglePanel = () => setPanel((v) => {
-    try { localStorage.setItem(PANEL_KEY, v ? "closed" : "open"); } catch { /* storage blocked */ }
-    return !v;
-  });
+  const keepPanel = (open: boolean) => {
+    try { localStorage.setItem(PANEL_KEY, open ? "open" : "closed"); } catch { /* storage blocked */ }
+    setPanel(open);
+  };
+  const dropDoc = () => setParams((p) => { p.delete("doc"); return p; }, { replace: true });
+  const openDoc = useCallback((path: string) => {
+    const active = document.activeElement;
+    // Focus goes back to what opened the document; a link inside the panel goes away with it.
+    if (active instanceof HTMLElement && !active.closest(".doc-panel")) opener.current = active;
+    setDocFocus((n) => n + 1);
+    if (params.get("doc") !== path) setParams((p) => { p.set("doc", path); return p; });
+  }, [params, setParams]);
+  const closeDoc = () => {
+    dropDoc();
+    keepPanel(false);
+    const back = opener.current?.isConnected ? opener.current : toggleButton.current;
+    opener.current = null;
+    requestAnimationFrame(() => back?.focus());
+  };
+  const shown = panel || !!doc;
+  const togglePanel = () => { if (doc) dropDoc(); keepPanel(!shown); };
+  const filesChanged = (target: string) => { loadArtifacts(target); setDocVersion((n) => n + 1); };
 
   const { entries, running, queued, error, setError, load, reset, send, stop, background } = useSession(sid, {
     onLoaded: (r) => {
@@ -956,8 +1065,8 @@ export default function ChatPage() {
       refresh();
       navigate("/", { replace: true, state: { notice: "That chat could not be opened. It may have been deleted." } });
     },
-    onTurnEnd: loadArtifacts,
-    onToolDone: loadArtifacts,
+    onTurnEnd: filesChanged,
+    onToolDone: filesChanged,
     onUsage: setUsage,
   });
 
@@ -1027,12 +1136,12 @@ export default function ChatPage() {
         {sub && <span className="badge plain">Sub-agent</span>}
         {running && <span className="badge live"><span className="live-dot" />Working</span>}
         {usage && <ContextMeter usage={usage} open={usageOpen} setOpen={setUsageOpen} />}
-        <button className={`btn ghost sm artifacts-toggle${panel ? " on" : ""}`} aria-label="Artifacts" aria-expanded={panel} aria-controls="artifacts"
-          title={panel ? "Hide artifacts" : "Show artifacts"} onClick={togglePanel}>
+        <button ref={toggleButton} className={`btn ghost sm artifacts-toggle${shown ? " on" : ""}`} aria-label="Artifacts" aria-expanded={shown} aria-controls="artifacts"
+          title={shown ? "Hide artifacts" : "Show artifacts"} onClick={togglePanel}>
           <IconPanel />{artifacts?.length ? <span className="count">{artifacts.length}</span> : null}
         </button>
         <MoreMenu label="Chat actions" items={[
-          { label: panel ? "Hide artifacts" : "Show artifacts", icon: <IconPanel />, phoneOnly: true, onSelect: togglePanel },
+          { label: shown ? "Hide artifacts" : "Show artifacts", icon: <IconPanel />, phoneOnly: true, onSelect: togglePanel },
           ...(usage ? [{ label: "Context usage", icon: <Gauge percent={usage.percent} />, onSelect: () => setUsageOpen(true) }] : []),
           sub
             ? { label: "Back to the chat", icon: <IconChat />, onSelect: () => navigate(`/c/${sub.parent.sessionId}`) }
@@ -1043,7 +1152,7 @@ export default function ChatPage() {
         <div className="chat-col">
           <div className="chat-scroll" ref={scroller}>
             <ModelNames.Provider value={namesOf(options)}>
-              <Thread entries={entries} running={running} queued={queued} chatId={sid} onPrompt={(t) => { if (!sub) send(t, sid); }} />
+              <Thread entries={entries} running={running} queued={queued} chatId={sid} onPrompt={(t) => { if (!sub) send(t, sid); }} onOpenDoc={openDoc} />
             </ModelNames.Provider>
             {error && <div className="thread" style={{ marginTop: 16 }}><div className="banner" role="alert">{error}</div></div>}
           </div>
@@ -1059,7 +1168,10 @@ export default function ChatPage() {
             )}
           </div>
         </div>
-        {panel && <ArtifactsPanel items={artifacts} onClose={togglePanel} />}
+        {doc ? (
+          <DocPanel path={doc} version={docVersion} focus={docFocus} onOpen={openDoc} onClose={closeDoc}
+            onBack={() => { dropDoc(); keepPanel(true); }} />
+        ) : panel && <ArtifactsPanel items={artifacts} onClose={togglePanel} onOpenDoc={openDoc} />}
       </div>
     </>
   );
