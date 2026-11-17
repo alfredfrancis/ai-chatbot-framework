@@ -103,6 +103,13 @@ async def test_process_gets_env_and_runs_in_the_workspace(sbx):
     assert workspace.read_file(sbx.user_id, "from-process.txt") == "x y"
 
 
+async def test_process_env_names_are_never_options(sbx):
+    # A CLI that adds env through `env NAME=value` must not read a name that starts with "-" as one of its options.
+    async with sbx.process(["env"], {"-i": "1", "ACF_T": "x"}) as p:
+        lines = (await _read_all(p)).decode().splitlines()
+    assert "-i=1" in lines and "ACF_T=x" in lines
+
+
 async def test_process_that_ignores_eof_is_killed_on_exit(sbx):
     # It ignores stdin closing and SIGTERM; leaving the block must still stop it and its children.
     script = 'trap "" TERM; (sleep 3; touch late-child) & sleep 3; touch late-parent'

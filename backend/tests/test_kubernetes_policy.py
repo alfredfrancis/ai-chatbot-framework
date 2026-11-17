@@ -59,13 +59,37 @@ def _host_path(pod: dict) -> None:
     pod["spec"]["volumes"] = [{"name": "workspace", "hostPath": {"path": "/"}}]
 
 
+def _env_from(source: str) -> dict:
+    return {"name": "TAKEN", "valueFrom": {source: {"name": "any", "key": "any"}}}
+
+
+def _leading_zero(pod: dict) -> None:
+    _rename(pod, "acf-sandbox-04242", "04242")
+    _c(pod)["volumeMounts"][0]["subPath"] = "users/04242/workspace"
+
+
+def _node_affinity(pod: dict) -> None:
+    term = {"matchExpressions": [{"key": "kubernetes.io/os", "operator": "Exists"}]}
+    pod["spec"]["affinity"] = {
+        "nodeAffinity": {"requiredDuringSchedulingIgnoredDuringExecution": {"nodeSelectorTerms": [term]}}
+    }
+
+
 MOUNT = "mounts users/<its user id>/workspace"
 VOLUME = "the data claim is a sandbox pod's only volume"
+NAME = "named acf-sandbox-<user id>"
+SECRETS = "read no Secrets or ConfigMaps"
+SECCOMP = "the runtime's default seccomp profile"
+DEFAULTS = "the runtime's defaults for AppArmor, SELinux, /proc, sysctls and user namespaces"
+SCHEDULER = "placed by the scheduler"
+NON_ROOT = "non-root user and group"
+APPARMOR_OFF = {"container.apparmor.security.beta.kubernetes.io/sandbox": "unconfined"}
 # Each unsafe change, and the admission policy's reason for refusing it.
 UNSAFE = {
     "another user's subPath": (lambda p: _c(p)["volumeMounts"][0].update(subPath="users/1/workspace"), MOUNT),
     "name and subPath of different users": (lambda p: _rename(p, "acf-sandbox-1", "1"), MOUNT),
-    "not a sandbox's name": (lambda p: _rename(p, "acf-sandbox-x", "x"), "named acf-sandbox-<user id>"),
+    "not a sandbox's name": (lambda p: _rename(p, "acf-sandbox-x", "x"), NAME),
+    "a user id with a leading zero": (_leading_zero, NAME),
     "no sandbox label": (lambda p: p["metadata"]["labels"].pop("acf.sandbox"), "labelled acf.sandbox=1"),
     "privileged": (_privileged, "not privileged"),
     "hostPath volume": (_host_path, VOLUME),
@@ -87,13 +111,61 @@ UNSAFE = {
         lambda p: p["spec"].update(initContainers=[copy.deepcopy(_c(p)) | {"name": "init"}]),
         "one container",
     ),
-    "a chosen node": (lambda p: p["spec"].update(nodeName="any-node"), "placed by the scheduler"),
+    "a chosen node": (lambda p: p["spec"].update(nodeName="any-node"), SCHEDULER),
+    "a Secret in env": (lambda p: _c(p)["env"].append(_env_from("secretKeyRef")), SECRETS),
+    "a ConfigMap in env": (lambda p: _c(p)["env"].append(_env_from("configMapKeyRef")), SECRETS),
+    "a Secret as env": (lambda p: _c(p).update(envFrom=[{"secretRef": {"name": "any"}}]), SECRETS),
+    "a ConfigMap as env": (lambda p: _c(p).update(envFrom=[{"configMapRef": {"name": "any"}}]), SECRETS),
+    "an image pull Secret": (lambda p: p["spec"].update(imagePullSecrets=[{"name": "any"}]), SECRETS),
+    "no seccomp profile": (lambda p: p["spec"]["securityContext"].pop("seccompProfile"), SECCOMP),
+    "no seccomp in the container": (
+        lambda p: _c(p)["securityContext"].update(seccompProfile={"type": "Unconfined"}),
+        SECCOMP,
+    ),
+    "a host port": (lambda p: _c(p).update(ports=[{"containerPort": 8000, "hostPort": 8000}]), "no host port"),
+    "SELinux options": (lambda p: p["spec"]["securityContext"].update(seLinuxOptions={"level": "s0:c1"}), DEFAULTS),
+    "SELinux options in the container": (
+        lambda p: _c(p)["securityContext"].update(seLinuxOptions={"type": "spc_t"}),
+        DEFAULTS,
+    ),
+    "no AppArmor": (lambda p: p["spec"]["securityContext"].update(appArmorProfile={"type": "Unconfined"}), DEFAULTS),
+    "no AppArmor in the container": (
+        lambda p: _c(p)["securityContext"].update(appArmorProfile={"type": "Unconfined"}),
+        DEFAULTS,
+    ),
+    # The API server copies this annotation into the container's appArmorProfile before admission.
+    "no AppArmor by annotation": (lambda p: p["metadata"].update(annotations=APPARMOR_OFF), DEFAULTS),
+    "a sysctl": (
+        lambda p: p["spec"]["securityContext"].update(sysctls=[{"name": "kernel.shm_rmid_forced", "value": "1"}]),
+        DEFAULTS,
+    ),
+    "root fsGroup": (lambda p: p["spec"]["securityContext"].update(fsGroup=0), NON_ROOT),
+    "root supplementary group": (lambda p: p["spec"]["securityContext"].update(supplementalGroups=[0]), NON_ROOT),
+    "tolerations": (lambda p: p["spec"].update(tolerations=[{"operator": "Exists"}]), SCHEDULER),
+    "a node selector": (lambda p: p["spec"].update(nodeSelector={"kubernetes.io/os": "linux"}), SCHEDULER),
+    "node affinity": (_node_affinity, SCHEDULER),
+    "a priority class": (lambda p: p["spec"].update(priorityClassName="system-cluster-critical"), SCHEDULER),
+}
+# Settings the API server drops while their feature is off, as on k3s 1.32: then they never reach the node.
+GATED = {
+    "no host user namespace": lambda p: p["spec"].update(hostUsers=False),
+    "an unmasked /proc": lambda p: (
+        p["spec"].update(hostUsers=False),
+        _c(p)["securityContext"].update(procMount="Unmasked"),
+    ),
 }
 
 
 def test_a_sandbox_pod_is_admitted(k8s_sandbox, policy_only):
     for namespace in (k8s_sandbox, policy_only):
         res = as_app(namespace, "create", "--dry-run=server", "-f", "-", stdin=sandbox_pod(namespace))
+        assert res.returncode == 0, res.stderr
+        own_fields = sandbox_pod(namespace)  # env from the pod's own fields reads no Secret
+        _c(own_fields)["env"] += [
+            {"name": "POD_IP", "valueFrom": {"fieldRef": {"fieldPath": "status.podIP"}}},
+            {"name": "MEMORY", "valueFrom": {"resourceFieldRef": {"resource": "limits.memory"}}},
+        ]
+        res = as_app(namespace, "create", "--dry-run=server", "-f", "-", stdin=own_fields)
         assert res.returncode == 0, res.stderr
 
 
@@ -107,6 +179,20 @@ def test_unsafe_pods_are_refused(k8s_sandbox, policy_only, change, reason):
         if namespace == policy_only:  # without Pod Security, the admission policy refuses it on its own
             assert f"ValidatingAdmissionPolicy 'acf-sandbox-pods-{namespace}'" in res.stderr, res.stderr
             assert reason in res.stderr, res.stderr
+
+
+@pytest.mark.parametrize("change", GATED.values(), ids=GATED.keys())
+def test_feature_gated_settings_are_refused_or_dropped(k8s_sandbox, policy_only, change):
+    pod = sandbox_pod(policy_only)
+    change(pod)
+    res = as_app(policy_only, "create", "--dry-run=server", "-o", "json", "-f", "-", stdin=pod)
+    if res.returncode == 0:
+        spec = json.loads(res.stdout)["spec"]
+        assert "hostUsers" not in spec, spec
+        assert spec["containers"][0]["securityContext"].get("procMount", "Default") == "Default", spec
+    else:
+        assert f"ValidatingAdmissionPolicy 'acf-sandbox-pods-{policy_only}'" in res.stderr, res.stderr
+        assert DEFAULTS in res.stderr, res.stderr
 
 
 def test_the_app_works_in_its_namespace_only(k8s_sandbox, policy_only):
@@ -132,7 +218,8 @@ def test_the_app_works_in_its_namespace_only(k8s_sandbox, policy_only):
 
 def test_the_app_deletes_and_execs_into_sandbox_pods_only(k8s_sandbox):
     ns = k8s_sandbox
-    others = [plain_pod("acf-database", ns), plain_pod("acf-sandbox-999", ns)]  # the second has no sandbox label
+    # The second has no sandbox label; the third's name is no user id.
+    others = [plain_pod(name, ns) for name in ("acf-database", "acf-sandbox-999", "acf-sandbox-0999")]
     for pod in others:
         kubectl("apply", "-f", "-", stdin=pod)
     try:
@@ -140,8 +227,9 @@ def test_the_app_deletes_and_execs_into_sandbox_pods_only(k8s_sandbox):
         assert as_app(ns, "create", "-f", "-", stdin=sandbox).returncode == 0
         kubectl("wait", "-n", ns, "--for=condition=Ready", "pod", *[p["metadata"]["name"] for p in [sandbox, *others]])
         # An exec request names a pod but doesn't carry it, so execs are allowed by name.
-        res = as_app(ns, "-n", ns, "exec", "acf-database", "--", "id")
-        assert res.returncode != 0 and "acf-sandbox-access-" in res.stderr, res.stderr
+        for name in ("acf-database", "acf-sandbox-0999"):
+            res = as_app(ns, "-n", ns, "exec", name, "--", "id")
+            assert res.returncode != 0 and "acf-sandbox-access-" in res.stderr, res.stderr
         for pod in others:
             name = pod["metadata"]["name"]
             res = as_app(ns, "-n", ns, "delete", "pod", name, "--dry-run=server")
@@ -156,7 +244,8 @@ def test_the_app_deletes_and_execs_into_sandbox_pods_only(k8s_sandbox):
             assert res.returncode != 0 and "forbidden" in res.stderr, res.stderr
         assert as_app(ns, "-n", ns, "delete", "pod", name, "--wait").returncode == 0
     finally:
-        kubectl("delete", "pods", "-n", ns, "acf-database", "acf-sandbox-999", "--ignore-not-found", check=False)
+        names = [p["metadata"]["name"] for p in others]
+        kubectl("delete", "pods", "-n", ns, *names, "--ignore-not-found", check=False)
         kubectl("delete", "pod", "-n", ns, sandbox_pod(ns)["metadata"]["name"], "--ignore-not-found", check=False)
 
 

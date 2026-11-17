@@ -219,6 +219,9 @@ async def using(user_id: int) -> AsyncIterator[None]:
 class Sandbox(ABC):
     kind = "base"
     isolated = False  # whether commands are kept from the host and from other users (shown in Settings)
+    # How long locked() waits for another process to let go: longer than ensure() can hold it. The longest steps
+    # of the built-in adapters' ensure() add up to 600 s (Kubernetes: get, delete, apply, 300 s for Ready, delete).
+    lock_wait = 660.0
 
     def __init__(self, user_id: int):
         self.user_id = user_id
@@ -233,7 +236,11 @@ class Sandbox(ABC):
         """Hold this user's sandbox: callers in this process wait on the asyncio lock, other processes on
         the bus lock (they would otherwise race to create, start or stop the same sandbox)."""
         lock = _locks.setdefault(self.user_id, asyncio.Lock())
-        async with lock, bus.current().hold(f"sandbox:{self.user_id}", timeout=420):
+        async with lock, contextlib.AsyncExitStack() as held:
+            try:
+                await held.enter_async_context(bus.current().hold(f"sandbox:{self.user_id}", timeout=self.lock_wait))
+            except TimeoutError:
+                raise SandboxError("Your sandbox is busy starting or stopping. Try again in a few minutes.") from None
             yield
 
     async def ensure(self) -> None:
@@ -762,8 +769,9 @@ class KubernetesSandbox(_ExecSandbox):
             telemetry.sandbox_started(time.monotonic() - started, "create")
 
     def _exec_args(self, argv: list[str], env: dict[str, str], interactive: bool) -> list[str]:
-        # kubectl exec has no -e: `env` adds the variables (the pod's own, like HOME, stay).
-        added = ["env", *(f"{k}={v}" for k, v in env.items())] if env else []
+        # kubectl exec has no -e: `env` adds the variables (the pod's own, like HOME, stay). After `--`, a name
+        # that starts with "-" is a variable, as with docker exec -e, not an option of env.
+        added = ["env", "--", *(f"{k}={v}" for k, v in env.items())] if env else []
         flags = ["-i"] if interactive else []
         return self._kubectl("exec", *flags, self.name, "-c", "sandbox", "--", *added, *argv)
 

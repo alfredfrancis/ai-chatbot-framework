@@ -4,8 +4,11 @@
 # namespace; RBAC (rbac.yaml) already keeps it to its own.
 #
 #   acf-sandbox-pods-*    a pod it creates is a sandbox: named acf-sandbox-<user id>, labelled, the sandbox
-#                         image, the data claim as its only volume mounted at users/<that id>/workspace,
-#                         non-root, no capabilities, limits set, the RuntimeClass if one is configured
+#                         image, the data claim as its only volume mounted at users/<that id>/workspace, no
+#                         Secrets or ConfigMaps, non-root, no capabilities, the runtime's seccomp, AppArmor and
+#                         SELinux defaults, placed by the scheduler alone, limits set, the RuntimeClass if one
+#                         is configured. Pod Security (namespace.yaml) refuses much of this too; this policy
+#                         doesn't rely on it.
 #   acf-sandbox-access-*  it deletes only sandbox pods, and execs only into pods with a sandbox's name (an
 #                         exec request names its pod but doesn't carry it)
 #
@@ -37,7 +40,7 @@ spec:
       expression: '"${RUNTIME_CLASS}"'
     - name: id
       expression: >-
-        object.metadata.name.matches("^acf-sandbox-[0-9]+\\z") ? object.metadata.name.substring(12) : ""
+        object.metadata.name.matches("^acf-sandbox-[1-9][0-9]*\\z") ? object.metadata.name.substring(12) : ""
     - name: labels
       expression: object.metadata.?labels.orValue({})
     - name: pod
@@ -57,6 +60,14 @@ spec:
         object.spec.?initContainers.orValue([]).size() == 0 &&
         object.spec.?ephemeralContainers.orValue([]).size() == 0
       message: sandbox pods run one container, of the sandbox image
+    # A pod can load any Secret or ConfigMap in its namespace into its env, where an exec reads it.
+    - expression: >-
+        !has(variables.c.envFrom) && !has(object.spec.imagePullSecrets) &&
+        variables.c.?env.orValue([]).all(e,
+          !has(e.valueFrom) || has(e.valueFrom.fieldRef) || has(e.valueFrom.resourceFieldRef))
+      message: >-
+        sandbox pods read no Secrets or ConfigMaps: no envFrom or imagePullSecrets, and env values are text or
+        the pod's own fields
     - expression: >-
         object.spec.?volumes.orValue([]).size() == 1 &&
         object.spec.volumes[0].?persistentVolumeClaim.?claimName.orValue("") == variables.claim
@@ -72,18 +83,39 @@ spec:
       message: a sandbox pod mounts users/<its user id>/workspace of the data claim at /workspace, and nothing else
     - expression: >-
         !object.spec.?hostNetwork.orValue(false) && !object.spec.?hostPID.orValue(false) &&
-        !object.spec.?hostIPC.orValue(false) && !has(object.spec.nodeName)
-      message: sandbox pods share no host namespace and are placed by the scheduler
+        !object.spec.?hostIPC.orValue(false) && variables.c.?ports.orValue([]).all(p, p.?hostPort.orValue(0) == 0)
+      message: sandbox pods share no host namespace and use no host port
+    # The API server adds the two NoExecute tolerations to every pod (DefaultTolerationSeconds) before this runs.
+    - expression: >-
+        !has(object.spec.nodeName) && !has(object.spec.nodeSelector) && !has(object.spec.affinity) &&
+        object.spec.?priorityClassName.orValue("") == "" &&
+        object.spec.?tolerations.orValue([]).all(t, t.?effect.orValue("") == "NoExecute" &&
+          t.?key.orValue("") in ["node.kubernetes.io/not-ready", "node.kubernetes.io/unreachable"])
+      message: >-
+        sandbox pods are placed by the scheduler: no node, node selector, affinity, priority class, or tolerations
+        but the API server's own
     - expression: >-
         !variables.sc.?privileged.orValue(false) && variables.sc.?allowPrivilegeEscalation.orValue(true) == false &&
         variables.sc.?capabilities.?drop.orValue([]) == ["ALL"] &&
         variables.sc.?capabilities.?add.orValue([]).size() == 0
       message: sandbox pods are not privileged, drop every capability and can't gain privileges
     - expression: >-
+        variables.sc.?seccompProfile.?type.orValue(variables.pod.?seccompProfile.?type.orValue("")) == "RuntimeDefault"
+      message: sandbox pods use the runtime's default seccomp profile
+    # The AppArmor annotation is copied into the container's appArmorProfile before this runs.
+    - expression: >-
+        variables.sc.?appArmorProfile.?type.orValue("RuntimeDefault") == "RuntimeDefault" &&
+        variables.pod.?appArmorProfile.?type.orValue("RuntimeDefault") == "RuntimeDefault" &&
+        !variables.sc.?seLinuxOptions.hasValue() && !variables.pod.?seLinuxOptions.hasValue() &&
+        variables.sc.?procMount.orValue("Default") == "Default" &&
+        variables.pod.?sysctls.orValue([]).size() == 0 && !has(object.spec.hostUsers)
+      message: sandbox pods keep the runtime's defaults for AppArmor, SELinux, /proc, sysctls and user namespaces
+    - expression: >-
         variables.sc.?runAsNonRoot.orValue(variables.pod.?runAsNonRoot.orValue(false)) &&
         variables.sc.?runAsUser.orValue(variables.pod.?runAsUser.orValue(0)) != 0 &&
-        variables.sc.?runAsGroup.orValue(variables.pod.?runAsGroup.orValue(0)) != 0
-      message: sandbox pods run as a non-root user and group
+        variables.sc.?runAsGroup.orValue(variables.pod.?runAsGroup.orValue(0)) != 0 &&
+        variables.pod.?fsGroup.orValue(-1) != 0 && !(0 in variables.pod.?supplementalGroups.orValue([]))
+      message: sandbox pods run as a non-root user and group, and in no root group
     - expression: >-
         "cpu" in variables.c.?resources.?limits.orValue({}) && "memory" in variables.c.?resources.?limits.orValue({})
       message: sandbox pods have CPU and memory limits
@@ -123,7 +155,7 @@ spec:
       expression: request.userInfo.username == "system:serviceaccount:${NAMESPACE}:${SERVICE_ACCOUNT}"
   validations:
     - expression: >-
-        request.name.matches("^acf-sandbox-[0-9]+\\z") &&
+        request.name.matches("^acf-sandbox-[1-9][0-9]*\\z") &&
         (request.operation != "DELETE" || oldObject.metadata.?labels[?"acf.sandbox"].orValue("") == "1")
       message: the app may only delete and exec into its sandbox pods
 ---
