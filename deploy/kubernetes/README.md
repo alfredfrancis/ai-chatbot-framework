@@ -12,7 +12,9 @@ namespace the sandboxes run in (`ACF_K8S_NAMESPACE`).
 | `admission-policy.yaml` | The ServiceAccount creating any pod that isn't a sandbox, or deleting or exec-ing into other pods. A sandbox is named `acf-sandbox-<user id>`, runs the sandbox image, has the data claim as its only volume with `subPath: users/<that id>/workspace`, and has no token. It loads no Secret or ConfigMap (no `envFrom`, no `valueFrom` but `fieldRef` and `resourceFieldRef`, no `imagePullSecrets`), so a pod can't hand one to an exec. It runs as a non-root user and group, in no root group, with no capabilities, no host namespaces or ports, and the runtime's default seccomp, AppArmor, SELinux, `/proc` and sysctls. The scheduler alone places it (no node, node selector, affinity, priority class or extra tolerations). It has limits set and uses the RuntimeClass. The policy checks all of this without Pod Security too |
 | `network-policy.yaml` | Connections to sandbox pods, and connections from them to anything but cluster DNS and public addresses (no pods, Services, nodes, API server, private or link-local ranges, cloud metadata, IPv6) |
 
-They are plain manifests with five placeholders, for a chart to template or for `envsubst`:
+The [Helm chart](../helm/acf) renders these files as they are: its `guardrails/` folder links here. Change the
+guardrails here, and the chart follows. Without the chart, they are plain manifests with five placeholders, for
+`envsubst`:
 
 | Placeholder | Example | Meaning |
 |---|---|---|

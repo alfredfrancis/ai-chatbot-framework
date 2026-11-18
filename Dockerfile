@@ -11,8 +11,13 @@ RUN npm run build
 
 FROM docker:29-cli AS dockercli
 
+# ACF_SANDBOX=kubernetes runs sandbox pods with kubectl. Pinned by digest (Docker checks it on pull), so a
+# retagged image can't change the binary; supports API servers 1.33 to 1.35.
+FROM registry.k8s.io/kubectl:v1.34.13@sha256:d37c8db864ce28de6969879a16e6b28cc25d36fb669cdba9e2c69e17c7fb597b AS kubectl
+
 FROM python:3.12-slim
 COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=kubectl /bin/kubectl /usr/local/bin/kubectl
 # The app runs as this user; its sandboxes run as it too (never as root). The docker-proxy service
 # runs the same image as root, because it alone holds the Docker socket.
 RUN useradd --uid 10001 --user-group --no-create-home --home-dir /data acf

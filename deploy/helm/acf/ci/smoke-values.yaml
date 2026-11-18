@@ -1,0 +1,29 @@
+# Test only: the install smoke.py makes on a one-node cluster, against the services of ci/deps.yaml.
+image:
+  repository: acf
+  tag: dev
+  pullPolicy: Never
+publicUrl: http://localhost:18080
+secretKey: smoke-test-only-secret-key-0123456789
+database:
+  url: postgresql://acf:acf@postgres.acf-k3-deps.svc.cluster.local:5432/acf
+llm:
+  provider: anthropic
+  baseUrl: http://fake-llm.acf-k3-deps.svc.cluster.local:9300
+  apiKey: test-key
+sandbox:
+  image: python:3.12-alpine
+  memory: 256m
+  cpus: "0.5"
+persistence:
+  # Bound to the hostPath PersistentVolume smoke.py makes (ReadWriteMany is safe on one node only).
+  storageClass: "-"
+  size: 1Gi
+  keep: false
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+logFormat: text

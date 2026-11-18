@@ -1,0 +1,2 @@
+{{- /* Renders nothing: fails the install with a message when the values don't work together. */ -}}
+{{- include "acf.validate" . -}}

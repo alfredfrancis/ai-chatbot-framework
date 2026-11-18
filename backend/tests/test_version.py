@@ -40,3 +40,5 @@ def test_deploy_files_pull_the_images_of_this_version():
     defaults = set(re.findall(r"\$\{ACF_VERSION:-([^}]*)\}", compose))
     assert defaults == {frontend}
     assert re.search(rf"^ACF_VERSION={re.escape(frontend)}$", (ROOT / ".env.example").read_text(), re.M)
+    chart = (ROOT / "deploy/helm/acf/Chart.yaml").read_text()
+    assert re.findall(r"^(?:version|appVersion): (.*)$", chart, re.M) == [frontend, frontend]

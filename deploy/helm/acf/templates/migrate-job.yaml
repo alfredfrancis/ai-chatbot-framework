@@ -1,0 +1,65 @@
+{{- /*
+Brings the database schema up to date before every install and upgrade, before the new app pods start (they
+run with ACF_MIGRATE_ON_START=false). The last run's Job stays for its logs until the next one replaces it.
+*/ -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "acf.fullname" . }}-migrate
+  labels:
+    {{- include "acf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrate.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "acf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "acf.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "acf.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["acf-migrate"]
+          env:
+            - name: HOME
+              value: /tmp
+            - name: ACF_DATA_DIR
+              value: /tmp/acf
+            - name: ACF_LOG_FORMAT
+              value: {{ .Values.logFormat | quote }}
+            {{- /* Migrations may decrypt and re-encrypt stored secrets: the app's key. */}}
+            {{- include "acf.secretEnv" (dict "root" . "names" (list "ACF_SECRET_KEY" "ACF_DB_URL")) | trim | nindent 12 }}
+          securityContext:
+            {{- include "acf.containerSecurityContext" . | trim | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrate.resources | trim | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

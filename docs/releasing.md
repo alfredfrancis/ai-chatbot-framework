@@ -37,7 +37,8 @@ back up the database and `./data` first, and read the release notes for anything
 ## Making a release
 
 1. `make version v=2.1.0` on a branch (it updates `backend/pyproject.toml`, `frontend/package.json`,
-   its lockfile, `docker-compose.yml` and `.env.example`), merge it once CI is green.
+   its lockfile, `docker-compose.yml`, `.env.example` and the Helm chart's `Chart.yaml`), merge it once CI is
+   green.
 2. Publish a GitHub release from `master` tagged `v2.1.0`, with generated notes. Tick **pre-release** for
    `-beta.N` / `-rc.N` tags (and only for those). Put anything breaking at the top.
 3. The `Release images` workflow checks the tag against the version files and pushes both images.

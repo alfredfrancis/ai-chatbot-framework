@@ -1,0 +1,35 @@
+AI Chatbot Framework {{ .Chart.AppVersion }} is installed in the namespace {{ .Release.Namespace }}.
+
+Open it:
+{{- if .Values.ingress.enabled }}
+  {{ include "acf.publicUrl" . }}
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "acf.fullname" . }} 8080:{{ .Values.service.port }}
+  then {{ include "acf.publicUrl" . }} (publicUrl), or http://localhost:8080 while you try it out
+{{- end }}
+
+The first account to sign up is yours. Then close sign-ups: --set env.ACF_ALLOW_SIGNUP=false
+
+Check it:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} logs job/{{ include "acf.fullname" . }}-migrate     # the last migration
+  kubectl -n {{ .Release.Namespace }} get pods -l acf.sandbox=1                     # one per active user
+
+Sandbox pods run the image {{ include "acf.sandboxImage" . }}
+{{- if .Values.sandbox.runtimeClass }} with the RuntimeClass {{ .Values.sandbox.runtimeClass }}{{ end }}, as
+non-root users, limited by Pod Security `restricted`, the admission policies acf-sandbox-pods-{{ .Release.Namespace }}
+and acf-sandbox-access-{{ .Release.Namespace }}, and NetworkPolicies that let them reach only DNS and public addresses.
+{{- if not .Values.guardrails.requireRestrictedNamespace }}
+
+guardrails.requireRestrictedNamespace is off: make sure Pod Security `restricted` applies to {{ .Release.Namespace }}.
+{{- end }}
+
+Not covered by the chart:
+  - Process limits: Kubernetes has no per-pod pid limit. Set the kubelet's podPidsLimit on the nodes.
+  - Backups: back up PostgreSQL and the data volume {{ include "acf.dataClaim" . }}.
+{{- if include "acf.secretData" . | fromYaml }}
+  - The Secret {{ include "acf.fullname" . }} is a Helm hook: `helm uninstall` leaves it, with secretKey.
+{{- end }}
+{{- if .Values.persistence.keep }}
+  - `helm uninstall` leaves the data claim {{ include "acf.dataClaim" . }} (persistence.keep).
+{{- end }}

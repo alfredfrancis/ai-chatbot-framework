@@ -40,6 +40,8 @@ def main(v: str) -> None:
     lock.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     sub("docker-compose.yml", r"\$\{ACF_VERSION:-[^}]*\}", f"${{ACF_VERSION:-{v}}}", count=5)
     sub(".env.example", r"^ACF_VERSION=.*$", f"ACF_VERSION={v}")
+    sub("deploy/helm/acf/Chart.yaml", r"^version: .*$", f"version: {v}")
+    sub("deploy/helm/acf/Chart.yaml", r"^appVersion: .*$", f"appVersion: {v}")
     print(f"Version set to {v} ({pep440(v)} for Python). Commit, merge, then publish release v{v}.")
 
 

@@ -1,0 +1,4 @@
+# Test-only files: the throwaway database, Redis and model server, and the smoke test.
+ci/
+*.pyc
+__pycache__/
