@@ -86,7 +86,7 @@ class Settings:
     skill_archive_days: int = field(default_factory=lambda: int(_env("SKILL_ARCHIVE_DAYS", "30")))
 
     # Sandbox
-    sandbox: str = field(default_factory=lambda: _env("SANDBOX", "docker"))  # docker | local
+    sandbox: str = field(default_factory=lambda: _env("SANDBOX", "docker"))  # docker | kubernetes | local
     sandbox_prefix: str = field(default_factory=lambda: _env("SANDBOX_PREFIX", "acf-sbx"))
     sandbox_image: str = field(default_factory=lambda: _env("SANDBOX_IMAGE", "acf-sandbox:latest"))
     # Host path of data_dir, when AI Chatbot Framework itself runs in a container and talks to the host's Docker.
@@ -100,6 +100,10 @@ class Settings:
     sandbox_runtime: str = field(default_factory=lambda: _env("SANDBOX_RUNTIME"))
     sandbox_memory: str = field(default_factory=lambda: _env("SANDBOX_MEMORY", "1g"))
     sandbox_cpus: str = field(default_factory=lambda: _env("SANDBOX_CPUS", "1"))
+    # ACF_SANDBOX=kubernetes: the namespace sandbox pods run in, and the ReadWriteMany claim holding data_dir
+    # (mounted at data_dir in the app's pods); each pod mounts its user's workspace folder from it.
+    k8s_namespace: str = field(default_factory=lambda: _env("K8S_NAMESPACE", "default"))
+    k8s_data_claim: str = field(default_factory=lambda: _env("K8S_DATA_CLAIM", "acf-data"))
     command_timeout: int = field(default_factory=lambda: int(_env("COMMAND_TIMEOUT", "120")))
     # A sandbox no one has used for this long is stopped (its workspace stays) and starts on next use. 0: never.
     sandbox_idle_minutes: float = field(default_factory=lambda: float(_env("SANDBOX_IDLE_MINUTES", "30")))

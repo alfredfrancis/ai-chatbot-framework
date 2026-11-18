@@ -1,0 +1,110 @@
+# Test only, not part of the chart: a throwaway PostgreSQL, Redis and scripted model server for smoke.py, in a
+# namespace of their own (the app's ServiceAccount can read every pod spec in the app's namespace). Data is
+# lost when a pod restarts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17.6-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: POSTGRES_DB, value: acf }
+            - { name: POSTGRES_USER, value: acf }
+            - { name: POSTGRES_PASSWORD, value: acf }
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "acf", "-d", "acf"]
+            periodSeconds: 2
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - { name: data, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector: { app: postgres }
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  selector:
+    matchLabels: { app: redis }
+  template:
+    metadata:
+      labels: { app: redis }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          args: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory-policy", "noeviction"]
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector: { app: redis }
+  ports:
+    - port: 6379
+---
+# backend/tests/fakes/fake_llm.py (the ConfigMap fake-llm, made by smoke.py), run by the app image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-llm
+spec:
+  selector:
+    matchLabels: { app: fake-llm }
+  template:
+    metadata:
+      labels: { app: fake-llm }
+    spec:
+      containers:
+        - name: fake-llm
+          image: acf:dev
+          imagePullPolicy: Never
+          command: ["python", "/fake/fake_llm.py", "--host", "0.0.0.0", "--port", "9300"]
+          ports:
+            - containerPort: 9300
+          readinessProbe:
+            tcpSocket: { port: 9300 }
+            periodSeconds: 2
+          volumeMounts:
+            - { name: fake, mountPath: /fake }
+      volumes:
+        - name: fake
+          configMap: { name: fake-llm }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fake-llm
+spec:
+  selector: { app: fake-llm }
+  ports:
+    - port: 9300

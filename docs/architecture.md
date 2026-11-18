@@ -57,7 +57,7 @@ the bus is in memory (`LocalBus`), which is right for exactly one process.
 | Scheduled tasks | Every process runs the scheduler. A due task is claimed with a compare-and-set update of `next_run_at`, so exactly one process starts it; a `task:<id>` lock stops "Run now" from overlapping it. |
 | Locks | `review:<user>` (one background review per user), `sandbox:<user>` (one process creates or restarts a user's container at a time), and the background-command registry (the per-chat limit, and which jobs are still alive when the history is repaired). |
 | Failure | Leases, locks and jobs expire `ACF_BUS_TTL` seconds after their process stops refreshing them. A process that dies frees its chats on its own: followers get a `done` with an error, and the next message runs elsewhere with the lost tool calls and jobs closed off in the history. A process cut off from Redis long enough to lose a lease stops that run rather than run the chat twice. Back in touch, its heartbeat takes back what expired if no one else has. Each lock it takes stores a value of its own, so a take-back of an earlier one never matches it; a lease stores its run's id, and a take-back that finds that id in place finds the run's own new claim. |
-| Scaling in | On shutdown a process stops taking work, lets its running agents finish for up to `ACF_SHUTDOWN_GRACE` seconds (clients reconnect to another process and keep following), then stops what is left and releases everything it holds. uvicorn closes the listening socket when SIGTERM arrives, before the lifespan shutdown runs, so the orchestrator takes the process out of rotation, not a readiness answer: Caddy (compose) looks the processes up every 5 s and retries a refused request on another; on Kubernetes a `preStop` sleep of a few seconds removes the pod from the endpoints before SIGTERM, with `terminationGracePeriodSeconds` above that sleep plus `ACF_SHUTDOWN_GRACE`. |
+| Scaling in | On shutdown a process stops taking work, lets its running agents finish for up to `ACF_SHUTDOWN_GRACE` seconds (clients reconnect to another process and keep following), then stops what is left and releases everything it holds. uvicorn closes the listening socket when SIGTERM arrives, before the lifespan shutdown runs, so the orchestrator takes the process out of rotation, not a readiness answer: Caddy (compose) looks the processes up every 5 s and retries a refused request on another; on Kubernetes a `preStop` sleep of a few seconds removes the pod from the endpoints before SIGTERM, with `terminationGracePeriodSeconds` above that sleep plus `ACF_SHUTDOWN_GRACE` (the Helm chart sets both). |
 | Health | `/api/health` only says the process runs. `/api/health/ready` runs `SELECT 1` and, with Redis, a `PING`, each bounded to 2 s, and answers 503 when either fails. The compose healthcheck uses the ready route. |
 
 ## Telemetry (`backend/acf/telemetry.py`)
@@ -99,7 +99,7 @@ WebSocket for clients that spawn agents as subprocesses.
 
 ## Sandboxes (`backend/acf/sandbox.py`)
 
-`Sandbox` is a port; each provider is an adapter, picked by `ACF_SANDBOX` (`docker`, `local`, a kind added
+`Sandbox` is a port; each provider is an adapter, picked by `ACF_SANDBOX` (`docker`, `kubernetes`, `local`, a kind added
 with `register_sandbox()`, or `package.module:Class`). Nothing outside `sandbox.py` knows which one runs.
 Adapters used to implement `exec`; they implement `run` now, and `exec` is the wrapper that keeps the
 sandbox in use (`using()`) while a command runs. Loading an adapter that still overrides `exec` raises
@@ -140,6 +140,42 @@ and replaced if the folder was recreated. Commands run as `docker exec` under a 
 records the session leader's pid; a stop kills that session inside the container (killing the `docker exec`
 client alone would leave the command running). It needs only `sh` and `/proc` in the image. An idle
 sandbox is `docker stop`ped and `docker start`ed on its next use; processes it ran are gone, files stay.
+
+Kubernetes adapter: the same shape, with `kubectl` in place of `docker` (as the app's ServiceAccount in a
+cluster, or through `KUBECONFIG`). `acf-sandbox-<user>` is a pod in `ACF_K8S_NAMESPACE`, created with
+`kubectl apply` and waited on until Ready (a pod stuck on its image fails at once, with the reason). Its only
+volume is the data claim `ACF_K8S_DATA_CLAIM` (ReadWriteMany, the volume holding `ACF_DATA_DIR`), mounted
+with `subPath: users/<user>/workspace` at `/workspace`, so the pod sees that user's workspace and nothing
+else of the volume. It runs as the workspace's owner (root refused, as for Docker) with every capability
+dropped, `allowPrivilegeEscalation: false`, seccomp `RuntimeDefault`, the memory and CPU limits, the
+RuntimeClass `ACF_SANDBOX_RUNTIME` if set, no ServiceAccount token, no service links and `restartPolicy:
+Never`. Commands run as `kubectl exec` under the same `sh` wrapper; `env` adds a process's variables, as
+`kubectl exec` has no `-e`. A stopped sandbox is a deleted pod: the next use creates it again, and the files
+are on the volume. Kubernetes has no per-pod process limit; set the kubelet's `podPidsLimit` for one.
+
+In place of the Docker proxy, the cluster enforces the same limits whatever the app asks for
+([deploy/kubernetes/](../deploy/kubernetes/README.md)): Pod Security `restricted` on the namespace; RBAC that
+gives the app's ServiceAccount pods (create, get, list, watch, delete) and `pods/exec` there and nothing
+else; ValidatingAdmissionPolicies that let it create only sandbox pods (the name's user id, the image, the
+claim mounted at that user's subPath and nothing else, no Secrets or ConfigMaps, non-root, no capabilities,
+the runtime's seccomp, AppArmor and SELinux defaults, no probes or lifecycle hooks (the kubelet runs those from the
+node, past any NetworkPolicy), placed by the scheduler alone, limits, the RuntimeClass)
+and delete or exec only into them; and NetworkPolicies that take no connections to sandboxes and let them
+reach only cluster DNS and public addresses. `tests/test_kubernetes_policy.py` checks each against a cluster.
+
+The Helm chart (`deploy/helm/acf`) installs the app this way. Its `guardrails/` files are links to
+`deploy/kubernetes/*.yaml`, which the chart reads with `.Files.Get` and fills in as `envsubst` would, so the
+manifests have one source; a placeholder the chart doesn't know fails the render, and
+`tests/test_helm_chart.py` checks the rendered guardrails equal the files filled in. The policy variables are
+literal values in the policy, not a params ConfigMap: on k3s 1.32 a binding whose params can't be found denies
+every pod create in every namespace. Helm can't own its release namespace, so the chart doesn't install
+`namespace.yaml`; it looks the namespace up and refuses one without its Pod Security labels. Two hooks run
+before the app on every install and upgrade: the chart's Secret (weight -10), then the migrate Job
+(`acf-migrate`), so the Job has `ACF_SECRET_KEY` and `ACF_DB_URL` even on the first install, when the
+release's ordinary objects don't exist yet. A hook Secret is the price: Helm leaves it on uninstall, which also
+keeps the encryption key with the database it belongs to. An `existingSecret` avoids it. The app pods mount the
+data claim at `ACF_DATA_DIR` and use the ServiceAccount of `rbac.yaml` for `kubectl`.
+`deploy/helm/acf/ci/smoke.py` installs it on a one-node cluster and drives it over `kubectl port-forward`.
 
 ## Skills (`backend/acf/skills.py`)
 

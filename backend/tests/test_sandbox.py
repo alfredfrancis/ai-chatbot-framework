@@ -7,8 +7,22 @@ from pathlib import Path
 
 import pytest
 
-from acf import workspace
-from acf.sandbox import LocalSandbox
+from acf import bus, workspace
+from acf.sandbox import LocalSandbox, Sandbox, SandboxError
+
+
+async def test_a_sandbox_held_elsewhere_for_too_long_is_a_sandbox_error(user, monkeypatch):
+    monkeypatch.setattr(Sandbox, "lock_wait", 0.3)
+    name = f"sandbox:{user['id']}"
+    assert await bus.current().lock(name)  # as another process starting it would
+    try:
+        with pytest.raises(SandboxError, match="busy"):
+            async with LocalSandbox(user["id"]).locked():
+                pass
+    finally:
+        await bus.current().unlock(name)
+    async with LocalSandbox(user["id"]).locked():  # free again
+        pass
 
 
 @pytest.mark.parametrize("delay", [0, 0.5], ids=["while-starting", "while-running"])

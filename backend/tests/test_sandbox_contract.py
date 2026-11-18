@@ -1,5 +1,6 @@
 """The contract every sandbox adapter keeps (see acf/sandbox.py). Each test runs once per adapter;
-a new adapter is added to ADAPTERS and must pass all of them. Docker runs need a daemon."""
+a new adapter is added to ADAPTERS and must pass all of them. Docker runs need a daemon, Kubernetes runs a
+cluster (ACF_TEST_K8S_NAMESPACE)."""
 
 import asyncio
 import os
@@ -9,8 +10,8 @@ import time
 import pytest
 
 from acf import config, sandbox, workspace
-from acf.sandbox import DockerSandbox, LocalSandbox, Sandbox, SandboxError, SandboxProcess
-from tests.conftest import docker_available
+from acf.sandbox import DockerSandbox, KubernetesSandbox, LocalSandbox, Sandbox, SandboxError, SandboxProcess
+from tests.conftest import docker_available, kubernetes_available
 
 IMAGE = os.environ.get("ACF_TEST_SANDBOX_IMAGE", "python:3.12-alpine")
 
@@ -21,6 +22,11 @@ ADAPTERS = [
         id="docker",
         marks=[pytest.mark.docker, pytest.mark.skipif(not docker_available(), reason="Docker not available")],
     ),
+    pytest.param(
+        KubernetesSandbox,
+        id="kubernetes",
+        marks=[pytest.mark.kubernetes, pytest.mark.skipif(not kubernetes_available(), reason="no Kubernetes cluster")],
+    ),
 ]
 
 
@@ -30,6 +36,8 @@ def sbx(request, user, monkeypatch):
     monkeypatch.setattr(sandbox, "STOP_GRACE", 0.5)
     if adapter is DockerSandbox:
         monkeypatch.setattr(config.settings, "sandbox_image", IMAGE)
+    if adapter is KubernetesSandbox:
+        request.getfixturevalue("k8s_sandbox")  # deletes the pods afterwards
     yield adapter(user["id"])
     if adapter is DockerSandbox:
         subprocess.run(["docker", "rm", "-f", f"{config.settings.sandbox_prefix}-{user['id']}"], capture_output=True)
@@ -95,6 +103,13 @@ async def test_process_gets_env_and_runs_in_the_workspace(sbx):
     assert workspace.read_file(sbx.user_id, "from-process.txt") == "x y"
 
 
+async def test_process_env_names_are_never_options(sbx):
+    # A CLI that adds env through `env NAME=value` must not read a name that starts with "-" as one of its options.
+    async with sbx.process(["env"], {"-i": "1", "ACF_T": "x"}) as p:
+        lines = (await _read_all(p)).decode().splitlines()
+    assert "-i=1" in lines and "ACF_T=x" in lines
+
+
 async def test_process_that_ignores_eof_is_killed_on_exit(sbx):
     # It ignores stdin closing and SIGTERM; leaving the block must still stop it and its children.
     script = 'trap "" TERM; (sleep 3; touch late-child) & sleep 3; touch late-parent'
@@ -143,6 +158,7 @@ class _Custom(LocalSandbox):
 
 def test_adapters_are_chosen_by_kind_or_import_path(monkeypatch):
     assert sandbox.sandbox_class("local") is LocalSandbox and sandbox.sandbox_class("docker") is DockerSandbox
+    assert sandbox.sandbox_class("kubernetes") is KubernetesSandbox
     assert sandbox.sandbox_class(f"{__name__}:_Custom") is _Custom
     monkeypatch.setattr(sandbox, "_ADAPTERS", dict(sandbox._ADAPTERS))
     sandbox.register_sandbox("custom", _Custom)

@@ -46,7 +46,10 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
-markers = ["docker: needs a running Docker daemon"]
+markers = [
+  "docker: needs a running Docker daemon",
+  "kubernetes: needs a Kubernetes cluster (ACF_TEST_K8S_NAMESPACE and kubectl)",
+]
 
 [tool.ruff]
 line-length = 120

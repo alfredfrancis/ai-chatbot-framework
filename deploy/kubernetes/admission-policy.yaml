@@ -1,0 +1,177 @@
+---
+# What the app's ServiceAccount may do to pods, checked by the API server whatever the app asks (the
+# cluster-side counterpart of acf/docker_proxy.py). It applies to requests from that ServiceAccount in any
+# namespace; RBAC (rbac.yaml) already keeps it to its own.
+#
+#   acf-sandbox-pods-*    a pod it creates is a sandbox: named acf-sandbox-<user id>, labelled, the sandbox
+#                         image, the data claim as its only volume mounted at users/<that id>/workspace, no
+#                         Secrets or ConfigMaps, non-root, no capabilities, the runtime's seccomp, AppArmor and
+#                         SELinux defaults, no probes or hooks, placed by the scheduler alone, limits set, the RuntimeClass if one
+#                         is configured. Pod Security (namespace.yaml) refuses much of this too; this policy
+#                         doesn't rely on it.
+#   acf-sandbox-access-*  it deletes only sandbox pods, and execs only into pods with a sandbox's name (an
+#                         exec request names its pod but doesn't carry it)
+#
+# The image, claim and RuntimeClass are the first variables of acf-sandbox-pods-*, not a params ConfigMap:
+# on Kubernetes 1.32 (k3s) a binding with paramRef to a ConfigMap that did exist still reported "no params
+# found", and a binding that can't find its params denies every pod in every namespace, by anyone, before
+# its matchConditions are looked at.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: acf-sandbox-pods-${NAMESPACE}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: from-the-app
+      expression: request.userInfo.username == "system:serviceaccount:${NAMESPACE}:${SERVICE_ACCOUNT}"
+  variables:
+    - name: image
+      expression: '"${IMAGE}"'
+    - name: claim
+      expression: '"${DATA_CLAIM}"'
+    - name: runtimeClass
+      expression: '"${RUNTIME_CLASS}"'
+    - name: id
+      expression: >-
+        object.metadata.name.matches("^acf-sandbox-[1-9][0-9]*\\z") ? object.metadata.name.substring(12) : ""
+    - name: labels
+      expression: object.metadata.?labels.orValue({})
+    - name: pod
+      expression: object.spec.?securityContext.orValue({})
+    - name: c
+      expression: object.spec.containers[0]
+    - name: sc
+      expression: variables.c.?securityContext.orValue({})
+  validations:
+    - expression: variables.id != ""
+      message: the app may only create pods named acf-sandbox-<user id>
+    - expression: >-
+        variables.labels[?"acf.sandbox"].orValue("") == "1" && variables.labels[?"acf.user"].orValue("") == variables.id
+      message: sandbox pods are labelled acf.sandbox=1 and acf.user=<user id>
+    - expression: >-
+        object.spec.containers.size() == 1 && variables.c.image == variables.image &&
+        object.spec.?initContainers.orValue([]).size() == 0 &&
+        object.spec.?ephemeralContainers.orValue([]).size() == 0
+      message: sandbox pods run one container, of the sandbox image
+    # A pod can load any Secret or ConfigMap in its namespace into its env, where an exec reads it.
+    - expression: >-
+        !has(variables.c.envFrom) && !has(object.spec.imagePullSecrets) &&
+        variables.c.?env.orValue([]).all(e,
+          !has(e.valueFrom) || has(e.valueFrom.fieldRef) || has(e.valueFrom.resourceFieldRef))
+      message: >-
+        sandbox pods read no Secrets or ConfigMaps: no envFrom or imagePullSecrets, and env values are text or
+        the pod's own fields
+    - expression: >-
+        object.spec.?volumes.orValue([]).size() == 1 &&
+        object.spec.volumes[0].?persistentVolumeClaim.?claimName.orValue("") == variables.claim
+      message: the data claim is a sandbox pod's only volume
+    - expression: >-
+        variables.c.?volumeMounts.orValue([]).size() == 1 &&
+        variables.c.volumeMounts[0].name == object.spec.volumes[0].name &&
+        variables.c.volumeMounts[0].mountPath == "/workspace" &&
+        variables.c.volumeMounts[0].?subPath.orValue("") == "users/" + variables.id + "/workspace" &&
+        !has(variables.c.volumeMounts[0].subPathExpr) &&
+        !has(variables.c.volumeMounts[0].mountPropagation) &&
+        variables.c.?volumeDevices.orValue([]).size() == 0
+      message: a sandbox pod mounts users/<its user id>/workspace of the data claim at /workspace, and nothing else
+    - expression: >-
+        !object.spec.?hostNetwork.orValue(false) && !object.spec.?hostPID.orValue(false) &&
+        !object.spec.?hostIPC.orValue(false) && variables.c.?ports.orValue([]).all(p, p.?hostPort.orValue(0) == 0)
+      message: sandbox pods share no host namespace and use no host port
+    # The API server adds the two NoExecute tolerations to every pod (DefaultTolerationSeconds) before this runs.
+    - expression: >-
+        !has(object.spec.nodeName) && !has(object.spec.nodeSelector) && !has(object.spec.affinity) &&
+        object.spec.?priorityClassName.orValue("") == "" &&
+        object.spec.?schedulerName.orValue("default-scheduler") == "default-scheduler" &&
+        object.spec.?tolerations.orValue([]).all(t, t.?effect.orValue("") == "NoExecute" &&
+          t.?key.orValue("") in ["node.kubernetes.io/not-ready", "node.kubernetes.io/unreachable"])
+      message: >-
+        sandbox pods are placed by the default scheduler: no node, node selector, affinity, priority class, scheduler, or tolerations
+        but the API server's own
+    - expression: >-
+        !variables.sc.?privileged.orValue(false) && variables.sc.?allowPrivilegeEscalation.orValue(true) == false &&
+        variables.sc.?capabilities.?drop.orValue([]) == ["ALL"] &&
+        variables.sc.?capabilities.?add.orValue([]).size() == 0
+      message: sandbox pods are not privileged, drop every capability and can't gain privileges
+    - expression: >-
+        variables.sc.?seccompProfile.?type.orValue(variables.pod.?seccompProfile.?type.orValue("")) == "RuntimeDefault"
+      message: sandbox pods use the runtime's default seccomp profile
+    # The AppArmor annotation is copied into the container's appArmorProfile before this runs.
+    - expression: >-
+        variables.sc.?appArmorProfile.?type.orValue("RuntimeDefault") == "RuntimeDefault" &&
+        variables.pod.?appArmorProfile.?type.orValue("RuntimeDefault") == "RuntimeDefault" &&
+        !variables.sc.?seLinuxOptions.hasValue() && !variables.pod.?seLinuxOptions.hasValue() &&
+        variables.sc.?procMount.orValue("Default") == "Default" &&
+        variables.pod.?sysctls.orValue([]).size() == 0 && !has(object.spec.hostUsers)
+      message: sandbox pods keep the runtime's defaults for AppArmor, SELinux, /proc, sysctls and user namespaces
+    - expression: >-
+        variables.sc.?runAsNonRoot.orValue(variables.pod.?runAsNonRoot.orValue(false)) &&
+        variables.sc.?runAsUser.orValue(variables.pod.?runAsUser.orValue(0)) != 0 &&
+        variables.sc.?runAsGroup.orValue(variables.pod.?runAsGroup.orValue(0)) != 0 &&
+        variables.pod.?fsGroup.orValue(-1) != 0 && !(0 in variables.pod.?supplementalGroups.orValue([]))
+      message: sandbox pods run as a non-root user and group, and in no root group
+    - expression: >-
+        "cpu" in variables.c.?resources.?limits.orValue({}) && "memory" in variables.c.?resources.?limits.orValue({})
+      message: sandbox pods have CPU and memory limits
+    - expression: object.spec.?runtimeClassName.orValue("") == variables.runtimeClass
+      messageExpression: >-
+        variables.runtimeClass == "" ? "sandbox pods use the cluster's default runtime" :
+        "sandbox pods use the RuntimeClass " + variables.runtimeClass
+    - expression: object.spec.?automountServiceAccountToken.orValue(true) == false
+      message: sandbox pods get no ServiceAccount token
+    - expression: object.spec.?serviceAccountName.orValue("default") == "default"
+      message: sandbox pods run as the namespace's default ServiceAccount
+    # The kubelet runs probes and lifecycle hooks from the node's network, where no NetworkPolicy applies: they
+    # would let the app reach the node's loopback and host network, and read the answer from the pod's readiness.
+    - expression: >-
+        !has(variables.c.livenessProbe) && !has(variables.c.readinessProbe) && !has(variables.c.startupProbe) &&
+        !has(variables.c.lifecycle)
+      message: sandbox pods have no probes or lifecycle hooks (the kubelet runs them from the node)
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: acf-sandbox-pods-${NAMESPACE}
+spec:
+  policyName: acf-sandbox-pods-${NAMESPACE}
+  validationActions: ["Deny"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: acf-sandbox-access-${NAMESPACE}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["DELETE"]
+        resources: ["pods"]
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CONNECT"]
+        resources: ["pods/exec", "pods/attach", "pods/portforward"]
+  matchConditions:
+    - name: from-the-app
+      expression: request.userInfo.username == "system:serviceaccount:${NAMESPACE}:${SERVICE_ACCOUNT}"
+  validations:
+    - expression: >-
+        request.name.matches("^acf-sandbox-[1-9][0-9]*\\z") &&
+        (request.operation != "DELETE" || oldObject.metadata.?labels[?"acf.sandbox"].orValue("") == "1")
+      message: the app may only delete and exec into its sandbox pods
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: acf-sandbox-access-${NAMESPACE}
+spec:
+  policyName: acf-sandbox-access-${NAMESPACE}
+  validationActions: ["Deny"]

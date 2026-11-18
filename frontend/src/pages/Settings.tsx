@@ -3,7 +3,7 @@ import { api, effortName, type ModelEntry, type ProviderEntry, type Settings } f
 import { Toggle } from "../components/Toggle";
 import { PageHeader, Topbar, useApp } from "../App";
 
-type SandboxStatus = { kind: string; state: string; name?: string; image?: string };
+type SandboxStatus = { kind: string; isolated: boolean; state: string; name?: string; image?: string };
 type AcpToken = { hint: string; created_at: string; last_used_at: string | null };
 type AcpTokenState = { token: AcpToken | null; endpoint: string; value?: string };
 
@@ -368,12 +368,12 @@ export default function SettingsPage() {
             <div className="lrow">
               {(sandbox?.state === "running" || sandbox?.state === "ready") && <span className="live-dot" aria-hidden="true" />}
               <div className="grow">
-                <div className="title">{sandbox?.kind === "docker" ? "Private container" : "Local folder (development mode)"}</div>
+                <div className="title">{sandbox?.isolated ? "Private container" : "Local folder (development mode)"}</div>
                 <div className="meta">
-                  {sandbox ? (sandbox.kind === "docker" ? `${sandbox.state === "running" ? "Running" : sandbox.state === "missing" ? "Starts on first use" : sandbox.state === "exited" ? "Asleep while unused, wakes on the next command" : sandbox.state} · ${sandbox.image}` : "Commands run directly on the server. Not isolated.") : "Checking…"}
+                  {sandbox ? (sandbox.isolated ? `${sandbox.state === "running" ? "Running" : sandbox.state === "missing" ? "Starts on first use" : sandbox.state === "exited" ? "Asleep while unused, wakes on the next command" : sandbox.state} · ${sandbox.image}` : "Commands run directly on the server. Not isolated.") : "Checking…"}
                 </div>
               </div>
-              {sandbox?.kind === "docker" && <button className="btn sm" onClick={resetSandbox}>Restart</button>}
+              {sandbox?.isolated && <button className="btn sm" onClick={resetSandbox}>Restart</button>}
             </div>
           </div>
         </section>

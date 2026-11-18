@@ -1,0 +1,8 @@
+{{- /*
+The sandbox guardrails: deploy/kubernetes/{rbac,admission-policy,network-policy}.yaml as they are, with the
+placeholders filled in. rbac.yaml also makes the app's ServiceAccount. namespace.yaml isn't installed (Helm
+can't own its release namespace); acf.validate checks the namespace carries its labels instead.
+*/ -}}
+{{- range list "rbac" "admission-policy" "network-policy" }}
+{{ include "acf.guardrail" (dict "root" $ "file" .) }}
+{{- end }}

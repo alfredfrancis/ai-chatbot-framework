@@ -119,6 +119,9 @@ make lint         # ruff + tsc
   or goes through `acf.bus` (leases, inbox, feeds, signals, locks) — never in a module-level dict or a
   process-local lock. Bus/multi-process changes need `tests/test_bus.py` / `tests/test_cluster.py` (real
   processes + Redis; they skip without `redis-server` or `ACF_TEST_REDIS_URL`).
+- Kubernetes tests (`-m kubernetes`) run when `ACF_TEST_K8S_NAMESPACE` names a namespace for them to create
+  (and delete) on the cluster `kubectl` reaches; the data volume is a hostPath PV on the test data dir, so
+  the cluster must run on the same machine (k3s locally). They skip otherwise.
 - All chat traffic is ACP (`acp.py`, `frontend/src/acp.ts`); there are no chat REST/SSE endpoints. Backend
   tests drive it in-process with `tests/acp_client.py` (`send()` / `prompt()` in conftest).
 - Personal apps and ` ```openui ` blocks in chat replies are OpenUI Lang rendered by `frontend/src/openui/library.tsx`

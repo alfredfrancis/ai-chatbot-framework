@@ -10,8 +10,10 @@ ARG LLAMA_CPP_REF=b10075
 RUN git clone --depth 1 --branch "${LLAMA_CPP_REF}" https://github.com/ggml-org/llama.cpp /src
 WORKDIR /src
 # Models are fetched by the llm-download service, so no HTTPS download support (OpenSSL) is needed.
+# ACF only calls the server's API, so it is built without its web UI: with the UI on, the build downloads the
+# UI from a Hugging Face bucket and falls back to "latest", which stopped matching this tag's assets.
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON -DBUILD_SHARED_LIBS=OFF -DLLAMA_OPENSSL=OFF \
-      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_UI=OFF -DLLAMA_USE_PREBUILT_UI=OFF \
  && cmake --build build -j"$(nproc)" --target llama-server
 
 FROM debian:bookworm-slim

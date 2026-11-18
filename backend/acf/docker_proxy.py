@@ -35,7 +35,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 import httpx
 
 from acf import config
-from acf.sandbox import PIDS_LIMIT
+from acf.sandbox import PIDS_LIMIT, parse_bytes
 
 log = logging.getLogger("acf.docker_proxy")
 
@@ -43,7 +43,6 @@ MAX_HEAD = 64 * 1024
 MAX_BODY = 1024 * 1024
 HEAD_TIMEOUT = 30
 _VERSION = re.compile(r"^/v\d+\.\d+(?=/)")
-_UNITS = {"b": 1, "k": 1024, "m": 1024**2, "g": 1024**3}
 
 # Network option values DockerSandbox creates the sandbox network with.
 ICC = "com.docker.network.bridge.enable_icc"
@@ -52,13 +51,6 @@ BRIDGE_NAME = "com.docker.network.bridge.name"
 
 class Denied(Exception):
     pass
-
-
-def parse_bytes(value: str) -> int:
-    m = re.fullmatch(r"(\d+)([bkmg]?)b?", value.strip().lower())
-    if not m:
-        raise ValueError(f"Bad size: {value}")
-    return int(m.group(1)) * _UNITS[m.group(2) or "b"]
 
 
 def empty(value: Any) -> bool:

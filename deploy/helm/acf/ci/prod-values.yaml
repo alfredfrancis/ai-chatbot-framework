@@ -1,0 +1,54 @@
+# Test only: a production-shaped configuration for `helm template` and tests/test_helm_chart.py. Secrets come
+# from Secrets the operator manages; three replicas share run state through Redis behind an Ingress with TLS.
+image:
+  tag: 2.0.0-beta.1
+existingSecret: acf-secrets
+database:
+  existingSecret:
+    name: acf-db-app
+    key: uri
+redis:
+  existingSecret:
+    name: acf-redis
+    key: url
+replicas: 3
+sandbox:
+  image: ghcr.io/example/acf-sandbox:2.0.0-beta.1
+  runtimeClass: gvisor
+  memory: 2g
+  cpus: "2"
+persistence:
+  storageClass: efs-sc
+  size: 500Gi
+ingress:
+  enabled: true
+  className: nginx
+  host: acf.example.com
+  tlsSecretName: acf-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+otel:
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability:4318
+  OTEL_SERVICE_NAME: acf
+env:
+  ACF_ALLOW_SIGNUP: "false"
+  ACF_ADMIN_EMAIL: admin@example.com
+extraEnv:
+  - name: ACF_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: acf-admin
+        key: password
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: acf
+        app.kubernetes.io/component: app

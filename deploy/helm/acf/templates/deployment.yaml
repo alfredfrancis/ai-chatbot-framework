@@ -1,0 +1,150 @@
+{{- $s := .Values.shutdown -}}
+{{- $publicUrl := include "acf.publicUrl" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "acf.fullname" . }}
+  labels:
+    {{- include "acf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "acf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        {{- include "acf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: app
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        # New secret values restart the pods.
+        checksum/secret: {{ include "acf.secretData" . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      # kubectl in the app uses this ServiceAccount's token; the guardrails limit it to sandbox pods.
+      serviceAccountName: {{ include "acf.serviceAccount" . }}
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: {{ add (int $s.preStopSleepSeconds) (int $s.graceSeconds) (int $s.marginSeconds) }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "acf.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: app
+          image: {{ include "acf.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: HOME
+              value: /tmp
+            - name: ACF_SANDBOX
+              value: kubernetes
+            - name: ACF_K8S_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: ACF_K8S_DATA_CLAIM
+              value: {{ include "acf.dataClaim" . | quote }}
+            - name: ACF_DATA_DIR
+              value: /data
+            - name: ACF_MIGRATE_ON_START
+              value: "false"
+            - name: ACF_PUBLIC_URL
+              value: {{ $publicUrl | quote }}
+            - name: ACF_COOKIE_SECURE
+              value: {{ hasPrefix "https://" $publicUrl | quote }}
+            - name: ACF_SANDBOX_IMAGE
+              value: {{ include "acf.sandboxImage" . | quote }}
+            - name: ACF_SANDBOX_RUNTIME
+              value: {{ .Values.sandbox.runtimeClass | quote }}
+            - name: ACF_SANDBOX_MEMORY
+              value: {{ .Values.sandbox.memory | quote }}
+            - name: ACF_SANDBOX_CPUS
+              value: {{ .Values.sandbox.cpus | quote }}
+            - name: ACF_SANDBOX_IDLE_MINUTES
+              value: {{ .Values.sandbox.idleMinutes | quote }}
+            - name: ACF_SHUTDOWN_GRACE
+              value: {{ $s.graceSeconds | quote }}
+            - name: ACF_LOG_FORMAT
+              value: {{ .Values.logFormat | quote }}
+            - name: ACF_LLM_PROVIDER
+              value: {{ .Values.llm.provider | quote }}
+            - name: ACF_LLM_MODEL
+              value: {{ .Values.llm.model | quote }}
+            - name: ACF_LLM_BASE_URL
+              value: {{ .Values.llm.baseUrl | quote }}
+            {{- include "acf.secretEnv" (dict "root" . "names" (list "ACF_SECRET_KEY" "ACF_DB_URL" "ACF_REDIS_URL" "ACF_LLM_API_KEY")) | trim | nindent 12 }}
+            {{- range $name, $value := .Values.otel }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range $name, $value := .Values.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | trim | nindent 12 }}
+            {{- end }}
+          securityContext:
+            {{- include "acf.containerSecurityContext" . | trim | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            {{- toYaml .Values.probes.liveness | trim | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: http
+            {{- toYaml .Values.probes.readiness | trim | nindent 12 }}
+          lifecycle:
+            # Out of the Service's endpoints before SIGTERM closes the listening socket.
+            preStop:
+              exec:
+                command: ["sleep", {{ $s.preStopSleepSeconds | quote }}]
+          resources:
+            {{- toYaml .Values.resources | trim | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "acf.dataClaim" . }}
+        - name: tmp
+          emptyDir: {}

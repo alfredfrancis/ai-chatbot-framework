@@ -1,0 +1,206 @@
+# AI Chatbot Framework on Kubernetes. Each user's sandbox is a pod in the release namespace, created by the
+# app and limited by the guardrails of deploy/kubernetes/ (rendered by this chart). Before installing:
+#
+#   kubectl create namespace acf
+#   kubectl label namespace acf pod-security.kubernetes.io/enforce=restricted \
+#     pod-security.kubernetes.io/enforce-version=latest pod-security.kubernetes.io/warn=restricted \
+#     pod-security.kubernetes.io/audit=restricted
+#
+# The required values are secretKey (or existingSecret), database.url (or database.existingSecret) and
+# publicUrl (or an Ingress host). Everything else has a default.
+
+# Name of the release's objects, instead of <release>-acf (or <release> when it already contains "acf").
+fullnameOverride: ""
+
+# The app image (API and web app). It carries kubectl, which the app uses to run sandbox pods.
+image:
+  repository: alfredfrancis/ai-chatbot-framework
+  # Empty: the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+# Secrets for pulling the app image (a list of {name: ...}).
+imagePullSecrets: []
+
+# App pods. More than one needs Redis (redis.url or redis.existingSecret), which shares run state between them.
+# Ignored while autoscaling.enabled is true.
+replicas: 1
+
+# The web app's public address (ACF_PUBLIC_URL), used for OAuth redirects. Empty: https://<ingress.host>
+# when the Ingress is enabled. Session cookies are Secure when it starts with https://.
+publicUrl: ""
+
+# Encrypts model API keys, MCP configurations and OAuth tokens in the database (ACF_SECRET_KEY). At least
+# 32 characters, e.g. `openssl rand -base64 48`. Changing it makes stored secrets unreadable: keep it, and
+# keep it out of database backups. Leave empty when existingSecret is set.
+secretKey: ""
+
+# A Secret you manage, used instead of secretKey and llm.apiKey. Keys: ACF_SECRET_KEY (required) and
+# ACF_LLM_API_KEY (optional). Without it, the chart writes those values into a Secret named after the
+# release, made as a Helm hook before the migrate Job; `helm uninstall` leaves it (README, Kubernetes).
+existingSecret: ""
+
+# The server's default model; each user can pick another in Settings.
+llm:
+  # A LangChain provider id (ACF_LLM_PROVIDER): anthropic, openai, google_genai, ...
+  provider: anthropic
+  # ACF_LLM_MODEL. Empty: the provider's default in the app.
+  model: ""
+  # ACF_LLM_BASE_URL, for an OpenAI- or Anthropic-compatible server of your own. Empty: the provider's API.
+  baseUrl: ""
+  # ACF_LLM_API_KEY. Goes into the chart's Secret. Leave empty when existingSecret is set.
+  apiKey: ""
+
+# PostgreSQL, run outside the chart. Give a URL, or a Secret key that holds one (for example the `uri` key of
+# a CloudNativePG cluster's app Secret). One of the two is required.
+database:
+  # postgresql://user:password@host:5432/acf. Goes into the chart's Secret.
+  url: ""
+  existingSecret:
+    name: ""
+    key: ACF_DB_URL
+
+# Redis, run outside the chart: run state shared by app processes (acf/bus.py). Nothing in it needs a backup.
+# Required for more than one replica. Run it with no eviction (maxmemory-policy noeviction).
+redis:
+  # redis://host:6379/0. Goes into the chart's Secret.
+  url: ""
+  existingSecret:
+    name: ""
+    key: ACF_REDIS_URL
+
+# Each user's sandbox pod.
+sandbox:
+  # The sandbox image (ACF_SANDBOX_IMAGE). The admission policy admits sandbox pods of exactly this image.
+  # Empty: alfredfrancis/acf-sandbox:<appVersion>. The policy admits no imagePullSecrets on sandbox pods
+  # (so the namespace's `default` ServiceAccount, which they run as, must have none): a private image needs
+  # registry credentials on the nodes (a kubelet credential provider) or a pre-pulled image.
+  image: ""
+  # The RuntimeClass of sandbox pods (ACF_SANDBOX_RUNTIME), e.g. gvisor. Empty: the cluster's default
+  # runtime. The admission policy admits sandbox pods of exactly this RuntimeClass.
+  runtimeClass: ""
+  # Limits of each sandbox pod (ACF_SANDBOX_MEMORY, ACF_SANDBOX_CPUS). Kubernetes has no per-pod process
+  # limit: set the kubelet's podPidsLimit on the nodes for one.
+  memory: 1g
+  cpus: "1"
+  # A sandbox no one used for this long is deleted; its files stay on the volume (ACF_SANDBOX_IDLE_MINUTES).
+  idleMinutes: 30
+
+# The volume holding ACF_DATA_DIR (workspaces, skills, memory files), mounted at /data in the app pods.
+# Sandbox pods mount their user's users/<id>/workspace folder of it, so it must be ReadWriteMany (NFS, EFS,
+# Filestore, CephFS, ...) and writable by uid 10001 (the app's user).
+persistence:
+  # Use a claim you made instead of creating one. It must be ReadWriteMany.
+  existingClaim: ""
+  # The StorageClass of the claim this chart makes. Empty: the cluster's default class. "-": no class (bind
+  # to a PersistentVolume you made).
+  storageClass: ""
+  size: 20Gi
+  # Keep the claim (and every user's files) when the release is uninstalled.
+  keep: true
+
+# Guardrails for sandbox pods, rendered from deploy/kubernetes/ (RBAC with the app's ServiceAccount,
+# ValidatingAdmissionPolicies, NetworkPolicies).
+guardrails:
+  # Refuse to install into a namespace that exists without the Pod Security labels of
+  # deploy/kubernetes/namespace.yaml. Turn off only when Pod Security `restricted` applies to it some other
+  # way (a cluster-wide admission configuration). `helm install --create-namespace` makes an unlabelled
+  # namespace after this check: create and label it first.
+  requireRestrictedNamespace: true
+
+# Stopping an app pod: the preStop sleep takes it out of the Service's endpoints before SIGTERM, then
+# running agents get graceSeconds to finish (ACF_SHUTDOWN_GRACE). terminationGracePeriodSeconds is
+# preStopSleepSeconds + graceSeconds + marginSeconds.
+shutdown:
+  preStopSleepSeconds: 10
+  graceSeconds: 20
+  marginSeconds: 10
+
+# Logs: "json" (one object per line, with request, user, chat and run ids) or "text" (ACF_LOG_FORMAT).
+logFormat: json
+
+# OpenTelemetry, passed to the app as is. Keys must start with OTEL_. Telemetry is off without an endpoint.
+# Put headers that carry credentials in extraEnv as a secretKeyRef instead.
+otel: {}
+  # OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability:4318
+  # OTEL_SERVICE_NAME: acf
+
+# More ACF_* settings, as plain values (see the README's Configuration table), e.g. ACF_ALLOW_SIGNUP: "false".
+# Settings the chart sets itself, and secrets, are refused here.
+env: {}
+
+# More environment variables, as Kubernetes EnvVar objects: for a secret, use valueFrom.secretKeyRef, e.g.
+#   - name: ACF_ADMIN_PASSWORD
+#     valueFrom: {secretKeyRef: {name: acf-admin, key: password}}
+extraEnv: []
+
+# Requests and limits of the app container. autoscaling needs a CPU request.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 2Gi
+
+# Liveness (/api/health: the process answers) and readiness (/api/health/ready: the database and Redis answer).
+probes:
+  liveness:
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # Until the app has started (it answers neither probe before), for up to periodSeconds * failureThreshold.
+  startup:
+    periodSeconds: 2
+    failureThreshold: 60
+
+# The Service in front of the app pods (HTTP and the ACP WebSocket at /api/acp).
+service:
+  type: ClusterIP
+  port: 80
+
+# An Ingress for the Service. Chats are WebSockets that stay open: raise the controller's read and send
+# timeouts (ingress-nginx: nginx.ingress.kubernetes.io/proxy-read-timeout: "3600" and proxy-send-timeout).
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # The public host name, e.g. acf.example.com.
+  host: ""
+  # A TLS Secret for the host. Empty: no TLS section (TLS terminated in front of the Ingress).
+  tlsSecretName: ""
+
+# Keeps all but maxUnavailable app pods running during voluntary disruptions (node drains).
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+
+# Scale app pods on CPU. Needs Redis when maxReplicas is above 1.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+# The migrate Job (`acf-migrate`), run before every install and upgrade as a Helm hook. The app pods run
+# with ACF_MIGRATE_ON_START=false and refuse to start on an older schema.
+migrate:
+  # Seconds before a migration is given up on, and how many times a failed one is retried.
+  activeDeadlineSeconds: 600
+  backoffLimit: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# Scheduling and metadata of the app pods.
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []

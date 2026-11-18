@@ -169,7 +169,7 @@ socket when SIGTERM arrives, before its readiness check could report anything. W
 the app processes every 5 s and sends a request that a stopping process refuses to another one. On
 Kubernetes, give the app container a `preStop` hook that sleeps a few seconds (`sleep 5`), so the pod is
 removed from the Service's endpoints before SIGTERM arrives, and set `terminationGracePeriodSeconds` above
-that sleep plus `ACF_SHUTDOWN_GRACE` (for example 40).
+that sleep plus `ACF_SHUTDOWN_GRACE` (for example 40). The [Helm chart](#kubernetes) does both.
 
 Across several machines, every app process needs the same PostgreSQL, Redis and Docker proxy, and the data
 folder at the same path (shared storage), because sandboxes mount workspaces from the Docker host. Details:
@@ -189,6 +189,64 @@ schema. A process that finds a schema revision it doesn't know logs a warning na
 starts without migrating. That is safe only because migrations are expand/contract: each release's
 migrations keep the previous release working. Add tables, and columns that are nullable or have a server
 default, in one release; drop or rename what the code no longer uses in a later release.
+
+### Kubernetes
+
+The Helm chart in [deploy/helm/acf](deploy/helm/acf) runs the app on Kubernetes 1.30 or later, with each
+user's sandbox as a pod (`ACF_SANDBOX=kubernetes`) in the release's namespace. You bring:
+
+- **PostgreSQL**, and **Redis** for more than one replica. The chart runs neither.
+- **A ReadWriteMany volume** for `ACF_DATA_DIR` (NFS, EFS, Filestore, CephFS, ...), writable by uid 10001.
+  The app pods mount it at `/data`. Each sandbox pod mounts only its user's `users/<id>/workspace` folder.
+- **A network plugin that enforces NetworkPolicy** (Calico, Cilium, k3s's built-in one; not plain flannel).
+- **The two images**: the app image, which includes `kubectl`, and the sandbox image.
+
+Create the namespace with Pod Security `restricted` first. The chart refuses a namespace without the labels,
+and `helm install --create-namespace` makes one without them:
+
+```sh
+kubectl create namespace acf
+kubectl label namespace acf pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/enforce-version=latest pod-security.kubernetes.io/warn=restricted \
+  pod-security.kubernetes.io/audit=restricted
+helm install acf deploy/helm/acf -n acf \
+  --set publicUrl=https://acf.example.com \
+  --set secretKey="$(openssl rand -base64 48)" \
+  --set database.url=postgresql://acf:…@db.example.com:5432/acf \
+  --set llm.apiKey=sk-… \
+  --set ingress.enabled=true,ingress.host=acf.example.com,ingress.tlsSecretName=acf-tls
+```
+
+Every value is described in [values.yaml](deploy/helm/acf/values.yaml);
+[ci/prod-values.yaml](deploy/helm/acf/ci/prod-values.yaml) is a production-shaped example. What it sets up:
+
+- **The app.** A Deployment of non-root pods (uid 10001) that pass Pod Security `restricted`, with a
+  read-only root filesystem. Liveness is `/api/health`, readiness `/api/health/ready`. A stopping pod sleeps
+  `shutdown.preStopSleepSeconds` (10) so it leaves the Service's endpoints before SIGTERM, then gives
+  running agents `shutdown.graceSeconds` (20, `ACF_SHUTDOWN_GRACE`); `terminationGracePeriodSeconds` is
+  both plus `shutdown.marginSeconds` (10). A Service, an optional Ingress (raise its timeouts for the chat
+  WebSockets), a PodDisruptionBudget and an optional CPU HorizontalPodAutoscaler. More than one replica
+  needs Redis, and the chart refuses to render without it.
+- **Migrations.** A Job runs `acf-migrate` before every install and upgrade, as a Helm hook. The app runs
+  with `ACF_MIGRATE_ON_START=false`. The last run's Job stays for its logs:
+  `kubectl -n acf logs job/acf-migrate`.
+- **Secrets.** Pods get secrets only as `secretKeyRef`, because the app's ServiceAccount can read every pod
+  spec in its namespace. Either give `secretKey`, `llm.apiKey`, `database.url` and `redis.url` as values,
+  and the chart writes them into a Secret, or point `existingSecret` (keys `ACF_SECRET_KEY` and
+  `ACF_LLM_API_KEY`), `database.existingSecret` and `redis.existingSecret` at Secrets you manage, such as the
+  `uri` key of a CloudNativePG cluster's app Secret. The chart's own Secret is a Helm hook too, so that it
+  exists before the migrate Job on the first install. As a hook, `helm uninstall` leaves it, and with it
+  `secretKey`, so a reinstall can still read the database's secrets. Delete it yourself when you are done.
+- **The data volume.** A ReadWriteMany claim (`persistence.storageClass`, `persistence.size`), or
+  `persistence.existingClaim`. `helm uninstall` keeps it unless `persistence.keep=false`.
+- **Sandbox guardrails.** [deploy/kubernetes/](deploy/kubernetes/README.md) rendered for the release: the
+  app's ServiceAccount with its RBAC, the ValidatingAdmissionPolicies (cluster-scoped, named after the
+  namespace) and the NetworkPolicies. The chart reads those files themselves through
+  `deploy/helm/acf/guardrails/`, so the chart and the plain manifests can't drift.
+
+Not covered: Kubernetes has no per-pod process limit, so set the kubelet's `podPidsLimit` on the nodes that
+run sandboxes. A gVisor RuntimeClass (`sandbox.runtimeClass`) is checked by the admission policy but untested
+here. `deploy/helm/acf/ci/smoke.py` installs the chart on a one-node cluster and checks it end to end.
 
 ## Configuration
 
@@ -222,14 +280,16 @@ Each chat can switch model and effort from its message box.
 | `ACF_ADMIN_NAME` | email name | Display name for the main account |
 | `ACF_ALLOW_SIGNUP` | `true`, `false` if `ACF_ADMIN_EMAIL` is set | Open sign-ups. When `false`, the first account can still be created on an empty server |
 | `ACF_COOKIE_SECURE` | `false` | `true` behind HTTPS |
-| `ACF_SANDBOX` | `docker` | `docker`, `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)). Upgrading an adapter from 2.0.0-beta.1 or earlier: rename its `exec` method to `run`; the app refuses to start with one that still defines `exec` |
+| `ACF_SANDBOX` | `docker` | `docker`, `kubernetes` (a pod per user, see below), `local` for development (**not isolated**), or your own adapter as `package.module:Class` (see [architecture](docs/architecture.md#sandboxes-backendacfsandboxpy)). Upgrading an adapter from 2.0.0-beta.1 or earlier: rename its `exec` method to `run`; the app refuses to start with one that still defines `exec` |
 | `ACF_SANDBOX_IMAGE` | `acf-sandbox:latest` | Sandbox image |
 | `ACF_SANDBOX_NETWORK` | `acf-sandbox` | Created when missing, with traffic between sandboxes off. `none` cuts sandboxes off from the internet |
 | `ACF_SANDBOX_BRIDGE` | `acf-sbx0` | Interface name of that network (the egress firewall matches it) |
-| `ACF_SANDBOX_RUNTIME` | – (`runsc` in the production stack) | Container runtime, e.g. `runsc` for gVisor |
+| `ACF_SANDBOX_RUNTIME` | – (`runsc` in the production stack) | Container runtime, e.g. `runsc` for gVisor. On Kubernetes, the pods' RuntimeClass (e.g. `gvisor`) |
 | `ACF_SANDBOX_MEMORY` / `_CPUS` | `1g` / `1` | Limits per sandbox |
 | `ACF_SANDBOX_IDLE_MINUTES` | `30` | Stop a sandbox no one has used for this long; it starts again, files intact, on the next command. `0` never stops one |
 | `ACF_SANDBOX_HOST_DATA_DIR` | – | Host path of the data dir when the app itself runs in Docker |
+| `ACF_K8S_NAMESPACE` | `default` | `ACF_SANDBOX=kubernetes`: the namespace of the sandbox pods (`acf-sandbox-<user id>`). The app reaches it with `kubectl`, as its ServiceAccount in the cluster or through `KUBECONFIG`. Apply [deploy/kubernetes/](deploy/kubernetes/README.md) there: it limits that ServiceAccount to sandbox pods |
+| `ACF_K8S_DATA_CLAIM` | `acf-data` | `ACF_SANDBOX=kubernetes`: the ReadWriteMany PersistentVolumeClaim that holds `ACF_DATA_DIR`, mounted at `ACF_DATA_DIR` in the app's pods. Each sandbox pod mounts its user's `users/<id>/workspace` from it at `/workspace` |
 | `ACF_MCP_PRESETS_FILE` | – | JSON list of extra one-click apps for the Connections page (see below) |
 | `ACF_REDIS_URL` | – (set in the production stack) | Redis for run state shared between app processes. Needed for more than one process; unset keeps it in memory |
 | `ACF_REDIS_PREFIX` | `acf` | Key prefix, to share one Redis between deployments |
