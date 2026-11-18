@@ -158,7 +158,8 @@ In place of the Docker proxy, the cluster enforces the same limits whatever the 
 gives the app's ServiceAccount pods (create, get, list, watch, delete) and `pods/exec` there and nothing
 else; ValidatingAdmissionPolicies that let it create only sandbox pods (the name's user id, the image, the
 claim mounted at that user's subPath and nothing else, no Secrets or ConfigMaps, non-root, no capabilities,
-the runtime's seccomp, AppArmor and SELinux defaults, placed by the scheduler alone, limits, the RuntimeClass)
+the runtime's seccomp, AppArmor and SELinux defaults, no probes or lifecycle hooks (the kubelet runs those from the
+node, past any NetworkPolicy), placed by the scheduler alone, limits, the RuntimeClass)
 and delete or exec only into them; and NetworkPolicies that take no connections to sandboxes and let them
 reach only cluster DNS and public addresses. `tests/test_kubernetes_policy.py` checks each against a cluster.
 

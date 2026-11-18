@@ -6,7 +6,7 @@
 #   acf-sandbox-pods-*    a pod it creates is a sandbox: named acf-sandbox-<user id>, labelled, the sandbox
 #                         image, the data claim as its only volume mounted at users/<that id>/workspace, no
 #                         Secrets or ConfigMaps, non-root, no capabilities, the runtime's seccomp, AppArmor and
-#                         SELinux defaults, placed by the scheduler alone, limits set, the RuntimeClass if one
+#                         SELinux defaults, no probes or hooks, placed by the scheduler alone, limits set, the RuntimeClass if one
 #                         is configured. Pod Security (namespace.yaml) refuses much of this too; this policy
 #                         doesn't rely on it.
 #   acf-sandbox-access-*  it deletes only sandbox pods, and execs only into pods with a sandbox's name (an
@@ -89,10 +89,11 @@ spec:
     - expression: >-
         !has(object.spec.nodeName) && !has(object.spec.nodeSelector) && !has(object.spec.affinity) &&
         object.spec.?priorityClassName.orValue("") == "" &&
+        object.spec.?schedulerName.orValue("default-scheduler") == "default-scheduler" &&
         object.spec.?tolerations.orValue([]).all(t, t.?effect.orValue("") == "NoExecute" &&
           t.?key.orValue("") in ["node.kubernetes.io/not-ready", "node.kubernetes.io/unreachable"])
       message: >-
-        sandbox pods are placed by the scheduler: no node, node selector, affinity, priority class, or tolerations
+        sandbox pods are placed by the default scheduler: no node, node selector, affinity, priority class, scheduler, or tolerations
         but the API server's own
     - expression: >-
         !variables.sc.?privileged.orValue(false) && variables.sc.?allowPrivilegeEscalation.orValue(true) == false &&
@@ -125,6 +126,14 @@ spec:
         "sandbox pods use the RuntimeClass " + variables.runtimeClass
     - expression: object.spec.?automountServiceAccountToken.orValue(true) == false
       message: sandbox pods get no ServiceAccount token
+    - expression: object.spec.?serviceAccountName.orValue("default") == "default"
+      message: sandbox pods run as the namespace's default ServiceAccount
+    # The kubelet runs probes and lifecycle hooks from the node's network, where no NetworkPolicy applies: they
+    # would let the app reach the node's loopback and host network, and read the answer from the pod's readiness.
+    - expression: >-
+        !has(variables.c.livenessProbe) && !has(variables.c.readinessProbe) && !has(variables.c.startupProbe) &&
+        !has(variables.c.lifecycle)
+      message: sandbox pods have no probes or lifecycle hooks (the kubelet runs them from the node)
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding

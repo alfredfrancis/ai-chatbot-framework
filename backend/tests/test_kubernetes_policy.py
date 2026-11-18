@@ -81,7 +81,9 @@ NAME = "named acf-sandbox-<user id>"
 SECRETS = "read no Secrets or ConfigMaps"
 SECCOMP = "the runtime's default seccomp profile"
 DEFAULTS = "the runtime's defaults for AppArmor, SELinux, /proc, sysctls and user namespaces"
-SCHEDULER = "placed by the scheduler"
+SCHEDULER = "placed by the default scheduler"
+NODE = "no probes or lifecycle hooks"
+_NODE_PROBE = {"httpGet": {"host": "127.0.0.1", "port": 10250, "path": "/"}}
 NON_ROOT = "non-root user and group"
 APPARMOR_OFF = {"container.apparmor.security.beta.kubernetes.io/sandbox": "unconfined"}
 # Each unsafe change, and the admission policy's reason for refusing it.
@@ -145,6 +147,12 @@ UNSAFE = {
     "a node selector": (lambda p: p["spec"].update(nodeSelector={"kubernetes.io/os": "linux"}), SCHEDULER),
     "node affinity": (_node_affinity, SCHEDULER),
     "a priority class": (lambda p: p["spec"].update(priorityClassName="system-cluster-critical"), SCHEDULER),
+    "another scheduler": (lambda p: p["spec"].update(schedulerName="my-scheduler"), SCHEDULER),
+    "another ServiceAccount": (lambda p: p["spec"].update(serviceAccountName="acf"), "default ServiceAccount"),
+    "a readiness probe at the node": (lambda p: _c(p).update(readinessProbe=_NODE_PROBE), NODE),
+    "a liveness probe at the node": (lambda p: _c(p).update(livenessProbe=_NODE_PROBE), NODE),
+    "a startup probe at the node": (lambda p: _c(p).update(startupProbe=_NODE_PROBE), NODE),
+    "a lifecycle hook at the node": (lambda p: _c(p).update(lifecycle={"postStart": _NODE_PROBE}), NODE),
 }
 # Settings the API server drops while their feature is off, as on k3s 1.32: then they never reach the node.
 GATED = {
